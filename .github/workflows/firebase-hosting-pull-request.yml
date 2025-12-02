@@ -1,4 +1,4 @@
-# This file was adapted from your original Firebase CLI auto-generated workflow
+# Adds debug output to help diagnose npx/firebase-tools failures
 name: Deploy to Firebase Hosting on PR or push to main
 on:
   push:
@@ -11,29 +11,41 @@ permissions:
   pull-requests: write
 jobs:
   build_and_preview:
-    # Allow the job for pushes, and only allow PRs when the PR head repo is the same repo
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
-      
-      # 1. LIVE DEPLOYMENT (This runs only when you push directly to 'main')
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
-          projectId: dentsched-9de50
-          # FIX: Explicitly setting the channelId to 'live' targets the production site.
-          channelId: live 
 
-      # 2. PREVIEW DEPLOYMENT (This runs only when you open a Pull Request)
-      - uses: FirebaseExtended/action-hosting-deploy@v0
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Install and build
+        run: npm install && npm run build
+
+      - name: Debug runner environment (do NOT print secrets)
+        run: |
+          echo "===== Node / NPM / NPX versions ====="
+          node --version || true
+          npm --version || true
+          npx --version || true
+          echo
+          echo "===== Repo root listing ====="
+          ls -la || true
+          echo
+          echo "===== Top-level files (show firebase config if present) ====="
+          ls -la | sed -n '1,200p' || true
+          echo
+          echo "===== Show firebase.json (if present) ====="
+          if [ -f firebase.json ]; then
+            echo "firebase.json exists:"
+            sed -n '1,200p' firebase.json
+          else
+            echo "firebase.json NOT FOUND"
+          fi
+          echo
+          echo "===== Build output (example: dist or build) ====="
+          ls -la dist 2>/dev/null || ls -la build 2>/dev/null || echo "No dist/build folder found"
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
           projectId: dentsched-9de50
-          # This provides the channel ID required for preview deployments
-          channelId: ${{ github.event.pull_request.head.ref }}
