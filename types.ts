@@ -2,7 +2,7 @@
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
-  HYGIENIST = 'Hygienist'
+  HYGIENIST = 'Hygienist' // Also represents Dental Assistants for this context
 }
 
 export enum AppointmentStatus {
@@ -41,6 +41,30 @@ export interface User {
   name: string;
   role: UserRole;
   avatar: string;
+  email?: string;
+  
+  // Philippine Regulatory Compliance (Dentists)
+  prcLicense?: string;
+  prcValidity?: string;
+  ptrNumber?: string;
+  tin?: string;
+  s2License?: string;
+  pdaId?: string;
+  pdaChapter?: string;
+  specialization?: string;
+  clinicHours?: string;
+  
+  // Operational (Assistants)
+  employeeId?: string;
+  certifications?: string[]; // e.g., "Tesda NCII", "X-Ray Safety"
+  assignedDoctors?: string[]; // IDs of doctors they assist
+  canViewFinancials?: boolean;
+
+  // Efficiency & Preferences (New)
+  defaultBranch?: string; // e.g., "Makati", "Quezon City"
+  colorPreference?: string; // Hex code or Tailwind color class for calendar
+  defaultConsultationFee?: number; // Auto-fill for billing
+  isReadOnly?: boolean; // If true, cannot delete/move appointments
 }
 
 export interface Patient {

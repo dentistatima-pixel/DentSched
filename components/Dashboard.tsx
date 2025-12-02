@@ -72,7 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-            <h1 className="text-3xl font-bold text-slate-800">Practice Overview</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
             <p className="text-slate-500 mt-1">Welcome back, {currentUser.name}.</p>
         </div>
         
@@ -113,24 +113,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                 )}
             </div>
 
-            {/* New Appointment Button - DASHBOARD HEADER */}
-            <button 
-                onClick={() => onBookAppointment()}
-                className="bg-lilac-500 hover:bg-lilac-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm shadow-lilac-500/20 flex items-center justify-center gap-2 whitespace-nowrap transition-all"
-            >
-                <CalendarPlus size={18} />
-                <span className="hidden md:inline">Appointment</span>
-            </button>
-
-            {/* New Patient Button */}
+            {/* Action Buttons */}
             {currentUser.role !== UserRole.HYGIENIST && (
-                <button 
-                    onClick={onAddPatient}
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm shadow-teal-600/20 flex items-center justify-center gap-2 whitespace-nowrap transition-all"
-                >
-                    <UserPlus size={18} />
-                    <span className="hidden md:inline">New Patient</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => onBookAppointment()}
+                        className="bg-lilac-600 hover:bg-lilac-700 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm shadow-lilac-600/20 flex items-center justify-center gap-2 whitespace-nowrap transition-all"
+                    >
+                        <CalendarPlus size={18} />
+                        <span className="hidden md:inline">New Appointment</span>
+                    </button>
+                    <button 
+                        onClick={onAddPatient}
+                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-bold shadow-sm shadow-teal-600/20 flex items-center justify-center gap-2 whitespace-nowrap transition-all"
+                    >
+                        <UserPlus size={18} />
+                        <span className="hidden md:inline">New Patient</span>
+                    </button>
+                </div>
             )}
 
             <div className="hidden md:block text-xs px-3 py-1 bg-slate-200 rounded-full text-slate-600 font-bold self-center">

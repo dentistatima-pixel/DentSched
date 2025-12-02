@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -29,6 +29,12 @@ function App() {
 
   // Navigation State (Lifted from PatientList)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  // Force sync with constants on mount to ensure hot-reload picks up data changes
+  useEffect(() => {
+    setPatients(PATIENTS);
+    setAppointments(APPOINTMENTS);
+  }, []);
 
   const handleOpenBooking = (date?: string, time?: string, patientId?: string) => {
     setBookingDate(date);
@@ -117,6 +123,7 @@ function App() {
           staff={STAFF} 
           onAddAppointment={handleOpenBooking}
           currentUser={currentUser}
+          patients={patients}
         />;
       case 'patients':
         return <PatientList 
