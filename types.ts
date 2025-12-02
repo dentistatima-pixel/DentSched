@@ -28,6 +28,18 @@ export enum AppointmentType {
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing';
 
+// --- NEW: Field Management Types ---
+export interface FieldSettings {
+  suffixes: string[];
+  civilStatus: string[];
+  insuranceProviders: string[];
+  bloodGroups: string[];
+  allergies: string[];
+  medicalConditions: string[];
+  procedures: string[]; // Simplification of AppointmentType for dynamic editing
+  branches: string[];
+}
+
 export interface DentalChartEntry {
   toothNumber: number; // 1-32 (Universal System)
   procedure: string;
@@ -145,7 +157,7 @@ export interface Appointment {
   date: string; // ISO Date string YYYY-MM-DD
   time: string; // HH:mm
   durationMinutes: number;
-  type: AppointmentType;
+  type: string; // Changed from AppointmentType enum to string to allow dynamic values
   status: AppointmentStatus;
   notes?: string;
   

@@ -1,14 +1,18 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, Bot, Sparkles } from 'lucide-react';
 import { chatWithAssistant } from '../services/geminiService';
-import { Message } from '../types';
+import { Message, Appointment, Patient, User } from '../types';
 import ReactMarkdown from 'react-markdown';
 
 interface GeminiAssistantProps {
   onClose: () => void;
+  appointments: Appointment[];
+  patients: Patient[];
+  staff: User[];
 }
 
-const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ onClose }) => {
+const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ onClose, appointments, patients, staff }) => {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: 'Hello! I am DentSched AI. How can I help you manage the practice today?' }
   ]);
@@ -38,7 +42,9 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ onClose }) => {
         parts: [{ text: m.text }]
     }));
 
-    const responseText = await chatWithAssistant(input, historyForApi);
+    // PASS CONTEXT DATA
+    const contextData = { appointments, patients, staff };
+    const responseText = await chatWithAssistant(input, historyForApi, contextData);
     
     setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     setIsLoading(false);

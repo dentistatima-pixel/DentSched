@@ -1,5 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { APPOINTMENTS, PATIENTS, STAFF } from '../constants';
+import { GoogleGenAI } from "@google/genai";
 import { Appointment, Patient, User } from '../types';
 
 let client: GoogleGenAI | null = null;
@@ -12,13 +11,13 @@ const getClient = () => {
 };
 
 // Helper to format data for the context
-const getContextData = () => {
+const getContextData = (appointments: Appointment[], patients: Patient[], staff: User[]) => {
   return JSON.stringify({
-    staff: STAFF.map(s => ({ name: s.name, role: s.role })),
-    patients: PATIENTS.map(p => ({ name: p.name, notes: p.notes, lastVisit: p.lastVisit })),
-    appointments: APPOINTMENTS.map(a => {
-      const patient = PATIENTS.find(p => p.id === a.patientId);
-      const provider = STAFF.find(s => s.id === a.providerId);
+    staff: staff.map(s => ({ name: s.name, role: s.role })),
+    patients: patients.map(p => ({ name: p.name, notes: p.notes, lastVisit: p.lastVisit })),
+    appointments: appointments.map(a => {
+      const patient = patients.find(p => p.id === a.patientId);
+      const provider = staff.find(s => s.id === a.providerId);
       return {
         date: a.date,
         time: a.time,
@@ -31,12 +30,16 @@ const getContextData = () => {
   });
 };
 
-export const chatWithAssistant = async (message: string, history: {role: string, parts: {text: string}[]}[] = []) => {
+export const chatWithAssistant = async (
+    message: string, 
+    history: {role: string, parts: {text: string}[]}[] = [],
+    contextData: { appointments: Appointment[], patients: Patient[], staff: User[] }
+) => {
   const ai = getClient();
-  const context = getContextData();
+  const context = getContextData(contextData.appointments, contextData.patients, contextData.staff);
   
   const systemInstruction = `You are DentSched AI, a helpful assistant for a dental practice. 
-  You have access to the current schedule, staff list, and patient summaries in the following JSON context:
+  You have access to the *live* current schedule, staff list, and patient summaries in the following JSON context:
   ${context}
   
   Your goal is to help the administrator or dentist with scheduling questions, patient summaries, or finding gaps in the schedule.
@@ -46,8 +49,6 @@ export const chatWithAssistant = async (message: string, history: {role: string,
   `;
 
   try {
-    // We construct the prompt to include history manually for a simple request, 
-    // or use the chat API. Let's use the chat API for stateful conv.
     const chat = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus } from '../types';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
 
@@ -10,16 +10,18 @@ interface AppointmentModalProps {
   onClose: () => void;
   patients: Patient[];
   staff: Staff[];
+  appointments: Appointment[]; // Added to check for conflicts
   onSave: (appointment: any) => void;
-  onSavePatient?: (patient: any) => void; // For saving new provisional patients
+  onSavePatient?: (patient: any) => void; 
   initialDate?: string;
   initialTime?: string;
-  initialPatientId?: string; // New prop for pre-selecting patient
-  existingAppointment?: Appointment | null; // For editing
+  initialPatientId?: string;
+  existingAppointment?: Appointment | null;
+  fieldSettings: FieldSettings; // Added prop
 }
 
 const AppointmentModal: React.FC<AppointmentModalProps> = ({ 
-  isOpen, onClose, patients, staff, onSave, onSavePatient, initialDate, initialTime, initialPatientId, existingAppointment 
+  isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings 
 }) => {
   const [activeTab, setActiveTab] = useState<'existing' | 'new' | 'block'>('existing');
   
@@ -33,7 +35,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   // Existing Patient Tab
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [procedureType, setProcedureType] = useState<AppointmentType>(AppointmentType.CONSULTATION);
+  const [procedureType, setProcedureType] = useState<string>(AppointmentType.CONSULTATION);
 
   // New Patient Tab (Provisional)
   const [newPatientData, setNewPatientData] = useState({
@@ -106,6 +108,20 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           return;
       }
 
+      // 1. Double Booking Check
+      const conflict = appointments.find(a => 
+        a.providerId === providerId &&
+        a.date === date &&
+        a.time === time &&
+        a.status !== AppointmentStatus.CANCELLED &&
+        a.id !== existingAppointment?.id // Don't conflict with self during edit
+      );
+
+      if (conflict) {
+          alert(`Schedule Conflict: This provider already has an appointment at ${time} on ${date}.`);
+          return;
+      }
+
       let finalPatientId = selectedPatientId;
       let isBlock = false;
       let title = undefined;
@@ -129,6 +145,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               email: ''
           };
           
+          // Important: We assume parent handles state update synchronously enough or we pass explicit ID
           if (onSavePatient) onSavePatient(newPatient);
           finalPatientId = newId;
       } 
@@ -303,9 +320,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <select 
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                             value={procedureType}
-                            onChange={(e) => setProcedureType(e.target.value as AppointmentType)}
+                            onChange={(e) => setProcedureType(e.target.value)}
                         >
-                            {Object.values(AppointmentType).map(type => (
+                            {fieldSettings.procedures.map(type => (
                                 <option key={type} value={type}>{type}</option>
                             ))}
                         </select>
@@ -366,9 +383,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <select 
                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                             value={procedureType}
-                            onChange={(e) => setProcedureType(e.target.value as AppointmentType)}
+                            onChange={(e) => setProcedureType(e.target.value)}
                         >
-                            {Object.values(AppointmentType).map(type => (
+                             {fieldSettings.procedures.map(type => (
                                 <option key={type} value={type}>{type}</option>
                             ))}
                         </select>

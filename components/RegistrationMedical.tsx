@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Patient } from '../types';
+import { Patient, FieldSettings } from '../types';
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   handleArrayChange: (category: 'allergies' | 'medicalConditions', value: string) => void;
   readOnly?: boolean;
+  fieldSettings: FieldSettings; // Added
 }
 
 // Helper component 
@@ -65,7 +66,7 @@ const YesNoSpecify = ({
     </div>
 );
 
-const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, handleChange, handleArrayChange, readOnly }) => {
+const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, handleChange, handleArrayChange, readOnly, fieldSettings }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm sticky top-0 z-10">
@@ -133,21 +134,16 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
                 <label className="label mb-2">Blood Group</label>
                 <select disabled={readOnly} name="bloodGroup" value={formData.bloodGroup || ''} onChange={handleChange} className="input max-w-xs disabled:bg-slate-100">
                     <option value="">Select...</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
+                    {fieldSettings.bloodGroups.map(bg => (
+                        <option key={bg} value={bg}>{bg}</option>
+                    ))}
                 </select>
         </div>
 
         <div>
             <h4 className="font-bold text-slate-800 mb-3 text-lg border-b pb-2">Allergies</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex'].map(allergy => (
+                {fieldSettings.allergies.map(allergy => (
                     <label key={allergy} className={`
                         flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all
                         ${(formData.allergies || []).includes(allergy) ? 'bg-red-50 border-red-200 text-red-700 font-bold' : 'bg-white border-slate-200 text-slate-600'}
@@ -172,15 +168,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
         <div>
             <h4 className="font-bold text-slate-800 mb-3 text-lg border-b pb-2">Medical Conditions</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {[
-                    'High BP', 'Low BP', 'Epilepsy', 'Convulsions', 'AIDS/HIV', 'STD', 'Ulcers',
-                    'Stomach Issues', 'Fainting Seizures', 'Rapid Weight Loss', 'Radiation Therapy',
-                    'Joint Replacement', 'Heart Surgery', 'Heart Attack', 'Thyroid Issues',
-                    'Heart Disease', 'Heart Murmur', 'Hepatitis', 'Liver Disease', 'Rheumatic Fever',
-                    'Hay Fever', 'Resp Problems', 'Jaundice', 'TB', 'Swollen Ankles', 'Kidney Issues',
-                    'Diabetes', 'Chest Pain', 'Stroke', 'Cancer Tumors', 'Anemia', 'Angina', 'Asthma',
-                    'Emphysema', 'Bleeding Issues', 'Blood Disease', 'Arthritis', 'Rheumatism'
-                ].map(condition => (
+                {fieldSettings.medicalConditions.map(condition => (
                     <label key={condition} className="flex items-center gap-2 text-sm text-slate-600 p-1 hover:bg-slate-100 rounded">
                         <input 
                             type="checkbox" 

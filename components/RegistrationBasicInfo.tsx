@@ -1,15 +1,16 @@
 
 import React from 'react';
-import { Patient } from '../types';
+import { Patient, FieldSettings } from '../types';
 import { Hash, AlertCircle, Shield } from 'lucide-react';
 
 interface RegistrationBasicInfoProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   readOnly?: boolean;
+  fieldSettings: FieldSettings; // Added
 }
 
-const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData, handleChange, readOnly }) => {
+const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData, handleChange, readOnly, fieldSettings }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
         {/* Auto Generated ID */}
@@ -29,11 +30,10 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
         <div>
             <label className="label">Suffix</label>
             <select disabled={readOnly} name="suffix" value={formData.suffix || ''} onChange={handleChange} className="input disabled:bg-slate-100">
-                <option value="">-</option>
-                <option value="Mr">Mr</option>
-                <option value="Ms">Ms</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Dr">Dr</option>
+                <option value="">- Select -</option>
+                {fieldSettings.suffixes.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                ))}
             </select>
         </div>
         <div>
@@ -159,7 +159,12 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
                 </div>
                 <div>
                     <label className="label">Insurance Provider</label>
-                    <input disabled={readOnly} type="text" name="insuranceProvider" value={formData.insuranceProvider || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+                    <select disabled={readOnly} name="insuranceProvider" value={formData.insuranceProvider || ''} onChange={handleChange} className="input disabled:bg-slate-100">
+                        <option value="">- None / Self-Pay -</option>
+                        {fieldSettings.insuranceProviders.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                        ))}
+                    </select>
                 </div>
                 <div>
                     <label className="label">Insurance Number</label>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Patient } from '../types';
+import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle } from 'lucide-react';
 
 interface RegistrationDentalProps {
@@ -9,10 +9,11 @@ interface RegistrationDentalProps {
   handleArrayChange: (category: 'treatments', value: string) => void;
   handleTreatmentDetailChange: (proc: string, value: string) => void;
   readOnly?: boolean;
+  fieldSettings: FieldSettings; // Added
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, handleArrayChange, handleTreatmentDetailChange, readOnly 
+    formData, handleChange, handleArrayChange, handleTreatmentDetailChange, readOnly, fieldSettings 
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -28,10 +29,7 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
         <div>
             <h4 className="font-bold text-slate-800 mb-3">Past Treatments / Procedures</h4>
             <div className="space-y-3">
-                {[
-                    'Consultation', 'Oral Prophylaxis', 'Restoration', 'Extraction', 'Root Canal',
-                    'Prosthodontics', 'Orthodontics', 'Surgery', 'Whitening', 'Denture Adjustments'
-                ].map(proc => {
+                {fieldSettings.procedures.map(proc => {
                     const isSelected = (formData.treatments || []).includes(proc);
                     return (
                         <div key={proc} className={`

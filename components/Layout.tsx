@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, Sparkles } from 'lucide-react';
 import GeminiAssistant from './GeminiAssistant';
 import UserProfileModal from './UserProfileModal';
-import { User } from '../types';
+import { User, Appointment, Patient, UserRole } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,10 +13,12 @@ interface LayoutProps {
   currentUser: User;
   onSwitchUser: (user: User) => void;
   staff: User[];
+  appointments: Appointment[]; // Added for AI Context
+  patients: Patient[]; // Added for AI Context
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff 
+  children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff, appointments, patients
 }) => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -35,8 +37,7 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   const handleProfileUpdate = (updatedUser: User) => {
-      // In a real app, this would call an API to update the backend
-      // For this demo, we use onSwitchUser to update the local App state
+      // Calls parent to update global state
       onSwitchUser(updatedUser);
   };
 
@@ -66,6 +67,29 @@ const Layout: React.FC<LayoutProps> = ({
               <span className="font-medium">{item.label}</span>
             </button>
           ))}
+          
+          {/* Field Management Link (Desktop) - ADMIN ONLY */}
+          {currentUser.role === UserRole.ADMIN && (
+              <button
+                  onClick={() => setActiveTab('field-mgmt')}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    activeTab === 'field-mgmt' 
+                      ? 'bg-teal-700 text-white shadow-lg shadow-teal-900/20' 
+                      : 'text-teal-200 hover:bg-teal-800 hover:text-white'
+                  }`}
+                >
+                  <Sliders size={20} />
+                  <span className="font-medium">Field Mgmt</span>
+              </button>
+          )}
+          
+          <button 
+                onClick={onAddAppointment}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-teal-200 hover:bg-teal-800 hover:text-white mt-4 border border-teal-700/50"
+            >
+                <PlusCircle size={20} />
+                <span className="font-medium">New Appointment</span>
+            </button>
         </nav>
 
         <div className="p-4 space-y-4">
@@ -145,10 +169,17 @@ const Layout: React.FC<LayoutProps> = ({
                         <Settings size={20} className="text-teal-200" />
                         <span className="font-medium">Settings</span>
                     </button>
-                    <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-teal-800 transition-colors">
-                        <Sliders size={20} className="text-teal-200" />
-                        <span className="font-medium">Field Mgmt</span>
-                    </button>
+                    
+                    {/* Field Mgmt Mobile - ADMIN ONLY */}
+                    {currentUser.role === UserRole.ADMIN && (
+                        <button 
+                            onClick={() => { setActiveTab('field-mgmt'); setIsMobileMenuOpen(false); }}
+                            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-teal-800 transition-colors ${activeTab === 'field-mgmt' ? 'bg-teal-800 text-white' : ''}`}
+                        >
+                            <Sliders size={20} className="text-teal-200" />
+                            <span className="font-medium">Field Mgmt</span>
+                        </button>
+                    )}
 
                     <div className="pt-4 border-t border-teal-800 mt-2">
                         <div className="flex items-center gap-3 px-4 py-2">
@@ -192,7 +223,14 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
 
         {/* Modals */}
-        {isAssistantOpen && <GeminiAssistant onClose={() => setIsAssistantOpen(false)} />}
+        {isAssistantOpen && (
+            <GeminiAssistant 
+                onClose={() => setIsAssistantOpen(false)} 
+                appointments={appointments}
+                patients={patients}
+                staff={staff}
+            />
+        )}
         
         <UserProfileModal 
             user={currentUser} 

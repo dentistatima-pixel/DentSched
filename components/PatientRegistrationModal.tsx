@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Phone, FileText, Heart, Shield, ArrowRight, ArrowLeft, Check } from 'lucide-react';
-import { Patient } from '../types';
+import { Patient, FieldSettings } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
@@ -12,9 +12,10 @@ interface PatientRegistrationModalProps {
   onSave: (patient: Partial<Patient>) => void;
   readOnly?: boolean;
   initialData?: Patient | null;
+  fieldSettings: FieldSettings; // Added prop
 }
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings }) => {
   const [activeTab, setActiveTab] = useState<number>(0);
   
   // Initial state with defaults
@@ -229,7 +230,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                     <RegistrationBasicInfo 
                         formData={formData} 
                         handleChange={handleChange} 
-                        readOnly={readOnly} 
+                        readOnly={readOnly}
+                        fieldSettings={fieldSettings} // Passed down
                     />
                 )}
 
@@ -262,6 +264,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         handleChange={handleChange} 
                         handleArrayChange={handleArrayChange}
                         readOnly={readOnly}
+                        fieldSettings={fieldSettings} // Passed down
                     />
                 )}
 
@@ -272,6 +275,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         handleArrayChange={handleArrayChange}
                         handleTreatmentDetailChange={handleTreatmentDetailChange}
                         readOnly={readOnly}
+                        fieldSettings={fieldSettings} // Passed down
                     />
                 )}
 

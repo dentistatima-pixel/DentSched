@@ -75,8 +75,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
     parseInt(a.time.replace(':','')) - parseInt(b.time.replace(':',''))
   );
 
-  // Time slots for the day view (8 AM to 5 PM)
-  const timeSlots = Array.from({ length: 10 }, (_, i) => i + 8); // 8, 9, ... 17
+  // Time slots for the day view (7 AM to 7 PM)
+  const timeSlots = Array.from({ length: 13 }, (_, i) => i + 7); // 7 to 19
 
   const getPatient = (id: string) => patients.find(p => p.id === id);
 

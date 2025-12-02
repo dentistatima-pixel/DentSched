@@ -1,4 +1,4 @@
-import React, { ReactNode, ErrorInfo } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -17,7 +17,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -44,16 +47,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// Force a log to ensure the preview detected the change
-console.log("App mounted. Data refreshed.");
-
 const root = ReactDOM.createRoot(rootElement);
-// We add a key to App to force a full re-mount when this file is updated, 
-// ensuring the new constants are picked up by useState.
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v1" />
+        <App key="refresh-restored" />
     </ErrorBoundary>
   </React.StrictMode>
 );
