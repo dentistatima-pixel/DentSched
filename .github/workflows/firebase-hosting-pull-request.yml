@@ -1,4 +1,4 @@
-# This file uses a direct CLI command for the main branch to bypass a known bug
+# This file returns to the action wrapper, but adds explicit logic to fix the deployment mode.
 name: Deploy to Firebase Hosting on PR or push to main
 on:
   push:
@@ -17,15 +17,18 @@ jobs:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
       
-      # 1. LIVE DEPLOYMENT (Uses npx to reliably execute the CLI command)
-      - name: Deploy to LIVE Hosting (npx CLI)
+      # 1. LIVE DEPLOYMENT (Uses the robust action wrapper with forced production channel)
+      - name: Deploy to LIVE Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: npx firebase-tools deploy --only hosting --project dentsched-9de50
-        env:
-          # IMPORTANT: Uses the Service Account as a token for CLI authentication
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
+          projectId: dentsched-9de50
+          # THIS IS THE FIX: Explicitly tells the action to deploy to the live channel
+          channelId: live 
 
-      # 2. PREVIEW DEPLOYMENT (Keeps the original action for PRs)
+      # 2. PREVIEW DEPLOYMENT (Standard PR deployment)
       - name: Deploy to Preview Channel
         uses: FirebaseExtended/action-hosting-deploy@v0
         if: ${{ github.event_name == 'pull_request' }}
