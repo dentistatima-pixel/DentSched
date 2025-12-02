@@ -17,8 +17,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
+      
+      # 1. LIVE DEPLOYMENT (This runs only when you push directly to 'main')
       - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
           projectId: dentsched-9de50
+          # Targets the live hosting site, fixing the 'channelID is required' error
+          target: dentsched-9de50
+
+      # 2. PREVIEW DEPLOYMENT (This runs only when you open a Pull Request)
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
+          projectId: dentsched-9de50
+          # Provides the channel ID required for preview deployments
+          channelId: ${{ github.event.pull_request.head.ref }}
