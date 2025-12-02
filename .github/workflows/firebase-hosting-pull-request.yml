@@ -15,8 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
-      
+      # CRITICAL FIX: Changed from 'npm ci' to 'npm install' to correctly find and install Tailwind CSS.
+      - run: npm install && npm run build  
+
       # 1. LIVE DEPLOYMENT (Uses the robust action wrapper with forced production channel)
       - name: Deploy to LIVE Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -25,7 +26,7 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
           projectId: dentsched-9de50
-          # THIS IS THE FIX: Explicitly tells the action to deploy to the live channel
+          # Explicitly tells the action to deploy to the live channel
           channelId: live 
 
       # 2. PREVIEW DEPLOYMENT (Standard PR deployment)
