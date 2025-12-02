@@ -1,4 +1,4 @@
-# This file was adapted from your original Firebase CLI auto-generated workflow
+# This file uses a direct CLI command for the main branch to bypass a known bug
 name: Deploy to Firebase Hosting on PR or push to main
 on:
   push:
@@ -11,19 +11,29 @@ permissions:
   pull-requests: write
 jobs:
   build_and_preview:
-    # Allow the job for pushes, and only allow PRs when the PR head repo is the same repo
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run build
       
-      # Single deployment step using conditional logic (ternary operator) to set the correct channelId
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      # 1. LIVE DEPLOYMENT (Uses native CLI command to bypass 'channelID' error)
+      - name: Deploy to LIVE Hosting (Bypass Action)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          # The Firebase CLI requires authentication via a token
+          npm install -g firebase-tools
+          firebase deploy --only hosting --project dentsched-9de50
+        env:
+          # IMPORTANT: Uses the Service Account as a token for CLI authentication
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
+
+      # 2. PREVIEW DEPLOYMENT (Keeps the original action for PRs, which usually works fine)
+      - name: Deploy to Preview Channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}'
           projectId: dentsched-9de50
-          # FINAL FIX: This line forces the channelId to be 'live' for main pushes, 
-          # resolving the 'channelID is currently required' error.
-          channelId: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'live' || github.event.pull_request.head.ref }}
+          channelId: ${{ github.event.pull_request.head.ref }}
