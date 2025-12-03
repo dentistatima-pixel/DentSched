@@ -8,9 +8,9 @@ import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import { STAFF, PATIENTS, APPOINTMENTS } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus } from './types';
 
-// Initial defaults based on current Enums and Constants
+// Initial defaults updated with prices and IDs
 const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
@@ -22,15 +22,33 @@ const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Epilepsy', 'Arthritis', 'Kidney Issues', 'Liver Disease', 'Thyroid Issues',
     'Anemia', 'Ulcers', 'Hepatitis', 'TB'
   ],
-  procedures: Object.values(AppointmentType), // Default to enum values
-  branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch']
+  procedures: [
+      { id: 'p1', name: 'Consultation', price: 500 },
+      { id: 'p2', name: 'Oral Prophylaxis (Light)', price: 1200 },
+      { id: 'p3', name: 'Oral Prophylaxis (Heavy)', price: 1800 },
+      { id: 'p4', name: 'Composite Restoration (1 Surface)', price: 1500 },
+      { id: 'p5', name: 'Composite Restoration (2 Surfaces)', price: 2000 },
+      { id: 'p6', name: 'Simple Extraction', price: 1000 },
+      { id: 'p7', name: 'Complicated Extraction', price: 3500 },
+      { id: 'p8', name: 'Root Canal (Anterior)', price: 8000 },
+      { id: 'p9', name: 'Root Canal (Molar)', price: 12000 },
+      { id: 'p10', name: 'Porcelain Crown', price: 15000 },
+      { id: 'p11', name: 'Whitening', price: 20000 },
+      { id: 'p12', name: 'Denture Adjustment', price: 500 }
+  ], 
+  branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+  features: {
+      enableLabTracking: true,
+      enableComplianceAudit: true,
+      enableDentalAssistantFlow: true,
+      enableMultiBranch: true
+  }
 };
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // PERSISTENCE & INITIALIZATION
-  // Load initial state from local storage if available, else use constants
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem('dentsched_appointments');
     return saved ? JSON.parse(saved) : APPOINTMENTS;
@@ -41,20 +59,31 @@ function App() {
     return saved ? JSON.parse(saved) : PATIENTS;
   });
 
-  // Convert STAFF constant to state so profile edits persist
   const [staff, setStaff] = useState<User[]>(() => {
     const saved = localStorage.getItem('dentsched_staff');
     return saved ? JSON.parse(saved) : STAFF;
   });
   
-  // NEW: Field Settings State
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(() => {
       const saved = localStorage.getItem('dentsched_fields');
-      return saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
+      // Merge defaults just in case features are missing from old storage
+      const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
+      if (!parsed.features) {
+          parsed.features = DEFAULT_FIELD_SETTINGS.features;
+      }
+      return parsed;
   });
 
-  // Auth State (Defaulting to first Admin for demo)
-  const [currentUser, setCurrentUser] = useState<User>(staff[0]);
+  // Auth State
+  // Switching to Index 2 (Dr. Alexander Crentist - Dentist)
+  const [currentUser, setCurrentUser] = useState<User>(staff[2] || staff[0]); 
+
+  // BRANCH STATE
+  const [currentBranch, setCurrentBranch] = useState<string>(
+      (currentUser.allowedBranches && currentUser.allowedBranches.length > 0) 
+      ? currentUser.allowedBranches[0] 
+      : currentUser.defaultBranch || 'Makati Branch'
+  );
 
   // Appointment Modal State
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
@@ -66,10 +95,10 @@ function App() {
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
-  // Navigation State (Lifted from PatientList)
+  // Navigation State
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
-  // Save to LocalStorage whenever state changes
+  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem('dentsched_appointments', JSON.stringify(appointments));
     localStorage.setItem('dentsched_patients', JSON.stringify(patients));
@@ -77,13 +106,19 @@ function App() {
     localStorage.setItem('dentsched_fields', JSON.stringify(fieldSettings));
   }, [appointments, patients, staff, fieldSettings]);
 
-  // Ensure currentUser reflects updates in staff list if they edit their own profile
+  // Ensure currentUser reflects updates
   useEffect(() => {
     const updatedUser = staff.find(s => s.id === currentUser.id);
     if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
         setCurrentUser(updatedUser);
+        if (updatedUser.allowedBranches && !updatedUser.allowedBranches.includes(currentBranch)) {
+            setCurrentBranch(updatedUser.allowedBranches[0] || 'Makati Branch');
+        }
     }
   }, [staff, currentUser.id]);
+
+  // FILTER LOGIC
+  const branchAppointments = appointments.filter(a => a.branch === currentBranch);
 
   const handleOpenBooking = (date?: string, time?: string, patientId?: string) => {
     setBookingDate(date);
@@ -93,35 +128,42 @@ function App() {
   };
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
-    // Check if updating existing
+    const appointmentWithBranch = {
+        ...newAppointment,
+        branch: newAppointment.branch || currentBranch
+    };
+
     setAppointments(prev => {
-        const existingIndex = prev.findIndex(a => a.id === newAppointment.id);
+        const existingIndex = prev.findIndex(a => a.id === appointmentWithBranch.id);
         if (existingIndex >= 0) {
             const updated = [...prev];
-            updated[existingIndex] = newAppointment;
+            updated[existingIndex] = appointmentWithBranch;
             return updated;
         } else {
-            return [...prev, newAppointment];
+            return [...prev, appointmentWithBranch];
         }
     });
   };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
+    // COMPLIANCE: Update timestamp
+    const dataWithTimestamp = {
+        ...newPatientData,
+        lastDigitalUpdate: new Date().toISOString()
+    };
+
     if (editingPatient) {
-        // UPDATE EXISTING PATIENT (From Modal)
-        setPatients(prev => prev.map(p => p.id === newPatientData.id ? { ...p, ...newPatientData as Patient } : p));
+        setPatients(prev => prev.map(p => p.id === newPatientData.id ? { ...p, ...dataWithTimestamp as Patient } : p));
         setEditingPatient(null);
     } else {
-        // CREATE NEW PATIENT
         const newPatient: Patient = {
-            ...newPatientData as Patient,
-            id: newPatientData.id || `p_new_${Date.now()}`, // Use generated ID or fallback
+            ...dataWithTimestamp as Patient,
+            id: newPatientData.id || `p_new_${Date.now()}`,
             lastVisit: 'First Visit',
             nextVisit: null,
             notes: newPatientData.notes || ''
         };
         setPatients(prev => [...prev, newPatient]);
-        // Auto-select the new patient and switch to list if NOT provisional/lite
         if (!newPatient.provisional) {
             setSelectedPatientId(newPatient.id);
             setActiveTab('patients');
@@ -129,44 +171,52 @@ function App() {
     }
   };
 
-  // Profile Update Handler (Updates Staff List)
   const handleSwitchUser = (userOrUpdatedUser: User) => {
-      // Check if this is an update to an existing user
       const existingIndex = staff.findIndex(s => s.id === userOrUpdatedUser.id);
       if (existingIndex >= 0) {
-          // Update the staff list
           const newStaff = [...staff];
           newStaff[existingIndex] = userOrUpdatedUser;
           setStaff(newStaff);
       }
       
-      // Set as current user
       setCurrentUser(userOrUpdatedUser);
       
-      // If user is not admin but currently on field-mgmt, redirect to dashboard
+      if (userOrUpdatedUser.defaultBranch) {
+          if (!userOrUpdatedUser.allowedBranches || userOrUpdatedUser.allowedBranches.includes(userOrUpdatedUser.defaultBranch)) {
+               setCurrentBranch(userOrUpdatedUser.defaultBranch);
+          }
+      }
+      
       if (userOrUpdatedUser.role !== UserRole.ADMIN && activeTab === 'field-mgmt') {
           setActiveTab('dashboard');
       }
   };
 
-  // Opens the modal for full editing
   const handleEditPatientClick = (patient: Patient) => {
       setEditingPatient(patient);
       setIsPatientModalOpen(true);
   };
 
-  // Updates patient data DIRECTLY without opening the modal (for Odontogram, Verification, etc.)
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
       setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
   };
+  
+  const handleBulkUpdatePatients = (updatedPatients: Patient[]) => {
+      setPatients(prev => {
+          const newPatients = [...prev];
+          updatedPatients.forEach(updated => {
+              const idx = newPatients.findIndex(p => p.id === updated.id);
+              if (idx !== -1) {
+                  newPatients[idx] = updated;
+              }
+          });
+          return newPatients;
+      });
+  };
 
   const handleDeletePatient = (patientId: string) => {
-      // 1. Delete Patient
       setPatients(prev => prev.filter(p => p.id !== patientId));
-      
-      // 2. Delete Associated Appointments (Fix Ghost Appointment Bug)
       setAppointments(prev => prev.filter(a => a.patientId !== patientId));
-
       setSelectedPatientId(null);
   };
 
@@ -182,13 +232,28 @@ function App() {
 
   const handleUpdateFieldSettings = (newSettings: FieldSettings) => {
       setFieldSettings(newSettings);
+      if (!newSettings.branches.includes(currentBranch)) {
+          setCurrentBranch(newSettings.branches[0] || 'Main Office');
+      }
+  };
+  
+  const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
+  };
+
+  const handleCompleteRegistration = (patientId: string) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (patient) {
+          setEditingPatient(patient);
+          setIsPatientModalOpen(true);
+      }
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard 
-          appointments={appointments} 
+          appointments={branchAppointments} 
           patientsCount={patients.length}
           staffCount={staff.length}
           currentUser={currentUser}
@@ -196,14 +261,19 @@ function App() {
           onAddPatient={openNewPatientModal}
           onPatientSelect={handlePatientSelectFromDashboard}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          onCompleteRegistration={handleCompleteRegistration}
+          fieldSettings={fieldSettings} // Passed to check features
         />;
       case 'schedule':
         return <CalendarView 
-          appointments={appointments} 
+          appointments={branchAppointments} 
           staff={staff} 
           onAddAppointment={handleOpenBooking}
           currentUser={currentUser}
           patients={patients}
+          currentBranch={currentBranch} 
+          fieldSettings={fieldSettings} // Passed to check features
         />;
       case 'patients':
         return <PatientList 
@@ -215,14 +285,15 @@ function App() {
           onAddPatient={openNewPatientModal}
           onEditPatient={handleEditPatientClick}
           onQuickUpdatePatient={handleQuickUpdatePatient}
+          onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
+          fieldSettings={fieldSettings} // Passed for Charting & Features
         />;
       case 'field-mgmt':
-        // SECURITY CHECK: Only Admin can access
         if (currentUser.role !== UserRole.ADMIN) {
              return <Dashboard 
-                appointments={appointments} 
+                appointments={branchAppointments} 
                 patientsCount={patients.length}
                 staffCount={staff.length}
                 currentUser={currentUser}
@@ -230,6 +301,9 @@ function App() {
                 onAddPatient={openNewPatientModal}
                 onPatientSelect={handlePatientSelectFromDashboard}
                 onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
+                onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+                onCompleteRegistration={handleCompleteRegistration}
+                fieldSettings={fieldSettings}
               />;
         }
         return <FieldManagement 
@@ -238,7 +312,7 @@ function App() {
         />;
       default:
         return <Dashboard 
-          appointments={appointments}
+          appointments={branchAppointments}
           patientsCount={patients.length}
           staffCount={staff.length}
           currentUser={currentUser}
@@ -246,6 +320,9 @@ function App() {
           onAddPatient={openNewPatientModal}
           onPatientSelect={handlePatientSelectFromDashboard}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          onCompleteRegistration={handleCompleteRegistration}
+          fieldSettings={fieldSettings}
         />;
     }
   };
@@ -258,8 +335,10 @@ function App() {
       currentUser={currentUser}
       onSwitchUser={handleSwitchUser}
       staff={staff}
-      appointments={appointments}
-      patients={patients}
+      currentBranch={currentBranch}
+      availableBranches={fieldSettings.branches}
+      onChangeBranch={setCurrentBranch}
+      fieldSettings={fieldSettings} 
     >
       {renderContent()}
 
@@ -270,11 +349,11 @@ function App() {
         onSavePatient={handleSavePatient}
         patients={patients}
         staff={staff}
-        appointments={appointments}
+        appointments={branchAppointments} 
         initialDate={bookingDate}
         initialTime={bookingTime}
         initialPatientId={initialBookingPatientId}
-        fieldSettings={fieldSettings} // NEW
+        fieldSettings={fieldSettings}
       />
 
       <PatientRegistrationModal 
@@ -284,9 +363,9 @@ function App() {
             setEditingPatient(null);
         }}
         onSave={handleSavePatient}
-        readOnly={currentUser.role === 'Hygienist'}
+        readOnly={currentUser.role === 'Dental Assistant' && currentUser.isReadOnly} 
         initialData={editingPatient}
-        fieldSettings={fieldSettings} // NEW
+        fieldSettings={fieldSettings}
       />
     </Layout>
   );

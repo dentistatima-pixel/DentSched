@@ -1,5 +1,5 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -31,18 +31,23 @@ export const STAFF: User[] = [
       name: 'Sarah Connor', 
       role: UserRole.ADMIN, 
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-      // Added fields to ensure profile is not empty
       specialization: 'Clinic Director',
       prcLicense: 'ADMIN-001', 
       ptrNumber: 'PTR-MAIN-001',
       tin: '123-111-222-000',
-      defaultBranch: 'Main Office',
-      colorPreference: '#ef4444', // Red for Admin
-      clinicHours: 'Mon-Sat 8:00AM - 6:00PM'
+      defaultBranch: 'Makati Branch',
+      allowedBranches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+      colorPreference: '#ef4444', 
+      clinicHours: 'Mon-Sat 8:00AM - 6:00PM',
+      preferences: {
+          showFinancials: true,
+          showTraySetup: false,
+          showPatientFlow: false,
+          showLabAlerts: true
+      }
   },
-  { id: 'admin2', name: 'John Smith', role: UserRole.ADMIN, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' },
+  { id: 'admin2', name: 'John Smith', role: UserRole.ADMIN, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John', allowedBranches: ['Makati Branch'] },
   
-  // Dentists (Sample with detailed profiles)
   { 
       id: 'doc1', 
       name: 'Dr. Alexander Crentist', 
@@ -56,10 +61,17 @@ export const STAFF: User[] = [
       pdaId: 'PDA-NCR-1029',
       pdaChapter: 'Makati Dental Chapter',
       clinicHours: 'MWF 9:00AM - 5:00PM',
-      // New fields
       defaultBranch: 'Makati Branch',
-      colorPreference: '#14b8a6', // Teal
-      defaultConsultationFee: 500.00
+      allowedBranches: ['Makati Branch', 'Quezon City Branch'], 
+      colorPreference: '#14b8a6', 
+      defaultConsultationFee: 500.00,
+      preferences: {
+          showFinancials: true,
+          showTraySetup: true,
+          showPatientFlow: false,
+          showLabAlerts: true,
+          defaultDentition: 'Adult'
+      }
   },
   { 
       id: 'doc2', 
@@ -75,47 +87,56 @@ export const STAFF: User[] = [
       pdaChapter: 'Quezon City Chapter',
       s2License: 'S2-001239-R',
       clinicHours: 'TThS 10:00AM - 6:00PM',
-      // New fields
       defaultBranch: 'Quezon City Branch',
-      colorPreference: '#8b5cf6', // Violet
-      defaultConsultationFee: 800.00
+      allowedBranches: ['Quezon City Branch'],
+      colorPreference: '#8b5cf6', 
+      defaultConsultationFee: 800.00,
+      preferences: {
+        showFinancials: true,
+        showLabAlerts: true
+      }
   },
-  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch' },
-  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch' },
-  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', colorPreference: '#10b981', defaultBranch: 'Makati Branch' },
+  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'], preferences: { defaultDentition: 'Child' } },
+  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
+  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
   
-  { id: 'doc6', name: 'Dr. Fiona Bridge', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Fiona', colorPreference: '#6366f1' },
-  { id: 'doc7', name: 'Dr. George Gum', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=George', colorPreference: '#ec4899' },
-  { id: 'doc8', name: 'Dr. Hannah Enamel', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hannah', colorPreference: '#84cc16' },
-  
-  // Hygienists / Dental Assistants
+  // Dental Assistants
   { 
-      id: 'hyg1', 
-      name: 'H. Sarah Sparkle', 
-      role: UserRole.HYGIENIST, 
+      id: 'asst1', 
+      name: 'Asst. Sarah Sparkle', 
+      role: UserRole.DENTAL_ASSISTANT, 
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg1',
       employeeId: 'DA-2023-001',
       certifications: ['Tesda NCII Dental Hygiene', 'X-Ray Safety Officer'],
-      assignedDoctors: ['doc1', 'doc2'], // Sarah works for Alex and Ben
+      assignedDoctors: ['doc1', 'doc2'], 
       canViewFinancials: false,
       defaultBranch: 'Makati Branch',
-      isReadOnly: false
+      allowedBranches: ['Makati Branch', 'Quezon City Branch'],
+      isReadOnly: false,
+      preferences: {
+          showTraySetup: true,
+          showPatientFlow: true,
+          showLabAlerts: true
+      }
   },
   { 
-      id: 'hyg2', 
-      name: 'H. Fred Floss', 
-      role: UserRole.HYGIENIST, 
+      id: 'asst2', 
+      name: 'Asst. Fred Floss', 
+      role: UserRole.DENTAL_ASSISTANT, 
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg2',
       employeeId: 'DA-2023-002',
       certifications: ['Basic Life Support', 'Infection Control'],
-      assignedDoctors: ['doc3'], // Fred works for Cassandra
+      assignedDoctors: ['doc3'], 
       canViewFinancials: false,
       defaultBranch: 'Makati Branch',
-      isReadOnly: true // Fred is new, so he has read-only access
+      allowedBranches: ['Makati Branch'],
+      isReadOnly: true,
+      preferences: {
+          showTraySetup: true,
+          showPatientFlow: true
+      }
   },
-  { id: 'hyg3', name: 'H. Mary Mint', role: UserRole.HYGIENIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg3', assignedDoctors: ['doc4', 'doc5'], defaultBranch: 'Quezon City Branch' },
-  { id: 'hyg4', name: 'H. Chris Clean', role: UserRole.HYGIENIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg4' },
-  { id: 'hyg5', name: 'H. Pat Polish', role: UserRole.HYGIENIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg5' },
+  { id: 'asst3', name: 'Asst. Mary Mint', role: UserRole.DENTAL_ASSISTANT, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg3', assignedDoctors: ['doc4', 'doc5'], defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] }
 ];
 
 export const PATIENTS: Patient[] = [
@@ -127,162 +148,88 @@ export const PATIENTS: Patient[] = [
         dob: '2016-05-15',
         age: 8,
         sex: 'Male',
-        phone: '0917 123 4444',
-        email: 'parent@email.com',
-        insuranceProvider: 'Maxicare',
-        insuranceNumber: 'MAX-998877',
-        guardian: 'Maria Santos',
-        guardianMobile: '0917 123 4444',
-        homeAddress: '123 Acacia St, Makati City',
-        barangay: 'San Lorenzo',
-        lastVisit: '2023-11-20',
+        phone: '0917-555-0101',
+        email: 'timothy.santos@email.com',
+        lastVisit: '2023-10-15',
         nextVisit: null,
-        notes: 'Very anxious child, likes Paw Patrol. Needs tell-show-do.',
-        
-        // Extensive Medical History (Child)
-        goodHealth: false,
-        allergies: ['Penicillin', 'Peanuts'],
-        medicalConditions: ['Asthma'],
-        underMedicalTreatment: true,
-        medicalTreatmentDetails: 'Pediatrician monitoring asthma',
-        seriousIllness: true,
-        seriousIllnessDetails: 'Pneumonia (Hospitalized 2023)',
-        lastHospitalization: '2023-10-01',
-        lastHospitalizationDetails: 'Makati Med for Pneumonia',
-        takingMedications: true,
-        medicationDetails: 'Albuterol Inhaler (Ventolin)',
-        
-        dentalChart: [
-            { toothNumber: 54, procedure: 'Extraction', status: 'Completed', date: '2023-11-20' }, // Deciduous
-            { toothNumber: 55, procedure: 'Restoration', status: 'Planned' },
-            { toothNumber: 65, procedure: 'Sealant', status: 'Planned' }
-        ],
-        treatments: ['Extraction'],
-        treatmentDetails: { 'Extraction': 'Deciduous molar extraction due to abscess' }
+        notes: 'Patient is a bit anxious. Likes superheroes.',
+        insuranceProvider: 'Maxicare'
     },
     {
-        id: 'p_female_001',
-        name: 'Maria Clara Reyes',
-        firstName: 'Maria Clara',
-        surname: 'Reyes',
-        dob: '1995-02-14',
-        age: 29,
+        id: 'p_adult_002',
+        name: 'Maria Clara',
+        firstName: 'Maria',
+        surname: 'Clara',
+        dob: '1990-06-19',
+        age: 33,
         sex: 'Female',
-        phone: '0918 555 6789',
-        email: 'maria.clara@gmail.com',
-        occupation: 'Call Center Agent',
-        homeAddress: 'Unit 404 Condo, Mandaluyong',
-        barangay: 'Highway Hills',
-        lastVisit: '2024-01-10',
-        nextVisit: '2024-07-10',
-        notes: 'Currently pregnant, careful with x-rays and meds.',
-        
-        // Extensive Medical History (Female/Pregnant)
-        goodHealth: false,
-        pregnant: true,
-        nursing: false,
-        birthControl: false,
+        phone: '0918-555-0202',
+        email: 'maria.clara@email.com',
+        lastVisit: '2023-11-20',
+        nextVisit: '2024-05-20',
+        notes: 'Allergic to Latex.',
         allergies: ['Latex'],
-        otherAllergies: 'Dust Mites',
-        medicalConditions: ['Anemia', 'Low BP'],
-        underMedicalTreatment: true,
-        medicalTreatmentDetails: 'OB-GYN Checkups (Dr. Lim)',
-        seriousIllness: false,
-        takingMedications: true,
-        medicationDetails: 'Prenatal Vitamins, Ferrous Sulfate, Folic Acid',
-        lastHospitalization: '2023-12-05',
-        lastHospitalizationDetails: 'Dehydration/Hyperemesis',
-        
+        insuranceProvider: 'PhilHealth',
         dentalChart: [
-             { toothNumber: 36, procedure: 'Root Canal', status: 'Existing' },
-             { toothNumber: 36, procedure: 'Crown', status: 'Existing' },
-             { toothNumber: 11, procedure: 'Veneer', status: 'Existing' },
-             { toothNumber: 21, procedure: 'Veneer', status: 'Existing' },
-             { toothNumber: 46, procedure: 'Restoration', status: 'Planned', notes: 'Wait until 2nd trimester' }
-        ],
-        treatments: ['Oral Prophylaxis'],
-        treatmentDetails: { 'Oral Prophylaxis': 'Routine cleaning, bleeding gums noted' }
+            { toothNumber: 18, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+            { toothNumber: 16, procedure: 'Composite Restoration (1 Surface)', surfaces: 'O', status: 'Completed', price: 1500, date: '2023-11-20' },
+            { toothNumber: 26, procedure: 'Root Canal (Molar)', status: 'Planned', price: 12000, date: '2023-11-20' }
+        ]
     },
     {
-        id: 'p_male_001',
+        id: 'p_adult_003',
         name: 'Juan Dela Cruz',
         firstName: 'Juan',
         surname: 'Dela Cruz',
-        dob: '1965-08-30',
-        age: 58,
+        dob: '1985-12-30',
+        age: 38,
         sex: 'Male',
-        phone: '0920 999 8888',
-        email: 'juan.dc@yahoo.com',
-        occupation: 'Retired',
-        homeAddress: '456 Narra St, Quezon City',
-        barangay: 'Diliman',
-        lastVisit: '2023-09-15',
+        phone: '0919-555-0303',
+        email: 'juan.delacruz@email.com',
+        lastVisit: '2023-09-01',
         nextVisit: null,
-        notes: 'Patient gag reflex is strong. Pre-medication required for surgeries.',
-        
-        // Extensive Medical History (High Risk Male)
-        goodHealth: false,
-        tobaccoUse: true,
-        alcoholDrugsUse: true,
-        allergies: ['Aspirin', 'Sulfa'],
-        otherAllergies: 'Shellfish',
-        medicalConditions: ['High BP', 'Diabetes', 'Arthritis', 'Heart Disease'],
-        otherConditions: 'High Cholesterol',
-        underMedicalTreatment: true,
-        medicalTreatmentDetails: 'Cardiologist (Dr. Santos) & Endocrinologist',
-        seriousIllness: true,
-        seriousIllnessDetails: 'Heart Attack (2021)',
-        lastHospitalization: '2021-06-15',
-        lastHospitalizationDetails: 'Angioplasty Stent Placement',
-        takingMedications: true,
-        medicationDetails: 'Metformin, Lisinopril, Atorvastatin, Clopidogrel',
-        
-        dentalChart: [
-            { toothNumber: 18, procedure: 'Missing', status: 'Existing' },
-            { toothNumber: 28, procedure: 'Missing', status: 'Existing' },
-            { toothNumber: 38, procedure: 'Missing', status: 'Existing' },
-            { toothNumber: 48, procedure: 'Missing', status: 'Existing' },
-            { toothNumber: 46, procedure: 'Implant', status: 'Planned' },
-            { toothNumber: 14, procedure: 'Root Canal', status: 'Completed', date: '2020-02-01' }
-        ],
-        treatments: ['Prosthodontics', 'Periodontics'],
-        treatmentDetails: { 'Prosthodontics': 'Consulted for lower implants', 'Periodontics': 'Deep scaling Q3' }
+        notes: 'Needs clearance for surgery.',
+        medicalConditions: ['High BP'],
+        insuranceProvider: 'Intellicare'
     }
 ];
 
 export const APPOINTMENTS: Appointment[] = [
-    // Create some appointments for today for these dummy patients to populate the dashboard
     {
-        id: 'apt_1',
+        id: 'apt_001',
         patientId: 'p_child_001',
-        providerId: 'doc3', // Pediatric dentist
-        date: new Date().toISOString().split('T')[0], // Today
-        time: '10:00',
+        providerId: 'doc1',
+        branch: 'Makati Branch',
+        date: new Date().toISOString().split('T')[0],
+        time: '09:00',
         durationMinutes: 60,
-        type: AppointmentType.RESTORATION,
-        status: AppointmentStatus.CONFIRMED,
-        notes: 'Filling on tooth 55'
-    },
-    {
-        id: 'apt_2',
-        patientId: 'p_female_001',
-        providerId: 'doc1', 
-        date: new Date().toISOString().split('T')[0], // Today
-        time: '13:00',
-        durationMinutes: 30,
         type: AppointmentType.CONSULTATION,
         status: AppointmentStatus.SCHEDULED,
-        notes: 'Check gum bleeding'
+        notes: 'Regular checkup'
     },
     {
-        id: 'apt_3',
-        patientId: 'p_male_001',
-        providerId: 'doc4', // Prostho
-        date: new Date().toISOString().split('T')[0], // Today
-        time: '15:00',
-        durationMinutes: 90,
-        type: AppointmentType.PROSTHODONTICS,
+        id: 'apt_002',
+        patientId: 'p_adult_002',
+        providerId: 'doc1',
+        branch: 'Makati Branch',
+        date: new Date().toISOString().split('T')[0],
+        time: '10:00',
+        durationMinutes: 60,
+        type: AppointmentType.ROOT_CANAL,
         status: AppointmentStatus.CONFIRMED,
-        notes: 'Implant assessment'
+        notes: 'Start RCT tooth 26'
+    },
+    {
+        id: 'apt_003',
+        patientId: 'p_adult_003',
+        providerId: 'doc2',
+        branch: 'Quezon City Branch',
+        date: new Date().toISOString().split('T')[0],
+        time: '14:00',
+        durationMinutes: 45,
+        type: AppointmentType.EXTRACTION,
+        status: AppointmentStatus.SCHEDULED,
+        notes: 'Simple extraction',
+        labStatus: LabStatus.NONE
     }
 ];

@@ -16,11 +16,14 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { 
+      hasError: false, 
+      error: null 
+    };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -36,7 +39,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif' }}>
           <h1>Something went wrong.</h1>
           <p>Please refresh the page.</p>
-          <pre style={{textAlign: 'left', background: '#f0f0f0', padding: 20, borderRadius: 8, overflow: 'auto'}}>
+          <pre style={{textAlign: 'left', background: '#f0f0f0', padding: 20, borderRadius: 8, overflow: 'auto', fontSize: '12px'}}>
             {this.state.error?.toString()}
           </pre>
         </div>
@@ -48,7 +51,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 // Force a log to ensure the preview detected the change
-console.log("App mounted. Data refreshed.");
+console.log("App mounted. Version 8 Refresh.");
 
 const root = ReactDOM.createRoot(rootElement);
 // We add a key to App to force a full re-mount when this file is updated, 
@@ -56,7 +59,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v2-restored" />
+        <App key="refresh-v8-fix" />
     </ErrorBoundary>
   </React.StrictMode>
 );

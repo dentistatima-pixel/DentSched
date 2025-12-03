@@ -30,9 +30,9 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
             <h4 className="font-bold text-slate-800 mb-3">Past Treatments / Procedures</h4>
             <div className="space-y-3">
                 {fieldSettings.procedures.map(proc => {
-                    const isSelected = (formData.treatments || []).includes(proc);
+                    const isSelected = (formData.treatments || []).includes(proc.name);
                     return (
-                        <div key={proc} className={`
+                        <div key={proc.id} className={`
                             rounded-xl border transition-all
                             ${isSelected ? 'bg-teal-50 border-teal-200 p-4' : 'bg-white border-slate-200 p-3'}
                         `}>
@@ -40,20 +40,20 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                                 <input 
                                     type="checkbox" 
                                     checked={isSelected}
-                                    onChange={() => handleArrayChange('treatments', proc)}
+                                    onChange={() => handleArrayChange('treatments', proc.name)}
                                     disabled={readOnly}
                                     className="w-5 h-5 accent-teal-600"
                                 />
-                                <span className={`font-medium ${isSelected ? 'text-teal-900' : 'text-slate-700'}`}>{proc}</span>
+                                <span className={`font-medium ${isSelected ? 'text-teal-900' : 'text-slate-700'}`}>{proc.name}</span>
                             </label>
                             
                             {isSelected && (
                                 <div className="mt-2 ml-8 animate-in slide-in-from-top-2 fade-in">
                                     <input 
                                         type="text" 
-                                        placeholder={`Details about ${proc}...`}
-                                        value={formData.treatmentDetails?.[proc] || ''}
-                                        onChange={(e) => handleTreatmentDetailChange(proc, e.target.value)}
+                                        placeholder={`Details about ${proc.name}...`}
+                                        value={formData.treatmentDetails?.[proc.name] || ''}
+                                        onChange={(e) => handleTreatmentDetailChange(proc.name, e.target.value)}
                                         disabled={readOnly}
                                         className="w-full text-sm bg-white border border-teal-200 rounded-lg p-2 focus:ring-2 focus:ring-teal-500/20 outline-none"
                                     />

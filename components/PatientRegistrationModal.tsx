@@ -167,7 +167,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     e.preventDefault();
     if (readOnly) return;
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...formData, name: fullName });
+    
+    // Explicitly set provisional to false when saving from full form
+    onSave({ ...formData, name: fullName, provisional: false });
     onClose();
   };
 

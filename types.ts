@@ -2,15 +2,24 @@
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
-  HYGIENIST = 'Hygienist' // Also represents Dental Assistants for this context
+  DENTAL_ASSISTANT = 'Dental Assistant'
 }
 
 export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
-  COMPLETED = 'Completed',
+  ARRIVED = 'Arrived',        // Patient in Lobby
+  SEATED = 'Seated',          // Patient in Chair, Numbed/Prepped
+  TREATING = 'Treating',      // Doctor is with Patient
+  COMPLETED = 'Completed',    // Check out
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
+}
+
+export enum LabStatus {
+  NONE = 'None',
+  PENDING = 'Pending',   // Sent to lab
+  RECEIVED = 'Received'  // Back from lab, ready for insert
 }
 
 export enum AppointmentType {
@@ -28,7 +37,22 @@ export enum AppointmentType {
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing';
 
-// --- NEW: Field Management Types ---
+// --- Field Management Types ---
+export interface ProcedureItem {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  traySetup?: string[]; // List of instruments needed
+}
+
+export interface FeatureToggles {
+  enableLabTracking: boolean;
+  enableComplianceAudit: boolean;
+  enableMultiBranch: boolean;
+  enableDentalAssistantFlow: boolean;
+}
+
 export interface FieldSettings {
   suffixes: string[];
   civilStatus: string[];
@@ -36,16 +60,28 @@ export interface FieldSettings {
   bloodGroups: string[];
   allergies: string[];
   medicalConditions: string[];
-  procedures: string[]; // Simplification of AppointmentType for dynamic editing
+  procedures: ProcedureItem[]; 
   branches: string[];
+  features: FeatureToggles;
 }
 
 export interface DentalChartEntry {
-  toothNumber: number; // 1-32 (Universal System)
+  toothNumber: number; // 1-32 (Universal System) or 11-48 (FDI)
   procedure: string;
   status: TreatmentStatus;
+  surfaces?: string; // e.g. "MOD", "B", "L"
+  price?: number; // Snapshot of price at time of charting (can be different from base price)
   date?: string;
   notes?: string;
+}
+
+export interface UserPreferences {
+  showTraySetup?: boolean;
+  showPatientFlow?: boolean; // Arrived -> Seated -> Treating
+  showFinancials?: boolean;
+  showLabAlerts?: boolean;
+  autoOpenMedicalHistory?: boolean;
+  defaultDentition?: 'Adult' | 'Child';
 }
 
 export interface User {
@@ -68,23 +104,26 @@ export interface User {
   
   // Operational (Assistants)
   employeeId?: string;
-  certifications?: string[]; // e.g., "Tesda NCII", "X-Ray Safety"
-  assignedDoctors?: string[]; // IDs of doctors they assist
+  certifications?: string[]; 
+  assignedDoctors?: string[]; 
   canViewFinancials?: boolean;
 
-  // Efficiency & Preferences (New)
-  defaultBranch?: string; // e.g., "Makati", "Quezon City"
-  colorPreference?: string; // Hex code or Tailwind color class for calendar
-  defaultConsultationFee?: number; // Auto-fill for billing
-  isReadOnly?: boolean; // If true, cannot delete/move appointments
+  // Efficiency & Preferences
+  allowedBranches?: string[]; 
+  defaultBranch?: string; 
+  colorPreference?: string; 
+  defaultConsultationFee?: number; 
+  isReadOnly?: boolean; 
+  
+  preferences?: UserPreferences; // NEW: Personal toggles
 }
 
 export interface Patient {
   id: string;
-  provisional?: boolean; // True if created via "Lite" booking
+  provisional?: boolean; 
   // Basic Info
   suffix?: string;
-  name: string; // Full name for display
+  name: string; 
   firstName: string;
   middleName?: string;
   surname: string;
@@ -117,7 +156,7 @@ export interface Patient {
   treatments?: string[]; 
   treatmentDetails?: Record<string, string>; 
   
-  // New Visual Chart
+  // Visual Chart
   dentalChart?: DentalChartEntry[];
 
   // Medical History
@@ -148,31 +187,32 @@ export interface Patient {
   otherConditions?: string;
   
   bloodGroup?: string;
+
+  // COMPLIANCE TRACKING
+  lastDigitalUpdate?: string; // ISO Date of last chart/history edit
+  lastPrintedDate?: string | null; // ISO Date of last physical file print
 }
 
 export interface Appointment {
   id: string;
-  patientId: string; // If block, this might be empty or specific string
+  patientId: string; 
   providerId: string;
-  date: string; // ISO Date string YYYY-MM-DD
-  time: string; // HH:mm
+  branch: string; 
+  date: string; 
+  time: string; 
   durationMinutes: number;
-  type: string; // Changed from AppointmentType enum to string to allow dynamic values
+  type: string; 
   status: AppointmentStatus;
+  labStatus?: LabStatus; // For Prostho/Ortho cases
   notes?: string;
   
-  // New features
-  isBlock?: boolean; // Admin block (Lunch, Meeting)
-  title?: string; // Title for blocks
+  isBlock?: boolean; 
+  title?: string; 
   rescheduleHistory?: {
       previousDate: string;
       previousTime: string;
-      reason: 'Reschedule' | 'Correction';
+      previousProviderId?: string; 
+      reason: 'Reschedule' | 'Correction' | 'Provider Change';
       timestamp: string;
   }[];
-}
-
-export interface Message {
-  role: 'user' | 'model';
-  text: string;
 }

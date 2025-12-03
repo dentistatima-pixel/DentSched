@@ -1,34 +1,22 @@
 
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Filter, Lock, List, LayoutGrid, Clock, AlertTriangle, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
-import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient } from '../types';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker } from 'lucide-react';
+import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus } from '../types';
 
 interface CalendarViewProps {
   appointments: Appointment[];
   staff: User[];
   onAddAppointment: (date?: string, time?: string) => void;
-  currentUser?: User; // Added prop
-  patients?: Patient[]; // Need patients to show alerts/details
+  currentUser?: User;
+  patients?: Patient[];
+  currentBranch?: string;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, currentUser, patients = [] }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, currentUser, patients = [], currentBranch }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda'>('grid');
   
-  // Default filter logic: If logged in as Dentist/Hygienist, show only their own column (or role).
-  const [roleFilter, setRoleFilter] = useState<'All' | 'Dentist' | 'Hygienist' | 'MySchedule'>('All');
-
-  useEffect(() => {
-    if (currentUser) {
-        if (currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.HYGIENIST) {
-            setRoleFilter('MySchedule');
-        } else {
-            setRoleFilter('All');
-        }
-    }
-  }, [currentUser]);
-
-  // Simple date navigation
+  // Date Navigation
   const nextDay = () => {
     const next = new Date(selectedDate);
     next.setDate(selectedDate.getDate() + 1);
@@ -42,7 +30,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   };
 
   const formattedDate = selectedDate.toISOString().split('T')[0];
-  // Standardize header date to MM/DD/YYYY
   const displayDate = selectedDate.toLocaleDateString('en-US', { 
     weekday: 'long',
     month: 'long', 
@@ -50,33 +37,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
     year: 'numeric' 
   });
 
-  // Filter providers based on role selection
-  const allProviders = staff.filter(u => u.role !== UserRole.ADMIN);
-  const providers = allProviders.filter(p => {
-      if (roleFilter === 'All') return true;
-      if (roleFilter === 'Dentist') return p.role === UserRole.DENTIST;
-      if (roleFilter === 'Hygienist') return p.role === UserRole.HYGIENIST;
-      
-      if (roleFilter === 'MySchedule' && currentUser) {
-          // If Assistant/Hygienist, show them AND their assigned doctors
-          if (currentUser.role === UserRole.HYGIENIST && currentUser.assignedDoctors?.length) {
-              return p.id === currentUser.id || currentUser.assignedDoctors.includes(p.id);
-          }
-          // If Dentist, show just them
-          return p.id === currentUser.id;
-      }
-      return true;
-  });
+  // --- PROVIDER VISIBILITY LOGIC ---
+  const getVisibleProviders = () => {
+      if (!currentUser) return [];
 
-  const todaysAppointments = appointments.filter(a => a.date === formattedDate);
+      // 1. ADMIN: Sees ALL Dentists (The "God View")
+      if (currentUser.role === UserRole.ADMIN) {
+          if (currentBranch) {
+              return staff.filter(u => u.role === UserRole.DENTIST && u.allowedBranches?.includes(currentBranch));
+          }
+          return staff.filter(u => u.role === UserRole.DENTIST);
+      }
+
+      // 2. DENTIST: Sees ONLY themselves
+      if (currentUser.role === UserRole.DENTIST) {
+          return [currentUser];
+      }
+
+      // 3. ASSISTANT: Sees ALL Dentists at the CURRENT BRANCH
+      if (currentUser.role === UserRole.DENTAL_ASSISTANT) {
+          if (!currentBranch) return [];
+          return staff.filter(u => u.role === UserRole.DENTIST && u.allowedBranches?.includes(currentBranch));
+      }
+
+      return [];
+  };
+
+  const visibleProviders = getVisibleProviders();
+  const visibleProviderIds = visibleProviders.map(p => p.id);
+
+  const relevantAppointments = appointments.filter(a => 
+      a.date === formattedDate && 
+      (visibleProviderIds.includes(a.providerId) || a.isBlock)
+  );
   
-  // Sort for Agenda View
-  const sortedAppointments = [...todaysAppointments].sort((a, b) => 
+  const sortedAppointments = [...relevantAppointments].sort((a, b) => 
     parseInt(a.time.replace(':','')) - parseInt(b.time.replace(':',''))
   );
 
-  // Time slots for the day view (7 AM to 7 PM)
-  const timeSlots = Array.from({ length: 13 }, (_, i) => i + 7); // 7 to 19
+  // Time Slots: 7 AM (7) to 10 PM (22)
+  // Length is 22 - 7 + 1 = 16 slots
+  const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
 
   const getPatient = (id: string) => patients.find(p => p.id === id);
 
@@ -89,8 +90,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       );
   };
 
-  // Helper for appointment styles
-  const getAppointmentBaseStyle = (type: AppointmentType) => {
+  // Styles for Appointment Type
+  const getAppointmentBaseStyle = (type: AppointmentType, status: AppointmentStatus) => {
+     // Patient Flow Overrides
+     if (status === AppointmentStatus.ARRIVED) return { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-600' };
+     if (status === AppointmentStatus.SEATED) return { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900', icon: 'text-blue-600' };
+     if (status === AppointmentStatus.TREATING) return { bg: 'bg-lilac-50', border: 'border-lilac-300', text: 'text-lilac-900', icon: 'text-lilac-600' };
+
+     // Default Type Styles
      switch(type) {
          case AppointmentType.ROOT_CANAL:
          case AppointmentType.EXTRACTION:
@@ -104,7 +111,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
          case AppointmentType.DENTURE_ADJUSTMENTS:
             return { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', icon: 'text-purple-500' };
          default: 
-            return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', icon: 'text-blue-500' };
+            return { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-500' };
      }
   };
 
@@ -112,7 +119,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Calendar Header */}
-      <div className="p-4 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+      <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
                 <button onClick={prevDay} className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
@@ -123,7 +130,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                     <ChevronRight size={20} />
                 </button>
             </div>
-            {/* View Toggle */}
+            
             <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button 
                     onClick={() => setViewMode('grid')}
@@ -141,31 +148,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                 </button>
             </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-           <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
-                <span className="text-xs font-bold text-slate-400 px-2 uppercase tracking-wide">Filter</span>
-                <button 
-                    onClick={() => setRoleFilter('All')} 
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${roleFilter === 'All' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    All Staff
-                </button>
-                <button 
-                    onClick={() => setRoleFilter('Dentist')} 
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${roleFilter === 'Dentist' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                    Dentists
-                </button>
-                {currentUser && currentUser.role !== UserRole.ADMIN && (
-                    <button 
-                        onClick={() => setRoleFilter('MySchedule')} 
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${roleFilter === 'MySchedule' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        My Schedule
-                    </button>
-                )}
-           </div>
+        
+        {/* Helper Text */}
+        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2">
+            {currentBranch && <span className="bg-teal-50 text-teal-700 px-2 py-1 rounded">{currentBranch}</span>}
+            <span>
+                {currentUser?.role === UserRole.ADMIN ? 'All Providers' : 
+                currentUser?.role === UserRole.DENTIST ? 'My Personal Schedule' : 
+                'Facility Schedule'}
+            </span>
         </div>
       </div>
 
@@ -175,7 +166,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
              {sortedAppointments.length === 0 ? (
                  <div className="text-center py-20 text-slate-400">
                      <Clock size={48} className="mx-auto mb-4 opacity-20" />
-                     <p>No appointments scheduled for this day.</p>
+                     <p>No appointments scheduled for this view.</p>
                      <button onClick={() => onAddAppointment(formattedDate)} className="mt-4 text-teal-600 font-bold hover:underline">Book an appointment</button>
                  </div>
              ) : (
@@ -183,7 +174,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                      {sortedAppointments.map(apt => {
                          const provider = staff.find(s => s.id === apt.providerId);
                          const patient = getPatient(apt.patientId);
-                         const styles = getAppointmentBaseStyle(apt.type);
+                         const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status);
                          
                          return (
                              <div key={apt.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row">
@@ -206,9 +197,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                 <div className="flex items-center gap-2">
                                                     <h3 className="font-bold text-lg text-slate-800">{patient ? patient.name : 'Unknown Patient'}</h3>
                                                     {isCritical(patient) && <AlertTriangle size={16} className="text-red-500 fill-red-100" />}
+                                                    {/* Lab Flag */}
+                                                    {apt.labStatus && apt.labStatus !== LabStatus.NONE && (
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                                                            <Beaker size={10} /> Lab: {apt.labStatus}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${
-                                                    apt.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                                    apt.status === AppointmentStatus.CONFIRMED ? 'bg-green-100 text-green-700' : 
+                                                    apt.status === AppointmentStatus.ARRIVED ? 'bg-orange-100 text-orange-700' :
+                                                    apt.status === AppointmentStatus.SEATED ? 'bg-blue-100 text-blue-700' :
+                                                    apt.status === AppointmentStatus.TREATING ? 'bg-lilac-100 text-lilac-700' :
+                                                    'bg-slate-100 text-slate-600'
                                                 }`}>
                                                     {apt.status}
                                                 </span>
@@ -242,23 +243,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
          <div className="min-w-max h-full flex flex-col">
             
             {/* Provider Header Row */}
-            <div className="flex border-b border-slate-100">
-                <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-100 sticky left-0 z-20"></div> 
-                {providers.map(provider => (
-                    <div key={provider.id} className="w-[220px] flex-shrink-0 p-3 border-r border-slate-100 text-center bg-slate-50">
-                        <div className="flex flex-col items-center group">
-                            <div className="relative">
-                                <img src={provider.avatar} alt={provider.name} className="w-10 h-10 rounded-full mb-1 border-2 border-white shadow-sm group-hover:scale-110 transition-transform" />
-                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white
-                                    ${provider.role === UserRole.DENTIST ? 'bg-teal-500' : 'bg-lilac-500'}
-                                `}>
-                                    {provider.role === UserRole.DENTIST ? 'D' : 'A'}
+            <div className="flex border-b border-slate-100 sticky top-0 z-30 bg-white">
+                <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-100 sticky left-0 z-40 shadow-sm"></div> 
+                {visibleProviders.length > 0 ? (
+                    visibleProviders.map(provider => (
+                        <div key={provider.id} className="w-[240px] flex-shrink-0 p-3 border-r border-slate-100 text-center bg-slate-50">
+                            <div className="flex flex-col items-center group">
+                                <div className="relative">
+                                    <img src={provider.avatar} alt={provider.name} className="w-10 h-10 rounded-full mb-1 border-2 border-white shadow-sm" />
+                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white
+                                        ${provider.role === UserRole.DENTIST ? 'bg-teal-500' : 'bg-lilac-500'}
+                                    `}>
+                                        {provider.role === UserRole.DENTIST ? 'D' : 'A'}
+                                    </div>
                                 </div>
+                                <span className="text-sm font-bold text-slate-800 truncate w-full mt-1">{provider.name}</span>
                             </div>
-                            <span className="text-sm font-bold text-slate-800 truncate w-full mt-1">{provider.name}</span>
                         </div>
+                    ))
+                ) : (
+                    <div className="p-4 text-sm text-slate-400 italic flex-1 text-center">
+                        No providers scheduled for {currentBranch} on this day.
                     </div>
-                ))}
+                )}
             </div>
 
             {/* Time Slots Grid */}
@@ -266,24 +273,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                 {timeSlots.map(hour => (
                     <div key={hour} className="flex min-h-[140px] border-b border-slate-50">
                         {/* Time Label */}
-                        <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-100 bg-slate-50/90 backdrop-blur-sm text-xs font-bold text-slate-400 sticky left-0 z-10">
-                            {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
+                        <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-100 bg-slate-50/90 backdrop-blur-sm text-xs font-bold text-slate-400 sticky left-0 z-20">
+                            {hour > 12 ? hour - 12 : hour} {hour >= 12 && hour < 24 ? 'PM' : 'AM'}
                         </div>
 
-                        {/* Cells for each provider */}
-                        {providers.map(provider => {
-                           const apt = todaysAppointments.find(a => 
+                        {/* Cells */}
+                        {visibleProviders.map(provider => {
+                           const apt = relevantAppointments.find(a => 
                                a.providerId === provider.id && 
                                parseInt(a.time.split(':')[0]) === hour
                            );
                            
                            const patient = apt ? getPatient(apt.patientId) : undefined;
-                           const styles = apt ? getAppointmentBaseStyle(apt.type) : undefined;
+                           const styles = apt ? getAppointmentBaseStyle(apt.type as AppointmentType, apt.status) : undefined;
 
                            return (
                                <div 
                                  key={`${provider.id}-${hour}`} 
-                                 className="w-[220px] flex-shrink-0 border-r border-slate-100 p-2 relative group bg-white hover:bg-slate-50/30 transition-colors"
+                                 className="w-[240px] flex-shrink-0 border-r border-slate-100 p-2 relative group bg-white hover:bg-slate-50/30 transition-colors"
                                >
                                   {apt ? (
                                       <div className={`
@@ -298,11 +305,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                           ) : (
                                               <>
                                                 {/* Header: Time + Status */}
-                                                <div className="flex justify-between items-center mb-2">
+                                                <div className="flex justify-between items-start mb-2">
                                                     <span className="font-bold opacity-75 flex items-center gap-1">
                                                         <Clock size={10} /> {apt.time}
                                                     </span>
-                                                    {apt.status === AppointmentStatus.CONFIRMED && <CheckCircle size={12} className="text-green-600" />}
+                                                    {apt.labStatus && apt.labStatus !== LabStatus.NONE && (
+                                                        <Beaker size={12} className="text-amber-600" title="Lab Case" />
+                                                    )}
                                                 </div>
                                                 
                                                 {/* Patient Name */}
@@ -311,30 +320,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     {isCritical(patient) && <AlertTriangle size={12} className="text-red-500 fill-red-100 shrink-0" />}
                                                 </div>
 
-                                                {/* Procedure Badge */}
                                                 <div className="mb-2">
                                                     <span className="bg-white/50 border border-black/5 px-1.5 py-0.5 rounded text-[10px] font-semibold">
                                                         {apt.type}
                                                     </span>
                                                 </div>
-
-                                                {/* Footer: Notes or ID */}
-                                                <div className="mt-auto pt-2 border-t border-black/5 opacity-70 truncate text-[10px]">
-                                                    {apt.notes || `ID: ${apt.id}`}
+                                                
+                                                {/* Status Tag for Flow */}
+                                                <div className="mt-auto pt-2 border-t border-black/5 flex justify-between items-center">
+                                                    <span className="font-bold uppercase text-[9px] opacity-70">{apt.status}</span>
+                                                    {apt.status === AppointmentStatus.CONFIRMED && <CheckCircle size={10} />}
                                                 </div>
                                               </>
                                           )}
                                       </div>
                                   ) : (
-                                      <button 
-                                        onClick={() => onAddAppointment(formattedDate, `${hour}:00`)}
-                                        className="w-full h-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-teal-600 transition-all rounded-xl border-2 border-dashed border-teal-200 bg-teal-50/30 gap-1"
-                                      >
-                                          <div className="bg-white p-2 rounded-full shadow-sm text-teal-500">
-                                              <Clock size={16} />
-                                          </div>
-                                          <span className="text-xs font-bold">Book Slot</span>
-                                      </button>
+                                      /* BOOK BUTTON */
+                                      (currentUser?.role === UserRole.ADMIN || 
+                                       currentUser?.id === provider.id || 
+                                       currentUser?.role === UserRole.DENTAL_ASSISTANT) && (
+                                          <button 
+                                            onClick={() => onAddAppointment(formattedDate, `${hour}:00`)}
+                                            className="w-full h-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-teal-600 transition-all rounded-xl border-2 border-dashed border-teal-200 bg-teal-50/30 gap-1"
+                                          >
+                                              <div className="bg-white p-2 rounded-full shadow-sm text-teal-500">
+                                                  <Clock size={16} />
+                                              </div>
+                                              <span className="text-xs font-bold">Book Slot</span>
+                                          </button>
+                                      )
                                   )}
                                </div>
                            );

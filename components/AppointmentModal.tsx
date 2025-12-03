@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings } from '../types';
+import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock, ArrowRightLeft, Beaker } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
 
@@ -10,14 +10,14 @@ interface AppointmentModalProps {
   onClose: () => void;
   patients: Patient[];
   staff: Staff[];
-  appointments: Appointment[]; // Added to check for conflicts
+  appointments: Appointment[]; 
   onSave: (appointment: any) => void;
   onSavePatient?: (patient: any) => void; 
   initialDate?: string;
   initialTime?: string;
   initialPatientId?: string;
   existingAppointment?: Appointment | null;
-  fieldSettings: FieldSettings; // Added prop
+  fieldSettings: FieldSettings; 
 }
 
 const AppointmentModal: React.FC<AppointmentModalProps> = ({ 
@@ -31,6 +31,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [time, setTime] = useState(initialTime || '09:00');
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState('');
+  const [labStatus, setLabStatus] = useState<LabStatus>(LabStatus.NONE);
 
   // Existing Patient Tab
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -49,10 +50,10 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [blockTitle, setBlockTitle] = useState('');
 
   // Reschedule Logic
-  const [rescheduleReason, setRescheduleReason] = useState<'Correction' | 'Reschedule'>('Reschedule');
+  const [rescheduleReason, setRescheduleReason] = useState<'Correction' | 'Reschedule' | 'Provider Change'>('Reschedule');
 
   const dentists = staff.filter(s => s.role === UserRole.DENTIST);
-  const hygienists = staff.filter(s => s.role === UserRole.HYGIENIST);
+  const assistants = staff.filter(s => s.role === UserRole.DENTAL_ASSISTANT);
 
   useEffect(() => {
       if (isOpen) {
@@ -62,6 +63,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setTime(existingAppointment.time);
               setDuration(existingAppointment.durationMinutes);
               setNotes(existingAppointment.notes || '');
+              setLabStatus(existingAppointment.labStatus || LabStatus.NONE);
               
               if (existingAppointment.isBlock) {
                   setActiveTab('block');
@@ -76,6 +78,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setDate(initialDate || new Date().toISOString().split('T')[0]);
               setTime(initialTime || '09:00');
               setProviderId('');
+              setLabStatus(LabStatus.NONE);
               
               if (initialPatientId) {
                   setActiveTab('existing');
@@ -114,11 +117,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         a.date === date &&
         a.time === time &&
         a.status !== AppointmentStatus.CANCELLED &&
-        a.id !== existingAppointment?.id // Don't conflict with self during edit
+        a.id !== existingAppointment?.id 
       );
 
       if (conflict) {
-          alert(`Schedule Conflict: This provider already has an appointment at ${time} on ${date}.`);
+          const busyProvider = staff.find(s => s.id === providerId)?.name || 'Provider';
+          alert(`Schedule Conflict: ${busyProvider} already has an appointment at ${time} on ${date}.`);
           return;
       }
 
@@ -132,7 +136,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               alert("Please fill in required fields");
               return;
           }
-          const newId = Math.floor(10000000 + Math.random() * 90000000).toString(); // Generate 8 digit ID
+          const newId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
           const newPatient = {
               id: newId,
               name: `${newPatientData.firstName} ${newPatientData.surname}`,
@@ -140,12 +144,11 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               surname: newPatientData.surname,
               phone: newPatientData.phone,
               notes: newPatientData.notes,
-              provisional: true, // Flag as provisional internally
+              provisional: true, 
               dob: '',
               email: ''
           };
           
-          // Important: We assume parent handles state update synchronously enough or we pass explicit ID
           if (onSavePatient) onSavePatient(newPatient);
           finalPatientId = newId;
       } 
@@ -169,21 +172,32 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           date,
           time,
           durationMinutes: duration,
-          type: activeTab === 'block' ? AppointmentType.CONSULTATION : procedureType, // Fallback type for block
-          status: AppointmentStatus.SCHEDULED,
+          type: activeTab === 'block' ? AppointmentType.CONSULTATION : procedureType,
+          status: existingAppointment?.status || AppointmentStatus.SCHEDULED, // Preserve flow status
           notes,
+          labStatus: isBlock ? LabStatus.NONE : labStatus,
           isBlock,
           title
       };
 
       // Reschedule History Logic
       if (existingAppointment) {
-          if (existingAppointment.date !== date || existingAppointment.time !== time) {
+          const isDateChanged = existingAppointment.date !== date || existingAppointment.time !== time;
+          const isProviderChanged = existingAppointment.providerId !== providerId;
+          
+          if (isDateChanged || isProviderChanged) {
               const history = existingAppointment.rescheduleHistory || [];
+              
+              let reason = rescheduleReason;
+              if (isProviderChanged && reason !== 'Correction') {
+                  reason = 'Provider Change';
+              }
+
               history.push({
                   previousDate: existingAppointment.date,
                   previousTime: existingAppointment.time,
-                  reason: rescheduleReason,
+                  previousProviderId: existingAppointment.providerId,
+                  reason: reason,
                   timestamp: new Date().toISOString()
               });
               appointmentData.rescheduleHistory = history;
@@ -261,7 +275,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                 </button>
                             )}
                         </div>
-                        {/* Dropdown Results */}
                         {searchTerm && !selectedPatient && searchResults.length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-30">
                                 {searchResults.map(p => (
@@ -280,7 +293,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         )}
                     </div>
 
-                    {/* Context Card */}
                     {selectedPatient && (
                         <div className="bg-teal-50 border border-teal-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
                              <div className="flex justify-between items-start mb-2">
@@ -291,21 +303,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                     Last: {formatDate(selectedPatient.lastVisit)}
                                 </span>
                              </div>
-                             
-                             {/* Outstanding Treatments */}
-                             {getPendingTreatments(selectedPatient).length > 0 && (
-                                 <div className="mt-3 bg-white p-3 rounded-lg border border-teal-100">
-                                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">Outstanding Treatment</div>
-                                     <ul className="space-y-1">
-                                         {getPendingTreatments(selectedPatient).map((t, idx) => (
-                                             <li key={idx} className="text-sm text-red-600 font-medium flex items-center gap-2">
-                                                 <AlertCircle size={12}/> Tooth {t.toothNumber}: {t.procedure}
-                                             </li>
-                                         ))}
-                                     </ul>
-                                 </div>
-                             )}
-
                              {/* Alerts */}
                              {(selectedPatient.medicalConditions?.length || 0) > 0 && (
                                  <div className="mt-2 text-xs text-red-600 font-bold flex items-center gap-1">
@@ -323,9 +320,31 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                             onChange={(e) => setProcedureType(e.target.value)}
                         >
                             {fieldSettings.procedures.map(type => (
-                                <option key={type} value={type}>{type}</option>
+                                <option key={type.id} value={type.name}>{type.name}</option>
                             ))}
                         </select>
+                    </div>
+
+                    {/* LAB STATUS TOGGLE */}
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                        <label className="flex items-center gap-2 text-sm font-bold text-amber-800 mb-2">
+                            <Beaker size={16} /> Lab Tracking
+                        </label>
+                        <div className="flex gap-2">
+                            {Object.values(LabStatus).map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setLabStatus(status)}
+                                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${
+                                        labStatus === status 
+                                        ? 'bg-amber-500 text-white border-amber-600'
+                                        : 'bg-white text-slate-500 border-slate-200 hover:bg-amber-50'
+                                    }`}
+                                >
+                                    {status}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </>
             )}
@@ -366,29 +385,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                             value={newPatientData.phone}
                             onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})}
                         />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Chief Complaint / Notes</label>
-                        <input 
-                            type="text"
-                            placeholder="e.g. Toothache, Cleaning"
-                            className="w-full p-2 border border-slate-200 rounded-lg focus:border-teal-500 outline-none bg-white"
-                            value={newPatientData.notes}
-                            onChange={e => setNewPatientData({...newPatientData, notes: e.target.value})}
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Procedure</label>
-                        <select 
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                            value={procedureType}
-                            onChange={(e) => setProcedureType(e.target.value)}
-                        >
-                             {fieldSettings.procedures.map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
                     </div>
                 </div>
             )}
@@ -471,40 +467,48 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <optgroup label="Dentists">
                             {dentists.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </optgroup>
-                        <optgroup label="Hygienists">
-                            {hygienists.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        <optgroup label="Dental Assistants">
+                            {assistants.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </optgroup>
                     </select>
                 </div>
             </div>
 
-            {/* Reschedule Question */}
+            {/* Reschedule / Modification Reason */}
             {existingAppointment && (
                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                     <label className="block text-sm font-bold text-blue-800 mb-2">Modification Reason</label>
-                    <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input 
-                                type="radio" 
-                                name="reason" 
-                                value="Reschedule" 
-                                checked={rescheduleReason === 'Reschedule'} 
-                                onChange={() => setRescheduleReason('Reschedule')}
-                                className="w-4 h-4 accent-blue-600"
-                            />
-                            <span className="text-sm">Reschedule (Log it)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input 
-                                type="radio" 
-                                name="reason" 
-                                value="Correction" 
-                                checked={rescheduleReason === 'Correction'} 
-                                onChange={() => setRescheduleReason('Correction')}
-                                className="w-4 h-4 accent-blue-600"
-                            />
-                            <span className="text-sm">Correction (Oops)</span>
-                        </label>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="reason" 
+                                    value="Reschedule" 
+                                    checked={rescheduleReason === 'Reschedule'} 
+                                    onChange={() => setRescheduleReason('Reschedule')}
+                                    className="w-4 h-4 accent-blue-600"
+                                />
+                                <span className="text-sm">Reschedule (Log it)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="reason" 
+                                    value="Correction" 
+                                    checked={rescheduleReason === 'Correction'} 
+                                    onChange={() => setRescheduleReason('Correction')}
+                                    className="w-4 h-4 accent-blue-600"
+                                />
+                                <span className="text-sm">Correction (Oops)</span>
+                            </label>
+                        </div>
+                        {existingAppointment.providerId !== providerId && (
+                             <div className="text-xs text-blue-600 font-bold flex items-center gap-1 animate-pulse">
+                                <ArrowRightLeft size={12} />
+                                Provider Change detected - Will be logged automatically.
+                             </div>
+                        )}
                     </div>
                 </div>
             )}
