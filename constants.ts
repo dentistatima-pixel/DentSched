@@ -1,5 +1,4 @@
-
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -189,7 +188,7 @@ export const PATIENTS: Patient[] = [
         lastVisit: '2023-09-01',
         nextVisit: null,
         notes: 'Needs clearance for surgery.',
-        medicalConditions: ['High BP'],
+        medicalConditions: ['Hypertension (High BP)'],
         insuranceProvider: 'Intellicare'
     }
 ];
@@ -233,3 +232,61 @@ export const APPOINTMENTS: Appointment[] = [
         labStatus: LabStatus.NONE
     }
 ];
+
+// Initial defaults updated with prices and IDs
+export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
+  suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D'],
+  civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
+  insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard', 'Etiqa', 'Pacific Cross'],
+  bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
+  allergies: ['Penicillin', 'Latex', 'Peanuts', 'Seafood', 'Aspirin', 'Sulfa', 'Local Anesthetic', 'Dust Mites'],
+  medicalConditions: [
+    'Hypertension (High BP)', 
+    'Hypotension (Low BP)', 
+    'Diabetes Type 1', 
+    'Diabetes Type 2', 
+    'Asthma', 
+    'Heart Disease', 
+    'Heart Attack / MI',
+    'Angina / Chest Pain',
+    'Pacemaker',
+    'Stroke / CVA', 
+    'Epilepsy / Seizures', 
+    'Arthritis / Rheumatism', 
+    'Kidney Disease', 
+    'Liver Disease (Hepatitis)', 
+    'Thyroid Disorder',
+    'Anemia / Bleeding Disorder', 
+    'Stomach Ulcers / GERD', 
+    'Tuberculosis (TB)',
+    'Cancer / Tumor',
+    'Radiation / Chemotherapy',
+    'HIV / AIDS',
+    'Artificial Heart Valve',
+    'Artificial Joint',
+    'Sinusitis',
+    'Sleep Apnea',
+    'Mental Health Condition'
+  ],
+  procedures: [
+      { id: 'p1', name: 'Consultation', price: 500 },
+      { id: 'p2', name: 'Oral Prophylaxis (Light)', price: 1200 },
+      { id: 'p3', name: 'Oral Prophylaxis (Heavy)', price: 1800 },
+      { id: 'p4', name: 'Composite Restoration (1 Surface)', price: 1500 },
+      { id: 'p5', name: 'Composite Restoration (2 Surfaces)', price: 2000 },
+      { id: 'p6', name: 'Simple Extraction', price: 1000 },
+      { id: 'p7', name: 'Complicated Extraction', price: 3500 },
+      { id: 'p8', name: 'Root Canal (Anterior)', price: 8000 },
+      { id: 'p9', name: 'Root Canal (Molar)', price: 12000 },
+      { id: 'p10', name: 'Porcelain Crown', price: 15000 },
+      { id: 'p11', name: 'Whitening', price: 20000 },
+      { id: 'p12', name: 'Denture Adjustment', price: 500 }
+  ], 
+  branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+  features: {
+      enableLabTracking: true,
+      enableComplianceAudit: true,
+      enableDentalAssistantFlow: true,
+      enableMultiBranch: true
+  }
+};

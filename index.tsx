@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, ErrorInfo } from 'react';
+import React, { ReactNode, ErrorInfo, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -17,13 +17,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { 
-      hasError: false, 
-      error: null 
-    };
-  }
+  public state: ErrorBoundaryState = { 
+    hasError: false, 
+    error: null 
+  };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -51,7 +48,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 // Force a log to ensure the preview detected the change
-console.log("App mounted. Version 8 Refresh.");
+console.log("App mounted. Version 11 Refresh.");
 
 const root = ReactDOM.createRoot(rootElement);
 // We add a key to App to force a full re-mount when this file is updated, 
@@ -59,7 +56,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v8-fix" />
+        <App key="refresh-v11-medical-fix" />
     </ErrorBoundary>
   </React.StrictMode>
 );

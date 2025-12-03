@@ -75,8 +75,8 @@ function App() {
   });
 
   // Auth State
-  // Switching to Index 2 (Dr. Alexander Crentist - Dentist)
-  const [currentUser, setCurrentUser] = useState<User>(staff[2] || staff[0]); 
+  // Defaulting to Administrator (Index 0 - Sarah Connor)
+  const [currentUser, setCurrentUser] = useState<User>(staff[0]); 
 
   // BRANCH STATE
   const [currentBranch, setCurrentBranch] = useState<string>(

@@ -34,7 +34,7 @@ const YesNoSpecify = ({
                     type="radio" 
                     name={name} 
                     checked={formData[name] === true} 
-                    onChange={() => !readOnly && onChange({ target: { name, value: true, type: 'checkbox', checked: true } } as any)}
+                    onChange={() => !readOnly && onChange({ target: { name, value: true } } as any)}
                     disabled={readOnly}
                     className="accent-teal-600 w-4 h-4"
                 />
@@ -45,7 +45,7 @@ const YesNoSpecify = ({
                     type="radio" 
                     name={name} 
                     checked={formData[name] === false} 
-                    onChange={() => !readOnly && onChange({ target: { name, value: false, type: 'checkbox', checked: false } } as any)}
+                    onChange={() => !readOnly && onChange({ target: { name, value: false } } as any)}
                     disabled={readOnly}
                     className="accent-teal-600 w-4 h-4"
                 />
