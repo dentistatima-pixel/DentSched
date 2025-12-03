@@ -1,0 +1,45 @@
+name: Deploy React App to Firebase Hosting
+
+# This workflow runs whenever you push changes to the 'main' branch.
+on:
+  push:
+    branches:
+      - main
+      - master # Include master if you use it as your primary branch
+
+jobs:
+  build_and_deploy:
+    # We use the official Firebase Hosting action for deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a stable Node version
+
+      # Install dependencies from package-lock.json (npm ci is faster than npm install)
+      - name: Install Dependencies
+        run: npm ci
+
+      # Build the React application (this creates the 'build' folder)
+      - name: Build Project
+        # The default create-react-app build command
+        run: npm run build
+
+      # Deploy the contents of the 'build' folder to Firebase Hosting
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          # Your Firebase Project ID
+          projectId: dentsched-9de50
+          # The Service Account Secret you must set up on GitHub
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # Use the 'live' channel for production deployment
+          channelId: live
+          # GitHub token is required for the action to be able to comment on Pull Requests (if using)
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
