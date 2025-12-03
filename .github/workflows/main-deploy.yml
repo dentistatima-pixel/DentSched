@@ -25,20 +25,20 @@ jobs:
 
       # Step 3: Install all project dependencies
       - name: Install Dependencies
-        # 'npm ci' is used for faster, clean installs in CI environments
         run: npm ci
 
-      # Step 4: Build the React application (creates the 'build' folder)
+      # Step 4: Build the React application
+      # NOTE: This runs 'vite build' which creates the 'dist' folder.
       - name: Build Project
         run: npm run build
 
-      # Step 5: Deploy the built 'build' folder to Firebase Hosting
+      # Step 5: Deploy the built 'dist' folder to Firebase Hosting
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           # Your Firebase Project ID
           projectId: dentsched-9de50
-          # THIS LINE IS THE FIX: It now correctly references your Secret name.
+          # This line uses the correct secret name.
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
           # Deploying to the live site
           channelId: live
