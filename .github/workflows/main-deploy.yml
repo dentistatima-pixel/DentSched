@@ -1,45 +1,46 @@
 name: Deploy React App to Firebase Hosting
 
-# This workflow runs whenever you push changes to the 'main' branch.
+# This workflow runs whenever you push changes to the 'main' or 'master' branch.
 on:
   push:
     branches:
       - main
-      - master # Include master if you use it as your primary branch
+      - master
 
 jobs:
   build_and_deploy:
-    # We use the official Firebase Hosting action for deployment
+    # Uses the standard operating system for GitHub Actions
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Get the code from the repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Set up Node.js environment
+      # Step 2: Set up the Node.js environment needed for React
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use a stable Node version
+          node-version: '20'
 
-      # Install dependencies from package-lock.json (npm ci is faster than npm install)
+      # Step 3: Install all project dependencies
       - name: Install Dependencies
+        # 'npm ci' is used for faster, clean installs in CI environments
         run: npm ci
 
-      # Build the React application (this creates the 'build' folder)
+      # Step 4: Build the React application (creates the 'build' folder)
       - name: Build Project
-        # The default create-react-app build command
         run: npm run build
 
-      # Deploy the contents of the 'build' folder to Firebase Hosting
+      # Step 5: Deploy the built 'build' folder to Firebase Hosting
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           # Your Firebase Project ID
           projectId: dentsched-9de50
-          # The Service Account Secret you must set up on GitHub
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          # Use the 'live' channel for production deployment
+          # THIS LINE IS THE FIX: It now correctly references your Secret name.
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_9DE50 }}
+          # Deploying to the live site
           channelId: live
-          # GitHub token is required for the action to be able to comment on Pull Requests (if using)
+          # Required for the action to function correctly
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
