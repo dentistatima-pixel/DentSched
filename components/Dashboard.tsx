@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Calendar, CheckCircle, Clock, Users, TrendingUp, AlertTriangle, Search, UserPlus, ChevronRight, CalendarPlus, FileText, ArrowRight, ClipboardList, Beaker } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings } from '../types';
@@ -16,11 +15,12 @@ interface DashboardProps {
   onUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => void;
   onCompleteRegistration: (patientId: string) => void;
   fieldSettings?: FieldSettings;
+  onViewAllSchedule?: () => void; // New prop
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, patientsCount, staffCount, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings
+  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openTrayId, setOpenTrayId] = useState<string | null>(null);
@@ -29,7 +29,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const enableLab = fieldSettings?.features?.enableLabTracking ?? true;
   const enableAssistantFlow = fieldSettings?.features?.enableDentalAssistantFlow ?? true;
 
-  const today = new Date().toISOString().split('T')[0];
+  // Use local date string instead of UTC
+  const today = new Date().toLocaleDateString('en-CA');
   
   // VISIBILITY LOGIC (Updated for Branch-Centric Model)
   const visibleAppointments = appointments.filter(a => {
@@ -196,7 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <h2 className="text-base font-bold text-slate-800">
                 {currentUser.role === UserRole.DENTIST ? 'Today\'s Schedule' : "Clinic Schedule"}
             </h2>
-            <button className="text-teal-600 font-bold active:text-teal-800 text-[10px] uppercase tracking-wide">View All</button>
+            <button onClick={onViewAllSchedule} className="text-teal-600 font-bold active:text-teal-800 text-[10px] uppercase tracking-wide">View All</button>
           </div>
           
           <div className="divide-y divide-slate-50">

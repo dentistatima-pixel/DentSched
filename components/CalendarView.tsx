@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker } from 'lucide-react';
 import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus } from '../types';
@@ -29,7 +28,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
     setSelectedDate(prev);
   };
 
-  const formattedDate = selectedDate.toISOString().split('T')[0];
+  const formattedDate = selectedDate.toLocaleDateString('en-CA'); // Fixed: Use local date YYYY-MM-DD
   const displayDate = selectedDate.toLocaleDateString('en-US', { 
     weekday: 'long',
     month: 'long', 
@@ -119,7 +118,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Calendar Header */}
-      <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
                 <button onClick={prevDay} className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
@@ -239,7 +238,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
           </div>
       ) : (
       /* --- GRID VIEW --- */
-      <div className="flex-1 overflow-x-auto overflow-y-hidden bg-white">
+      <div className="flex-1 overflow-x-auto overflow-y-auto bg-white">
          <div className="min-w-max h-full flex flex-col">
             
             {/* Provider Header Row */}
@@ -269,7 +268,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             </div>
 
             {/* Time Slots Grid */}
-            <div className="flex-1 overflow-y-auto relative">
+            <div className="flex-1 relative">
                 {timeSlots.map(hour => (
                     <div key={hour} className="flex min-h-[140px] border-b border-slate-50">
                         {/* Time Label */}
@@ -279,60 +278,67 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
                         {/* Cells */}
                         {visibleProviders.map(provider => {
-                           const apt = relevantAppointments.find(a => 
+                           // FIXED: Use filter instead of find to handle multiple appointments in same slot
+                           const slotAppointments = relevantAppointments.filter(a => 
                                a.providerId === provider.id && 
                                parseInt(a.time.split(':')[0]) === hour
                            );
                            
-                           const patient = apt ? getPatient(apt.patientId) : undefined;
-                           const styles = apt ? getAppointmentBaseStyle(apt.type as AppointmentType, apt.status) : undefined;
-
                            return (
                                <div 
                                  key={`${provider.id}-${hour}`} 
                                  className="w-[240px] flex-shrink-0 border-r border-slate-100 p-2 relative group bg-white hover:bg-slate-50/30 transition-colors"
                                >
-                                  {apt ? (
-                                      <div className={`
-                                        h-full rounded-xl p-3 text-xs border cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col
-                                        ${apt.isBlock ? 'bg-slate-100 border-slate-200 text-slate-500' : `${styles?.bg} ${styles?.border} ${styles?.text}`}
-                                        ${apt.status === AppointmentStatus.CANCELLED ? 'opacity-60 grayscale' : ''}
-                                      `}>
-                                          {apt.isBlock ? (
-                                              <div className="flex items-center justify-center h-full gap-2 font-bold italic">
-                                                  <Lock size={14} /> {apt.title}
-                                              </div>
-                                          ) : (
-                                              <>
-                                                {/* Header: Time + Status */}
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="font-bold opacity-75 flex items-center gap-1">
-                                                        <Clock size={10} /> {apt.time}
-                                                    </span>
-                                                    {apt.labStatus && apt.labStatus !== LabStatus.NONE && (
-                                                        <Beaker size={12} className="text-amber-600" title="Lab Case" />
+                                  {slotAppointments.length > 0 ? (
+                                      <div className="flex flex-col gap-1 h-full overflow-y-auto max-h-[200px] no-scrollbar">
+                                        {slotAppointments.map(apt => {
+                                            const patient = getPatient(apt.patientId);
+                                            const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status);
+
+                                            return (
+                                                <div key={apt.id} className={`
+                                                    rounded-xl p-3 text-xs border cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all flex flex-col shrink-0
+                                                    ${apt.isBlock ? 'bg-slate-100 border-slate-200 text-slate-500 min-h-[100px]' : `${styles?.bg} ${styles?.border} ${styles?.text} min-h-[120px]`}
+                                                    ${apt.status === AppointmentStatus.CANCELLED ? 'opacity-60 grayscale' : ''}
+                                                `}>
+                                                    {apt.isBlock ? (
+                                                        <div className="flex items-center justify-center h-full gap-2 font-bold italic">
+                                                            <Lock size={14} /> {apt.title}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {/* Header: Time + Status */}
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <span className="font-bold opacity-75 flex items-center gap-1">
+                                                                    <Clock size={10} /> {apt.time}
+                                                                </span>
+                                                                {apt.labStatus && apt.labStatus !== LabStatus.NONE && (
+                                                                    <Beaker size={12} className="text-amber-600" title="Lab Case" />
+                                                                )}
+                                                            </div>
+                                                            
+                                                            {/* Patient Name */}
+                                                            <div className="font-bold text-sm mb-1 line-clamp-2 flex items-center gap-1">
+                                                                {patient ? patient.name : `Patient ${apt.patientId}`}
+                                                                {isCritical(patient) && <AlertTriangle size={12} className="text-red-500 fill-red-100 shrink-0" />}
+                                                            </div>
+
+                                                            <div className="mb-2">
+                                                                <span className="bg-white/50 border border-black/5 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                                                                    {apt.type}
+                                                                </span>
+                                                            </div>
+                                                            
+                                                            {/* Status Tag for Flow */}
+                                                            <div className="mt-auto pt-2 border-t border-black/5 flex justify-between items-center">
+                                                                <span className="font-bold uppercase text-[9px] opacity-70">{apt.status}</span>
+                                                                {apt.status === AppointmentStatus.CONFIRMED && <CheckCircle size={10} />}
+                                                            </div>
+                                                        </>
                                                     )}
                                                 </div>
-                                                
-                                                {/* Patient Name */}
-                                                <div className="font-bold text-sm mb-1 line-clamp-2 flex items-center gap-1">
-                                                    {patient ? patient.name : `Patient ${apt.patientId}`}
-                                                    {isCritical(patient) && <AlertTriangle size={12} className="text-red-500 fill-red-100 shrink-0" />}
-                                                </div>
-
-                                                <div className="mb-2">
-                                                    <span className="bg-white/50 border border-black/5 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                                                        {apt.type}
-                                                    </span>
-                                                </div>
-                                                
-                                                {/* Status Tag for Flow */}
-                                                <div className="mt-auto pt-2 border-t border-black/5 flex justify-between items-center">
-                                                    <span className="font-bold uppercase text-[9px] opacity-70">{apt.status}</span>
-                                                    {apt.status === AppointmentStatus.CONFIRMED && <CheckCircle size={10} />}
-                                                </div>
-                                              </>
-                                          )}
+                                            );
+                                        })}
                                       </div>
                                   ) : (
                                       /* BOOK BUTTON */

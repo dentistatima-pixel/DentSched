@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 
 interface OdontogramProps {
@@ -8,94 +8,192 @@ interface OdontogramProps {
   onToothClick?: (toothNumber: number) => void;
 }
 
-// Extracted Tooth Component
-const Tooth: React.FC<{number: number; status?: TreatmentStatus; readOnly?: boolean; onClick?: (n: number) => void}> = ({ number, status, readOnly, onClick }) => {
+const GeometricTooth: React.FC<{
+    number: number;
+    data?: DentalChartEntry;
+    onClick?: (n: number) => void;
+    readOnly?: boolean;
+}> = ({ number, data, onClick, readOnly }) => {
+    // 1. Determine Quadrant and Orientation
+    const quadrant = Math.floor(number / 10);
+    const isUpper = quadrant === 1 || quadrant === 2;
+    // Q1 & Q4 are on the patient's right (viewer's left)
+    const isPatientRight = quadrant === 1 || quadrant === 4; 
     
-    const getStatusColor = (s?: TreatmentStatus) => {
-        switch (s) {
-        case 'Planned': return '#ef4444'; // Red
-        case 'Completed': return '#10b981'; // Green
-        case 'Existing': return '#3b82f6'; // Blue
-        default: return '#f1f5f9'; // Slate-100 (Healthy/Default)
-        }
+    // --- COLOR LOGIC ---
+    const colorMap: Record<string, string> = {
+        'Planned': '#ef4444',   // Red-500
+        'Completed': '#10b981', // Emerald-500
+        'Existing': '#3b82f6',  // Blue-500
+        'Condition': '#f59e0b', // Amber-500
+        'None': '#f8fafc'       // Slate-50
     };
 
-    const color = getStatusColor(status);
+    const getFill = (surfaceKey: string) => {
+        if (!data) return colorMap['None'];
+        
+        // Special case: Whole tooth procedures
+        const proc = data.procedure.toLowerCase();
+        if (proc.includes('extraction') || proc.includes('missing') || proc.includes('denture') || proc.includes('crown')) {
+             return colorMap[data.status] || colorMap['None'];
+        }
+        
+        // If no specific surfaces defined but status exists, fill Occlusal (Center) or All depending on preference.
+        // For box chart, strict surface mapping is better. If undefined, we assume whole tooth for simplicity in legacy data.
+        if (!data.surfaces) {
+             return colorMap[data.status] || colorMap['None'];
+        }
+        
+        if (data.surfaces.includes(surfaceKey)) {
+            return colorMap[data.status] || colorMap['None'];
+        }
+        return colorMap['None'];
+    };
+    
+    // --- SURFACE MAPPING ---
+    // Logical colors
+    const cM = getFill('M');
+    const cD = getFill('D');
+    const cO = getFill('O'); 
+    const cB = getFill('B'); 
+    const cL = getFill('L'); 
+    
+    // Root logic
+    const isRootProc = data?.procedure.toLowerCase().includes('root canal') || data?.procedure.toLowerCase().includes('extraction');
+    const cRoot = isRootProc ? (colorMap[data?.status || ''] || colorMap['None']) : colorMap['None'];
+
+    // Map Logical Surfaces to Geometric SVG Positions (Top, Bottom, Left, Right)
+    let pTop, pBottom, pLeft, pRight;
+    
+    // Buccal/Lingual Orientation
+    if (isUpper) {
+        // Upper Arch: Top is Buccal, Bottom is Lingual
+        pTop = cB;
+        pBottom = cL;
+    } else {
+        // Lower Arch: Bottom is Buccal, Top is Lingual
+        pTop = cL;
+        pBottom = cB;
+    }
+
+    // Mesial/Distal Orientation
+    if (isPatientRight) {
+        // Q1/Q4 (Viewer Left): Midline is to the Right.
+        // Mesial is Right, Distal is Left.
+        pLeft = cD;
+        pRight = cM;
+    } else {
+        // Q2/Q3 (Viewer Right): Midline is to the Left.
+        // Mesial is Left, Distal is Right.
+        pLeft = cM;
+        pRight = cD;
+    }
+
+    // Styles
+    const strokeColor = "#64748b"; // slate-500
+    const strokeWidth = "2";
+    const hoverClass = !readOnly ? "hover:scale-105 active:scale-95" : "";
+    const activeClass = data ? "drop-shadow-md" : "";
 
     return (
-      <div 
-        onClick={() => !readOnly && onClick && onClick(number)}
-        className={`flex flex-col items-center gap-1 cursor-pointer transition-transform hover:scale-110 ${readOnly ? 'cursor-default' : ''}`}
-      >
-        <span className="text-[10px] text-slate-400 font-mono font-bold">{number}</span>
-        <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-           {/* Tooth Body */}
-           <path 
-             d="M20 30 C20 10, 80 10, 80 30 C80 50, 70 80, 60 90 L 50 95 L 40 90 C 30 80, 20 50, 20 30 Z" 
-             fill={color} 
-             stroke="#94a3b8" 
-             strokeWidth="3"
-           />
-           {/* Visual details */}
-           <path d="M35 30 L 35 70" stroke="rgba(0,0,0,0.1)" strokeWidth="2" />
-           <path d="M65 30 L 65 70" stroke="rgba(0,0,0,0.1)" strokeWidth="2" />
-           <path d="M20 30 L 80 30" stroke="rgba(0,0,0,0.1)" strokeWidth="2" />
-        </svg>
-      </div>
-    );
-};
+        <div 
+            onClick={() => !readOnly && onClick && onClick(number)}
+            className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation ${hoverClass} ${activeClass}`}
+            style={{ width: '64px', height: '80px', minWidth: '64px' }} // Fat finger sizing
+        >
+            {/* Number Label */}
+            <span className={`text-[11px] font-bold font-mono absolute ${isUpper ? '-top-1' : '-bottom-1'} text-slate-500 select-none`}>
+                {number}
+            </span>
+
+            <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+                {/* Root (Rendered away from biting surface) */}
+                {isUpper ? (
+                    <path d="M35 5 L65 5 L65 20 L35 20 Z" fill={cRoot} stroke={strokeColor} strokeWidth={strokeWidth} />
+                ) : (
+                    <path d="M35 80 L65 80 L65 95 L35 95 Z" fill={cRoot} stroke={strokeColor} strokeWidth={strokeWidth} />
+                )}
+
+                {/* Top Trapezoid */}
+                <path d="M20 20 L80 20 L70 30 L30 30 Z" fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} />
+                
+                {/* Right Trapezoid */}
+                <path d="M80 20 L80 80 L70 70 L70 30 Z" fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} />
+                
+                {/* Bottom Trapezoid */}
+                <path d="M80 80 L20 80 L30 70 L70 70 Z" fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} />
+                
+                {/* Left Trapezoid */}
+                <path d="M20 80 L20 20 L30 30 L30 70 Z" fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} />
+                
+                {/* Center Square (Occlusal) */}
+                <path d="M30 30 L70 30 L70 70 L30 70 Z" fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} />
+                
+                {/* Missing/Extracted X Overlay */}
+                {(data?.procedure.toLowerCase().includes('missing') || data?.procedure.toLowerCase().includes('extraction')) && (
+                     <path d="M20 20 L80 80 M80 20 L20 80" stroke={data.status === 'Existing' ? '#3b82f6' : '#ef4444'} strokeWidth="4" opacity="0.8" />
+                )}
+            </svg>
+        </div>
+    )
+}
 
 const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick }) => {
+  // FDI Layout Arrays
   const q1 = [18, 17, 16, 15, 14, 13, 12, 11];
   const q2 = [21, 22, 23, 24, 25, 26, 27, 28];
   const q4 = [48, 47, 46, 45, 44, 43, 42, 41];
   const q3 = [31, 32, 33, 34, 35, 36, 37, 38];
 
-  const getToothStatus = (number: number): TreatmentStatus | undefined => {
-    const entry = chart.find(e => e.toothNumber === number);
-    return entry?.status;
-  };
+  const getToothData = (number: number) => chart.find(e => e.toothNumber === number);
 
   return (
-    <div className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 overflow-x-auto">
-      <div className="min-w-[600px] flex flex-col gap-8 items-center">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 overflow-x-auto shadow-inner bg-slate-50/50">
+      <div className="min-w-[700px] flex flex-col gap-6 items-center py-4">
         
         {/* Upper Arch */}
         <div className="flex flex-col items-center w-full">
-            <div className="text-xs font-bold text-slate-400 mb-2 tracking-widest">UPPER ARCH</div>
-            <div className="flex gap-4 pb-4 border-b border-dashed border-slate-200">
-                {/* Q1 Right */}
-                <div className="flex gap-1.5 px-2 border-r border-slate-200 pr-4">
-                    {q1.map(t => <Tooth key={t} number={t} status={getToothStatus(t)} readOnly={readOnly} onClick={onToothClick} />)}
+            <div className="flex gap-8 pb-4 border-b-2 border-slate-200 w-full justify-center">
+                {/* Q1 Right (Patient Right) */}
+                <div className="flex gap-1">
+                    {q1.map(t => <GeometricTooth key={t} number={t} data={getToothData(t)} readOnly={readOnly} onClick={onToothClick} />)}
                 </div>
-                {/* Q2 Left */}
-                <div className="flex gap-1.5 px-2 pl-4">
-                    {q2.map(t => <Tooth key={t} number={t} status={getToothStatus(t)} readOnly={readOnly} onClick={onToothClick} />)}
+                {/* Divider */}
+                <div className="w-0.5 bg-slate-300 h-20 self-end"></div>
+                {/* Q2 Left (Patient Left) */}
+                <div className="flex gap-1">
+                    {q2.map(t => <GeometricTooth key={t} number={t} data={getToothData(t)} readOnly={readOnly} onClick={onToothClick} />)}
                 </div>
             </div>
+            <div className="text-[10px] font-bold text-slate-400 mt-2 tracking-widest uppercase">Upper Arch</div>
         </div>
         
         {/* Lower Arch */}
         <div className="flex flex-col items-center w-full">
-            <div className="flex gap-4 pt-2">
-                {/* Q4 Right */}
-                <div className="flex gap-1.5 px-2 border-r border-slate-200 pr-4">
-                    {q4.map(t => <Tooth key={t} number={t} status={getToothStatus(t)} readOnly={readOnly} onClick={onToothClick} />)}
+             <div className="text-[10px] font-bold text-slate-400 mb-2 tracking-widest uppercase">Lower Arch</div>
+            <div className="flex gap-8 pt-2 border-t-2 border-slate-200 w-full justify-center">
+                {/* Q4 Right (Patient Right) */}
+                <div className="flex gap-1">
+                    {q4.map(t => <GeometricTooth key={t} number={t} data={getToothData(t)} readOnly={readOnly} onClick={onToothClick} />)}
                 </div>
-                {/* Q3 Left */}
-                <div className="flex gap-1.5 px-2 pl-4">
-                    {q3.map(t => <Tooth key={t} number={t} status={getToothStatus(t)} readOnly={readOnly} onClick={onToothClick} />)}
+                 {/* Divider */}
+                 <div className="w-0.5 bg-slate-300 h-20 self-start"></div>
+                {/* Q3 Left (Patient Left) */}
+                <div className="flex gap-1">
+                    {q3.map(t => <GeometricTooth key={t} number={t} data={getToothData(t)} readOnly={readOnly} onClick={onToothClick} />)}
                 </div>
             </div>
-            <div className="text-xs font-bold text-slate-400 mt-2 tracking-widest">LOWER ARCH</div>
         </div>
 
-        {/* Legend */}
-        <div className="flex justify-center gap-6 mt-4 text-xs font-bold text-slate-600 bg-slate-50 p-2 rounded-lg">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-slate-100 border border-slate-300"></div> Healthy</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-red-500"></div> Planned</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-green-500"></div> Completed</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-blue-500"></div> Existing</div>
+        {/* Interactive Legend */}
+        <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs font-bold text-slate-600 bg-white border border-slate-200 p-3 rounded-xl shadow-sm w-full max-w-2xl">
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-slate-50 border border-slate-300"></div> Healthy</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-500"></div> Planned</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-500"></div> Completed</div>
+            <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-blue-500"></div> Existing</div>
+            <div className="flex items-center gap-2 ml-4 text-slate-400 font-normal">
+                <span>(Click surfaces: M=Mesial, D=Distal, O=Occlusal, B=Buccal, L=Lingual)</span>
+            </div>
         </div>
       </div>
     </div>

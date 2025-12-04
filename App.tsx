@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -16,25 +15,59 @@ const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
   insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard', 'Etiqa', 'Pacific Cross'],
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-  allergies: ['Penicillin', 'Latex', 'Peanuts', 'Seafood', 'Aspirin', 'Sulfa', 'Local Anesthetic', 'Dust Mites'],
+  allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex'],
   medicalConditions: [
-    'High BP', 'Low BP', 'Diabetes', 'Asthma', 'Heart Disease', 'Stroke', 
-    'Epilepsy', 'Arthritis', 'Kidney Issues', 'Liver Disease', 'Thyroid Issues',
-    'Anemia', 'Ulcers', 'Hepatitis', 'TB'
+    'None',
+    'High BP', 
+    'Low BP', 
+    'Epilepsy',
+    'Convulsions',
+    'AIDS/HIV',
+    'STD',
+    'Ulcers',
+    'Stomach Issues',
+    'Fainting Seizures',
+    'Rapid Weight Loss',
+    'Radiation Therapy',
+    'Joint Replacement',
+    'Heart Surgery',
+    'Heart Attack',
+    'Thyroid Issues',
+    'Heart Disease',
+    'Heart Murmur',
+    'Hepatitis',
+    'Liver Disease',
+    'Rheumatic Fever',
+    'Hay Fever',
+    'Respiratory Problems',
+    'Jaundice',
+    'Tuberculosis (TB)',
+    'Swollen Ankles',
+    'Kidney Issues',
+    'Diabetes',
+    'Chest Pain',
+    'Stroke',
+    'Cancer / Tumors',
+    'Anemia',
+    'Angina',
+    'Asthma',
+    'Emphysema',
+    'Bleeding Issues',
+    'Blood Disease',
+    'Arthritis',
+    'Rheumatism'
   ],
   procedures: [
       { id: 'p1', name: 'Consultation', price: 500 },
-      { id: 'p2', name: 'Oral Prophylaxis (Light)', price: 1200 },
-      { id: 'p3', name: 'Oral Prophylaxis (Heavy)', price: 1800 },
-      { id: 'p4', name: 'Composite Restoration (1 Surface)', price: 1500 },
-      { id: 'p5', name: 'Composite Restoration (2 Surfaces)', price: 2000 },
-      { id: 'p6', name: 'Simple Extraction', price: 1000 },
-      { id: 'p7', name: 'Complicated Extraction', price: 3500 },
-      { id: 'p8', name: 'Root Canal (Anterior)', price: 8000 },
-      { id: 'p9', name: 'Root Canal (Molar)', price: 12000 },
-      { id: 'p10', name: 'Porcelain Crown', price: 15000 },
-      { id: 'p11', name: 'Whitening', price: 20000 },
-      { id: 'p12', name: 'Denture Adjustment', price: 500 }
+      { id: 'p2', name: 'Oral Prophylaxis', price: 1200 },
+      { id: 'p3', name: 'Restoration', price: 1500 },
+      { id: 'p4', name: 'Extraction', price: 1000 },
+      { id: 'p5', name: 'Root Canal', price: 8000 },
+      { id: 'p6', name: 'Prosthodontics', price: 15000 },
+      { id: 'p7', name: 'Orthodontics', price: 50000 },
+      { id: 'p8', name: 'Surgery', price: 5000 },
+      { id: 'p9', name: 'Whitening', price: 20000 },
+      { id: 'p10', name: 'Denture Adjustments', price: 500 }
   ], 
   branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
   features: {
@@ -263,7 +296,8 @@ function App() {
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
-          fieldSettings={fieldSettings} // Passed to check features
+          fieldSettings={fieldSettings}
+          onViewAllSchedule={() => setActiveTab('schedule')} // Added
         />;
       case 'schedule':
         return <CalendarView 
@@ -273,7 +307,7 @@ function App() {
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
-          fieldSettings={fieldSettings} // Passed to check features
+          fieldSettings={fieldSettings}
         />;
       case 'patients':
         return <PatientList 
@@ -288,7 +322,7 @@ function App() {
           onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-          fieldSettings={fieldSettings} // Passed for Charting & Features
+          fieldSettings={fieldSettings}
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
@@ -304,6 +338,7 @@ function App() {
                 onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
                 onCompleteRegistration={handleCompleteRegistration}
                 fieldSettings={fieldSettings}
+                onViewAllSchedule={() => setActiveTab('schedule')}
               />;
         }
         return <FieldManagement 
@@ -323,6 +358,7 @@ function App() {
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
           fieldSettings={fieldSettings}
+          onViewAllSchedule={() => setActiveTab('schedule')}
         />;
     }
   };

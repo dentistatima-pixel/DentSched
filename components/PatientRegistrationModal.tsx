@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Phone, FileText, Heart, Shield, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
@@ -143,13 +142,32 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const handleArrayChange = (category: 'allergies' | 'medicalConditions' | 'treatments', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
-      const currentList = prev[category] || [];
+      // Special logic for "None" to make it exclusive
+      if (value === 'None') {
+          const wasSelected = (prev[category] || []).includes('None');
+          return { ...prev, [category]: wasSelected ? [] : ['None'] };
+      }
+
+      let currentList = prev[category] || [];
+      // If adding a normal item, remove 'None'
+      if (currentList.includes('None')) {
+          currentList = [];
+      }
+
       if (currentList.includes(value)) {
         return { ...prev, [category]: currentList.filter(item => item !== value) };
       } else {
         return { ...prev, [category]: [...currentList, value] };
       }
     });
+  };
+
+  const handleTreatmentSelect = (value: string) => {
+      if (readOnly) return;
+      setFormData(prev => ({
+          ...prev,
+          treatments: value ? [value] : []
+      }));
   };
 
   const handleTreatmentDetailChange = (proc: string, value: string) => {
@@ -275,6 +293,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         formData={formData}
                         handleChange={handleChange}
                         handleArrayChange={handleArrayChange}
+                        handleTreatmentSelect={handleTreatmentSelect}
                         handleTreatmentDetailChange={handleTreatmentDetailChange}
                         readOnly={readOnly}
                         fieldSettings={fieldSettings} // Passed down

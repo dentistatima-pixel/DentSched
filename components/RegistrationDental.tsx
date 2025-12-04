@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle } from 'lucide-react';
@@ -7,14 +6,17 @@ interface RegistrationDentalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleArrayChange: (category: 'treatments', value: string) => void;
+  handleTreatmentSelect: (value: string) => void;
   handleTreatmentDetailChange: (proc: string, value: string) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings; // Added
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, handleArrayChange, handleTreatmentDetailChange, readOnly, fieldSettings 
+    formData, handleChange, handleArrayChange, handleTreatmentSelect, handleTreatmentDetailChange, readOnly, fieldSettings 
 }) => {
+  const selectedTreatment = (formData.treatments && formData.treatments.length > 0) ? formData.treatments[0] : '';
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
         <div>
@@ -28,41 +30,35 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
         
         <div>
             <h4 className="font-bold text-slate-800 mb-3">Past Treatments / Procedures</h4>
-            <div className="space-y-3">
-                {fieldSettings.procedures.map(proc => {
-                    const isSelected = (formData.treatments || []).includes(proc.name);
-                    return (
-                        <div key={proc.id} className={`
-                            rounded-xl border transition-all
-                            ${isSelected ? 'bg-teal-50 border-teal-200 p-4' : 'bg-white border-slate-200 p-3'}
-                        `}>
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    checked={isSelected}
-                                    onChange={() => handleArrayChange('treatments', proc.name)}
-                                    disabled={readOnly}
-                                    className="w-5 h-5 accent-teal-600"
-                                />
-                                <span className={`font-medium ${isSelected ? 'text-teal-900' : 'text-slate-700'}`}>{proc.name}</span>
-                            </label>
-                            
-                            {isSelected && (
-                                <div className="mt-2 ml-8 animate-in slide-in-from-top-2 fade-in">
-                                    <input 
-                                        type="text" 
-                                        placeholder={`Details about ${proc.name}...`}
-                                        value={formData.treatmentDetails?.[proc.name] || ''}
-                                        onChange={(e) => handleTreatmentDetailChange(proc.name, e.target.value)}
-                                        disabled={readOnly}
-                                        className="w-full text-sm bg-white border border-teal-200 rounded-lg p-2 focus:ring-2 focus:ring-teal-500/20 outline-none"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+            
+            <div className="mb-4">
+                <label className="label">Select Procedure (Single Selection)</label>
+                <select 
+                    value={selectedTreatment} 
+                    onChange={(e) => handleTreatmentSelect(e.target.value)}
+                    disabled={readOnly}
+                    className="input disabled:bg-slate-100"
+                >
+                    <option value="">- Select Treatment -</option>
+                    {fieldSettings.procedures.map(proc => (
+                        <option key={proc.id} value={proc.name}>{proc.name}</option>
+                    ))}
+                </select>
             </div>
+
+            {selectedTreatment && (
+                <div className="animate-in slide-in-from-top-2 fade-in">
+                    <label className="label text-teal-800">Details for {selectedTreatment}</label>
+                    <input 
+                        type="text" 
+                        placeholder={`Details about ${selectedTreatment}...`}
+                        value={formData.treatmentDetails?.[selectedTreatment] || ''}
+                        onChange={(e) => handleTreatmentDetailChange(selectedTreatment, e.target.value)}
+                        disabled={readOnly}
+                        className="w-full text-sm bg-teal-50 border border-teal-200 rounded-lg p-3 focus:ring-2 focus:ring-teal-500/20 outline-none"
+                    />
+                </div>
+            )}
         </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">

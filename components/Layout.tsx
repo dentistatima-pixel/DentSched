@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
@@ -40,6 +39,11 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'patients', label: 'Patients', icon: Users },
   ];
+
+  // Add Settings tab for Admins so they can access it on Desktop
+  if (currentUser.role === UserRole.ADMIN) {
+      navItems.push({ id: 'field-mgmt', label: 'Settings', icon: Settings });
+  }
 
   const handleProfileUpdate = (updatedUser: User) => {
       onSwitchUser(updatedUser);
@@ -101,17 +105,6 @@ const Layout: React.FC<LayoutProps> = ({
                             <div className="bg-teal-700 p-2 rounded-lg"><UserCircle size={20} className="text-white" /></div>
                             <span className="font-bold">Account Profile</span>
                         </button>
-                        
-                        {/* Settings / Field Mgmt Link - ADMIN ONLY */}
-                        {currentUser.role === UserRole.ADMIN && (
-                            <button 
-                                onClick={() => { setActiveTab('field-mgmt'); setIsMobileMenuOpen(false); }}
-                                className={`w-full flex items-center space-x-4 px-4 py-4 rounded-xl transition-colors ${activeTab === 'field-mgmt' ? 'bg-lilac-600 text-white shadow-lg' : 'bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50'}`}
-                            >
-                                <div className={`${activeTab === 'field-mgmt' ? 'bg-lilac-500' : 'bg-teal-700'} p-2 rounded-lg`}><Settings size={20} className="text-white" /></div>
-                                <span className="font-bold">System Settings</span>
-                            </button>
-                        )}
                     </div>
                     
                     {/* Demo User Switcher (Hidden in prod usually, but kept for demo) */}
@@ -137,7 +130,7 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50 relative">
-        <div className="flex-1 overflow-auto p-4 pb-24">
+        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-4'} pb-24`}>
             {children}
         </div>
       </main>
