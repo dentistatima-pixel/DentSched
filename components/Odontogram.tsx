@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn } from 'lucide-react';
@@ -44,7 +43,7 @@ const GeometricTooth: React.FC<{
     const isPatientRight = quadrant === 1 || quadrant === 4; 
     
     // Timer refs for long press detection
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timerRef = useRef<any>(null);
     const isLongPress = useRef(false);
 
     const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -90,8 +89,7 @@ const GeometricTooth: React.FC<{
         
         // Check specific surfaces
         if (!data.surfaces) {
-             // If no surfaces specified but data exists, assume whole tooth (or center)
-             // But for geometric accuracy, we usually prefer precise surfaces.
+             // If no surfaces specified but data exists, check if it's a surface-specific procedure
              return colorMap[data.status] || colorMap['None'];
         }
         
@@ -136,7 +134,18 @@ const GeometricTooth: React.FC<{
     const hoverClass = !readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : "";
     const activeClass = data ? "drop-shadow-md" : "";
 
-    // PATHS
+    // --- GEOMETRY: EQUAL SURFACE AREA ---
+    // Total 100x100 grid.
+    // Vertical: Root 0-15 (or 85-100). Crown 15-100 (or 0-85). Height 85.
+    // Crown Center Square: 40x40 roughly.
+    // 
+    // UPPER TOOTH (Root Top)
+    // Root: 0-15
+    // Crown: 15-100. Center Y: 57.5. Square range: 37.5 to 77.5?
+    // Let's maximize touch targets.
+    // Center Square: x=30-70, y=38-77 (Height 39, Width 40).
+    // Top Trap: y=15 to 38. Bottom Trap: y=77 to 100.
+    
     const u_root = "M30 0 L70 0 L70 15 L30 15 Z";
     const u_top = "M0 15 L100 15 L70 38 L30 38 Z";
     const u_btm = "M0 100 L100 100 L70 77 L30 77 Z";
@@ -145,6 +154,9 @@ const GeometricTooth: React.FC<{
     const u_ctr = "M30 38 L70 38 L70 77 L30 77 Z";
     const u_cross = "M0 15 L100 100 M100 15 L0 100";
 
+    // LOWER TOOTH (Root Bottom)
+    // Root: 85-100
+    // Crown: 0-85. Center Square: x=30-70, y=23-62 (Height 39).
     const l_root = "M30 85 L70 85 L70 100 L30 100 Z";
     const l_top = "M0 0 L100 0 L70 23 L30 23 Z";
     const l_btm = "M0 85 L100 85 L70 62 L30 62 Z";

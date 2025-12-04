@@ -6,77 +6,8 @@ import PatientList from './components/PatientList';
 import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
-import { STAFF, PATIENTS, APPOINTMENTS } from './constants';
+import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus } from './types';
-
-// Initial defaults updated with prices and IDs
-const DEFAULT_FIELD_SETTINGS: FieldSettings = {
-  suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D'],
-  civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
-  insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard', 'Etiqa', 'Pacific Cross'],
-  bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-  allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex'],
-  medicalConditions: [
-    'None',
-    'High BP', 
-    'Low BP', 
-    'Epilepsy',
-    'Convulsions',
-    'AIDS/HIV',
-    'STD',
-    'Ulcers',
-    'Stomach Issues',
-    'Fainting Seizures',
-    'Rapid Weight Loss',
-    'Radiation Therapy',
-    'Joint Replacement',
-    'Heart Surgery',
-    'Heart Attack',
-    'Thyroid Issues',
-    'Heart Disease',
-    'Heart Murmur',
-    'Hepatitis',
-    'Liver Disease',
-    'Rheumatic Fever',
-    'Hay Fever',
-    'Respiratory Problems',
-    'Jaundice',
-    'Tuberculosis (TB)',
-    'Swollen Ankles',
-    'Kidney Issues',
-    'Diabetes',
-    'Chest Pain',
-    'Stroke',
-    'Cancer / Tumors',
-    'Anemia',
-    'Angina',
-    'Asthma',
-    'Emphysema',
-    'Bleeding Issues',
-    'Blood Disease',
-    'Arthritis',
-    'Rheumatism'
-  ],
-  procedures: [
-      { id: 'p1', name: 'Consultation', price: 500 },
-      { id: 'p2', name: 'Oral Prophylaxis', price: 1200 },
-      { id: 'p3', name: 'Restoration', price: 1500 },
-      { id: 'p4', name: 'Extraction', price: 1000 },
-      { id: 'p5', name: 'Root Canal', price: 8000 },
-      { id: 'p6', name: 'Prosthodontics', price: 15000 },
-      { id: 'p7', name: 'Orthodontics', price: 50000 },
-      { id: 'p8', name: 'Surgery', price: 5000 },
-      { id: 'p9', name: 'Whitening', price: 20000 },
-      { id: 'p10', name: 'Denture Adjustments', price: 500 }
-  ], 
-  branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
-  features: {
-      enableLabTracking: true,
-      enableComplianceAudit: true,
-      enableDentalAssistantFlow: true,
-      enableMultiBranch: true
-  }
-};
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
