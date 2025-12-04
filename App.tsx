@@ -228,7 +228,7 @@ function App() {
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
           fieldSettings={fieldSettings}
-          onViewAllSchedule={() => setActiveTab('schedule')} // Added
+          onViewAllSchedule={() => setActiveTab('schedule')} 
         />;
       case 'schedule':
         return <CalendarView 

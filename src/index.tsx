@@ -1,6 +1,6 @@
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from '../App';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { 
     hasError: false, 
     error: null 
@@ -51,7 +51,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v11-medical-fix-src" />
+        <App key="refresh-v11-medical-fix-src-fixed" />
     </ErrorBoundary>
   </React.StrictMode>
 );
