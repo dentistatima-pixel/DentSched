@@ -63,7 +63,7 @@ const PatientList: React.FC<PatientListProps> = ({
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'chart'>('info');
   const [showNeedsPrintingOnly, setShowNeedsPrintingOnly] = useState(false);
 
-  // Charting Modal State
+  // Charting Modal State (For "Cursor" mode legacy edits)
   const [editingTooth, setEditingTooth] = useState<number | null>(null);
   const [toothModalData, setToothModalData] = useState<{
       procedure: string;
@@ -80,11 +80,11 @@ const PatientList: React.FC<PatientListProps> = ({
   [patients, selectedPatientId]);
 
   useEffect(() => {
-    if (selectedPatient) {
+    if (selectedPatientId) {
         setActiveTab('info');
         setEditingTooth(null); 
     }
-  }, [selectedPatient]);
+  }, [selectedPatientId]);
 
   const filteredPatients = useMemo(() => {
     let result = patients;
@@ -176,6 +176,9 @@ const PatientList: React.FC<PatientListProps> = ({
       setShowNeedsPrintingOnly(false); 
   };
 
+  // --- CHARTING HANDLERS ---
+  
+  // 1. Legacy/Cursor Mode (Opens Modal)
   const handleToothClick = (tooth: number) => {
       if(!selectedPatient || isClinicalReadOnly) return;
       setEditingTooth(tooth);
@@ -186,6 +189,25 @@ const PatientList: React.FC<PatientListProps> = ({
           notes: '', 
           surfaces: [],
           price: firstProc?.price || 0
+      });
+  };
+
+  // 2. New Direct Tool Application
+  const handleDirectChartUpdate = (entry: DentalChartEntry) => {
+      if (!selectedPatient || isClinicalReadOnly) return;
+      
+      // Calculate price based on procedure name from settings
+      const procDef = fieldSettings?.procedures.find(p => p.name === entry.procedure);
+      const entryWithPrice = {
+          ...entry,
+          price: procDef?.price || 0
+      };
+
+      const updatedChart = [...(selectedPatient.dentalChart || []), entryWithPrice];
+      onQuickUpdatePatient({ 
+          ...selectedPatient, 
+          dentalChart: updatedChart,
+          lastDigitalUpdate: new Date().toISOString()
       });
   };
 
@@ -228,6 +250,7 @@ const PatientList: React.FC<PatientListProps> = ({
           lastDigitalUpdate: new Date().toISOString()
       });
       setToothModalData(prev => ({ ...prev, notes: '', surfaces: [] }));
+      setEditingTooth(null);
   };
 
   const handleDeleteChartEntry = (indexToDelete: number, toothNum: number) => {
@@ -627,10 +650,17 @@ const PatientList: React.FC<PatientListProps> = ({
                              <div className="flex justify-between items-center mb-4">
                                 <h3 className="font-bold text-lg text-slate-800">Odontogram (FDI)</h3>
                                 <div className="text-xs text-slate-400 flex items-center gap-1">
-                                    <Shield size={12}/> {isClinicalReadOnly ? 'Read Only View' : 'Click teeth to update'}
+                                    <Shield size={12}/> {isClinicalReadOnly ? 'Read Only View' : 'Select tool & click chart'}
                                 </div>
                              </div>
-                             <Odontogram chart={selectedPatient.dentalChart || []} readOnly={isClinicalReadOnly} onToothClick={handleToothClick}/>
+                             
+                             {/* UPDATED ODONTOGRAM IMPLEMENTATION */}
+                             <Odontogram 
+                                chart={selectedPatient.dentalChart || []} 
+                                readOnly={isClinicalReadOnly} 
+                                onToothClick={handleToothClick} 
+                                onChartUpdate={handleDirectChartUpdate}
+                             />
                          </div>
                          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                              <h4 className="font-bold text-slate-700 p-4 border-b border-slate-100">Chart History</h4>
@@ -671,7 +701,7 @@ const PatientList: React.FC<PatientListProps> = ({
         </div>
       )}
 
-      {/* TOOTH MODAL */}
+      {/* TOOTH MODAL (Legacy/Detailed Edit) */}
       {editingTooth && selectedPatient && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
               <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
