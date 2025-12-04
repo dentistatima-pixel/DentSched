@@ -1,3 +1,4 @@
+
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings } from './types';
 
 // Generators for mock data
@@ -199,7 +200,7 @@ export const APPOINTMENTS: Appointment[] = [
         patientId: 'p_child_001',
         providerId: 'doc1',
         branch: 'Makati Branch',
-        date: new Date().toLocaleDateString('en-CA'), // Fixed: Use local date
+        date: new Date().toLocaleDateString('en-CA'),
         time: '09:00',
         durationMinutes: 60,
         type: AppointmentType.CONSULTATION,
@@ -211,7 +212,7 @@ export const APPOINTMENTS: Appointment[] = [
         patientId: 'p_adult_002',
         providerId: 'doc1',
         branch: 'Makati Branch',
-        date: new Date().toLocaleDateString('en-CA'), // Fixed: Use local date
+        date: new Date().toLocaleDateString('en-CA'),
         time: '10:00',
         durationMinutes: 60,
         type: AppointmentType.ROOT_CANAL,
@@ -223,7 +224,7 @@ export const APPOINTMENTS: Appointment[] = [
         patientId: 'p_adult_003',
         providerId: 'doc2',
         branch: 'Quezon City Branch',
-        date: new Date().toLocaleDateString('en-CA'), // Fixed: Use local date
+        date: new Date().toLocaleDateString('en-CA'),
         time: '14:00',
         durationMinutes: 45,
         type: AppointmentType.EXTRACTION,

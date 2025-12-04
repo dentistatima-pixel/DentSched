@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { 
     hasError: false, 
     error: null 
@@ -47,16 +47,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// Force a log to ensure the preview detected the change
-console.log("App mounted. Version 11 Refresh.");
-
 const root = ReactDOM.createRoot(rootElement);
-// We add a key to App to force a full re-mount when this file is updated, 
-// ensuring the new constants are picked up by useState.
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v11-medical-fix" />
+        <App key="refresh-v12-final" />
     </ErrorBoundary>
   </React.StrictMode>
 );

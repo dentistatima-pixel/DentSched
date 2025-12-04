@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -30,16 +31,23 @@ function App() {
   
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(() => {
       const saved = localStorage.getItem('dentsched_fields');
-      // Merge defaults just in case features are missing from old storage
       const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
-      if (!parsed.features) {
-          parsed.features = DEFAULT_FIELD_SETTINGS.features;
-      }
-      return parsed;
+      
+      // FORCE UPDATE: Overwrite lists with new constants to ensure users see updates
+      // This fixes the issue where LocalStorage holds onto the old "Generic" medical list
+      return {
+          ...parsed,
+          allergies: DEFAULT_FIELD_SETTINGS.allergies,
+          medicalConditions: DEFAULT_FIELD_SETTINGS.medicalConditions,
+          procedures: DEFAULT_FIELD_SETTINGS.procedures,
+          features: {
+              ...(DEFAULT_FIELD_SETTINGS.features || {}),
+              ...(parsed.features || {})
+          }
+      };
   });
 
   // Auth State
-  // Defaulting to Administrator (Index 0 - Sarah Connor)
   const [currentUser, setCurrentUser] = useState<User>(staff[0]); 
 
   // BRANCH STATE
@@ -227,7 +235,7 @@ function App() {
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
-          fieldSettings={fieldSettings}
+          fieldSettings={fieldSettings} // Passed to check features
           onViewAllSchedule={() => setActiveTab('schedule')} 
         />;
       case 'schedule':
@@ -238,7 +246,7 @@ function App() {
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
-          fieldSettings={fieldSettings}
+          fieldSettings={fieldSettings} // Passed to check features
         />;
       case 'patients':
         return <PatientList 
@@ -253,7 +261,7 @@ function App() {
           onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-          fieldSettings={fieldSettings}
+          fieldSettings={fieldSettings} // Passed for Charting & Features
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
