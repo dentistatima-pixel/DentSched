@@ -34,7 +34,6 @@ function App() {
       const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
       
       // FORCE UPDATE: Overwrite lists with new constants to ensure users see updates
-      // This fixes the issue where LocalStorage holds onto the old "Generic" medical list
       return {
           ...parsed,
           allergies: DEFAULT_FIELD_SETTINGS.allergies,
@@ -235,8 +234,8 @@ function App() {
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
-          fieldSettings={fieldSettings} // Passed to check features
-          onViewAllSchedule={() => setActiveTab('schedule')} 
+          fieldSettings={fieldSettings}
+          onViewAllSchedule={() => setActiveTab('schedule')}
         />;
       case 'schedule':
         return <CalendarView 
@@ -246,7 +245,7 @@ function App() {
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
-          fieldSettings={fieldSettings} // Passed to check features
+          fieldSettings={fieldSettings}
         />;
       case 'patients':
         return <PatientList 
@@ -261,7 +260,7 @@ function App() {
           onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-          fieldSettings={fieldSettings} // Passed for Charting & Features
+          fieldSettings={fieldSettings}
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {

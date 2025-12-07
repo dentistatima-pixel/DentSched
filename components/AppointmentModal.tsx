@@ -27,7 +27,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   
   // Common Fields
   const [providerId, setProviderId] = useState('');
-  const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
+  // Fix: Use local date string instead of UTC toISOString to avoid timezone issues
+  const [date, setDate] = useState(initialDate || new Date().toLocaleDateString('en-CA'));
   const [time, setTime] = useState(initialTime || '09:00');
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState('');
@@ -75,7 +76,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               }
           } else {
               // Reset for new booking
-              setDate(initialDate || new Date().toISOString().split('T')[0]);
+              setDate(initialDate || new Date().toLocaleDateString('en-CA'));
               setTime(initialTime || '09:00');
               setProviderId('');
               setLabStatus(LabStatus.NONE);

@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText } from 'lucide-react';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
+import Odontonotes from './Odontonotes'; // Imported
 import { formatDate } from '../constants';
 
 interface PatientListProps {
@@ -62,6 +63,9 @@ const PatientList: React.FC<PatientListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'chart'>('info');
   const [showNeedsPrintingOnly, setShowNeedsPrintingOnly] = useState(false);
+  
+  // Chart View Toggle
+  const [chartViewMode, setChartViewMode] = useState<'visual' | 'notes'>('visual');
 
   // Charting Modal State (For "Cursor" mode legacy edits)
   const [editingTooth, setEditingTooth] = useState<number | null>(null);
@@ -200,10 +204,33 @@ const PatientList: React.FC<PatientListProps> = ({
       const procDef = fieldSettings?.procedures.find(p => p.name === entry.procedure);
       const entryWithPrice = {
           ...entry,
-          price: procDef?.price || 0
+          price: procDef?.price || 0,
+          author: currentUser.name // Add Author
       };
 
       const updatedChart = [...(selectedPatient.dentalChart || []), entryWithPrice];
+      onQuickUpdatePatient({ 
+          ...selectedPatient, 
+          dentalChart: updatedChart,
+          lastDigitalUpdate: new Date().toISOString()
+      });
+  };
+
+  // 3. Add Clinical Note (Odontonotes)
+  const handleAddClinicalNote = (note: string, toothNumber?: number) => {
+      if (!selectedPatient || isClinicalReadOnly) return;
+      
+      const newEntry: DentalChartEntry = {
+          toothNumber: toothNumber || 0, // 0 usually means general note
+          procedure: 'Clinical Note',
+          status: 'Completed',
+          notes: note,
+          date: new Date().toISOString().split('T')[0],
+          author: currentUser.name,
+          price: 0
+      };
+
+      const updatedChart = [...(selectedPatient.dentalChart || []), newEntry];
       onQuickUpdatePatient({ 
           ...selectedPatient, 
           dentalChart: updatedChart,
@@ -241,7 +268,8 @@ const PatientList: React.FC<PatientListProps> = ({
           notes: toothModalData.notes,
           surfaces: surfaceString,
           price: toothModalData.price,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          author: currentUser.name
       };
       const updatedChart = [...(selectedPatient.dentalChart || []), newEntry];
       onQuickUpdatePatient({ 
@@ -626,68 +654,86 @@ const PatientList: React.FC<PatientListProps> = ({
 
                 {activeTab === 'chart' && (
                      <div className="space-y-6">
-                         {/* Reported History */}
-                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                             <h4 className="font-bold text-slate-800 mb-2">Reported Dental History</h4>
-                             {(selectedPatient.treatments && selectedPatient.treatments.length > 0) ? (
-                                <div className="flex flex-col gap-2">
-                                    {selectedPatient.treatments.map(t => {
-                                        const details = selectedPatient.treatmentDetails?.[t];
-                                        return (
-                                            <div key={t} className="text-sm border-b border-slate-50 last:border-0 pb-1">
-                                                <span className="font-bold text-teal-800">{t}</span>
-                                                {details && <div className="text-slate-500 text-xs mt-0.5">{details}</div>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-slate-400 text-sm italic">No dental history reported.</div>
-                            )}
+                         {/* Chart Mode Toggle */}
+                         <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-slate-800">Clinical Charting</h4>
+                            <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
+                                <button 
+                                    onClick={() => setChartViewMode('visual')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    <Grid size={14} /> Visual Chart
+                                </button>
+                                <button 
+                                    onClick={() => setChartViewMode('notes')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'notes' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    <List size={14} /> Odontonotes
+                                </button>
+                            </div>
                          </div>
 
-                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-lg text-slate-800">Odontogram (FDI)</h3>
-                                <div className="text-xs text-slate-400 flex items-center gap-1">
-                                    <Shield size={12}/> {isClinicalReadOnly ? 'Read Only View' : 'Select tool & click chart'}
+                         {chartViewMode === 'visual' ? (
+                             <>
+                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg text-slate-800">Odontogram (FDI)</h3>
+                                        <div className="text-xs text-slate-400 flex items-center gap-1">
+                                            <Shield size={12}/> {isClinicalReadOnly ? 'Read Only View' : 'Select tool & click chart'}
+                                        </div>
+                                    </div>
+                                    
+                                    <Odontogram 
+                                        chart={selectedPatient.dentalChart || []} 
+                                        readOnly={isClinicalReadOnly} 
+                                        onToothClick={handleToothClick} 
+                                        onChartUpdate={handleDirectChartUpdate}
+                                    />
+                                </div>
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <h4 className="font-bold text-slate-700 p-4 border-b border-slate-100">Chart History</h4>
+                                    <div className="max-h-60 overflow-y-auto">
+                                        {(selectedPatient.dentalChart && selectedPatient.dentalChart.length > 0) ? (
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                                                    <tr><th className="p-3">Tooth</th><th className="p-3">Procedure</th><th className="p-3">Surfaces</th><th className="p-3">Status</th><th className="p-3">Price</th><th className="p-3">Date</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selectedPatient.dentalChart.map((e, idx) => (
+                                                        <tr key={idx} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                                                            <td className="p-3 font-mono font-bold">{e.toothNumber}</td>
+                                                            <td className="p-3">{e.procedure}</td>
+                                                            <td className="p-3 font-mono text-xs">{e.surfaces || '-'}</td>
+                                                            <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${e.status === 'Completed' ? 'bg-green-100 text-green-700' : e.status === 'Planned' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{e.status}</span></td>
+                                                            <td className="p-3 font-bold text-slate-700">₱{e.price}</td>
+                                                            <td className="p-3 text-slate-400 text-xs">{formatDate(e.date)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        ) : (
+                                            <div className="p-8 text-center text-slate-400 italic">No charting data available.</div>
+                                        )}
+                                    </div>
+                                </div>
+                             </>
+                         ) : (
+                             // NOTES VIEW
+                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                                    <h3 className="font-bold text-lg text-slate-800 mb-1">Clinical Notes Log</h3>
+                                    <p className="text-xs text-slate-500">Chronological history of all procedures and notes.</p>
+                                </div>
+                                <div className="p-4">
+                                    <Odontonotes 
+                                        entries={selectedPatient.dentalChart || []}
+                                        onAddNote={handleAddClinicalNote}
+                                        currentUser={currentUser.name}
+                                        readOnly={isClinicalReadOnly}
+                                    />
                                 </div>
                              </div>
-                             
-                             {/* UPDATED ODONTOGRAM IMPLEMENTATION */}
-                             <Odontogram 
-                                chart={selectedPatient.dentalChart || []} 
-                                readOnly={isClinicalReadOnly} 
-                                onToothClick={handleToothClick} 
-                                onChartUpdate={handleDirectChartUpdate}
-                             />
-                         </div>
-                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <h4 className="font-bold text-slate-700 p-4 border-b border-slate-100">Chart History</h4>
-                             <div className="max-h-60 overflow-y-auto">
-                                 {(selectedPatient.dentalChart && selectedPatient.dentalChart.length > 0) ? (
-                                     <table className="w-full text-sm text-left">
-                                         <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                                             <tr><th className="p-3">Tooth</th><th className="p-3">Procedure</th><th className="p-3">Surfaces</th><th className="p-3">Status</th><th className="p-3">Price</th><th className="p-3">Date</th></tr>
-                                         </thead>
-                                         <tbody>
-                                             {selectedPatient.dentalChart.map((e, idx) => (
-                                                 <tr key={idx} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                                                     <td className="p-3 font-mono font-bold">{e.toothNumber}</td>
-                                                     <td className="p-3">{e.procedure}</td>
-                                                     <td className="p-3 font-mono text-xs">{e.surfaces || '-'}</td>
-                                                     <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${e.status === 'Completed' ? 'bg-green-100 text-green-700' : e.status === 'Planned' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{e.status}</span></td>
-                                                     <td className="p-3 font-bold text-slate-700">₱{e.price}</td>
-                                                     <td className="p-3 text-slate-400 text-xs">{formatDate(e.date)}</td>
-                                                 </tr>
-                                             ))}
-                                         </tbody>
-                                     </table>
-                                 ) : (
-                                     <div className="p-8 text-center text-slate-400 italic">No charting data available.</div>
-                                 )}
-                             </div>
-                         </div>
+                         )}
                      </div>
                 )}
            </div>

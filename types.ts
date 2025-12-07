@@ -73,6 +73,7 @@ export interface DentalChartEntry {
   price?: number; // Snapshot of price at time of charting (can be different from base price)
   date?: string;
   notes?: string;
+  author?: string;
 }
 
 export interface UserPreferences {

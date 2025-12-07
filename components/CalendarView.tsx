@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker } from 'lucide-react';
-import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus } from '../types';
+import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus, FieldSettings } from '../types';
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -9,9 +9,10 @@ interface CalendarViewProps {
   currentUser?: User;
   patients?: Patient[];
   currentBranch?: string;
+  fieldSettings?: FieldSettings;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, currentUser, patients = [], currentBranch }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, currentUser, patients = [], currentBranch, fieldSettings }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda'>('grid');
   
@@ -313,7 +314,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                                     <Clock size={10} /> {apt.time}
                                                                 </span>
                                                                 {apt.labStatus && apt.labStatus !== LabStatus.NONE && (
-                                                                    <Beaker size={12} className="text-amber-600" title="Lab Case" />
+                                                                    <div title="Lab Case">
+                                                                        <Beaker size={12} className="text-amber-600" />
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                             

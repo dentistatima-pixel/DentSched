@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Phone, FileText, Heart, Shield, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
@@ -197,7 +198,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-end md:items-center p-0 md:p-4">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4">
       <div className="bg-white w-full md:max-w-4xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden">
         
         {/* Header */}
