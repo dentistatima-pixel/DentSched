@@ -5,7 +5,7 @@ import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patien
 interface CalendarViewProps {
   appointments: Appointment[];
   staff: User[];
-  onAddAppointment: (date?: string, time?: string) => void;
+  onAddAppointment: (date?: string, time?: string, patientId?: string) => void;
   currentUser?: User;
   patients?: Patient[];
   currentBranch?: string;
