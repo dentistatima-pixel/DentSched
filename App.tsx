@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -9,7 +10,6 @@ import FieldManagement from './components/FieldManagement';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus } from './types';
 
-// App Version: v13-forced-refresh
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -34,6 +34,7 @@ function App() {
       const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
       
       // FORCE UPDATE: Overwrite lists with new constants to ensure users see updates
+      // This fixes the issue where LocalStorage holds onto the old "Generic" medical list
       return {
           ...parsed,
           allergies: DEFAULT_FIELD_SETTINGS.allergies,
@@ -234,8 +235,8 @@ function App() {
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
-          fieldSettings={fieldSettings}
-          onViewAllSchedule={() => setActiveTab('schedule')}
+          fieldSettings={fieldSettings} // Passed to check features
+          onViewAllSchedule={() => setActiveTab('schedule')} 
         />;
       case 'schedule':
         return <CalendarView 
@@ -245,7 +246,7 @@ function App() {
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
-          fieldSettings={fieldSettings}
+          fieldSettings={fieldSettings} // Passed to check features
         />;
       case 'patients':
         return <PatientList 
@@ -260,7 +261,7 @@ function App() {
           onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-          fieldSettings={fieldSettings}
+          fieldSettings={fieldSettings} // Passed for Charting & Features
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
