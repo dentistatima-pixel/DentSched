@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -10,6 +9,7 @@ import FieldManagement from './components/FieldManagement';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus } from './types';
 
+// App Version: v13-forced-refresh
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   

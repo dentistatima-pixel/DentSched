@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn } from 'lucide-react';
@@ -404,7 +403,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
 
             {/* --- PRECISION ZOOM MODAL OVERLAY --- */}
             {zoomedTooth && (
-                <div className="fixed inset-0 z-[100] bg-slate-900/80 flex flex-col items-center justify-center animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-50 bg-slate-900/80 flex flex-col items-center justify-center animate-in fade-in duration-200">
                     <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
                         <div className="flex justify-between items-center w-full border-b border-slate-100 pb-2">
                              <div className="flex items-center gap-2">

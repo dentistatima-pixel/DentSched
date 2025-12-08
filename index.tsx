@@ -51,7 +51,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v12-final" />
+        <App key="refresh-v13-forced" />
     </ErrorBoundary>
   </React.StrictMode>
 );
