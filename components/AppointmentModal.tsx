@@ -101,9 +101,21 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const searchResults = searchTerm ? fuse.search(searchTerm).map(r => r.item).slice(0, 5) : [];
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
-  // Outstanding Treatment Logic
-  const getPendingTreatments = (p: Patient) => {
-      return p.dentalChart?.filter(e => e.status === 'Planned') || [];
+  // Helper to format date for display: "Tue, Dec 12, 2023"
+  const getDisplayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        return dateObj.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+        });
+    } catch (e) {
+        return dateStr;
+    }
   };
 
   const handleSave = () => {
@@ -414,12 +426,17 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             <div className="grid grid-cols-2 gap-4">
                  <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <div className="relative group">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10 pointer-events-none" size={18} />
+                        {/* Display the custom formatted date (Tue, Dec 12, 2023) */}
+                        <div className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium h-[46px] flex items-center group-focus-within:ring-2 group-focus-within:ring-teal-500/20 group-focus-within:border-teal-500 transition-all truncate">
+                             {getDisplayDate(date)}
+                        </div>
+                        {/* Invisible native date input on top */}
                         <input 
                             type="date" 
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
                         />
