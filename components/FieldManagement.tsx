@@ -1,15 +1,18 @@
 
+
 import React, { useState } from 'react';
-import { FieldSettings, ProcedureItem, FeatureToggles } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box } from 'lucide-react';
+import { FieldSettings, ProcedureItem, FeatureToggles, User } from '../types';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon } from 'lucide-react';
 
 interface FieldManagementProps {
   settings: FieldSettings;
   onUpdateSettings: (newSettings: FieldSettings) => void;
+  staff?: User[]; // Added
+  onUpdateStaff?: (updatedStaff: User[]) => void; // Added
 }
 
-const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings }) => {
-  const [activeCategory, setActiveCategory] = useState<keyof FieldSettings | 'features'>('features'); // Default to features
+const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff, onUpdateStaff }) => {
+  const [activeCategory, setActiveCategory] = useState<keyof FieldSettings | 'features' | 'roster'>('features'); 
   
   // Standard List State
   const [newItemValue, setNewItemValue] = useState('');
@@ -20,8 +23,9 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
   const [newProcPrice, setNewProcPrice] = useState('');
   const [editingProc, setEditingProc] = useState<{ index: number, name: string, price: string } | null>(null);
 
-  const categories: { key: keyof FieldSettings | 'features'; label: string; description: string }[] = [
+  const categories: { key: keyof FieldSettings | 'features' | 'roster'; label: string; description: string }[] = [
     { key: 'features', label: 'System Features', description: 'Enable or disable major application modules.' },
+    { key: 'roster', label: 'Staff Roster', description: 'Manage weekly schedule and branch assignments for staff.' },
     { key: 'procedures', label: 'Dental Procedures & Prices', description: 'Treatments available for booking and charting, with base prices.' },
     { key: 'insuranceProviders', label: 'Insurance Providers', description: 'HMOs and Insurance Companies available for patient registration.' },
     { key: 'allergies', label: 'Common Allergies', description: 'Standard allergy options in medical history.' },
@@ -42,6 +46,28 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
               [feature]: !currentFeatures[feature]
           }
       });
+  };
+
+  // --- ROSTER HANDLER ---
+  const handleRosterChange = (userId: string, day: string, branch: string) => {
+      if (!staff || !onUpdateStaff) return;
+      
+      const updatedStaff = staff.map(u => {
+          if (u.id === userId) {
+              const currentRoster = u.roster || {};
+              const newRoster = { ...currentRoster };
+              
+              if (branch === 'OFF') {
+                  delete newRoster[day];
+              } else {
+                  newRoster[day] = branch;
+              }
+              
+              return { ...u, roster: newRoster };
+          }
+          return u;
+      });
+      onUpdateStaff(updatedStaff);
   };
 
   // --- SIMPLE LIST HANDLERS ---
@@ -103,6 +129,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
 
 
   const activeCategoryInfo = categories.find(c => c.key === activeCategory);
+  const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const ToggleItem = ({ label, featureKey }: { label: string, featureKey: keyof FeatureToggles }) => (
       <div className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-teal-300 transition-colors">
@@ -160,7 +187,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
              <p className="text-slate-500 text-sm mt-1">{activeCategoryInfo?.description}</p>
          </div>
 
-         {/* CONDITION: Features Tab */}
+         {/* CONTENT SWTICH */}
          {activeCategory === 'features' ? (
              <div className="p-6 bg-slate-50 h-full overflow-y-auto">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -173,6 +200,64 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                      <strong>Note:</strong> Disabling features hides them from the interface to simplify the user experience. No data is deleted.
                  </div>
              </div>
+         ) : activeCategory === 'roster' ? (
+            /* --- ROSTER MATRIX --- */
+            <div className="flex-1 overflow-auto p-4 bg-slate-50">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-100 border-b border-slate-200">
+                                <tr>
+                                    <th className="p-4 font-bold text-slate-600 sticky left-0 bg-slate-100 z-10 w-48">Staff Member</th>
+                                    {WEEKDAYS.map(day => (
+                                        <th key={day} className="p-4 font-bold text-slate-600 text-center min-w-[140px]">{day}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {staff?.map(user => (
+                                    <tr key={user.id} className="hover:bg-slate-50/50">
+                                        <td className="p-4 font-bold text-slate-800 sticky left-0 bg-white z-10 flex items-center gap-3 border-r border-slate-100">
+                                            <img src={user.avatar} className="w-8 h-8 rounded-full bg-slate-200" alt="avatar" />
+                                            <div>
+                                                <div>{user.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase">{user.role}</div>
+                                            </div>
+                                        </td>
+                                        {WEEKDAYS.map(day => {
+                                            const assignment = user.roster?.[day] || 'OFF';
+                                            const isOff = assignment === 'OFF';
+                                            return (
+                                                <td key={day} className="p-2 text-center border-r border-slate-50 last:border-0">
+                                                    <div className={`relative rounded-lg overflow-hidden border transition-colors ${isOff ? 'border-slate-200 bg-slate-50' : 'border-teal-200 bg-teal-50'}`}>
+                                                        <select 
+                                                            value={assignment}
+                                                            onChange={(e) => handleRosterChange(user.id, day, e.target.value)}
+                                                            className={`w-full p-2 text-xs font-bold appearance-none bg-transparent outline-none cursor-pointer text-center ${isOff ? 'text-slate-400' : 'text-teal-700'}`}
+                                                        >
+                                                            <option value="OFF">OFF</option>
+                                                            {settings.branches.map(b => (
+                                                                <option key={b} value={b}>{b}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-0 flex items-center justify-end pr-2 opacity-0 hover:opacity-100">
+                                                            <MapPin size={10} className="text-slate-400" />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div className="mt-4 p-4 text-xs text-slate-500 bg-slate-100 rounded-xl flex items-center gap-2">
+                    <Calendar size={14} />
+                    <span>Assignments set here will trigger conflict warnings if appointments are booked at incorrect locations.</span>
+                </div>
+            </div>
          ) : activeCategory === 'procedures' ? (
              <>
                 {/* ADD PROCEDURE FORM */}

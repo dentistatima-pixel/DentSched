@@ -118,6 +118,9 @@ export interface User {
   isReadOnly?: boolean; 
   
   preferences?: UserPreferences; // NEW: Personal toggles
+
+  // GLOBAL STAFFING
+  roster?: Record<string, string>; // Key: 'Mon', 'Tue'... Value: 'Makati Branch' or 'OFF'
 }
 
 export interface Patient {

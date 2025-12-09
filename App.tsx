@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -267,6 +269,10 @@ function App() {
           setCurrentBranch(newSettings.branches[0] || 'Main Office');
       }
   };
+
+  const handleUpdateStaffList = (updatedStaff: User[]) => {
+      setStaff(updatedStaff);
+  };
   
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
@@ -459,6 +465,8 @@ ${mixList}
         return <FieldManagement 
           settings={fieldSettings}
           onUpdateSettings={handleUpdateFieldSettings}
+          staff={staff}
+          onUpdateStaff={handleUpdateStaffList}
         />;
       default:
         return <Dashboard 

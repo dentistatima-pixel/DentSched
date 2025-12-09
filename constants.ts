@@ -1,4 +1,5 @@
 
+
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings } from './types';
 
 // Generators for mock data
@@ -44,6 +45,13 @@ export const STAFF: User[] = [
           showTraySetup: false,
           showPatientFlow: false,
           showLabAlerts: true
+      },
+      roster: {
+        'Mon': 'Makati Branch',
+        'Tue': 'Makati Branch',
+        'Wed': 'Makati Branch',
+        'Thu': 'Makati Branch',
+        'Fri': 'Makati Branch'
       }
   },
   { id: 'admin2', name: 'John Smith', role: UserRole.ADMIN, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John', allowedBranches: ['Makati Branch'] },
@@ -71,6 +79,12 @@ export const STAFF: User[] = [
           showPatientFlow: false,
           showLabAlerts: true,
           defaultDentition: 'Adult'
+      },
+      roster: {
+          'Mon': 'Makati Branch',
+          'Wed': 'Makati Branch',
+          'Fri': 'Makati Branch',
+          'Tue': 'Quezon City Branch'
       }
   },
   { 
@@ -94,6 +108,11 @@ export const STAFF: User[] = [
       preferences: {
         showFinancials: true,
         showLabAlerts: true
+      },
+      roster: {
+          'Tue': 'Quezon City Branch',
+          'Thu': 'Quezon City Branch',
+          'Sat': 'Quezon City Branch'
       }
   },
   { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'], preferences: { defaultDentition: 'Child' } },
@@ -117,6 +136,13 @@ export const STAFF: User[] = [
           showTraySetup: true,
           showPatientFlow: true,
           showLabAlerts: true
+      },
+      roster: {
+          'Mon': 'Makati Branch',
+          'Tue': 'Quezon City Branch',
+          'Wed': 'Makati Branch',
+          'Thu': 'Quezon City Branch',
+          'Fri': 'Makati Branch'
       }
   },
   { 
