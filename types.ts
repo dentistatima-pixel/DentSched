@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -216,4 +217,13 @@ export interface Appointment {
       reason: 'Reschedule' | 'Correction' | 'Provider Change';
       timestamp: string;
   }[];
+}
+
+export interface PinboardTask {
+    id: string;
+    text: string;
+    isCompleted: boolean;
+    isUrgent: boolean;
+    assignedTo?: string; // User ID
+    createdAt: number;
 }

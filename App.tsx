@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -8,7 +9,7 @@ import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask } from './types';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -34,7 +35,6 @@ function App() {
       const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
       
       // FORCE UPDATE: Overwrite lists with new constants to ensure users see updates
-      // This fixes the issue where LocalStorage holds onto the old "Generic" medical list
       return {
           ...parsed,
           allergies: DEFAULT_FIELD_SETTINGS.allergies,
@@ -46,6 +46,36 @@ function App() {
           }
       };
   });
+
+  // Pinboard Tasks (Lifted State)
+  const [tasks, setTasks] = useState<PinboardTask[]>(() => {
+      const saved = localStorage.getItem('dentsched_pinboard_tasks');
+      return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+      localStorage.setItem('dentsched_pinboard_tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
+      const newTask: PinboardTask = {
+          id: Date.now().toString(),
+          text,
+          isCompleted: false,
+          isUrgent,
+          assignedTo: assignedTo || undefined,
+          createdAt: Date.now()
+      };
+      setTasks(prev => [newTask, ...prev]);
+  };
+
+  const handleToggleTask = (id: string) => {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t));
+  };
+
+  const handleDeleteTask = (id: string) => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+  };
 
   // Auth State
   const [currentUser, setCurrentUser] = useState<User>(staff[0]); 
@@ -221,6 +251,108 @@ function App() {
       }
   };
 
+  // --- REPORT GENERATION (Business Intelligence) ---
+  const handleGenerateReport = () => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    
+    // 1. Financials (YTD)
+    const ytdCompleted = appointments.filter(a => 
+        a.status === AppointmentStatus.COMPLETED && 
+        new Date(a.date).getFullYear() === currentYear
+    );
+    
+    const ytdRevenue = ytdCompleted.reduce((sum, apt) => {
+        const proc = fieldSettings.procedures.find(p => p.name === apt.type);
+        return sum + (proc?.price || 0);
+    }, 0);
+
+    // 2. Production Mix (By Procedure)
+    const mix: Record<string, { count: number, revenue: number }> = {};
+    ytdCompleted.forEach(apt => {
+         const proc = fieldSettings.procedures.find(p => p.name === apt.type);
+         const price = proc?.price || 0;
+         if (!mix[apt.type]) {
+             mix[apt.type] = { count: 0, revenue: 0 };
+         }
+         mix[apt.type].count++;
+         mix[apt.type].revenue += price;
+    });
+    
+    const mixList = Object.entries(mix)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .map(m => `- ${m.name.padEnd(25)} | Qty: ${m.count.toString().padEnd(4)} | Total: ₱${m.revenue.toLocaleString()}`)
+      .join('\n');
+
+    // 3. Efficiency Metrics (Utilization & No Show)
+    const totalAppointments = appointments.length;
+    const noShows = appointments.filter(a => a.status === AppointmentStatus.NO_SHOW).length;
+    const noShowRate = totalAppointments > 0 ? ((noShows / totalAppointments) * 100).toFixed(1) : '0.0';
+    
+    // Utilization Estimate: (Booked Hours / Capacity)
+    // Assume 8 hours/day capacity * 24 days/month = 192 hours/month per dentist
+    // Simple Proxy: Average Appointments Per Day
+    const uniqueDates = new Set(appointments.map(a => a.date)).size;
+    const avgAptsPerDay = uniqueDates > 0 ? (totalAppointments / uniqueDates).toFixed(1) : '0';
+
+    // 4. Demographics
+    let males = 0, females = 0;
+    patients.forEach(p => {
+        if (p.sex === 'Male') males++;
+        else if (p.sex === 'Female') females++;
+    });
+    const newPatientsCount = patients.filter(p => {
+        // Simple heuristic: If ID starts with 'p_new_' or has recent lastDigitalUpdate
+        return p.id.startsWith('p_new_') || (p.lastDigitalUpdate && new Date(p.lastDigitalUpdate).getFullYear() === currentYear);
+    }).length;
+
+    // BUILD PDF CONTENT
+    const reportContent = `
+%PDF-1.4
+%DENT_SCHED_EXECUTIVE_REPORT
+------------------------------------------------------------------
+DENTAL PRACTICE EXECUTIVE REPORT (CONFIDENTIAL)
+Generated: ${new Date().toLocaleString()}
+By: ${currentUser.name}
+------------------------------------------------------------------
+
+1. FINANCIAL SNAPSHOT (YTD ${currentYear})
+------------------------------------------
+Total Revenue (Production):    ₱${ytdRevenue.toLocaleString()}
+Total Visits (Completed):      ${ytdCompleted.length}
+Avg Transaction Value:         ₱${ytdCompleted.length > 0 ? (ytdRevenue/ytdCompleted.length).toLocaleString(undefined, {maximumFractionDigits:0}) : 0}
+
+2. PRACTICE EFFICIENCY
+----------------------
+No-Show Rate:                  ${noShowRate}%
+Clinic Utilization:            ~${avgAptsPerDay} Appts / Day (Avg)
+Total Appointments Logged:     ${totalAppointments}
+
+3. PATIENT GROWTH & RETENTION
+-----------------------------
+Total Active Charts:           ${patients.length}
+New Patients (This Year):      ${newPatientsCount}
+Gender Ratio:                  ${males} Male / ${females} Female
+
+4. PRODUCTION MIX (Top Revenue Drivers)
+---------------------------------------
+${mixList}
+
+[End of Report]
+------------------------------------------------------------------
+    `;
+
+    // Download
+    const element = document.createElement("a");
+    const file = new Blob([reportContent], {type: 'application/pdf'}); // Mock PDF mime type
+    element.href = URL.createObjectURL(file);
+    element.download = `Executive_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -228,6 +360,7 @@ function App() {
           appointments={branchAppointments} 
           patientsCount={patients.length}
           staffCount={staff.length}
+          staff={staff} 
           currentUser={currentUser}
           patients={patients}
           onAddPatient={openNewPatientModal}
@@ -235,8 +368,12 @@ function App() {
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
           onCompleteRegistration={handleCompleteRegistration}
-          fieldSettings={fieldSettings} // Passed to check features
+          fieldSettings={fieldSettings}
           onViewAllSchedule={() => setActiveTab('schedule')} 
+          tasks={tasks} // PASS TASKS
+          onAddTask={handleAddTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
         />;
       case 'schedule':
         return <CalendarView 
@@ -246,7 +383,7 @@ function App() {
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
-          fieldSettings={fieldSettings} // Passed to check features
+          fieldSettings={fieldSettings}
         />;
       case 'patients':
         return <PatientList 
@@ -261,7 +398,7 @@ function App() {
           onBulkUpdatePatients={handleBulkUpdatePatients}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-          fieldSettings={fieldSettings} // Passed for Charting & Features
+          fieldSettings={fieldSettings} 
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
@@ -269,6 +406,7 @@ function App() {
                 appointments={branchAppointments} 
                 patientsCount={patients.length}
                 staffCount={staff.length}
+                staff={staff}
                 currentUser={currentUser}
                 patients={patients}
                 onAddPatient={openNewPatientModal}
@@ -278,6 +416,10 @@ function App() {
                 onCompleteRegistration={handleCompleteRegistration}
                 fieldSettings={fieldSettings}
                 onViewAllSchedule={() => setActiveTab('schedule')}
+                tasks={tasks} // PASS TASKS
+                onAddTask={handleAddTask}
+                onToggleTask={handleToggleTask}
+                onDeleteTask={handleDeleteTask}
               />;
         }
         return <FieldManagement 
@@ -289,6 +431,7 @@ function App() {
           appointments={branchAppointments}
           patientsCount={patients.length}
           staffCount={staff.length}
+          staff={staff}
           currentUser={currentUser}
           patients={patients}
           onAddPatient={openNewPatientModal}
@@ -298,6 +441,10 @@ function App() {
           onCompleteRegistration={handleCompleteRegistration}
           fieldSettings={fieldSettings}
           onViewAllSchedule={() => setActiveTab('schedule')}
+          tasks={tasks} // PASS TASKS
+          onAddTask={handleAddTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
         />;
     }
   };
@@ -313,7 +460,10 @@ function App() {
       currentBranch={currentBranch}
       availableBranches={fieldSettings.branches}
       onChangeBranch={setCurrentBranch}
-      fieldSettings={fieldSettings} 
+      fieldSettings={fieldSettings}
+      onGenerateReport={handleGenerateReport}
+      tasks={tasks} // PASS TASKS FOR NOTIFICATION
+      onToggleTask={handleToggleTask} // ALLOW QUICK COMPLETE
     >
       {renderContent()}
 

@@ -191,46 +191,86 @@ export const PATIENTS: Patient[] = [
         notes: 'Needs clearance for surgery.',
         medicalConditions: ['High BP'],
         insuranceProvider: 'Intellicare'
+    },
+    {
+        id: 'p_adult_004',
+        name: 'Sofia Reyes',
+        firstName: 'Sofia',
+        surname: 'Reyes',
+        dob: '1995-02-14',
+        age: 29,
+        sex: 'Female',
+        phone: '0920-555-0404',
+        email: 'sofia.reyes@email.com',
+        lastVisit: '2023-01-15', // Needs recall (> 1 year ago)
+        nextVisit: null,
+        notes: 'Due for cleaning.',
+        insuranceProvider: 'None'
     }
 ];
 
+// Helper to get today/tomorrow dynamic dates
+const getTodayStr = () => new Date().toLocaleDateString('en-CA');
+const getTomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toLocaleDateString('en-CA');
+}
+
 export const APPOINTMENTS: Appointment[] = [
+    // Today: Active Live Lobby Scenarios
     {
         id: 'apt_001',
         patientId: 'p_child_001',
         providerId: 'doc1',
         branch: 'Makati Branch',
-        date: new Date().toLocaleDateString('en-CA'),
+        date: getTodayStr(),
         time: '09:00',
-        durationMinutes: 60,
+        durationMinutes: 30,
         type: AppointmentType.CONSULTATION,
-        status: AppointmentStatus.SCHEDULED,
-        notes: 'Regular checkup'
+        status: AppointmentStatus.ARRIVED, // Waiting in Lobby
+        notes: 'Arrived 15m ago. Nervous child.'
     },
     {
         id: 'apt_002',
         patientId: 'p_adult_002',
         providerId: 'doc1',
         branch: 'Makati Branch',
-        date: new Date().toLocaleDateString('en-CA'),
-        time: '10:00',
+        date: getTodayStr(),
+        time: '09:30',
         durationMinutes: 60,
         type: AppointmentType.ROOT_CANAL,
-        status: AppointmentStatus.CONFIRMED,
-        notes: 'Start RCT tooth 26'
+        status: AppointmentStatus.SEATED, // In Chair
+        notes: 'Patient seated. Numbing gel applied.',
+        labStatus: LabStatus.NONE
     },
+    // Today: Completed
+    {
+        id: 'apt_005',
+        patientId: 'p_adult_004',
+        providerId: 'doc5',
+        branch: 'Makati Branch',
+        date: getTodayStr(),
+        time: '08:00',
+        durationMinutes: 45,
+        type: AppointmentType.ORAL_PROPHYLAXIS,
+        status: AppointmentStatus.COMPLETED,
+        notes: 'Routine cleaning done.'
+    },
+
+    // Tomorrow: Lab Alert
     {
         id: 'apt_003',
         patientId: 'p_adult_003',
         providerId: 'doc2',
         branch: 'Quezon City Branch',
-        date: new Date().toLocaleDateString('en-CA'),
+        date: getTomorrowStr(),
         time: '14:00',
         durationMinutes: 45,
-        type: AppointmentType.EXTRACTION,
+        type: AppointmentType.PROSTHODONTICS,
         status: AppointmentStatus.SCHEDULED,
-        notes: 'Simple extraction',
-        labStatus: LabStatus.NONE
+        notes: 'Crown Insertion - Check Lab Case',
+        labStatus: LabStatus.PENDING // ALERT!
     }
 ];
 

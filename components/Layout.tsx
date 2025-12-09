@@ -1,7 +1,9 @@
+
+
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
-import { User, Appointment, Patient, UserRole, FieldSettings } from '../types';
+import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,14 +17,20 @@ interface LayoutProps {
   availableBranches: string[];
   onChangeBranch: (branch: string) => void;
   fieldSettings?: FieldSettings; 
+  onGenerateReport: () => void;
+  tasks?: PinboardTask[]; // New: For Notification Logic
+  onToggleTask?: (id: string) => void; // New: For Quick Complete
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
-  currentBranch, availableBranches, onChangeBranch, fieldSettings
+  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // Task Notification State
+  const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
 
   // FEATURE TOGGLES
   const enableMultiBranch = fieldSettings?.features?.enableMultiBranch ?? true;
@@ -49,20 +57,96 @@ const Layout: React.FC<LayoutProps> = ({
       onSwitchUser(updatedUser);
   };
 
+  // Task Logic
+  const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
+  const badgeCount = myActiveTasks.length;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
       
       {/* Universal Mobile-Style Header */}
       <header className="h-16 bg-teal-900 text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0">
-             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-lilac-400 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">D</span>
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-lilac-400 rounded-xl flex items-center justify-center shadow-lg shadow-lilac-500/20">
+                    <span className="text-white font-bold text-xl">D</span>
                 </div>
-                <span className="font-bold tracking-tight text-lg">dentsched</span>
+                <div className="flex flex-col">
+                     <span className="font-bold tracking-tight text-lg leading-none">dentsched</span>
+                     <span className="text-[11px] text-teal-200 font-bold uppercase tracking-wider leading-none mt-1">Hello {currentUser.name.split(' ')[0]}</span>
+                </div>
              </div>
-             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 active:bg-teal-800 rounded-full transition-colors">
-                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-             </button>
+             
+             <div className="flex items-center gap-2">
+                 {/* TASK NOTIFICATION CENTER */}
+                 <div className="relative">
+                    <button 
+                        onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)}
+                        className={`p-2 rounded-full transition-colors relative ${isTaskPopoverOpen ? 'bg-teal-800' : 'active:bg-teal-800'}`}
+                        title="My Tasks"
+                    >
+                        <ClipboardCheck size={24} />
+                        {badgeCount > 0 && (
+                            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-teal-900">
+                                {badgeCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Quick View Popover */}
+                    {isTaskPopoverOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
+                            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800">
+                                <div className="bg-slate-50 border-b border-slate-100 p-3 flex justify-between items-center">
+                                    <span className="font-bold text-sm">My Tasks</span>
+                                    <span className="text-xs text-slate-500 font-medium">{badgeCount} Active</span>
+                                </div>
+                                <div className="max-h-64 overflow-y-auto p-2">
+                                    {myActiveTasks.length > 0 ? (
+                                        <div className="space-y-1">
+                                            {myActiveTasks.map(task => (
+                                                <div key={task.id} className="flex items-start gap-2 p-2 hover:bg-slate-50 rounded-lg group">
+                                                    <button 
+                                                        onClick={() => onToggleTask && onToggleTask(task.id)}
+                                                        className="mt-0.5 text-slate-300 hover:text-green-500 transition-colors"
+                                                    >
+                                                        <Circle size={16} />
+                                                    </button>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-medium leading-tight text-slate-700">{task.text}</div>
+                                                        {task.isUrgent && (
+                                                            <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold">
+                                                                <Flag size={8} /> Urgent
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 text-center text-slate-400 text-xs italic">
+                                            <div className="mb-2"><CheckCircle size={24} className="mx-auto opacity-20"/></div>
+                                            No active tasks assigned to you.
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-2 border-t border-slate-100 bg-slate-50">
+                                    <button 
+                                        onClick={() => { setActiveTab('dashboard'); setIsTaskPopoverOpen(false); }}
+                                        className="w-full py-2 text-center text-xs font-bold text-teal-600 hover:bg-teal-50 rounded-lg"
+                                    >
+                                        Go to Dashboard Board
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                 </div>
+
+                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 active:bg-teal-800 rounded-full transition-colors">
+                     {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                 </button>
+             </div>
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -105,6 +189,17 @@ const Layout: React.FC<LayoutProps> = ({
                             <div className="bg-teal-700 p-2 rounded-lg"><UserCircle size={20} className="text-white" /></div>
                             <span className="font-bold">Account Profile</span>
                         </button>
+
+                        {/* REPORTS BUTTON (Admin/Dentist Only) */}
+                        {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
+                            <button 
+                                onClick={() => { onGenerateReport(); setIsMobileMenuOpen(false); }}
+                                className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors"
+                            >
+                                <div className="bg-teal-700 p-2 rounded-lg"><Download size={20} className="text-white" /></div>
+                                <span className="font-bold">Practice Reports</span>
+                            </button>
+                        )}
                     </div>
                     
                     {/* Demo User Switcher (Hidden in prod usually, but kept for demo) */}
