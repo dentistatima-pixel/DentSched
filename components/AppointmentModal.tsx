@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock, ArrowRightLeft, Beaker } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock, ArrowRightLeft, Beaker, CreditCard, Activity, CheckCircle, Sparkles } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
@@ -27,7 +27,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   
   // Common Fields
   const [providerId, setProviderId] = useState('');
-  // Fix: Use local date string instead of UTC toISOString to avoid timezone issues
   const [date, setDate] = useState(initialDate || new Date().toLocaleDateString('en-CA'));
   const [time, setTime] = useState(initialTime || '09:00');
   const [duration, setDuration] = useState(60);
@@ -78,7 +77,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               // Reset for new booking
               setDate(initialDate || new Date().toLocaleDateString('en-CA'));
               setTime(initialTime || '09:00');
-              setProviderId('');
+              setProviderId(staff.find(s => s.role === UserRole.DENTIST)?.id || '');
               setLabStatus(LabStatus.NONE);
               
               if (initialPatientId) {
@@ -92,16 +91,48 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setSearchTerm('');
           }
       }
-  }, [isOpen, initialDate, initialTime, initialPatientId, existingAppointment]);
-
-  if (!isOpen) return null;
+  }, [isOpen, initialDate, initialTime, initialPatientId, existingAppointment, staff]);
 
   // Search Logic
   const fuse = new Fuse(patients, { keys: ['name', 'phone', 'id'], threshold: 0.3 });
   const searchResults = searchTerm ? fuse.search(searchTerm).map(r => r.item).slice(0, 5) : [];
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
-  // Helper to format date for display: "Tue, Dec 12, 2023"
+  // --- SMART SLOT LOGIC ---
+  const availableSlots = useMemo(() => {
+      if (!providerId || !date) return [];
+      
+      // 1. Generate all possible slots (e.g. 9:00 to 17:00)
+      const slots: string[] = [];
+      let startHour = 9;
+      const endHour = 17;
+      
+      for (let h = startHour; h < endHour; h++) {
+          slots.push(`${h.toString().padStart(2, '0')}:00`);
+          slots.push(`${h.toString().padStart(2, '0')}:30`);
+      }
+
+      // 2. Find conflicts
+      const dayAppointments = appointments.filter(a => 
+          a.providerId === providerId && 
+          a.date === date && 
+          a.status !== AppointmentStatus.CANCELLED &&
+          a.id !== existingAppointment?.id // Ignore self if editing
+      );
+
+      // 3. Filter slots
+      return slots.map(slot => {
+          const isTaken = dayAppointments.some(a => {
+              // Simple check: exact match or overlap (simplified for demo)
+              // Real logic needs minute-by-minute collision detection
+              return a.time === slot; 
+          });
+          return { time: slot, available: !isTaken };
+      });
+  }, [providerId, date, appointments, existingAppointment]);
+
+
+  // Helper to format date
   const getDisplayDate = (dateStr: string) => {
     if (!dateStr) return '';
     try {
@@ -118,13 +149,22 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
   };
 
+  const isCritical = (p?: Patient) => {
+      if (!p) return false;
+      return (
+          p.seriousIllness || 
+          p.underMedicalTreatment || 
+          (p.medicalConditions && p.medicalConditions.length > 0)
+      );
+  };
+
   const handleSave = () => {
       if (!providerId) {
           alert("Please select a provider");
           return;
       }
 
-      // 1. Double Booking Check
+      // Double Booking Check
       const conflict = appointments.find(a => 
         a.providerId === providerId &&
         a.date === date &&
@@ -135,15 +175,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       if (conflict) {
           const busyProvider = staff.find(s => s.id === providerId)?.name || 'Provider';
-          alert(`Schedule Conflict: ${busyProvider} already has an appointment at ${time} on ${date}.`);
-          return;
+          if (!window.confirm(`Double Booking Warning:\n${busyProvider} is already busy at ${time}.\n\nBook anyway?`)) {
+              return;
+          }
       }
 
       let finalPatientId = selectedPatientId;
       let isBlock = false;
       let title = undefined;
 
-      // Handle New Patient Creation
       if (activeTab === 'new') {
           if (!newPatientData.firstName || !newPatientData.surname || !newPatientData.phone) {
               alert("Please fill in required fields");
@@ -161,12 +201,10 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               dob: '',
               email: ''
           };
-          
           if (onSavePatient) onSavePatient(newPatient);
           finalPatientId = newId;
       } 
       
-      // Handle Block
       if (activeTab === 'block') {
           isBlock = true;
           title = blockTitle || 'Blocked Time';
@@ -186,26 +224,23 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           time,
           durationMinutes: duration,
           type: activeTab === 'block' ? AppointmentType.CONSULTATION : procedureType,
-          status: existingAppointment?.status || AppointmentStatus.SCHEDULED, // Preserve flow status
+          status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
           notes,
           labStatus: isBlock ? LabStatus.NONE : labStatus,
           isBlock,
           title
       };
 
-      // Reschedule History Logic
       if (existingAppointment) {
           const isDateChanged = existingAppointment.date !== date || existingAppointment.time !== time;
           const isProviderChanged = existingAppointment.providerId !== providerId;
           
           if (isDateChanged || isProviderChanged) {
               const history = existingAppointment.rescheduleHistory || [];
-              
               let reason = rescheduleReason;
               if (isProviderChanged && reason !== 'Correction') {
                   reason = 'Provider Change';
               }
-
               history.push({
                   previousDate: existingAppointment.date,
                   previousTime: existingAppointment.time,
@@ -220,6 +255,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       onSave(appointmentData);
       onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-end md:items-center p-0 md:p-4">
@@ -236,311 +273,246 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </button>
         </div>
 
-        {/* Tabs */}
-        {!existingAppointment && (
-            <div className="flex border-b border-slate-200">
-                <button 
-                    onClick={() => setActiveTab('existing')}
-                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'existing' ? 'border-teal-600 text-teal-800 bg-teal-50/50' : 'border-transparent text-slate-500'}`}
-                >
-                    Find Existing
-                </button>
-                <button 
-                    onClick={() => setActiveTab('new')}
-                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'new' ? 'border-teal-600 text-teal-800 bg-teal-50/50' : 'border-transparent text-slate-500'}`}
-                >
-                    New Patient
-                </button>
-                <button 
-                    onClick={() => setActiveTab('block')}
-                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'block' ? 'border-slate-600 text-slate-800 bg-slate-50' : 'border-transparent text-slate-500'}`}
-                >
-                    Block / Admin
-                </button>
+        {/* --- PATIENT SNAPSHOT HEADER (NEW) --- */}
+        {selectedPatient && activeTab === 'existing' && (
+            <div className={`
+                p-4 flex justify-between items-start border-b
+                ${isCritical(selectedPatient) ? 'bg-red-50 border-red-100' : 'bg-teal-50 border-teal-100'}
+            `}>
+                <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-full ${isCritical(selectedPatient) ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-600'}`}>
+                        {isCritical(selectedPatient) ? <AlertCircle size={24} /> : <User size={24} />}
+                    </div>
+                    <div>
+                        <h3 className={`font-bold text-lg leading-none ${isCritical(selectedPatient) ? 'text-red-900' : 'text-teal-900'}`}>{selectedPatient.name}</h3>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                             {/* Last Visit */}
+                             <div className="flex items-center gap-1 text-xs font-medium opacity-80">
+                                <Clock size={12} />
+                                Last: {formatDate(selectedPatient.lastVisit)}
+                             </div>
+                             {/* Medical Alert */}
+                             {isCritical(selectedPatient) && (
+                                 <span className="flex items-center gap-1 text-[10px] font-bold bg-red-200 text-red-800 px-2 py-0.5 rounded uppercase">
+                                     <Activity size={10} /> Medical Alert
+                                 </span>
+                             )}
+                             {/* Mock Balance */}
+                             <span className="flex items-center gap-1 text-[10px] font-bold bg-white/50 px-2 py-0.5 rounded border border-black/5">
+                                 <CreditCard size={10} /> Balance: ₱0.00
+                             </span>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={() => setSelectedPatientId('')} className="text-xs font-bold underline opacity-50 hover:opacity-100">Change</button>
             </div>
         )}
 
-        <div className="p-6 space-y-5 pb-safe">
-            
-            {/* --- TAB CONTENT: EXISTING --- */}
-            {activeTab === 'existing' && (
-                <>
-                    <div className="relative z-20">
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Search Patient</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input 
-                                type="text"
-                                placeholder="Name, Phone, or ID..."
-                                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                value={selectedPatient ? selectedPatient.name : searchTerm}
-                                onChange={(e) => {
-                                    setSearchTerm(e.target.value);
-                                    if (selectedPatient) setSelectedPatientId('');
-                                }}
-                            />
-                            {selectedPatient && (
-                                <button 
-                                    onClick={() => { setSelectedPatientId(''); setSearchTerm(''); }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-slate-200 rounded-full hover:bg-slate-300"
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
-                        {searchTerm && !selectedPatient && searchResults.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-30">
-                                {searchResults.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => { setSelectedPatientId(p.id); setSearchTerm(''); }}
-                                        className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 flex justify-between items-center"
-                                    >
-                                        <div>
-                                            <div className="font-bold text-slate-800">{p.name}</div>
-                                            <div className="text-xs text-slate-500">{p.phone} • {formatDate(p.dob)}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+        {/* Tabs */}
+        {!existingAppointment && (
+            <div className="flex border-b border-slate-200">
+                <button onClick={() => setActiveTab('existing')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'existing' ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-500'}`}>Existing Patient</button>
+                <button onClick={() => setActiveTab('new')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'new' ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-500'}`}>New Patient</button>
+                <button onClick={() => setActiveTab('block')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'block' ? 'border-slate-600 text-slate-800' : 'border-transparent text-slate-500'}`}>Block Time</button>
+            </div>
+        )}
 
-                    {selectedPatient && (
-                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
-                             <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-teal-900 flex items-center gap-2">
-                                    <User size={16}/> {selectedPatient.name}
-                                </h4>
-                                <span className="text-xs text-teal-600 bg-white px-2 py-1 rounded-full border border-teal-100">
-                                    Last: {formatDate(selectedPatient.lastVisit)}
-                                </span>
-                             </div>
-                             {/* Alerts */}
-                             {(selectedPatient.medicalConditions?.length || 0) > 0 && (
-                                 <div className="mt-2 text-xs text-red-600 font-bold flex items-center gap-1">
-                                     <AlertTriangle size={12} /> Medical Alerts on file
-                                 </div>
-                             )}
+        <div className="p-6 space-y-6 pb-safe">
+            
+            {/* EXISTING PATIENT SEARCH */}
+            {activeTab === 'existing' && !selectedPatient && (
+                <div className="space-y-2">
+                    <label className="block text-sm font-bold text-slate-700">Find Patient</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                            type="text"
+                            placeholder="Search by Name or ID..."
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    {searchTerm && searchResults.length > 0 && (
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            {searchResults.map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => { setSelectedPatientId(p.id); setSearchTerm(''); }}
+                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                                >
+                                    <span className="font-bold text-slate-800">{p.name}</span>
+                                    <span className="text-xs text-slate-400">{p.phone}</span>
+                                </button>
+                            ))}
                         </div>
                     )}
-                    
+                </div>
+            )}
+
+            {/* NEW PATIENT FORM */}
+            {activeTab === 'new' && (
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                     <div className="col-span-2 text-xs font-bold text-teal-600 uppercase flex items-center gap-2"><Sparkles size={14}/> Quick Registration</div>
+                     <input type="text" placeholder="First Name *" className="p-2 border rounded-lg" value={newPatientData.firstName} onChange={e => setNewPatientData({...newPatientData, firstName: e.target.value})}/>
+                     <input type="text" placeholder="Surname *" className="p-2 border rounded-lg" value={newPatientData.surname} onChange={e => setNewPatientData({...newPatientData, surname: e.target.value})}/>
+                     <input type="tel" placeholder="Mobile *" className="col-span-2 p-2 border rounded-lg" value={newPatientData.phone} onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})}/>
+                </div>
+            )}
+
+            {/* BLOCK FORM */}
+            {activeTab === 'block' && (
+                <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Block Reason</label>
+                    <input type="text" placeholder="e.g. Lunch, Meeting" className="w-full p-2 border rounded-lg" value={blockTitle} onChange={(e) => setBlockTitle(e.target.value)} />
+                </div>
+            )}
+
+            {/* --- SCHEDULING DETAILS --- */}
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                     {/* Provider Select */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Procedure</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Provider</label>
                         <select 
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                            value={procedureType}
-                            onChange={(e) => setProcedureType(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none font-medium"
+                            value={providerId}
+                            onChange={(e) => setProviderId(e.target.value)}
                         >
-                            {fieldSettings.procedures.map(type => (
-                                <option key={type.id} value={type.name}>{type.name}</option>
-                            ))}
+                            <option value="">Select...</option>
+                            {dentists.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            <optgroup label="Assistants">
+                                {assistants.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </optgroup>
                         </select>
                     </div>
 
-                    {/* LAB STATUS TOGGLE */}
-                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                        <label className="flex items-center gap-2 text-sm font-bold text-amber-800 mb-2">
-                            <Beaker size={16} /> Lab Tracking
-                        </label>
-                        <div className="flex gap-2">
-                            {Object.values(LabStatus).map(status => (
-                                <button
-                                    key={status}
-                                    onClick={() => setLabStatus(status)}
-                                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${
-                                        labStatus === status 
-                                        ? 'bg-amber-500 text-white border-amber-600'
-                                        : 'bg-white text-slate-500 border-slate-200 hover:bg-amber-50'
-                                    }`}
-                                >
-                                    {status}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {/* --- TAB CONTENT: NEW PATIENT --- */}
-            {activeTab === 'new' && (
-                <div className="space-y-4 bg-teal-50/50 p-4 rounded-xl border border-teal-100">
-                    <div className="flex items-start gap-2 text-teal-800 text-sm mb-2">
-                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                        <p><strong>Quick Add</strong> for scheduling. Clinic staff to complete full registration details upon patient arrival.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
+                    {/* Date Picker */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
+                        <div className="relative group">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10 pointer-events-none" size={18} />
+                            <div className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium h-[46px] flex items-center truncate">
+                                 {getDisplayDate(date)}
+                            </div>
                             <input 
-                                type="text"
-                                className="w-full p-2 border border-slate-200 rounded-lg focus:border-teal-500 outline-none bg-white"
-                                value={newPatientData.firstName}
-                                onChange={e => setNewPatientData({...newPatientData, firstName: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Surname *</label>
-                            <input 
-                                type="text"
-                                className="w-full p-2 border border-slate-200 rounded-lg focus:border-teal-500 outline-none bg-white"
-                                value={newPatientData.surname}
-                                onChange={e => setNewPatientData({...newPatientData, surname: e.target.value})}
+                                type="date" 
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
                             />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number *</label>
-                        <input 
-                            type="tel"
-                            placeholder="09xx xxx xxxx"
-                            className="w-full p-2 border border-slate-200 rounded-lg focus:border-teal-500 outline-none bg-white"
-                            value={newPatientData.phone}
-                            onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})}
-                        />
-                    </div>
                 </div>
-            )}
 
-            {/* --- TAB CONTENT: BLOCK --- */}
-            {activeTab === 'block' && (
-                <div className="space-y-4 bg-slate-100 p-4 rounded-xl border border-slate-200">
-                     <div className="flex items-start gap-2 text-slate-600 text-sm mb-2">
-                        <Lock size={16} className="shrink-0 mt-0.5" />
-                        <p>Blocks time on the calendar for administrative tasks, breaks, or meetings.</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Block Title *</label>
-                        <input 
-                            type="text"
-                            placeholder="e.g. Staff Meeting, Lunch, Vendor Demo"
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500"
-                            value={blockTitle}
-                            onChange={(e) => setBlockTitle(e.target.value)}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Common Fields */}
-            <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
-                    <div className="relative group">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10 pointer-events-none" size={18} />
-                        {/* Display the custom formatted date (Tue, Dec 12, 2023) */}
-                        <div className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm font-medium h-[46px] flex items-center group-focus-within:ring-2 group-focus-within:ring-teal-500/20 group-focus-within:border-teal-500 transition-all truncate">
-                             {getDisplayDate(date)}
-                        </div>
-                        {/* Invisible native date input on top */}
-                        <input 
-                            type="date" 
-                            required
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                        />
-                    </div>
-                </div>
+                {/* SMART TIME PICKER */}
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Time</label>
-                    <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
+                     <label className="flex justify-between items-center text-sm font-bold text-slate-700 mb-2">
+                        <span>Time Slot</span>
+                        <span className="text-xs font-normal text-slate-400">{availableSlots.filter(s => s.available).length} available</span>
+                     </label>
+                     
+                     {/* Grid of Slots */}
+                     <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto mb-2 custom-scrollbar">
+                         {availableSlots.map(slot => (
+                             <button
+                                key={slot.time}
+                                type="button"
+                                onClick={() => slot.available && setTime(slot.time)}
+                                disabled={!slot.available}
+                                className={`
+                                    py-2 px-1 rounded-lg text-xs font-bold transition-all border
+                                    ${time === slot.time 
+                                        ? 'bg-teal-600 text-white border-teal-600 shadow-md transform scale-105' 
+                                        : slot.available 
+                                            ? 'bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600' 
+                                            : 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed decoration-slate-300 line-through'}
+                                `}
+                             >
+                                 {slot.time}
+                             </button>
+                         ))}
+                     </div>
+                     
+                     {/* Custom Time Fallback */}
+                     <div className="flex items-center gap-2 mt-2">
+                         <span className="text-xs font-bold text-slate-400 uppercase">Manual:</span>
+                         <input 
                             type="time" 
-                            required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                            value={time}
+                            value={time} 
                             onChange={(e) => setTime(e.target.value)}
+                            className="bg-transparent border-b border-slate-300 text-sm font-mono focus:border-teal-500 outline-none" 
                         />
+                     </div>
+                </div>
+
+                {/* Duration & Procedure */}
+                <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Duration</label>
+                        <select 
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                            value={duration}
+                            onChange={(e) => setDuration(Number(e.target.value))}
+                        >
+                            {[15, 30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} mins</option>)}
+                        </select>
                     </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Duration (min)</label>
-                    <select 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                        value={duration}
-                        onChange={(e) => setDuration(Number(e.target.value))}
-                    >
-                        <option value={15}>15 mins</option>
-                        <option value={30}>30 mins</option>
-                        <option value={45}>45 mins</option>
-                        <option value={60}>1 hour</option>
-                        <option value={90}>1.5 hours</option>
-                        <option value={120}>2 hours</option>
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Provider</label>
-                    <select 
-                        required
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                        value={providerId}
-                        onChange={(e) => setProviderId(e.target.value)}
-                    >
-                        <option value="">Select Provider</option>
-                        <optgroup label="Dentists">
-                            {dentists.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Dental Assistants">
-                            {assistants.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </optgroup>
-                    </select>
-                </div>
-            </div>
-
-            {/* Reschedule / Modification Reason */}
-            {existingAppointment && (
-                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <label className="block text-sm font-bold text-blue-800 mb-2">Modification Reason</label>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="reason" 
-                                    value="Reschedule" 
-                                    checked={rescheduleReason === 'Reschedule'} 
-                                    onChange={() => setRescheduleReason('Reschedule')}
-                                    className="w-4 h-4 accent-blue-600"
-                                />
-                                <span className="text-sm">Reschedule (Log it)</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="reason" 
-                                    value="Correction" 
-                                    checked={rescheduleReason === 'Correction'} 
-                                    onChange={() => setRescheduleReason('Correction')}
-                                    className="w-4 h-4 accent-blue-600"
-                                />
-                                <span className="text-sm">Correction (Oops)</span>
-                            </label>
+                    {activeTab !== 'block' && (
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Procedure</label>
+                            <select 
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                value={procedureType}
+                                onChange={(e) => setProcedureType(e.target.value)}
+                            >
+                                {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                            </select>
                         </div>
-                        {existingAppointment.providerId !== providerId && (
-                             <div className="text-xs text-blue-600 font-bold flex items-center gap-1 animate-pulse">
-                                <ArrowRightLeft size={12} />
-                                Provider Change detected - Will be logged automatically.
-                             </div>
-                        )}
-                    </div>
+                    )}
                 </div>
-            )}
 
-            <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Internal Notes</label>
+                {/* Lab & Notes */}
+                {activeTab !== 'block' && (
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-center justify-between">
+                         <span className="text-xs font-bold text-amber-800 uppercase flex items-center gap-1"><Beaker size={14}/> Lab Case?</span>
+                         <div className="flex gap-1">
+                             {Object.values(LabStatus).map(s => (
+                                 <button
+                                    key={s}
+                                    onClick={() => setLabStatus(s)}
+                                    className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors ${labStatus === s ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-500 border-amber-200'}`}
+                                 >
+                                     {s}
+                                 </button>
+                             ))}
+                         </div>
+                    </div>
+                )}
+                
                 <textarea 
-                    placeholder="Notes visible to staff only..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 h-24 resize-none"
+                    placeholder="Internal Notes..." 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 outline-none resize-none h-20"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                 />
-            </div>
 
+                {/* Reschedule Reason */}
+                {existingAppointment && (
+                     <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex flex-col gap-2">
+                         <label className="text-xs font-bold text-blue-800 uppercase">Modification Reason</label>
+                         <div className="flex gap-4">
+                             {['Reschedule', 'Correction'].map(r => (
+                                 <label key={r} className="flex items-center gap-2 cursor-pointer">
+                                     <input type="radio" name="reason" value={r} checked={rescheduleReason === r} onChange={() => setRescheduleReason(r as any)} className="accent-blue-600"/>
+                                     <span className="text-sm text-blue-900">{r}</span>
+                                 </label>
+                             ))}
+                         </div>
+                     </div>
+                )}
+            </div>
         </div>
 
         {/* Footer */}

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -92,6 +90,8 @@ function App() {
   const [bookingDate, setBookingDate] = useState<string | undefined>(undefined);
   const [bookingTime, setBookingTime] = useState<string | undefined>(undefined);
   const [initialBookingPatientId, setInitialBookingPatientId] = useState<string | undefined>(undefined);
+  // For Editing
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   // Patient Registration Modal State
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
@@ -122,10 +122,11 @@ function App() {
   // FILTER LOGIC
   const branchAppointments = appointments.filter(a => a.branch === currentBranch);
 
-  const handleOpenBooking = (date?: string, time?: string, patientId?: string) => {
+  const handleOpenBooking = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => {
     setBookingDate(date);
     setBookingTime(time);
     setInitialBookingPatientId(patientId);
+    setEditingAppointment(appointmentToEdit || null); // Set edit state
     setIsAppointmentModalOpen(true);
   };
 
@@ -145,6 +146,34 @@ function App() {
             return [...prev, appointmentWithBranch];
         }
     });
+  };
+
+  // DRAG AND DROP / MOVE HANDLER
+  const handleMoveAppointment = (appointmentId: string, newDate: string, newTime: string, newProviderId: string) => {
+      setAppointments(prev => {
+          const apt = prev.find(a => a.id === appointmentId);
+          if (!apt) return prev;
+
+          const updatedApt: Appointment = {
+              ...apt,
+              date: newDate,
+              time: newTime,
+              providerId: newProviderId,
+              // Log the move in history
+              rescheduleHistory: [
+                  ...(apt.rescheduleHistory || []),
+                  {
+                      previousDate: apt.date,
+                      previousTime: apt.time,
+                      previousProviderId: apt.providerId,
+                      reason: 'Reschedule', // Automated drag drop reason
+                      timestamp: new Date().toISOString()
+                  }
+              ]
+          };
+
+          return prev.map(a => a.id === appointmentId ? updatedApt : a);
+      });
   };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
@@ -380,6 +409,7 @@ ${mixList}
           appointments={branchAppointments} 
           staff={staff} 
           onAddAppointment={handleOpenBooking}
+          onMoveAppointment={handleMoveAppointment} // NEW: Move Handler
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
@@ -478,6 +508,7 @@ ${mixList}
         initialDate={bookingDate}
         initialTime={bookingTime}
         initialPatientId={initialBookingPatientId}
+        existingAppointment={editingAppointment} // Pass existing for edit
         fieldSettings={fieldSettings}
       />
 
