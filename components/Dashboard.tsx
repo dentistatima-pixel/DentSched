@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask } from '../types';
@@ -185,7 +184,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                             searchResults.map(p => (
                                 <button
                                     key={p.id}
-                                    onClick={() => onPatientSelect(p.id)}
+                                    onClick={() => {
+                                        onPatientSelect(p.id);
+                                        setSearchTerm('');
+                                    }}
                                     className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 flex justify-between"
                                 >
                                     <div className="font-bold text-slate-800 text-sm">{p.name}</div>
@@ -385,13 +387,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                         const d = new Date(a.date);
                         const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
                         return (
-                            <div key={a.id} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors">
+                            <div 
+                                key={a.id} 
+                                onClick={() => onPatientSelect(a.patientId)}
+                                className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors cursor-pointer group"
+                            >
                                 <div className="flex items-center gap-3">
                                     <div className="bg-blue-100 text-blue-700 font-bold text-xs px-2 py-1 rounded uppercase w-10 text-center">
                                         {dayName}
                                     </div>
                                     <div>
-                                        <div className="font-bold text-sm text-slate-700">{p?.name}</div>
+                                        <div className="font-bold text-sm text-slate-700 group-hover:text-teal-700 transition-colors">{p?.name}</div>
                                         <div className="text-xs text-slate-500">{a.type}</div>
                                     </div>
                                 </div>
