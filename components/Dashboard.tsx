@@ -1,11 +1,11 @@
-
 import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon } from 'lucide-react';
+import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask } from '../types';
 import Fuse from 'fuse.js';
 
 interface DashboardProps {
   appointments: Appointment[];
+  allAppointments?: Appointment[]; // ADDED FOR HQ MODE
   patientsCount: number;
   staffCount: number;
   staff?: User[]; // Added staff list for assignment
@@ -18,6 +18,7 @@ interface DashboardProps {
   onCompleteRegistration: (patientId: string) => void;
   fieldSettings?: FieldSettings;
   onViewAllSchedule?: () => void; 
+  onChangeBranch?: (branch: string) => void;
   
   // Tasks Props (Lifted)
   tasks?: PinboardTask[];
@@ -27,8 +28,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  appointments, patientsCount, staffCount, staff, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule,
+  appointments, allAppointments = [], patientsCount, staffCount, staff, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
+  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule, onChangeBranch,
   tasks = [], onAddTask, onToggleTask, onDeleteTask
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -209,6 +210,47 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </button>
             </div>
       </header>
+      
+      {/* --- HQ MODE: BRANCH PULSE (ADMIN ONLY) --- */}
+      {currentUser.role === UserRole.ADMIN && fieldSettings?.features?.enableMultiBranch && (
+          <div className="bg-slate-800 rounded-2xl p-4 shadow-lg text-white">
+              <div className="flex items-center gap-2 mb-3 border-b border-slate-700 pb-2">
+                   <Building2 size={18} className="text-teal-400" />
+                   <h3 className="font-bold text-sm uppercase tracking-wide">Network Pulse (HQ View)</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                   {fieldSettings.branches.map(branch => {
+                       // Calc branch stats
+                       const branchApts = allAppointments.filter(a => a.branch === branch && a.date === today && !a.isBlock);
+                       const branchRev = branchApts.reduce((sum, a) => {
+                           const proc = fieldSettings.procedures.find(p => p.name === a.type);
+                           return sum + (proc?.price || 0);
+                       }, 0);
+                       
+                       return (
+                           <div key={branch} className="bg-slate-700/50 p-3 rounded-xl border border-slate-600 flex justify-between items-center group hover:bg-slate-700 transition-colors">
+                               <div>
+                                   <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase mb-1">
+                                       <MapPin size={10} /> {branch}
+                                   </div>
+                                   <div className="text-lg font-bold">₱{branchRev.toLocaleString()}</div>
+                                   <div className="text-[10px] text-teal-300">{branchApts.length} Appts Today</div>
+                               </div>
+                               {onChangeBranch && (
+                                   <button 
+                                        onClick={() => onChangeBranch(branch)}
+                                        className="p-2 bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-600"
+                                        title="Switch View"
+                                   >
+                                       <ArrowRight size={14} />
+                                   </button>
+                               )}
+                           </div>
+                       );
+                   })}
+              </div>
+          </div>
+      )}
 
       {/* --- STACKED LAYOUT: SCHEDULE -> PREP -> LAB -> OPPORTUNITIES -> PINBOARD --- */}
       <div className="space-y-6">
@@ -443,7 +485,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <div key={p.id} className="flex justify-between items-center text-sm p-3 bg-slate-50 border border-slate-100 hover:bg-teal-50 hover:border-teal-100 rounded-xl cursor-pointer group transition-all" onClick={() => onPatientSelect(p.id)}>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-slate-700">{p.name}</span>
-                                            <span className="text-[10px] text-slate-500">{tx?.procedure}</span>
+                                            <span className="text-xs text-slate-500">{tx?.procedure}</span>
                                         </div>
                                         <ArrowRight size={14} className="text-slate-300 group-hover:text-teal-500" />
                                     </div>

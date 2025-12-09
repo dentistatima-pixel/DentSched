@@ -387,6 +387,7 @@ ${mixList}
       case 'dashboard':
         return <Dashboard 
           appointments={branchAppointments} 
+          allAppointments={appointments} // PASS ALL APPOINTMENTS FOR HQ MODE
           patientsCount={patients.length}
           staffCount={staff.length}
           staff={staff} 
@@ -399,17 +400,18 @@ ${mixList}
           onCompleteRegistration={handleCompleteRegistration}
           fieldSettings={fieldSettings}
           onViewAllSchedule={() => setActiveTab('schedule')} 
-          tasks={tasks} // PASS TASKS
+          tasks={tasks} 
           onAddTask={handleAddTask}
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
+          onChangeBranch={setCurrentBranch} // Allow branch switching from HQ mode
         />;
       case 'schedule':
         return <CalendarView 
           appointments={branchAppointments} 
           staff={staff} 
           onAddAppointment={handleOpenBooking}
-          onMoveAppointment={handleMoveAppointment} // NEW: Move Handler
+          onMoveAppointment={handleMoveAppointment} 
           currentUser={currentUser}
           patients={patients}
           currentBranch={currentBranch} 
@@ -434,6 +436,7 @@ ${mixList}
         if (currentUser.role !== UserRole.ADMIN) {
              return <Dashboard 
                 appointments={branchAppointments} 
+                allAppointments={appointments}
                 patientsCount={patients.length}
                 staffCount={staff.length}
                 staff={staff}
@@ -446,10 +449,11 @@ ${mixList}
                 onCompleteRegistration={handleCompleteRegistration}
                 fieldSettings={fieldSettings}
                 onViewAllSchedule={() => setActiveTab('schedule')}
-                tasks={tasks} // PASS TASKS
+                tasks={tasks}
                 onAddTask={handleAddTask}
                 onToggleTask={handleToggleTask}
                 onDeleteTask={handleDeleteTask}
+                onChangeBranch={setCurrentBranch}
               />;
         }
         return <FieldManagement 
@@ -459,6 +463,7 @@ ${mixList}
       default:
         return <Dashboard 
           appointments={branchAppointments}
+          allAppointments={appointments}
           patientsCount={patients.length}
           staffCount={staff.length}
           staff={staff}
@@ -471,10 +476,11 @@ ${mixList}
           onCompleteRegistration={handleCompleteRegistration}
           fieldSettings={fieldSettings}
           onViewAllSchedule={() => setActiveTab('schedule')}
-          tasks={tasks} // PASS TASKS
+          tasks={tasks}
           onAddTask={handleAddTask}
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
+          onChangeBranch={setCurrentBranch}
         />;
     }
   };
@@ -492,8 +498,8 @@ ${mixList}
       onChangeBranch={setCurrentBranch}
       fieldSettings={fieldSettings}
       onGenerateReport={handleGenerateReport}
-      tasks={tasks} // PASS TASKS FOR NOTIFICATION
-      onToggleTask={handleToggleTask} // ALLOW QUICK COMPLETE
+      tasks={tasks} 
+      onToggleTask={handleToggleTask} 
     >
       {renderContent()}
 
@@ -508,7 +514,7 @@ ${mixList}
         initialDate={bookingDate}
         initialTime={bookingTime}
         initialPatientId={initialBookingPatientId}
-        existingAppointment={editingAppointment} // Pass existing for edit
+        existingAppointment={editingAppointment} 
         fieldSettings={fieldSettings}
       />
 

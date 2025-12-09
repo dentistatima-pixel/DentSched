@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign } from 'lucide-react';
 import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus, FieldSettings } from '../types';
 
 interface CalendarViewProps {
@@ -149,6 +148,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       }
   }, [appointments, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders]);
   
+  // --- REVENUE PULSE (LIVE PRODUCTION COUNTER) ---
+  const revenuePulse = useMemo(() => {
+      if (!fieldSettings) return 0;
+      return filteredAppointments.reduce((acc, apt) => {
+          if (apt.isBlock || apt.status === AppointmentStatus.CANCELLED || apt.status === AppointmentStatus.NO_SHOW) return acc;
+          const proc = fieldSettings.procedures.find(p => p.name === apt.type);
+          return acc + (proc?.price || 0);
+      }, 0);
+  }, [filteredAppointments, fieldSettings]);
+
   const sortedAppointments = [...filteredAppointments].sort((a, b) => 
     parseInt(a.time.replace(':','')) - parseInt(b.time.replace(':',''))
   );
@@ -233,9 +242,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
         </div>
         
         <div className="flex flex-col items-end">
-            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2">
-                {currentBranch && <span className="bg-teal-50 text-teal-700 px-2 py-1 rounded">{currentBranch}</span>}
-                <span>{viewMode === 'week' ? 'Provider Week' : 'Daily Overview'}</span>
+            <div className="flex items-center gap-3">
+                {/* Revenue Pulse Badge */}
+                {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.DENTIST) && (
+                    <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                         <DollarSign size={14} className="text-emerald-500" />
+                         <span className="text-xs font-bold uppercase tracking-wide">Est. Production</span>
+                         <span className="font-mono font-bold">₱{revenuePulse.toLocaleString()}</span>
+                    </div>
+                )}
+                
+                <div className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                    {currentBranch && <span className="bg-teal-50 text-teal-700 px-2 py-1 rounded">{currentBranch}</span>}
+                    <span>{viewMode === 'week' ? 'Provider Week' : 'Daily Overview'}</span>
+                </div>
             </div>
             {movingAptId && <div className="mt-1 text-xs font-bold text-white bg-teal-600 px-2 py-1 rounded animate-pulse shadow-sm flex items-center gap-1"><Move size={10} /> Tap to move</div>}
         </div>

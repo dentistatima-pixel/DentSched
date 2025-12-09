@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Stethoscope, Save, Search, AlertTriangle, Shield, AlertCircle, FileText, Lock, ArrowRightLeft, Beaker, CreditCard, Activity, CheckCircle, Sparkles } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
@@ -97,6 +96,32 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const fuse = new Fuse(patients, { keys: ['name', 'phone', 'id'], threshold: 0.3 });
   const searchResults = searchTerm ? fuse.search(searchTerm).map(r => r.item).slice(0, 5) : [];
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
+  // --- CLINICAL BRIDGE (PLANNED TREATMENTS) ---
+  const plannedTreatments = useMemo(() => {
+      if (!selectedPatient || !selectedPatient.dentalChart) return [];
+      return selectedPatient.dentalChart.filter(e => e.status === 'Planned');
+  }, [selectedPatient]);
+
+  const handleApplyPlannedTreatment = (tx: any) => {
+      setProcedureType(tx.procedure);
+      // Try to find if this procedure is in settings to get a price or guess duration
+      const procDef = fieldSettings.procedures.find(p => p.name === tx.procedure);
+      
+      // Smart Duration Guessing
+      let guessDuration = 60;
+      const lowerProc = tx.procedure.toLowerCase();
+      if (lowerProc.includes('cleaning') || lowerProc.includes('prophylaxis')) guessDuration = 45;
+      if (lowerProc.includes('consult')) guessDuration = 30;
+      if (lowerProc.includes('surgery') || lowerProc.includes('canal')) guessDuration = 90;
+
+      setDuration(guessDuration);
+      
+      // Auto-fill notes with Tooth #
+      const toothInfo = tx.toothNumber ? `Tooth #${tx.toothNumber}` : '';
+      const surfaceInfo = tx.surfaces ? `(${tx.surfaces})` : '';
+      setNotes(`Scheduled from Treatment Plan: ${toothInfo} ${surfaceInfo}`);
+  };
 
   // --- SMART SLOT LOGIC ---
   const availableSlots = useMemo(() => {
@@ -273,38 +298,59 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </button>
         </div>
 
-        {/* --- PATIENT SNAPSHOT HEADER (NEW) --- */}
+        {/* --- PATIENT SNAPSHOT HEADER --- */}
         {selectedPatient && activeTab === 'existing' && (
             <div className={`
-                p-4 flex justify-between items-start border-b
+                p-4 flex flex-col gap-3 border-b transition-colors
                 ${isCritical(selectedPatient) ? 'bg-red-50 border-red-100' : 'bg-teal-50 border-teal-100'}
             `}>
-                <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-full ${isCritical(selectedPatient) ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-600'}`}>
-                        {isCritical(selectedPatient) ? <AlertCircle size={24} /> : <User size={24} />}
-                    </div>
-                    <div>
-                        <h3 className={`font-bold text-lg leading-none ${isCritical(selectedPatient) ? 'text-red-900' : 'text-teal-900'}`}>{selectedPatient.name}</h3>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                             {/* Last Visit */}
-                             <div className="flex items-center gap-1 text-xs font-medium opacity-80">
-                                <Clock size={12} />
-                                Last: {formatDate(selectedPatient.lastVisit)}
-                             </div>
-                             {/* Medical Alert */}
-                             {isCritical(selectedPatient) && (
-                                 <span className="flex items-center gap-1 text-[10px] font-bold bg-red-200 text-red-800 px-2 py-0.5 rounded uppercase">
-                                     <Activity size={10} /> Medical Alert
-                                 </span>
-                             )}
-                             {/* Mock Balance */}
-                             <span className="flex items-center gap-1 text-[10px] font-bold bg-white/50 px-2 py-0.5 rounded border border-black/5">
-                                 <CreditCard size={10} /> Balance: ₱0.00
-                             </span>
+                <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-full ${isCritical(selectedPatient) ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-600'}`}>
+                            {isCritical(selectedPatient) ? <AlertCircle size={24} /> : <User size={24} />}
+                        </div>
+                        <div>
+                            <h3 className={`font-bold text-lg leading-none ${isCritical(selectedPatient) ? 'text-red-900' : 'text-teal-900'}`}>{selectedPatient.name}</h3>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                <div className="flex items-center gap-1 text-xs font-medium opacity-80">
+                                    <Clock size={12} />
+                                    Last: {formatDate(selectedPatient.lastVisit)}
+                                </div>
+                                {isCritical(selectedPatient) && (
+                                    <span className="flex items-center gap-1 text-[10px] font-bold bg-red-200 text-red-800 px-2 py-0.5 rounded uppercase">
+                                        <Activity size={10} /> Medical Alert
+                                    </span>
+                                )}
+                                <span className="flex items-center gap-1 text-[10px] font-bold bg-white/50 px-2 py-0.5 rounded border border-black/5">
+                                    <CreditCard size={10} /> Balance: ₱0.00
+                                </span>
+                            </div>
                         </div>
                     </div>
+                    <button onClick={() => setSelectedPatientId('')} className="text-xs font-bold underline opacity-50 hover:opacity-100">Change</button>
                 </div>
-                <button onClick={() => setSelectedPatientId('')} className="text-xs font-bold underline opacity-50 hover:opacity-100">Change</button>
+
+                {/* --- CLINICAL BRIDGE: TREATMENT PLAN INTEGRATION --- */}
+                {plannedTreatments.length > 0 && (
+                    <div className="bg-white/60 p-2 rounded-lg border border-black/5">
+                        <div className="flex items-center gap-1 text-[10px] font-bold uppercase opacity-60 mb-2">
+                            <ClipboardCheck size={10} /> Select from Treatment Plan
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {plannedTreatments.map((tx, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleApplyPlannedTreatment(tx)}
+                                    className="text-xs flex items-center gap-1 bg-white border border-slate-200 shadow-sm px-2 py-1.5 rounded-lg hover:border-teal-400 hover:text-teal-700 hover:shadow-md transition-all group"
+                                >
+                                    <span className="font-bold">{tx.procedure}</span>
+                                    {tx.toothNumber && <span className="bg-slate-100 text-slate-600 px-1 rounded text-[10px] font-mono">#{tx.toothNumber}</span>}
+                                    <ArrowRight size={10} className="text-slate-300 group-hover:text-teal-500"/>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         )}
 
