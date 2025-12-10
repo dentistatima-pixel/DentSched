@@ -194,6 +194,7 @@ export const PATIENTS: Patient[] = [
         lastVisit: '2023-11-20',
         nextVisit: '2024-05-20',
         notes: 'Allergic to Latex.',
+        chiefComplaint: 'Fix crooked teeth (sungki) and whitening.',
         allergies: ['Latex'],
         insuranceProvider: 'PhilHealth',
         dentalChart: [

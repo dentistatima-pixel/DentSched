@@ -1,6 +1,7 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign } from 'lucide-react';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
@@ -82,6 +83,10 @@ const PatientList: React.FC<PatientListProps> = ({
       surfaces: string[]; 
       price: number;
   }>({ procedure: '', status: 'Planned', notes: '', surfaces: [], price: 0 });
+
+  // Sticky Note Edit State
+  const [isEditingComplaint, setIsEditingComplaint] = useState(false);
+  const [tempComplaint, setTempComplaint] = useState('');
 
   const enableCompliance = fieldSettings?.features?.enableComplianceAudit ?? true;
 
@@ -198,8 +203,6 @@ const PatientList: React.FC<PatientListProps> = ({
       toast.success("Periodontal chart saved");
   };
 
-  // ... (Existing Charting Handlers: handleToothClick, handleDirectChartUpdate, etc.) ...
-  // [Preserved for brevity, assume they exist unchanged from previous file content]
   const handleToothClick = (tooth: number) => {
       if(!selectedPatient || isClinicalReadOnly) return;
       setEditingTooth(tooth);
@@ -231,26 +234,64 @@ const PatientList: React.FC<PatientListProps> = ({
       toast.success(`${entry.procedure} added to tooth #${entry.toothNumber}`);
   };
 
-  const handleAddClinicalNote = (note: string, toothNumber?: number) => {
+  // NEW: Robust handler for the improved Odontonotes input
+  const handleAddChartEntry = (newEntry: DentalChartEntry) => {
       if (!selectedPatient || isClinicalReadOnly) return;
-      const newEntry: DentalChartEntry = {
-          toothNumber: toothNumber || 0,
-          procedure: 'Clinical Note',
-          status: 'Completed',
-          notes: note,
-          date: new Date().toISOString().split('T')[0],
-          author: currentUser.name,
-          price: 0
-      };
+      
       const updatedChart = [...(selectedPatient.dentalChart || []), newEntry];
+      
+      // Also update ledger if financial info is present
+      let updatedLedger = selectedPatient.ledger || [];
+      let newBalance = selectedPatient.currentBalance || 0;
+
+      if ((newEntry.price && newEntry.price > 0) || (newEntry.payment && newEntry.payment > 0)) {
+          // If Charged
+          if (newEntry.price && newEntry.price > 0) {
+              newBalance += newEntry.price;
+              updatedLedger = [...updatedLedger, {
+                  id: Math.random().toString(36).substr(2, 9),
+                  date: newEntry.date || new Date().toISOString().split('T')[0],
+                  description: `${newEntry.procedure} (Charge)`,
+                  type: 'Charge',
+                  amount: newEntry.price,
+                  balanceAfter: newBalance,
+                  notes: newEntry.notes
+              }];
+          }
+          // If Paid
+          if (newEntry.payment && newEntry.payment > 0) {
+              newBalance -= newEntry.payment;
+              updatedLedger = [...updatedLedger, {
+                  id: Math.random().toString(36).substr(2, 9),
+                  date: newEntry.date || new Date().toISOString().split('T')[0],
+                  description: `Payment ${newEntry.receiptNumber ? `(OR: ${newEntry.receiptNumber})` : ''}`,
+                  type: 'Payment',
+                  amount: newEntry.payment,
+                  balanceAfter: newBalance,
+                  notes: ''
+              }];
+          }
+      }
+
       onQuickUpdatePatient({ 
           ...selectedPatient, 
           dentalChart: updatedChart,
+          ledger: updatedLedger,
+          currentBalance: newBalance,
           lastDigitalUpdate: new Date().toISOString()
       });
-      toast.success("Clinical note saved");
+      toast.success("Entry saved to chart & ledger");
   };
 
+  // Sticky Note Logic
+  const handleSaveComplaint = () => {
+      if (!selectedPatient) return;
+      onQuickUpdatePatient({ ...selectedPatient, chiefComplaint: tempComplaint });
+      setIsEditingComplaint(false);
+      toast.success("Chief Complaint updated");
+  };
+
+  // Old Modal Logic for legacy tooth edit
   const handleProcedureChange = (procName: string) => {
       const proc = fieldSettings?.procedures.find(p => p.name === procName);
       setToothModalData(prev => ({
@@ -271,7 +312,7 @@ const PatientList: React.FC<PatientListProps> = ({
       });
   }
 
-  const handleAddChartEntry = () => {
+  const handleAddLegacyEntry = () => {
       if (!selectedPatient || !editingTooth) return;
       const surfaceString = toothModalData.surfaces.sort().join('');
       const newEntry: DentalChartEntry = {
@@ -294,19 +335,6 @@ const PatientList: React.FC<PatientListProps> = ({
       setToothModalData(prev => ({ ...prev, notes: '', surfaces: [] }));
       setEditingTooth(null);
       toast.success("Entry added to chart");
-  };
-
-  const handleDeleteChartEntry = (indexToDelete: number, toothNum: number) => {
-      if (!selectedPatient || !selectedPatient.dentalChart) return;
-      const toothItems = selectedPatient.dentalChart.filter(e => e.toothNumber === toothNum);
-      const itemToDelete = toothItems[indexToDelete];
-      const updatedChart = selectedPatient.dentalChart.filter(e => e !== itemToDelete);
-      onQuickUpdatePatient({ 
-          ...selectedPatient, 
-          dentalChart: updatedChart,
-          lastDigitalUpdate: new Date().toISOString()
-      });
-      toast.info("Chart entry removed");
   };
 
   const InfoRow = ({ icon: Icon, label, value, subValue }: { icon: any, label: string, value?: string | number, subValue?: string }) => (
@@ -479,6 +507,36 @@ const PatientList: React.FC<PatientListProps> = ({
 
            {/* Content */}
            <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
+                {/* STICKY NOTE: Chief Complaint (Visible on Clinical Tabs) */}
+                {['chart', 'perio', 'plan'].includes(activeTab) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 shadow-sm relative group">
+                        <div className="flex items-center gap-2 mb-2 text-yellow-800 font-bold uppercase text-xs tracking-wider">
+                            <StickyNote size={14} /> Chief Complaint / Alert
+                        </div>
+                        {isEditingComplaint ? (
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    className="flex-1 bg-white border border-yellow-300 rounded p-2 text-sm"
+                                    value={tempComplaint}
+                                    onChange={(e) => setTempComplaint(e.target.value)}
+                                    placeholder="Enter chief complaint..."
+                                />
+                                <button onClick={handleSaveComplaint} className="px-3 py-1 bg-yellow-400 text-yellow-900 rounded font-bold text-xs hover:bg-yellow-500">Save</button>
+                                <button onClick={() => setIsEditingComplaint(false)} className="px-3 py-1 bg-white text-yellow-900 border border-yellow-200 rounded font-bold text-xs">Cancel</button>
+                            </div>
+                        ) : (
+                            <div className="flex justify-between items-start cursor-pointer" onClick={() => { setTempComplaint(selectedPatient.chiefComplaint || ''); setIsEditingComplaint(true); }}>
+                                <p className={`text-sm ${selectedPatient.chiefComplaint ? 'text-slate-800 font-medium' : 'text-slate-400 italic'}`}>
+                                    {selectedPatient.chiefComplaint || 'Click to add chief complaint...'}
+                                </p>
+                                <PenLine size={14} className="text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {activeTab === 'info' && (
                     <div className="space-y-6">
                         {/* 1. Demographics */}
@@ -609,7 +667,6 @@ const PatientList: React.FC<PatientListProps> = ({
                                         <p className="font-medium text-slate-800 mt-1">{selectedPatient.medicationDetails}</p>
                                     </div>
                                 )}
-                                {/* ... [Other details preserved] ... */}
                              </div>
                         </section>
                      </div>
@@ -659,7 +716,6 @@ const PatientList: React.FC<PatientListProps> = ({
                                         onChartUpdate={handleDirectChartUpdate}
                                     />
                                 </div>
-                                {/* Table logic preserved from previous file content ... */}
                              </>
                          ) : (
                              // NOTES VIEW
@@ -668,12 +724,13 @@ const PatientList: React.FC<PatientListProps> = ({
                                     <h3 className="font-bold text-lg text-slate-800 mb-1">Clinical Notes Log</h3>
                                     <p className="text-xs text-slate-500">Chronological history of all procedures and notes.</p>
                                 </div>
-                                <div className="p-4">
+                                <div>
                                     <Odontonotes 
                                         entries={selectedPatient.dentalChart || []}
-                                        onAddNote={handleAddClinicalNote}
+                                        onAddEntry={handleAddChartEntry}
                                         currentUser={currentUser.name}
                                         readOnly={isClinicalReadOnly}
+                                        procedures={fieldSettings?.procedures || []}
                                     />
                                 </div>
                              </div>
@@ -725,8 +782,7 @@ const PatientList: React.FC<PatientListProps> = ({
                       <button onClick={() => setEditingTooth(null)} className="p-1 hover:bg-white/20 rounded-full"><X size={20} /></button>
                   </div>
                   <div className="p-4 space-y-4">
-                      {/* ... (Existing modal content preserved) ... */}
-                      <button onClick={handleAddChartEntry} className="w-full py-2 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 shadow-sm flex items-center justify-center gap-2 mt-2"><Plus size={16} /> Add to Chart</button>
+                      <button onClick={handleAddLegacyEntry} className="w-full py-2 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 shadow-sm flex items-center justify-center gap-2 mt-2"><Plus size={16} /> Add to Chart</button>
                   </div>
               </div>
           </div>

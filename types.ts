@@ -81,6 +81,14 @@ export interface DentalChartEntry {
   status: TreatmentStatus;
   surfaces?: string; // e.g. "MOD", "B", "L"
   price?: number; // Snapshot of price at time of charting (can be different from base price)
+  
+  // NEW: Financial & Legal
+  payment?: number;
+  receiptNumber?: string;
+  balance?: number;
+  signature?: string; // Data URL for signature
+  drawing?: string; // Data URL for annotation
+  
   date?: string;
   notes?: string;
   author?: string;
@@ -190,6 +198,7 @@ export interface Patient {
   lastVisit: string;
   nextVisit: string | null;
   notes: string;
+  chiefComplaint?: string; // NEW: Persistent sticky note
   treatments?: string[]; 
   treatmentDetails?: Record<string, string>; 
   
