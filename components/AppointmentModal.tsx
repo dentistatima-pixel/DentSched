@@ -10,8 +10,8 @@ interface AppointmentModalProps {
   patients: Patient[];
   staff: Staff[];
   appointments: Appointment[]; 
-  onSave: (appointment: any) => void;
-  onSavePatient?: (patient: any) => void; 
+  onSave: (appointment: Appointment) => void;
+  onSavePatient?: (patient: Partial<Patient>) => void; 
   initialDate?: string;
   initialTime?: string;
   initialPatientId?: string;
@@ -215,7 +215,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               return;
           }
           const newId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
-          const newPatient = {
+          const newPatient: Partial<Patient> = {
               id: newId,
               name: `${newPatientData.firstName} ${newPatientData.surname}`,
               firstName: newPatientData.firstName,
@@ -241,10 +241,11 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           }
       }
 
-      const appointmentData: any = {
+      const appointmentData: Appointment = {
           id: existingAppointment?.id || Math.random().toString(36).substr(2, 9),
           patientId: finalPatientId,
           providerId,
+          branch: existingAppointment?.branch || '', // Placeholder if new, App.tsx will handle assignment
           date,
           time,
           durationMinutes: duration,
