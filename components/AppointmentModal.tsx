@@ -334,7 +334,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 {plannedTreatments.length > 0 && (
                     <div className="bg-white/60 p-2 rounded-lg border border-black/5">
                         <div className="flex items-center gap-1 text-[10px] font-bold uppercase opacity-60 mb-2">
-                            <ClipboardCheck size={10} /> Select from Treatment Plan
+                            <ClipboardCheck size={10} /> Planned Treatments
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {plannedTreatments.map((tx, idx) => (

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -12,12 +12,19 @@ interface PatientRegistrationModalProps {
   onSave: (patient: Partial<Patient>) => void;
   readOnly?: boolean;
   initialData?: Patient | null;
-  fieldSettings: FieldSettings; // Added prop
+  fieldSettings: FieldSettings; 
 }
 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings }) => {
-  const [activeTab, setActiveTab] = useState<number>(0);
+  const [activeSection, setActiveSection] = useState<string>('basic');
+  const [isQuickReg, setIsQuickReg] = useState(true); // Default to Quick Mode for speed
   
+  // Refs for scrolling
+  const basicRef = useRef<HTMLDivElement>(null);
+  const medicalRef = useRef<HTMLDivElement>(null);
+  const dentalRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Initial state with defaults
   const initialFormState: Partial<Patient> = {
     id: '',
@@ -74,26 +81,21 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   useEffect(() => {
     if (isOpen) {
         if (initialData) {
-            // Edit Mode: Load existing data
+            // Edit Mode
             setFormData({ ...initialData });
+            setIsQuickReg(false); // Always show full form on edit
         } else {
-            // New Mode: Generate ID and reset
+            // New Mode
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
             setFormData({
                 ...initialFormState,
                 id: generatedId
             });
+            setIsQuickReg(true);
         }
-        setActiveTab(0);
+        setActiveSection('basic');
     }
   }, [isOpen, initialData]);
-
-  const steps = [
-    { id: 0, label: 'Basic Info', icon: User },
-    { id: 1, label: 'Contact', icon: Phone },
-    { id: 2, label: 'Medical History', icon: Heart },
-    { id: 3, label: 'Dental History', icon: Shield }
-  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -103,7 +105,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         const newData = { ...prev };
         
         if (type === 'checkbox') {
-             // Handle boolean vs array vs radio logic
              if ((e.target as HTMLInputElement).name === 'pregnant' || 
                  (e.target as HTMLInputElement).name === 'nursing' || 
                  (e.target as HTMLInputElement).name === 'birthControl' ||
@@ -122,14 +123,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 const [year, month, day] = value.split('-').map(Number);
                 const birthDate = new Date(year, month - 1, day);
                 const today = new Date();
-                
                 let age = today.getFullYear() - birthDate.getFullYear();
                 const m = today.getMonth() - birthDate.getMonth();
-                
                 if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
                     age--;
                 }
-                
                 newData.age = Math.max(0, age);
             } else {
                 newData.age = undefined;
@@ -143,17 +141,12 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const handleArrayChange = (category: 'allergies' | 'medicalConditions' | 'treatments', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
-      // Special logic for "None" to make it exclusive
       if (value === 'None') {
           const wasSelected = (prev[category] || []).includes('None');
           return { ...prev, [category]: wasSelected ? [] : ['None'] };
       }
-
       let currentList = prev[category] || [];
-      // If adding a normal item, remove 'None'
-      if (currentList.includes('None')) {
-          currentList = [];
-      }
+      if (currentList.includes('None')) currentList = [];
 
       if (currentList.includes(value)) {
         return { ...prev, [category]: currentList.filter(item => item !== value) };
@@ -165,20 +158,14 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const handleTreatmentSelect = (value: string) => {
       if (readOnly) return;
-      setFormData(prev => ({
-          ...prev,
-          treatments: value ? [value] : []
-      }));
+      setFormData(prev => ({ ...prev, treatments: value ? [value] : [] }));
   };
 
   const handleTreatmentDetailChange = (proc: string, value: string) => {
     if (readOnly) return;
     setFormData(prev => ({
         ...prev,
-        treatmentDetails: {
-            ...prev.treatmentDetails,
-            [proc]: value
-        }
+        treatmentDetails: { ...prev.treatmentDetails, [proc]: value }
     }));
   };
 
@@ -186,14 +173,19 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     e.preventDefault();
     if (readOnly) return;
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    
-    // Explicitly set provisional to false when saving from full form
+    // Force provisional false on full save
     onSave({ ...formData, name: fullName, provisional: false });
     onClose();
   };
 
-  const nextStep = () => setActiveTab(Math.min(activeTab + 1, steps.length - 1));
-  const prevStep = () => setActiveTab(Math.max(activeTab - 1, 0));
+  const scrollToSection = (section: string) => {
+      setActiveSection(section);
+      let ref = basicRef;
+      if (section === 'medical') ref = medicalRef;
+      if (section === 'dental') ref = dentalRef;
+      
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   if (!isOpen) return null;
 
@@ -204,140 +196,121 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         {/* Header */}
         <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white md:rounded-t-3xl shrink-0">
           <div className="flex items-center gap-3">
-            <div className="bg-lilac-500 p-2 rounded-xl">
+            <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20">
                <User size={24} className="text-white" />
             </div>
             <div>
-               <h2 className="text-xl font-bold">{initialData ? 'Edit Patient' : 'New Patient Registration'}</h2>
-               <p className="text-teal-200 text-xs hidden md:block">Please fill in all details carefully</p>
+               <h2 className="text-xl font-bold">{initialData ? 'Edit Patient' : 'New Patient'}</h2>
+               <p className="text-teal-200 text-xs hidden md:block">
+                   {isQuickReg ? 'Quick Registration Mode' : 'Full Clinical Registration'}
+               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Progress Stepper */}
-        <div className="bg-slate-50 border-b border-slate-200 overflow-x-auto shrink-0">
-          <div className="flex md:grid md:grid-cols-4 min-w-max md:min-w-0">
-             {steps.map((step, idx) => {
-                 const isActive = activeTab === idx;
-                 const isCompleted = activeTab > idx;
-                 return (
-                     <button 
-                        key={step.id} 
-                        onClick={() => setActiveTab(idx)}
-                        className={`flex items-center gap-2 p-4 border-b-2 transition-colors min-w-[140px] md:min-w-0
-                            ${isActive ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent text-slate-400 hover:text-slate-600'}
-                        `}
-                     >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
-                            ${isActive ? 'bg-teal-600 text-white' : isCompleted ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'}
-                        `}>
-                            {isCompleted ? <Check size={16} /> : idx + 1}
-                        </div>
-                        <span className="font-medium text-sm whitespace-nowrap">{step.label}</span>
-                     </button>
-                 );
-             })}
+          
+          <div className="flex items-center gap-4">
+              {/* Quick Toggle */}
+              {!initialData && (
+                  <button 
+                    onClick={() => setIsQuickReg(!isQuickReg)}
+                    className="flex items-center gap-2 bg-teal-800 hover:bg-teal-700 px-3 py-1.5 rounded-full transition-colors border border-teal-600"
+                  >
+                      {isQuickReg ? <ToggleLeft size={20} className="text-teal-300"/> : <ToggleRight size={20} className="text-lilac-300"/>}
+                      <span className="text-xs font-bold uppercase">{isQuickReg ? 'Quick Reg' : 'Full Reg'}</span>
+                  </button>
+              )}
+              <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                <X size={24} />
+              </button>
           </div>
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50">
-            <form id="patientForm" onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+        <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth">
+            <form id="patientForm" onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
                 
-                {activeTab === 0 && (
+                {/* SECTION 1: PROFILE & CONTACT (Merged) */}
+                <div ref={basicRef} className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
+                        <User className="text-teal-600" size={20} />
+                        <h3 className="font-bold text-lg text-slate-800">Patient Profile</h3>
+                    </div>
                     <RegistrationBasicInfo 
                         formData={formData} 
                         handleChange={handleChange} 
                         readOnly={readOnly}
-                        fieldSettings={fieldSettings} // Passed down
+                        fieldSettings={fieldSettings}
+                        isQuickReg={isQuickReg} // Passed down to hide extra fields
                     />
-                )}
+                </div>
 
-                {activeTab === 1 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100 flex flex-col items-center text-center">
-                            <Phone className="w-12 h-12 text-teal-600 mb-3" />
-                            <h3 className="font-bold text-teal-900 text-lg">Contact Information</h3>
-                            <p className="text-teal-700 text-sm">How can we reach this patient?</p>
+                {/* SECTION 2: MEDICAL (Conditional) */}
+                {!isQuickReg && (
+                    <div ref={medicalRef} className="scroll-mt-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 pt-4">
+                            <Heart className="text-red-500" size={20} />
+                            <h3 className="font-bold text-lg text-slate-800">Medical History</h3>
                         </div>
-
-                        <div>
-                            <label className="label">Mobile Number *</label>
-                            <input disabled={readOnly} required type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} className="input text-lg font-mono disabled:bg-slate-100" placeholder="0912 345 6789" />
-                        </div>
-                        <div>
-                            <label className="label">Secondary Mobile (Optional)</label>
-                            <input disabled={readOnly} type="tel" name="mobile2" value={formData.mobile2 || ''} onChange={handleChange} className="input text-lg font-mono disabled:bg-slate-100" />
-                        </div>
-                        <div>
-                            <label className="label">Email Address</label>
-                            <input disabled={readOnly} type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input disabled:bg-slate-100" placeholder="patient@example.com" />
-                        </div>
+                        <RegistrationMedical 
+                            formData={formData} 
+                            handleChange={handleChange} 
+                            handleArrayChange={handleArrayChange}
+                            readOnly={readOnly}
+                            fieldSettings={fieldSettings}
+                        />
                     </div>
                 )}
 
-                {activeTab === 2 && (
-                    <RegistrationMedical 
-                        formData={formData} 
-                        handleChange={handleChange} 
-                        handleArrayChange={handleArrayChange}
-                        readOnly={readOnly}
-                        fieldSettings={fieldSettings} // Passed down
-                    />
+                {/* SECTION 3: DENTAL (Conditional) */}
+                {!isQuickReg && (
+                    <div ref={dentalRef} className="scroll-mt-6 animate-in fade-in slide-in-from-bottom-4">
+                         <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 pt-4">
+                            <Shield className="text-blue-500" size={20} />
+                            <h3 className="font-bold text-lg text-slate-800">Dental History</h3>
+                        </div>
+                        <RegistrationDental 
+                            formData={formData}
+                            handleChange={handleChange}
+                            handleArrayChange={handleArrayChange}
+                            handleTreatmentSelect={handleTreatmentSelect}
+                            handleTreatmentDetailChange={handleTreatmentDetailChange}
+                            readOnly={readOnly}
+                            fieldSettings={fieldSettings}
+                        />
+                    </div>
                 )}
-
-                {activeTab === 3 && (
-                    <RegistrationDental 
-                        formData={formData}
-                        handleChange={handleChange}
-                        handleArrayChange={handleArrayChange}
-                        handleTreatmentSelect={handleTreatmentSelect}
-                        handleTreatmentDetailChange={handleTreatmentDetailChange}
-                        readOnly={readOnly}
-                        fieldSettings={fieldSettings} // Passed down
-                    />
-                )}
-
             </form>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-white md:rounded-b-3xl shrink-0 flex justify-between items-center z-20">
-            <button 
-                onClick={prevStep}
-                disabled={activeTab === 0}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-                <ArrowLeft size={20} /> Back
-            </button>
+        {/* Sticky Footer Actions */}
+        <div className="p-4 border-t border-slate-200 bg-white md:rounded-b-3xl shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="flex gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
+                 {!isQuickReg && (
+                     <>
+                        <button onClick={() => scrollToSection('basic')} className={`hover:text-teal-600 ${activeSection === 'basic' ? 'text-teal-600' : ''}`}>Profile</button>
+                        <span>•</span>
+                        <button onClick={() => scrollToSection('medical')} className={`hover:text-teal-600 ${activeSection === 'medical' ? 'text-teal-600' : ''}`}>Medical</button>
+                        <span>•</span>
+                        <button onClick={() => scrollToSection('dental')} className={`hover:text-teal-600 ${activeSection === 'dental' ? 'text-teal-600' : ''}`}>Dental</button>
+                     </>
+                 )}
+            </div>
             
             <div className="flex gap-2">
-                {activeTab < steps.length - 1 ? (
-                    <button 
-                        onClick={nextStep}
-                        className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all"
-                    >
-                        Next <ArrowRight size={20} />
-                    </button>
-                ) : (
-                    !readOnly && (
-                        <button 
-                            onClick={handleSubmit}
-                            className="flex items-center gap-2 px-8 py-3 bg-lilac-600 text-white rounded-xl font-bold shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 hover:scale-105 transition-all"
-                        >
-                            <Save size={20} /> {initialData ? 'Update Record' : 'Complete Registration'}
-                        </button>
-                    )
-                )}
-                 {readOnly && activeTab === steps.length - 1 && (
+                 {readOnly && (
                      <button 
                         onClick={onClose}
-                        className="flex items-center gap-2 px-8 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all"
+                        className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
                     >
-                        <X size={20} /> Close
+                        Close
+                    </button>
+                 )}
+                 {!readOnly && (
+                    <button 
+                        onClick={handleSubmit}
+                        className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all"
+                    >
+                        <Save size={20} /> 
+                        {isQuickReg ? 'Quick Register' : 'Save Full Record'}
                     </button>
                  )}
             </div>
@@ -364,16 +337,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             font-weight: 600;
             color: #334155;
             margin-bottom: 0.375rem;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
         }
       `}</style>
     </div>

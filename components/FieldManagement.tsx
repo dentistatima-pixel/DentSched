@@ -1,8 +1,8 @@
 
 
-import React, { useState } from 'react';
-import { FieldSettings, ProcedureItem, FeatureToggles, User } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates } from '../types';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag } from 'lucide-react';
 
 interface FieldManagementProps {
   settings: FieldSettings;
@@ -12,7 +12,7 @@ interface FieldManagementProps {
 }
 
 const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff, onUpdateStaff }) => {
-  const [activeCategory, setActiveCategory] = useState<keyof FieldSettings | 'features' | 'roster'>('features'); 
+  const [activeCategory, setActiveCategory] = useState<keyof FieldSettings | 'features' | 'roster' | 'sms'>('features'); 
   
   // Standard List State
   const [newItemValue, setNewItemValue] = useState('');
@@ -21,11 +21,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
   // Procedure List State
   const [newProcName, setNewProcName] = useState('');
   const [newProcPrice, setNewProcPrice] = useState('');
-  const [editingProc, setEditingProc] = useState<{ index: number, name: string, price: string } | null>(null);
+  const [newProcCategory, setNewProcCategory] = useState('');
+  const [editingProc, setEditingProc] = useState<{ index: number, name: string, price: string, category: string } | null>(null);
 
-  const categories: { key: keyof FieldSettings | 'features' | 'roster'; label: string; description: string }[] = [
+  const categories: { key: keyof FieldSettings | 'features' | 'roster' | 'sms'; label: string; description: string }[] = [
     { key: 'features', label: 'System Features', description: 'Enable or disable major application modules.' },
     { key: 'roster', label: 'Staff Roster', description: 'Manage weekly schedule and branch assignments for staff.' },
+    { key: 'sms', label: 'Messaging & SMS', description: 'Manage automated SMS templates for patient notifications.' },
     { key: 'procedures', label: 'Dental Procedures & Prices', description: 'Treatments available for booking and charting, with base prices.' },
     { key: 'insuranceProviders', label: 'Insurance Providers', description: 'HMOs and Insurance Companies available for patient registration.' },
     { key: 'allergies', label: 'Common Allergies', description: 'Standard allergy options in medical history.' },
@@ -44,6 +46,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
           features: {
               ...currentFeatures,
               [feature]: !currentFeatures[feature]
+          }
+      });
+  };
+
+  // --- SMS TEMPLATE HANDLER ---
+  const handleSmsTemplateChange = (key: keyof SmsTemplates, value: string) => {
+      onUpdateSettings({
+          ...settings,
+          smsTemplates: {
+              ...settings.smsTemplates,
+              [key]: value
           }
       });
   };
@@ -106,13 +119,15 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
       const newProc: ProcedureItem = {
           id: `proc_${Date.now()}`,
           name: newProcName.trim(),
-          price: parseFloat(newProcPrice)
+          price: parseFloat(newProcPrice),
+          category: newProcCategory.trim() || 'General'
       };
 
       const updatedList = [...settings.procedures, newProc];
       onUpdateSettings({ ...settings, procedures: updatedList });
       setNewProcName('');
       setNewProcPrice('');
+      setNewProcCategory('');
   };
 
   const saveProcEdit = () => {
@@ -121,11 +136,28 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
       updatedList[editingProc.index] = {
           ...updatedList[editingProc.index],
           name: editingProc.name.trim(),
-          price: parseFloat(editingProc.price) || 0
+          price: parseFloat(editingProc.price) || 0,
+          category: editingProc.category.trim() || 'General'
       };
       onUpdateSettings({ ...settings, procedures: updatedList });
       setEditingProc(null);
   };
+
+  const existingCategories = useMemo(() => {
+      const cats = new Set(settings.procedures.map(p => p.category || 'General'));
+      return Array.from(cats).sort();
+  }, [settings.procedures]);
+
+  // Group procedures by category
+  const groupedProcedures = useMemo(() => {
+      const grouped: Record<string, { item: ProcedureItem, index: number }[]> = {};
+      settings.procedures.forEach((proc, idx) => {
+          const cat = proc.category || 'General';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push({ item: proc, index: idx });
+      });
+      return grouped;
+  }, [settings.procedures]);
 
 
   const activeCategoryInfo = categories.find(c => c.key === activeCategory);
@@ -148,6 +180,21 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
               {settings.features[featureKey] ? <ToggleRight size={24}/> : <ToggleLeft size={24}/>}
               {settings.features[featureKey] ? 'Enabled' : 'Disabled'}
           </button>
+      </div>
+  );
+
+  const SmsTemplateEditor = ({ label, templateKey, description }: { label: string, templateKey: keyof SmsTemplates, description: string }) => (
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="mb-2">
+              <h4 className="font-bold text-slate-800 text-sm">{label}</h4>
+              <p className="text-xs text-slate-500">{description}</p>
+          </div>
+          <textarea 
+              value={settings.smsTemplates?.[templateKey] || ''}
+              onChange={(e) => handleSmsTemplateChange(templateKey, e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:border-teal-500 outline-none h-24 resize-none"
+              placeholder="Enter message template..."
+          />
       </div>
   );
 
@@ -198,6 +245,55 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                  </div>
                  <div className="mt-8 p-4 bg-blue-50 text-blue-800 rounded-xl text-sm border border-blue-100">
                      <strong>Note:</strong> Disabling features hides them from the interface to simplify the user experience. No data is deleted.
+                 </div>
+             </div>
+         ) : activeCategory === 'sms' ? (
+             /* --- SMS TEMPLATES --- */
+             <div className="flex-1 overflow-auto p-4 bg-slate-50">
+                 <div className="flex gap-4 mb-6">
+                    <div className="flex-1 space-y-4">
+                         <SmsTemplateEditor 
+                            label="Immediate Validation (Booking Created)" 
+                            templateKey="bookingConfirmation" 
+                            description="Sent immediately when a new appointment is saved."
+                         />
+                         <SmsTemplateEditor 
+                            label="48-Hour Shield (Confirmation Request)" 
+                            templateKey="confirmationRequest" 
+                            description="Sent 48 hours before the appointment. Asks for 'C' or 'R' reply."
+                         />
+                         <SmsTemplateEditor 
+                            label="24-Hour Reminder" 
+                            templateKey="reminder24h" 
+                            description="Gentle reminder sent 1 day before the visit."
+                         />
+                         <SmsTemplateEditor 
+                            label="Post-Op Care (After Completion)" 
+                            templateKey="postOpCheckup" 
+                            description="Sent 2 hours after appointment is marked 'Completed'."
+                         />
+                         <SmsTemplateEditor 
+                            label="Registration Welcome" 
+                            templateKey="registrationWelcome" 
+                            description="Sent when a new patient file is created."
+                         />
+                    </div>
+                    <div className="w-64 shrink-0">
+                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 text-yellow-900 sticky top-0">
+                            <div className="flex items-center gap-2 mb-2 font-bold text-sm">
+                                <MessageSquare size={16} /> Variables
+                            </div>
+                            <p className="text-xs mb-3">Use these codes to auto-fill data:</p>
+                            <ul className="text-xs font-mono space-y-1">
+                                <li>{'{PatientName}'}</li>
+                                <li>{'{ProviderName}'}</li>
+                                <li>{'{Date}'}</li>
+                                <li>{'{Time}'}</li>
+                                <li>{'{Branch}'}</li>
+                                <li>{'{Procedure}'}</li>
+                            </ul>
+                        </div>
+                    </div>
                  </div>
              </div>
          ) : activeCategory === 'roster' ? (
@@ -262,79 +358,108 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
              <>
                 {/* ADD PROCEDURE FORM */}
                 <div className="p-4 bg-slate-50 border-b border-slate-100">
-                    <form onSubmit={handleAddProcedure} className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="Procedure Name (e.g. Composite Restoration)"
-                            className="flex-[2] px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
-                            value={newProcName}
-                            onChange={(e) => setNewProcName(e.target.value)}
-                        />
-                        <div className="relative flex-1">
-                            <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <form onSubmit={handleAddProcedure} className="flex flex-col md:flex-row gap-2">
+                        <div className="flex-1 flex gap-2">
                             <input 
-                                type="number" 
-                                placeholder="Price"
-                                className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
-                                value={newProcPrice}
-                                onChange={(e) => setNewProcPrice(e.target.value)}
+                                type="text" 
+                                placeholder="Procedure Name (e.g. Composite Restoration)"
+                                className="flex-[2] px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
+                                value={newProcName}
+                                onChange={(e) => setNewProcName(e.target.value)}
                             />
+                            <div className="relative flex-1">
+                                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                                <input 
+                                    type="number" 
+                                    placeholder="Price"
+                                    className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
+                                    value={newProcPrice}
+                                    onChange={(e) => setNewProcPrice(e.target.value)}
+                                />
+                            </div>
                         </div>
-                        <button 
-                            type="submit"
-                            disabled={!newProcName.trim()}
-                            className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-                        >
-                            <Plus size={18} /> Add
-                        </button>
+                        <div className="flex gap-2">
+                            <input 
+                                list="proc-categories"
+                                type="text" 
+                                placeholder="Category"
+                                className="px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white w-40"
+                                value={newProcCategory}
+                                onChange={(e) => setNewProcCategory(e.target.value)}
+                            />
+                            <datalist id="proc-categories">
+                                {existingCategories.map(c => <option key={c} value={c} />)}
+                            </datalist>
+                            <button 
+                                type="submit"
+                                disabled={!newProcName.trim()}
+                                className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                            >
+                                <Plus size={18} /> Add
+                            </button>
+                        </div>
                     </form>
                 </div>
 
-                {/* PROCEDURE LIST */}
-                <div className="flex-1 overflow-y-auto p-4">
-                    <div className="space-y-2">
-                        {settings.procedures.map((proc, idx) => (
-                            <div key={idx} className="group flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-50/30 transition-all bg-white shadow-sm">
-                                {editingProc?.index === idx ? (
-                                    <div className="flex-1 flex gap-2 items-center">
-                                        <input 
-                                            type="text" 
-                                            className="flex-[2] px-3 py-1 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                                            value={editingProc.name}
-                                            onChange={(e) => setEditingProc({ ...editingProc, name: e.target.value })}
-                                            autoFocus
-                                        />
-                                        <input 
-                                            type="number" 
-                                            className="flex-1 px-3 py-1 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                                            value={editingProc.price}
-                                            onChange={(e) => setEditingProc({ ...editingProc, price: e.target.value })}
-                                        />
-                                        <button onClick={saveProcEdit} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"><Check size={16}/></button>
-                                        <button onClick={() => setEditingProc(null)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"><X size={16}/></button>
+                {/* PROCEDURE LIST (GROUPED) */}
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <div className="space-y-6">
+                        {Object.keys(groupedProcedures).sort().map(category => (
+                            <div key={category} className="space-y-2">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2 sticky top-0 bg-white/95 backdrop-blur-sm p-2 rounded-lg z-10">
+                                    <Tag size={12} /> {category}
+                                </h4>
+                                {groupedProcedures[category].map(({ item: proc, index: originalIdx }) => (
+                                    <div key={proc.id} className="group flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-50/30 transition-all bg-white shadow-sm">
+                                        {editingProc?.index === originalIdx ? (
+                                            <div className="flex-1 flex gap-2 items-center">
+                                                <input 
+                                                    type="text" 
+                                                    className="flex-[2] px-3 py-1 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-sm"
+                                                    value={editingProc.name}
+                                                    onChange={(e) => setEditingProc({ ...editingProc, name: e.target.value })}
+                                                    autoFocus
+                                                />
+                                                <input 
+                                                    type="number" 
+                                                    className="w-24 px-3 py-1 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-sm"
+                                                    value={editingProc.price}
+                                                    onChange={(e) => setEditingProc({ ...editingProc, price: e.target.value })}
+                                                />
+                                                <input 
+                                                    list="proc-categories"
+                                                    type="text" 
+                                                    className="w-32 px-3 py-1 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-sm"
+                                                    value={editingProc.category}
+                                                    onChange={(e) => setEditingProc({ ...editingProc, category: e.target.value })}
+                                                />
+                                                <button onClick={saveProcEdit} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"><Check size={16}/></button>
+                                                <button onClick={() => setEditingProc(null)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"><X size={16}/></button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex-1 flex justify-between items-center pr-4">
+                                                    <span className="font-medium text-slate-700 ml-2 text-sm">{proc.name}</span>
+                                                    <span className="font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded text-xs">₱{proc.price.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={() => setEditingProc({ index: originalIdx, name: proc.name, price: proc.price.toString(), category: proc.category || 'General' })}
+                                                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteItem(originalIdx)}
+                                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className="flex-1 flex justify-between items-center pr-4">
-                                            <span className="font-medium text-slate-700 ml-2">{proc.name}</span>
-                                            <span className="font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded text-sm">₱{proc.price.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                                onClick={() => setEditingProc({ index: idx, name: proc.name, price: proc.price.toString() })}
-                                                className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDeleteItem(idx)}
-                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                                ))}
                             </div>
                         ))}
                          {settings.procedures.length === 0 && (

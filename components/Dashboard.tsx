@@ -211,47 +211,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
       </header>
       
-      {/* --- HQ MODE: BRANCH PULSE (ADMIN ONLY) --- */}
-      {currentUser.role === UserRole.ADMIN && fieldSettings?.features?.enableMultiBranch && (
-          <div className="bg-slate-800 rounded-2xl p-4 shadow-lg text-white">
-              <div className="flex items-center gap-2 mb-3 border-b border-slate-700 pb-2">
-                   <Building2 size={18} className="text-teal-400" />
-                   <h3 className="font-bold text-sm uppercase tracking-wide">Network Pulse (HQ View)</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                   {fieldSettings.branches.map(branch => {
-                       // Calc branch stats
-                       const branchApts = allAppointments.filter(a => a.branch === branch && a.date === today && !a.isBlock);
-                       const branchRev = branchApts.reduce((sum, a) => {
-                           const proc = fieldSettings.procedures.find(p => p.name === a.type);
-                           return sum + (proc?.price || 0);
-                       }, 0);
-                       
-                       return (
-                           <div key={branch} className="bg-slate-700/50 p-3 rounded-xl border border-slate-600 flex justify-between items-center group hover:bg-slate-700 transition-colors">
-                               <div>
-                                   <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase mb-1">
-                                       <MapPin size={10} /> {branch}
-                                   </div>
-                                   <div className="text-lg font-bold">₱{branchRev.toLocaleString()}</div>
-                                   <div className="text-[10px] text-teal-300">{branchApts.length} Appts Today</div>
-                               </div>
-                               {onChangeBranch && (
-                                   <button 
-                                        onClick={() => onChangeBranch(branch)}
-                                        className="p-2 bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-600"
-                                        title="Switch View"
-                                   >
-                                       <ArrowRight size={14} />
-                                   </button>
-                               )}
-                           </div>
-                       );
-                   })}
-              </div>
-          </div>
-      )}
-
       {/* --- STACKED LAYOUT: SCHEDULE -> PREP -> LAB -> OPPORTUNITIES -> PINBOARD --- */}
       <div className="space-y-6">
 
@@ -416,12 +375,13 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
 
-          {/* 3. INCOMING LAB CASES */}
+          {/* 3. INCOMING LAB CASES (RENAMED TO LAB WATCH) */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="px-6 py-3 border-b border-slate-50 bg-slate-50/50">
+                <div className="px-6 py-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
-                        <Package className="text-blue-500" size={16} /> Incoming Lab Cases (Next 3 Days)
+                        <Package className="text-blue-500" size={16} /> Lab Watch
                     </h3>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide bg-white border border-slate-200 px-2 py-0.5 rounded-full">Next 3 Days</span>
                 </div>
                 <div className="p-2 space-y-1">
                     {incomingLabCases.length > 0 ? incomingLabCases.map(a => {
@@ -535,9 +495,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             </span>
                                         )}
                                         {assigneeUser && (
-                                            <span className="text-[9px] font-bold bg-white text-slate-500 px-1.5 py-0.5 rounded border border-yellow-100 flex items-center gap-1">
-                                                <div className="w-3 h-3 rounded-full bg-slate-200 overflow-hidden">
-                                                    <img src={assigneeUser.avatar} className="w-full h-full object-cover" alt="avatar" />
+                                            <span className="relative flex items-center gap-1 text-[9px] font-bold bg-white text-slate-500 px-1.5 py-0.5 rounded border border-yellow-100">
+                                                <div className="w-3 h-3 rounded-full bg-slate-200 overflow-hidden relative">
+                                                    <div className="w-full h-full flex items-center justify-center text-xs">
+                                                        <UserIcon size={12} />
+                                                    </div>
+                                                    <img src={assigneeUser.avatar} className="absolute inset-0 w-full h-full object-cover" alt="avatar" />
                                                 </div>
                                                 {assigneeUser.name.split(' ')[0]}
                                             </span>
@@ -609,6 +572,47 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </form>
                 </div>
           </div>
+          
+        {/* --- HQ MODE: BRANCH PULSE (ADMIN ONLY) --- */}
+        {currentUser.role === UserRole.ADMIN && fieldSettings?.features?.enableMultiBranch && (
+          <div className="bg-slate-800 rounded-2xl p-4 shadow-lg text-white">
+              <div className="flex items-center gap-2 mb-3 border-b border-slate-700 pb-2">
+                   <Building2 size={18} className="text-teal-400" />
+                   <h3 className="font-bold text-sm uppercase tracking-wide">Network Pulse (HQ View)</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                   {fieldSettings.branches.map(branch => {
+                       // Calc branch stats
+                       const branchApts = allAppointments.filter(a => a.branch === branch && a.date === today && !a.isBlock);
+                       const branchRev = branchApts.reduce((sum, a) => {
+                           const proc = fieldSettings.procedures.find(p => p.name === a.type);
+                           return sum + (proc?.price || 0);
+                       }, 0);
+                       
+                       return (
+                           <div key={branch} className="bg-slate-700/50 p-3 rounded-xl border border-slate-600 flex justify-between items-center group hover:bg-slate-700 transition-colors">
+                               <div>
+                                   <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase mb-1">
+                                       <MapPin size={10} /> {branch}
+                                   </div>
+                                   <div className="text-lg font-bold">₱{branchRev.toLocaleString()}</div>
+                                   <div className="text-[10px] text-teal-300">{branchApts.length} Appts Today</div>
+                               </div>
+                               {onChangeBranch && (
+                                   <button 
+                                        onClick={() => onChangeBranch(branch)}
+                                        className="p-2 bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-600"
+                                        title="Switch View"
+                                   >
+                                       <ArrowRight size={14} />
+                                   </button>
+                               )}
+                           </div>
+                       );
+                   })}
+              </div>
+          </div>
+        )}
 
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings } from '../types';
@@ -656,19 +655,22 @@ const PatientList: React.FC<PatientListProps> = ({
                      <div className="space-y-6">
                          {/* Chart Mode Toggle */}
                          <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-slate-800">Clinical Charting</h4>
+                            <div>
+                                <h4 className="font-bold text-slate-800 text-lg">Dental Chart</h4>
+                                <p className="text-xs text-slate-400">Clinical Record & Notes</p>
+                            </div>
                             <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
                                 <button 
                                     onClick={() => setChartViewMode('visual')}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
                                 >
-                                    <Grid size={14} /> Visual Chart
+                                    <Grid size={16} /> <span className="hidden sm:inline">Visual</span>
                                 </button>
                                 <button 
                                     onClick={() => setChartViewMode('notes')}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'notes' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
                                 >
-                                    <List size={14} /> Odontonotes
+                                    <List size={16} /> <span className="hidden sm:inline">Notes</span>
                                 </button>
                             </div>
                          </div>
@@ -677,9 +679,12 @@ const PatientList: React.FC<PatientListProps> = ({
                              <>
                                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-lg text-slate-800">Odontogram (FDI)</h3>
+                                        <div className="flex items-baseline gap-2">
+                                            <h3 className="font-bold text-lg text-slate-800">Odontogram</h3>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FDI Notation</span>
+                                        </div>
                                         <div className="text-xs text-slate-400 flex items-center gap-1">
-                                            <Shield size={12}/> {isClinicalReadOnly ? 'Read Only View' : 'Select tool & click chart'}
+                                            <Shield size={12}/> {isClinicalReadOnly ? 'Read Only' : 'Interactive'}
                                         </div>
                                     </div>
                                     

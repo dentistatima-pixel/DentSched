@@ -349,16 +349,16 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Rheumatism'
   ],
   procedures: [
-      { id: 'p1', name: 'Consultation', price: 500 },
-      { id: 'p2', name: 'Oral Prophylaxis', price: 1200 },
-      { id: 'p3', name: 'Restoration', price: 1500 },
-      { id: 'p4', name: 'Extraction', price: 1000 },
-      { id: 'p5', name: 'Root Canal', price: 8000 },
-      { id: 'p6', name: 'Prosthodontics', price: 15000 },
-      { id: 'p7', name: 'Orthodontics', price: 50000 },
-      { id: 'p8', name: 'Surgery', price: 5000 },
-      { id: 'p9', name: 'Whitening', price: 20000 },
-      { id: 'p10', name: 'Denture Adjustments', price: 500 }
+      { id: 'p1', name: 'Consultation', price: 500, category: 'General' },
+      { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive' },
+      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative' },
+      { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery' },
+      { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics' },
+      { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative' },
+      { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
+      { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery' },
+      { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic' },
+      { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' }
   ], 
   branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
   features: {
@@ -366,5 +366,12 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableComplianceAudit: true,
       enableDentalAssistantFlow: true,
       enableMultiBranch: true
+  },
+  smsTemplates: {
+      bookingConfirmation: "Hi {PatientName}, your appointment with {ProviderName} is confirmed for {Date} at {Time}. Address: {Branch}. Reply C to confirm.",
+      confirmationRequest: "Hi {PatientName}, we're expecting you on {Date} @ {Time} for your dental visit. Please reply C to Confirm or R to Reschedule.",
+      reminder24h: "Reminder: You have an appointment tomorrow ({Date} @ {Time}) at {Branch}. See you soon!",
+      postOpCheckup: "Hi {PatientName}, this is Dr. {ProviderName}. Just checking in to see how you are feeling after your procedure today. Reply if you have concerns.",
+      registrationWelcome: "Welcome to dentsched, {PatientName}! Your patient record has been successfully created. We look forward to caring for your smile."
   }
 };

@@ -36,7 +36,7 @@ export enum AppointmentType {
   DENTURE_ADJUSTMENTS = 'Denture Adjustments'
 }
 
-export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing';
+export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
 
 // --- Field Management Types ---
 export interface ProcedureItem {
@@ -54,6 +54,14 @@ export interface FeatureToggles {
   enableDentalAssistantFlow: boolean;
 }
 
+export interface SmsTemplates {
+  bookingConfirmation: string; // Sent immediately on save
+  confirmationRequest: string; // Sent 48h before
+  reminder24h: string;         // Sent 24h before
+  postOpCheckup: string;       // Sent 2h after completion
+  registrationWelcome: string; // Sent after new patient save
+}
+
 export interface FieldSettings {
   suffixes: string[];
   civilStatus: string[];
@@ -64,6 +72,7 @@ export interface FieldSettings {
   procedures: ProcedureItem[]; 
   branches: string[];
   features: FeatureToggles;
+  smsTemplates: SmsTemplates; // NEW
 }
 
 export interface DentalChartEntry {
@@ -229,4 +238,13 @@ export interface PinboardTask {
     isUrgent: boolean;
     assignedTo?: string; // User ID
     createdAt: number;
+}
+
+export interface WaitlistEntry {
+    id: string;
+    patientName: string;
+    procedure: string;
+    durationMinutes: number;
+    priority: 'High' | 'Normal' | 'Low';
+    notes?: string;
 }
