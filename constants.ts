@@ -1,21 +1,36 @@
 
-
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // --- DATE UTILITY ---
+// Helper to get dynamic dates for the "Living Simulation"
+const getTodayStr = () => new Date().toLocaleDateString('en-CA');
+const getTomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toLocaleDateString('en-CA');
+}
+const getPastDateStr = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toLocaleDateString('en-CA');
+}
+const getFutureDateStr = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString('en-CA');
+}
+
 export const formatDate = (dateStr: string | undefined | null) => {
   if (!dateStr) return '-';
   
-  // Handle ISO YYYY-MM-DD explicitly to avoid timezone shifts
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = dateStr.split('-');
     return `${month}/${day}/${year}`;
   }
 
-  // Handle standard Date objects or ISO strings with time
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
   
@@ -46,16 +61,8 @@ export const STAFF: User[] = [
           showPatientFlow: false,
           showLabAlerts: true
       },
-      roster: {
-        'Mon': 'Makati Branch',
-        'Tue': 'Makati Branch',
-        'Wed': 'Makati Branch',
-        'Thu': 'Makati Branch',
-        'Fri': 'Makati Branch'
-      }
+      roster: { 'Mon': 'Makati Branch', 'Tue': 'Makati Branch', 'Wed': 'Makati Branch', 'Thu': 'Makati Branch', 'Fri': 'Makati Branch' }
   },
-  { id: 'admin2', name: 'John Smith', role: UserRole.ADMIN, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John', allowedBranches: ['Makati Branch'] },
-  
   { 
       id: 'doc1', 
       name: 'Dr. Alexander Crentist', 
@@ -63,29 +70,11 @@ export const STAFF: User[] = [
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
       specialization: 'General Dentistry',
       prcLicense: '0123456',
-      prcValidity: '2025-10-15',
-      ptrNumber: '8812391',
-      tin: '123-456-789-000',
-      pdaId: 'PDA-NCR-1029',
-      pdaChapter: 'Makati Dental Chapter',
-      clinicHours: 'MWF 9:00AM - 5:00PM',
       defaultBranch: 'Makati Branch',
       allowedBranches: ['Makati Branch', 'Quezon City Branch'], 
       colorPreference: '#14b8a6', 
       defaultConsultationFee: 500.00,
-      preferences: {
-          showFinancials: true,
-          showTraySetup: true,
-          showPatientFlow: false,
-          showLabAlerts: true,
-          defaultDentition: 'Adult'
-      },
-      roster: {
-          'Mon': 'Makati Branch',
-          'Wed': 'Makati Branch',
-          'Fri': 'Makati Branch',
-          'Tue': 'Quezon City Branch'
-      }
+      roster: { 'Mon': 'Makati Branch', 'Wed': 'Makati Branch', 'Fri': 'Makati Branch', 'Tue': 'Quezon City Branch' }
   },
   { 
       id: 'doc2', 
@@ -94,80 +83,100 @@ export const STAFF: User[] = [
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ben',
       specialization: 'Orthodontics',
       prcLicense: '0987654',
-      prcValidity: '2026-03-20',
-      ptrNumber: '8823412',
-      tin: '222-333-444-000',
-      pdaId: 'PDA-NCR-2045',
-      pdaChapter: 'Quezon City Chapter',
-      s2License: 'S2-001239-R',
-      clinicHours: 'TThS 10:00AM - 6:00PM',
       defaultBranch: 'Quezon City Branch',
       allowedBranches: ['Quezon City Branch'],
       colorPreference: '#8b5cf6', 
       defaultConsultationFee: 800.00,
-      preferences: {
-        showFinancials: true,
-        showLabAlerts: true
-      },
-      roster: {
-          'Tue': 'Quezon City Branch',
-          'Thu': 'Quezon City Branch',
-          'Sat': 'Quezon City Branch'
-      }
+      roster: { 'Tue': 'Quezon City Branch', 'Thu': 'Quezon City Branch', 'Sat': 'Quezon City Branch' }
   },
-  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'], preferences: { defaultDentition: 'Child' } },
+  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
   { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
   { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
   
-  // Dental Assistants
   { 
       id: 'asst1', 
       name: 'Asst. Sarah Sparkle', 
       role: UserRole.DENTAL_ASSISTANT, 
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg1',
       employeeId: 'DA-2023-001',
-      certifications: ['Tesda NCII Dental Hygiene', 'X-Ray Safety Officer'],
       assignedDoctors: ['doc1', 'doc2'], 
-      canViewFinancials: false,
       defaultBranch: 'Makati Branch',
       allowedBranches: ['Makati Branch', 'Quezon City Branch'],
       isReadOnly: false,
-      preferences: {
-          showTraySetup: true,
-          showPatientFlow: true,
-          showLabAlerts: true
-      },
-      roster: {
-          'Mon': 'Makati Branch',
-          'Tue': 'Quezon City Branch',
-          'Wed': 'Makati Branch',
-          'Thu': 'Quezon City Branch',
-          'Fri': 'Makati Branch'
-      }
-  },
-  { 
-      id: 'asst2', 
-      name: 'Asst. Fred Floss', 
-      role: UserRole.DENTAL_ASSISTANT, 
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg2',
-      employeeId: 'DA-2023-002',
-      certifications: ['Basic Life Support', 'Infection Control'],
-      assignedDoctors: ['doc3'], 
-      canViewFinancials: false,
-      defaultBranch: 'Makati Branch',
-      allowedBranches: ['Makati Branch'],
-      isReadOnly: true,
-      preferences: {
-          showTraySetup: true,
-          showPatientFlow: true
-      }
-  },
-  { id: 'asst3', name: 'Asst. Mary Mint', role: UserRole.DENTAL_ASSISTANT, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hyg3', assignedDoctors: ['doc4', 'doc5'], defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] }
+      roster: { 'Mon': 'Makati Branch', 'Tue': 'Quezon City Branch', 'Wed': 'Makati Branch', 'Thu': 'Quezon City Branch', 'Fri': 'Makati Branch' }
+  }
 ];
 
+// --- DUMMY PATIENTS ---
 export const PATIENTS: Patient[] = [
+    // 1. THE ACTIVE ORTHO PATIENT (Recurring Revenue, Payment Plan)
     {
-        id: 'p_child_001',
+        id: 'p_ortho_01',
+        name: 'Maria Clara',
+        firstName: 'Maria',
+        surname: 'Clara',
+        dob: '1995-06-19',
+        age: 29,
+        sex: 'Female',
+        phone: '0917-123-4567',
+        email: 'maria.clara@email.com',
+        occupation: 'Software Engineer',
+        lastVisit: getPastDateStr(25),
+        nextVisit: getTodayStr(),
+        chiefComplaint: 'Wire poking on upper right back tooth.',
+        notes: 'Ortho patient. Monthly adjustments. High pain tolerance.',
+        insuranceProvider: 'Maxicare',
+        insuranceNumber: 'MAX-102938',
+        currentBalance: 38000,
+        dentalChart: [
+             { toothNumber: 16, procedure: 'Orthodontics', status: 'Condition', notes: 'Loose Bracket', date: getPastDateStr(0) },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment U/L. Wires: 016 NiTi.', price: 1000, payment: 0, date: getPastDateStr(25), author: 'Dr. Ben' },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment U/L. Wires: 014 NiTi.', price: 1000, payment: 1000, date: getPastDateStr(55), author: 'Dr. Ben' },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Bonding U/L', price: 50000, payment: 10000, date: getPastDateStr(85), author: 'Dr. Ben' }
+        ],
+        ledger: [
+            { id: 'l1', date: getPastDateStr(85), description: 'Ortho Package Downpayment', type: 'Payment', amount: 10000, balanceAfter: 40000 },
+            { id: 'l2', date: getPastDateStr(85), description: 'Ortho Package Total', type: 'Charge', amount: 50000, balanceAfter: 40000 },
+            { id: 'l3', date: getPastDateStr(55), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: 41000 },
+            { id: 'l4', date: getPastDateStr(55), description: 'Payment', type: 'Payment', amount: 1000, balanceAfter: 40000 },
+            { id: 'l5', date: getPastDateStr(25), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: 41000 }, // Unpaid
+            { id: 'l6', date: getPastDateStr(0), description: 'Payment (Partial)', type: 'Payment', amount: 3000, balanceAfter: 38000 }
+        ]
+    },
+
+    // 2. THE SURGICAL CASE (Medical Alerts, High Risk)
+    {
+        id: 'p_surg_02',
+        name: 'Juan Dela Cruz',
+        firstName: 'Juan',
+        surname: 'Dela Cruz',
+        dob: '1980-12-30',
+        age: 43,
+        sex: 'Male',
+        phone: '0919-987-6543',
+        email: 'juan.dc@email.com',
+        occupation: 'Architect',
+        lastVisit: getPastDateStr(5),
+        nextVisit: null,
+        // Critical Medical History
+        medicalConditions: ['High BP', 'Diabetes'],
+        medicationDetails: 'Metformin 500mg, Amlodipine 5mg',
+        underMedicalTreatment: true,
+        allergies: ['Penicillin', 'Latex'],
+        goodHealth: false,
+        notes: 'Needs medical clearance for extraction. STOP anticoagulants 3 days prior.',
+        chiefComplaint: 'Pain on lower right wisdom tooth.',
+        dentalChart: [
+            { toothNumber: 48, procedure: 'Extraction', status: 'Planned', notes: 'Horizontal Impaction', price: 15000, date: getTodayStr() },
+            { toothNumber: 38, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+            { toothNumber: 48, procedure: 'Exam', status: 'Condition', notes: 'Pericoronitis present', date: getPastDateStr(5) }
+        ],
+        currentBalance: 0
+    },
+
+    // 3. THE PEDIATRIC PATIENT (Guardian Info, Mixed Dentition)
+    {
+        id: 'p_pedia_03',
         name: 'Timothy Santos',
         firstName: 'Timothy',
         surname: 'Santos',
@@ -175,179 +184,357 @@ export const PATIENTS: Patient[] = [
         age: 8,
         sex: 'Male',
         phone: '0917-555-0101',
-        email: 'timothy.santos@email.com',
-        lastVisit: '2023-10-15',
-        nextVisit: null,
-        notes: 'Patient is a bit anxious. Likes superheroes.',
-        insuranceProvider: 'Maxicare'
-    },
-    {
-        id: 'p_adult_002',
-        name: 'Maria Clara',
-        firstName: 'Maria',
-        surname: 'Clara',
-        dob: '1990-06-19',
-        age: 33,
-        sex: 'Female',
-        phone: '0918-555-0202',
-        email: 'maria.clara@email.com',
-        lastVisit: '2023-11-20',
-        nextVisit: '2024-05-20',
-        notes: 'Allergic to Latex.',
-        chiefComplaint: 'Fix crooked teeth (sungki) and whitening.',
-        allergies: ['Latex'],
-        insuranceProvider: 'PhilHealth',
+        email: 'parent.timothy@email.com',
+        guardian: 'Mrs. Santos (Mother)',
+        guardianMobile: '0917-555-0101',
+        lastVisit: getPastDateStr(60),
+        nextVisit: getTodayStr(),
+        notes: 'Anxious patient. Likes superheroes. Use "Sleepy Juice" for anesthesia.',
+        chiefComplaint: 'Loose milk tooth.',
         dentalChart: [
-            { toothNumber: 18, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
-            { toothNumber: 16, procedure: 'Composite Restoration (1 Surface)', surfaces: 'O', status: 'Completed', price: 1500, date: '2023-11-20' },
-            { toothNumber: 26, procedure: 'Root Canal (Molar)', status: 'Planned', price: 12000, date: '2023-11-20' }
+            { toothNumber: 54, procedure: 'Extraction', status: 'Completed', notes: 'Topical only', price: 800, date: getPastDateStr(60) },
+            { toothNumber: 16, procedure: 'Sealant', status: 'Planned', price: 1500, date: getTodayStr() },
+            { toothNumber: 26, procedure: 'Sealant', status: 'Planned', price: 1500, date: getTodayStr() },
+            { toothNumber: 36, procedure: 'Sealant', status: 'Planned', price: 1500, date: getTodayStr() },
+            { toothNumber: 46, procedure: 'Sealant', status: 'Planned', price: 1500, date: getTodayStr() }
         ]
     },
+
+    // 4. THE PERIO PATIENT (Detailed Perio Chart, Gum Disease)
     {
-        id: 'p_adult_003',
-        name: 'Juan Dela Cruz',
-        firstName: 'Juan',
-        surname: 'Dela Cruz',
-        dob: '1985-12-30',
-        age: 38,
-        sex: 'Male',
-        phone: '0919-555-0303',
-        email: 'juan.delacruz@email.com',
-        lastVisit: '2023-09-01',
-        nextVisit: null,
-        notes: 'Needs clearance for surgery.',
-        medicalConditions: ['High BP'],
-        insuranceProvider: 'Intellicare'
-    },
-    {
-        id: 'p_adult_004',
+        id: 'p_perio_04',
         name: 'Sofia Reyes',
         firstName: 'Sofia',
         surname: 'Reyes',
-        dob: '1995-02-14',
-        age: 29,
+        dob: '1975-02-14',
+        age: 49,
         sex: 'Female',
-        phone: '0920-555-0404',
+        phone: '0920-111-2222',
         email: 'sofia.reyes@email.com',
-        lastVisit: '2023-01-15', // Needs recall (> 1 year ago)
+        occupation: 'Teacher',
+        lastVisit: getPastDateStr(100),
         nextVisit: null,
-        notes: 'Due for cleaning.',
-        insuranceProvider: 'None'
+        chiefComplaint: 'Bleeding gums when brushing.',
+        notes: 'Heavy calculus on lower anteriors. Generalized gingivitis.',
+        perioChart: [
+            { toothNumber: 46, pocketDepths: [4,5,4, 5,6,5], recession: [0,0,0, 0,0,0], bleeding: [true, true, true, false, false, false], mobility: 1 },
+            { toothNumber: 42, pocketDepths: [3,4,3, 3,3,3], recession: [2,2,2, 2,2,2], bleeding: [true, false, false, false, false, false], mobility: 0 },
+            { toothNumber: 31, pocketDepths: [5,5,5, 4,4,4], recession: [1,1,1, 1,1,1], bleeding: [true, true, true, true, true, true], mobility: 1 }
+        ],
+        dentalChart: [
+            { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Planned', notes: 'Deep Scaling / Root Planing needed', price: 3500 }
+        ]
+    },
+
+    // 5. THE PROSTHO / LAB CASE (Lab Tracking, Senior Citizen)
+    {
+        id: 'p_prostho_05',
+        name: 'Lola Nidora Zobel',
+        firstName: 'Nidora',
+        surname: 'Zobel',
+        dob: '1950-08-20',
+        age: 73,
+        sex: 'Female',
+        phone: '0918-999-8888',
+        email: 'lola.nidoraz@email.com',
+        lastVisit: getPastDateStr(7),
+        nextVisit: getTomorrowStr(),
+        occupation: 'Retired',
+        medicalConditions: ['Arthritis'],
+        notes: 'Upper and Lower Complete Denture in progress. Wants lighter shade.',
+        chiefComplaint: 'Old dentures are loose.',
+        dentalChart: [
+             { toothNumber: 0, procedure: 'Prosthodontics', status: 'Completed', notes: 'Impressions taken', date: getPastDateStr(7) },
+             { toothNumber: 0, procedure: 'Prosthodontics', status: 'Planned', notes: 'Trial Fitting', date: getTomorrowStr() }
+        ],
+        ledger: [
+            { id: 'l1', date: getPastDateStr(7), description: 'CD Full Upper/Lower Downpayment', type: 'Payment', amount: 15000, balanceAfter: 15000 },
+            { id: 'l2', date: getPastDateStr(7), description: 'CD Full Upper/Lower Total', type: 'Charge', amount: 30000, balanceAfter: 15000 }
+        ],
+        currentBalance: 15000
+    },
+
+    // 6. THE COSMETIC / VIP (High Value, Zero Balance)
+    {
+        id: 'p_vip_06',
+        name: 'Bella Hadid (Demo)',
+        firstName: 'Bella',
+        surname: 'Hadid',
+        dob: '1996-10-09',
+        age: 27,
+        sex: 'Female',
+        phone: '0917-VIP-0001',
+        email: 'bella.hadid@email.com',
+        lastVisit: getPastDateStr(3),
+        nextVisit: getTomorrowStr(),
+        occupation: 'Model',
+        notes: 'VIP. Prefers quiet room. Emax Veneers 14-24.',
+        chiefComplaint: 'Wants a brighter smile for photoshoot.',
+        dentalChart: [
+            { toothNumber: 11, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) },
+            { toothNumber: 12, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) },
+            { toothNumber: 21, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) },
+            { toothNumber: 22, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) }
+        ],
+        ledger: [
+            { id: 'l1', date: getPastDateStr(3), description: 'Veneers 4 units (Full)', type: 'Charge', amount: 80000, balanceAfter: 80000 },
+            { id: 'l2', date: getPastDateStr(3), description: 'Payment via Bank Transfer', type: 'Payment', amount: 80000, balanceAfter: 0 }
+        ],
+        currentBalance: 0
+    },
+
+    // 7. THE EMERGENCY WALK-IN (Pain, No History)
+    {
+        id: 'p_emerg_07',
+        name: 'Mark Techy',
+        firstName: 'Mark',
+        surname: 'Techy',
+        dob: '1990-01-01',
+        age: 34,
+        sex: 'Male',
+        phone: '0922-333-4444',
+        email: 'mark.techy@email.com',
+        occupation: 'IT Support',
+        lastVisit: 'First Visit',
+        nextVisit: getTodayStr(),
+        chiefComplaint: 'Severe pain on upper right. Cannot sleep.',
+        notes: 'Emergency walk-in. Swelling present.',
+        dentalChart: [
+            { toothNumber: 16, procedure: 'Root Canal', status: 'Planned', notes: 'Symptomatic Irreversible Pulpitis', price: 12000 }
+        ]
+    },
+
+    // 8. THE ARCHIVE / INACTIVE (History Data)
+    {
+        id: 'p_done_08',
+        name: 'Alice Done',
+        firstName: 'Alice',
+        surname: 'Done',
+        dob: '1985-05-05',
+        age: 39,
+        sex: 'Female',
+        phone: '0915-555-5555',
+        email: 'alice.done@email.com',
+        lastVisit: getPastDateStr(365),
+        nextVisit: null,
+        notes: 'Patient moved to province. Inactive.',
+        dentalChart: [
+            { toothNumber: 36, procedure: 'Extraction', status: 'Completed', date: getPastDateStr(400) },
+            { toothNumber: 37, procedure: 'Restoration', status: 'Completed', surfaces: 'O', date: getPastDateStr(365) }
+        ],
+        currentBalance: 0
+    },
+
+    // 9. THE RECALL PATIENT (Due for Hygiene)
+    {
+        id: 'p_recall_09',
+        name: 'Joe Regular',
+        firstName: 'Joe',
+        surname: 'Regular',
+        dob: '1970-07-07',
+        age: 53,
+        sex: 'Male',
+        phone: '0917-777-7777',
+        email: 'joe.regular@email.com',
+        lastVisit: getPastDateStr(200), // Due for 6mo cleaning
+        nextVisit: null,
+        notes: 'Due for cleaning. Sends recall SMS.',
+        dentalChart: [
+            { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Completed', date: getPastDateStr(200) }
+        ],
+        currentBalance: 0
+    },
+
+    // 10. THE BAD DEBTOR (Red Flags)
+    {
+        id: 'p_debt_10',
+        name: 'Ronnie Runner',
+        firstName: 'Ronnie',
+        surname: 'Runner',
+        dob: '1999-09-09',
+        age: 24,
+        sex: 'Male',
+        phone: '0999-000-0000',
+        email: 'ronnie.runner@email.com',
+        lastVisit: getPastDateStr(30),
+        nextVisit: null,
+        notes: 'COLLECTION ALERT. Cheque bounced. Do not book until paid.',
+        chiefComplaint: 'Needs checkup (Denied until payment)',
+        currentBalance: 15000,
+        ledger: [
+            { id: 'l1', date: getPastDateStr(30), description: 'Root Canal 46', type: 'Charge', amount: 15000, balanceAfter: 15000 },
+            { id: 'l2', date: getPastDateStr(30), description: 'Cheque Payment', type: 'Payment', amount: 15000, balanceAfter: 0 },
+            { id: 'l3', date: getPastDateStr(28), description: 'Cheque Bounce Penalty', type: 'Charge', amount: 15000, balanceAfter: 15000 }
+        ]
+    },
+    
+    // 11. THE COMPLEX RESTORATIVE (Many existing fillings)
+    {
+        id: 'p_complex_11',
+        name: 'Gary Grinder',
+        firstName: 'Gary',
+        surname: 'Grinder',
+        dob: '1982-03-15',
+        age: 42,
+        sex: 'Male',
+        phone: '0917-888-1234',
+        email: 'gary.g@email.com',
+        occupation: 'Chef',
+        lastVisit: getPastDateStr(60),
+        nextVisit: null,
+        chiefComplaint: 'Sensitivity on cold.',
+        notes: 'Bruxer. Night guard recommended.',
+        dentalChart: [
+            { toothNumber: 16, procedure: 'Restoration', status: 'Existing', surfaces: 'MOD', date: getPastDateStr(500) },
+            { toothNumber: 26, procedure: 'Restoration', status: 'Existing', surfaces: 'DO', date: getPastDateStr(500) },
+            { toothNumber: 36, procedure: 'Crown', status: 'Existing', date: getPastDateStr(400) },
+            { toothNumber: 46, procedure: 'Missing', status: 'Existing', date: getPastDateStr(600) },
+            { toothNumber: 14, procedure: 'Root Canal', status: 'Existing', date: getPastDateStr(300) },
+            { toothNumber: 14, procedure: 'Crown', status: 'Planned', notes: 'Post-Endo Crown', price: 12000 }
+        ]
     }
 ];
 
-// Helper to get today/tomorrow dynamic dates
-const getTodayStr = () => new Date().toLocaleDateString('en-CA');
-const getTomorrowStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toLocaleDateString('en-CA');
-}
-
 export const APPOINTMENTS: Appointment[] = [
-    // Today: Active Live Lobby Scenarios
+    // --- TODAY'S SCHEDULE (Mix of statuses for Dashboard Flow) ---
     {
-        id: 'apt_001',
-        patientId: 'p_child_001',
-        providerId: 'doc1',
-        branch: 'Makati Branch',
+        id: 'apt_today_01',
+        patientId: 'p_ortho_01',
+        providerId: 'doc2',
+        branch: 'Quezon City Branch',
         date: getTodayStr(),
         time: '09:00',
         durationMinutes: 30,
-        type: AppointmentType.CONSULTATION,
-        status: AppointmentStatus.ARRIVED, // Waiting in Lobby
-        notes: 'Arrived 15m ago. Nervous child.'
+        type: AppointmentType.ORTHODONTICS,
+        status: AppointmentStatus.ARRIVED, // Waiting in lobby
+        notes: 'Monthly Adjustment. Wire change.'
     },
     {
-        id: 'apt_002',
-        patientId: 'p_adult_002',
+        id: 'apt_today_02',
+        patientId: 'p_surg_02',
         providerId: 'doc1',
         branch: 'Makati Branch',
         date: getTodayStr(),
-        time: '09:30',
-        durationMinutes: 60,
-        type: AppointmentType.ROOT_CANAL,
-        status: AppointmentStatus.SEATED, // In Chair
-        notes: 'Patient seated. Numbing gel applied.',
-        labStatus: LabStatus.NONE
+        time: '10:00',
+        durationMinutes: 90,
+        type: AppointmentType.SURGERY,
+        status: AppointmentStatus.SEATED, // In chair
+        notes: 'Wisdom tooth removal. Consent signed.'
     },
-    // Today: Completed
     {
-        id: 'apt_005',
-        patientId: 'p_adult_004',
+        id: 'apt_today_03',
+        patientId: 'p_pedia_03',
+        providerId: 'doc3',
+        branch: 'Makati Branch',
+        date: getTodayStr(),
+        time: '14:00',
+        durationMinutes: 45,
+        type: AppointmentType.CONSULTATION,
+        status: AppointmentStatus.SCHEDULED,
+        notes: 'Sealants and Fluoride.'
+    },
+    {
+        id: 'apt_today_04',
+        patientId: 'p_emerg_07',
         providerId: 'doc5',
         branch: 'Makati Branch',
         date: getTodayStr(),
-        time: '08:00',
-        durationMinutes: 45,
-        type: AppointmentType.ORAL_PROPHYLAXIS,
-        status: AppointmentStatus.COMPLETED,
-        notes: 'Routine cleaning done.'
+        time: '16:00',
+        durationMinutes: 60,
+        type: AppointmentType.ROOT_CANAL,
+        status: AppointmentStatus.CONFIRMED,
+        notes: 'Emergency Pain. Walk-in.'
     },
 
-    // Tomorrow: Lab Alert
+    // --- TOMORROW (Prep Stats / Lab Watch) ---
     {
-        id: 'apt_003',
-        patientId: 'p_adult_003',
-        providerId: 'doc2',
+        id: 'apt_tom_01',
+        patientId: 'p_prostho_05',
+        providerId: 'doc4',
         branch: 'Quezon City Branch',
         date: getTomorrowStr(),
-        time: '14:00',
-        durationMinutes: 45,
+        time: '11:00',
+        durationMinutes: 60,
         type: AppointmentType.PROSTHODONTICS,
         status: AppointmentStatus.SCHEDULED,
-        notes: 'Crown Insertion - Check Lab Case',
-        labStatus: LabStatus.PENDING // ALERT!
+        labStatus: LabStatus.PENDING, // Triggers Lab Watch on Dashboard
+        notes: 'Denture Try-in'
+    },
+    {
+        id: 'apt_tom_02',
+        patientId: 'p_vip_06',
+        providerId: 'doc1',
+        branch: 'Makati Branch',
+        date: getTomorrowStr(),
+        time: '13:00',
+        durationMinutes: 120,
+        type: AppointmentType.PROSTHODONTICS,
+        status: AppointmentStatus.CONFIRMED,
+        notes: 'Veneer Cementation'
+    },
+
+    // --- FUTURE (Next Month) ---
+    {
+        id: 'apt_future_01',
+        patientId: 'p_ortho_01',
+        providerId: 'doc2',
+        branch: 'Quezon City Branch',
+        date: getFutureDateStr(30),
+        time: '09:00',
+        durationMinutes: 30,
+        type: AppointmentType.ORTHODONTICS,
+        status: AppointmentStatus.SCHEDULED,
+        notes: 'Next Adjustment.'
+    },
+
+    // --- PAST HISTORY (Previous Month) ---
+    {
+        id: 'apt_past_01',
+        patientId: 'p_done_08',
+        providerId: 'doc1',
+        branch: 'Makati Branch',
+        date: getPastDateStr(365),
+        time: '10:00',
+        durationMinutes: 60,
+        type: AppointmentType.RESTORATION,
+        status: AppointmentStatus.COMPLETED,
+        notes: 'Final filling.'
+    },
+    {
+        id: 'apt_past_02',
+        patientId: 'p_debt_10',
+        providerId: 'doc5',
+        branch: 'Makati Branch',
+        date: getPastDateStr(30),
+        time: '15:00',
+        durationMinutes: 60,
+        type: AppointmentType.ROOT_CANAL,
+        status: AppointmentStatus.COMPLETED,
+        notes: 'Patient paid by cheque (Bounced later).'
+    },
+    {
+        id: 'apt_past_03',
+        patientId: 'p_ortho_01',
+        providerId: 'doc2',
+        branch: 'Quezon City Branch',
+        date: getPastDateStr(25),
+        time: '09:00',
+        durationMinutes: 30,
+        type: AppointmentType.ORTHODONTICS,
+        status: AppointmentStatus.COMPLETED,
+        notes: 'Adjustment done.'
     }
 ];
 
-// Initial defaults updated with prices and IDs
+// Initial defaults updated with prices and IDs to match scenarios
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
-  suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D'],
+  suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D', 'Jr', 'Sr', 'III'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
-  insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard', 'Etiqa', 'Pacific Cross'],
+  insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard', 'Etiqa', 'Pacific Cross', 'ValuCare'],
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-  allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex'],
+  allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex', 'Ibuprofen', 'Seafood'],
   medicalConditions: [
-    'None',
-    'High BP', 
-    'Low BP', 
-    'Epilepsy',
-    'Convulsions',
-    'AIDS/HIV',
-    'STD',
-    'Ulcers',
-    'Stomach Issues',
-    'Fainting Seizures',
-    'Rapid Weight Loss',
-    'Radiation Therapy',
-    'Joint Replacement',
-    'Heart Surgery',
-    'Heart Attack',
-    'Thyroid Issues',
-    'Heart Disease',
-    'Heart Murmur',
-    'Hepatitis',
-    'Liver Disease',
-    'Rheumatic Fever',
-    'Hay Fever',
-    'Respiratory Problems',
-    'Jaundice',
-    'Tuberculosis (TB)',
-    'Swollen Ankles',
-    'Kidney Issues',
-    'Diabetes',
-    'Chest Pain',
-    'Stroke',
-    'Cancer / Tumors',
-    'Anemia',
-    'Angina',
-    'Asthma',
-    'Emphysema',
-    'Bleeding Issues',
-    'Blood Disease',
-    'Arthritis',
-    'Rheumatism'
+    'None', 'High BP', 'Low BP', 'Epilepsy', 'Diabetes', 'Asthma', 'Heart Disease', 'Hepatitis', 'Kidney Issues', 'Bleeding Issues', 'Pregnancy', 'Thyroid Issues'
   ],
   procedures: [
       { id: 'p1', name: 'Consultation', price: 500, category: 'General' },
@@ -359,7 +546,11 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
       { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery' },
       { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic' },
-      { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' }
+      { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' },
+      { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric' },
+      { id: 'p12', name: 'Exam', price: 0, category: 'General' },
+      { id: 'p13', name: 'Crown', price: 12000, category: 'Prosthodontics' },
+      { id: 'p14', name: 'Missing', price: 0, category: 'General' }
   ], 
   branches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
   features: {
@@ -369,10 +560,10 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableMultiBranch: true
   },
   smsTemplates: {
-      bookingConfirmation: "Hi {PatientName}, your appointment with {ProviderName} is confirmed for {Date} at {Time}. Address: {Branch}. Reply C to confirm.",
-      confirmationRequest: "Hi {PatientName}, we're expecting you on {Date} @ {Time} for your dental visit. Please reply C to Confirm or R to Reschedule.",
-      reminder24h: "Reminder: You have an appointment tomorrow ({Date} @ {Time}) at {Branch}. See you soon!",
-      postOpCheckup: "Hi {PatientName}, this is Dr. {ProviderName}. Just checking in to see how you are feeling after your procedure today. Reply if you have concerns.",
-      registrationWelcome: "Welcome to dentsched, {PatientName}! Your patient record has been successfully created. We look forward to caring for your smile."
+      bookingConfirmation: "Hi {PatientName}, confirmed: {Date} @ {Time} w/ {ProviderName} at {Branch}. Reply C to confirm.",
+      confirmationRequest: "Hi {PatientName}, expecting you on {Date} @ {Time}. Reply C to Confirm.",
+      reminder24h: "Reminder: Appt tomorrow {Date} @ {Time} at {Branch}. See you!",
+      postOpCheckup: "Hi {PatientName}, checking in after your procedure. Any concerns?",
+      registrationWelcome: "Welcome to dentsched, {PatientName}! Your record is ready."
   }
 };
