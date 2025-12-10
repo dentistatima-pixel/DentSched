@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus, CreditCard } from 'lucide-react';
 import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus, FieldSettings, WaitlistEntry } from '../types';
 
 interface CalendarViewProps {
@@ -14,7 +14,7 @@ interface CalendarViewProps {
   fieldSettings?: FieldSettings;
 }
 
-// Mock Waitlist Data (In real app, fetch from DB)
+// Mock Waitlist Data
 const MOCK_WAITLIST: WaitlistEntry[] = [
     { id: 'wl_1', patientName: 'Maria Clara', procedure: 'Restoration', durationMinutes: 60, priority: 'High', notes: 'Flexible anytime AM' },
     { id: 'wl_2', patientName: 'Juan Dela Cruz', procedure: 'Extraction', durationMinutes: 30, priority: 'Normal', notes: 'Prefer afternoons' },
@@ -96,7 +96,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
           end.setDate(start.getDate() + 5); // Show Mon-Sat
           return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       }
-      // Compact day format
       return selectedDate.toLocaleDateString('en-US', { 
         weekday: 'short', 
         month: 'short', 
@@ -142,17 +141,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const visibleProviders = getVisibleProviders();
 
-  // Filter Appointments based on View Mode
+  // Filter Appointments
   const filteredAppointments = useMemo(() => {
       if (viewMode === 'week') {
-          // Show appointments for activeProviderId only, across the week dates
           const weekIsos = weekDates.map(d => d.iso);
           return appointments.filter(a => 
              weekIsos.includes(a.date) && 
              (a.providerId === activeProviderId || a.isBlock)
           );
       } else {
-          // Day View: Show all visible providers for selected date
           const visibleIds = visibleProviders.map(p => p.id);
           return appointments.filter(a => 
               a.date === formattedDate && 
@@ -161,15 +158,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       }
   }, [appointments, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders]);
   
-  // --- REVENUE PULSE (LIVE PRODUCTION COUNTER) ---
-  const revenuePulse = useMemo(() => {
-      if (!fieldSettings) return 0;
-      return filteredAppointments.reduce((acc, apt) => {
+  // --- FINANCIALS: PRODUCTION vs COLLECTIONS ---
+  const dailyFinancials = useMemo(() => {
+      if (!fieldSettings) return { production: 0, collections: 0 };
+      
+      // 1. Est. Production (Scheduled Procedures)
+      const production = filteredAppointments.reduce((acc, apt) => {
           if (apt.isBlock || apt.status === AppointmentStatus.CANCELLED || apt.status === AppointmentStatus.NO_SHOW) return acc;
           const proc = fieldSettings.procedures.find(p => p.name === apt.type);
           return acc + (proc?.price || 0);
       }, 0);
-  }, [filteredAppointments, fieldSettings]);
+
+      // 2. Collections (Actual Payment Entries in Ledgers for displayed date(s))
+      // Note: This iterates all patients which might be slow in production, but fine for MVP
+      let collections = 0;
+      const targetDates = viewMode === 'week' ? weekDates.map(d => d.iso) : [formattedDate];
+      
+      patients?.forEach(p => {
+          p.ledger?.forEach(entry => {
+              if (targetDates.includes(entry.date) && entry.type === 'Payment') {
+                  collections += entry.amount;
+              }
+          });
+      });
+
+      return { production, collections };
+  }, [filteredAppointments, fieldSettings, patients, viewMode, formattedDate, weekDates]);
 
   const sortedAppointments = [...filteredAppointments].sort((a, b) => 
     parseInt(a.time.replace(':','')) - parseInt(b.time.replace(':',''))
@@ -178,6 +192,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
   const isCritical = (p?: Patient) => p && (p.seriousIllness || (p.medicalConditions && p.medicalConditions.length > 0));
+  
+  // NEW: Check for outstanding balance
+  const hasOutstandingBalance = (p?: Patient) => (p?.currentBalance || 0) > 0;
 
   const getAppointmentBaseStyle = (type: AppointmentType, status: AppointmentStatus) => {
      if (status === AppointmentStatus.ARRIVED) return { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-600' };
@@ -192,15 +209,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
          case AppointmentType.ORAL_PROPHYLAXIS:
          case AppointmentType.WHITENING:
             return { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900', icon: 'text-teal-500' };
-         case AppointmentType.ORTHODONTICS:
-         case AppointmentType.PROSTHODONTICS:
-            return { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', icon: 'text-purple-500' };
          default: 
             return { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-500' };
      }
   };
 
-  // DRAG HANDLERS
+  // DRAG HANDLERS ... (Preserved)
   const handleDragStart = (e: React.DragEvent, aptId: string) => {
       setDraggedAptId(aptId);
       e.dataTransfer.setData("text/plain", aptId);
@@ -229,11 +243,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       if (type === 'appointment' && onMoveAppointment) {
           onMoveAppointment(id, dateIso, timeStr, providerId);
       } else if (type === 'waitlist') {
-          // Handle Waitlist Drop (Create New Appointment)
           const entry = MOCK_WAITLIST.find(w => w.id === id);
           if (entry) {
-              // This relies on onAddAppointment being able to pre-fill or create directly
-              // For now, we open the modal pre-filled
               const tempPatient = patients.find(p => p.name === entry.patientName);
               onAddAppointment(dateIso, timeStr, tempPatient?.id);
           }
@@ -242,15 +253,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       setDraggedWaitlistId(null);
   };
 
-  // "PERFECT DAY" TEMPLATE LOGIC
   const getZoneStyle = (hour: number): React.CSSProperties => {
       if (!showZones) return {};
-      // Morning: High Production (Yellow)
-      if (hour >= 8 && hour <= 11) return { backgroundColor: 'rgba(254, 243, 199, 0.4)' }; // yellow-100/40
-      // Midday: Low Production (Blue)
-      if (hour >= 12 && hour <= 14) return { backgroundColor: 'rgba(219, 234, 254, 0.4)' }; // blue-100/40
-      // Late/Emergency: Red
-      if (hour >= 16) return { backgroundColor: 'rgba(254, 226, 226, 0.4)' }; // red-100/40
+      if (hour >= 8 && hour <= 11) return { backgroundColor: 'rgba(254, 243, 199, 0.4)' }; 
+      if (hour >= 12 && hour <= 14) return { backgroundColor: 'rgba(219, 234, 254, 0.4)' };
+      if (hour >= 16) return { backgroundColor: 'rgba(254, 226, 226, 0.4)' };
       return {};
   };
 
@@ -282,7 +289,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             
             <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                     {/* EXPERT TOGGLES */}
                      <button 
                         onClick={() => setShowZones(!showZones)} 
                         className={`p-2 rounded-lg border transition-all flex items-center gap-1 text-xs font-bold ${showZones ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-white border-slate-200 text-slate-500'}`}
@@ -298,12 +304,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                          <Users size={14}/> Waitlist
                      </button>
 
-                    {/* Revenue Pulse Badge */}
+                    {/* Financial Pulse Badges */}
                     {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.DENTIST) && (
-                        <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 ml-2">
-                            <DollarSign size={14} className="text-emerald-500" />
-                            <span className="text-xs font-bold uppercase tracking-wide">Est. Production</span>
-                            <span className="font-mono font-bold">₱{revenuePulse.toLocaleString()}</span>
+                        <div className="flex items-center gap-2 ml-2">
+                             <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                                <DollarSign size={14} className="text-emerald-500" />
+                                <span className="text-xs font-bold uppercase tracking-wide hidden lg:inline">Production</span>
+                                <span className="font-mono font-bold">₱{dailyFinancials.production.toLocaleString()}</span>
+                            </div>
+                            <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                                <CreditCard size={14} className="text-blue-500" />
+                                <span className="text-xs font-bold uppercase tracking-wide hidden lg:inline">Coll.</span>
+                                <span className="font-mono font-bold">₱{dailyFinancials.collections.toLocaleString()}</span>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -334,7 +347,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
         {/* --- AGENDA VIEW --- */}
         {viewMode === 'agenda' ? (
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
-                 {/* Agenda Content (Same as before) */}
+                 {/* Agenda Content */}
                  {sortedAppointments.length === 0 ? (
                      <div className="text-center py-20 text-slate-400">
                          <Clock size={48} className="mx-auto mb-4 opacity-20" />
@@ -347,6 +360,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                              const provider = staff.find(s => s.id === apt.providerId);
                              const patient = getPatient(apt.patientId);
                              const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status);
+                             const owesMoney = hasOutstandingBalance(patient);
+
                              return (
                                  <div key={apt.id} onClick={() => onAddAppointment(undefined, undefined, undefined, apt)} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row cursor-pointer hover:border-teal-300 transition-colors">
                                      <div className="bg-slate-50 p-4 w-full md:w-32 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100">
@@ -360,6 +375,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="font-bold text-lg text-slate-800">{patient ? patient.name : 'Unknown'}</h3>
                                                         {isCritical(patient) && <AlertTriangle size={16} className="text-red-500 fill-red-100" />}
+                                                        {owesMoney && <DollarSign size={16} className="text-red-600 bg-red-100 rounded-full p-0.5" />}
                                                     </div>
                                                     <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${styles.bg} ${styles.text}`}>{apt.status}</span>
                                                 </div>
@@ -429,7 +445,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                             ${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative group transition-colors 
                                             ${(draggedAptId || movingAptId || draggedWaitlistId) ? "bg-green-50/30 ring-inset ring-2 ring-green-100" : "hover:bg-slate-50/30"}
                                         `}
-                                        style={getZoneStyle(hour)} // Apply Zoning
+                                        style={getZoneStyle(hour)} 
                                         onDragOver={handleDragOver}
                                         onDrop={(e) => handleDrop(e, providerId, hour, dateIso)}
                                         onClick={() => handleSlotClick(providerId, hour, dateIso)}
@@ -440,6 +456,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     const patient = getPatient(apt.patientId);
                                                     const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status);
                                                     const isBeingMoved = movingAptId === apt.id;
+                                                    const owesMoney = hasOutstandingBalance(patient);
 
                                                     return (
                                                         <div 
@@ -472,6 +489,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                                     <div className="font-bold text-xs mb-1 line-clamp-2 flex items-center gap-1">
                                                                         {patient ? patient.name : 'Unknown'}
                                                                         {isCritical(patient) && <AlertTriangle size={10} className="text-red-500 fill-red-100 shrink-0" />}
+                                                                        {owesMoney && <DollarSign size={10} className="text-red-600 bg-red-100 rounded-full p-0.5" />}
                                                                     </div>
                                                                     <div className="mt-auto flex justify-between items-center border-t border-black/5 pt-1">
                                                                         <span className="font-bold uppercase text-[9px] opacity-70">{apt.status.slice(0,3)}</span>
@@ -501,9 +519,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
         )}
       </div>
 
-      {/* --- WAITLIST SIDEBAR --- */}
+      {/* --- WAITLIST SIDEBAR --- (Preserved) */}
       {showWaitlist && (
           <div className="w-64 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col animate-in slide-in-from-right-10 duration-300">
+               {/* ... (Existing Waitlist code) ... */}
               <div className="p-4 border-b border-slate-100 flex items-center gap-2 text-teal-800">
                   <Users size={18} />
                   <h3 className="font-bold">Short Call List</h3>

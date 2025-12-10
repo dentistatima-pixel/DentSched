@@ -1,6 +1,8 @@
+
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ToastProvider } from './components/ToastSystem';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -48,7 +50,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-        <App key="refresh-v15-firebase" />
+        <ToastProvider>
+            <App key="refresh-v16-features" />
+        </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

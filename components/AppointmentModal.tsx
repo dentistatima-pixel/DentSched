@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
+import { useToast } from './ToastSystem';
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ interface AppointmentModalProps {
 const AppointmentModal: React.FC<AppointmentModalProps> = ({ 
   isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings 
 }) => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'existing' | 'new' | 'block'>('existing');
   
   // Common Fields
@@ -92,9 +95,14 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       }
   }, [isOpen, initialDate, initialTime, initialPatientId, existingAppointment, staff]);
 
-  // Search Logic
-  const fuse = new Fuse(patients, { keys: ['name', 'phone', 'id'], threshold: 0.3 });
-  const searchResults = searchTerm ? fuse.search(searchTerm).map(r => r.item).slice(0, 5) : [];
+  // Search Logic (Optimized)
+  const fuse = useMemo(() => new Fuse(patients, { keys: ['name', 'phone', 'id'], threshold: 0.3 }), [patients]);
+  
+  const searchResults = useMemo(() => {
+      if (!searchTerm) return [];
+      return fuse.search(searchTerm).map(r => r.item).slice(0, 5);
+  }, [searchTerm, fuse]);
+
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
   // --- CLINICAL BRIDGE (PLANNED TREATMENTS) ---
@@ -185,7 +193,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
   const handleSave = () => {
       if (!providerId) {
-          alert("Please select a provider");
+          toast.error("Please select a provider");
           return;
       }
 
@@ -200,6 +208,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       if (conflict) {
           const busyProvider = staff.find(s => s.id === providerId)?.name || 'Provider';
+          // Using standard confirm for critical flow interruption as requested in thought process, 
+          // but could be replaced by a Toast action in future.
           if (!window.confirm(`Double Booking Warning:\n${busyProvider} is already busy at ${time}.\n\nBook anyway?`)) {
               return;
           }
@@ -211,7 +221,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       if (activeTab === 'new') {
           if (!newPatientData.firstName || !newPatientData.surname || !newPatientData.phone) {
-              alert("Please fill in required fields");
+              toast.error("Please fill in required fields");
               return;
           }
           const newId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
@@ -236,7 +246,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           finalPatientId = 'BLOCK';
       } else {
           if (!finalPatientId) {
-              alert("Please select a patient");
+              toast.error("Please select a patient");
               return;
           }
       }
@@ -279,6 +289,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       }
 
       onSave(appointmentData);
+      toast.success(existingAppointment ? "Appointment updated" : "Appointment booked successfully");
       onClose();
   };
 

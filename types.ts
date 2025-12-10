@@ -84,6 +84,29 @@ export interface DentalChartEntry {
   date?: string;
   notes?: string;
   author?: string;
+  phase?: number; // NEW: Treatment Plan Phase (1, 2, 3...)
+}
+
+// NEW: Periodontal Data
+export interface PerioMeasurement {
+  toothNumber: number;
+  // 6 points: [Facial-Distal, Facial-Mid, Facial-Mesial, Lingual-Distal, Lingual-Mid, Lingual-Mesial]
+  pocketDepths: (number | null)[]; 
+  recession: (number | null)[];    
+  bleeding: boolean[];             
+  mobility: 0 | 1 | 2 | 3 | null;
+}
+
+// NEW: Financial Ledger
+export interface LedgerEntry {
+  id: string;
+  date: string;
+  description: string;
+  type: 'Charge' | 'Payment' | 'Adjustment';
+  amount: number;
+  balanceAfter: number; // Running balance at that point
+  procedureId?: string; // Link to procedure if needed
+  notes?: string;
 }
 
 export interface UserPreferences {
@@ -172,6 +195,11 @@ export interface Patient {
   
   // Visual Chart
   dentalChart?: DentalChartEntry[];
+  
+  // NEW: Perio & Ledger
+  perioChart?: PerioMeasurement[];
+  ledger?: LedgerEntry[];
+  currentBalance?: number;
 
   // Medical History
   goodHealth?: boolean;

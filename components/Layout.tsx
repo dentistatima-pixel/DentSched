@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask } from '../types';
 
@@ -18,13 +18,14 @@ interface LayoutProps {
   onChangeBranch: (branch: string) => void;
   fieldSettings?: FieldSettings; 
   onGenerateReport: () => void;
-  tasks?: PinboardTask[]; // New: For Notification Logic
-  onToggleTask?: (id: string) => void; // New: For Quick Complete
+  tasks?: PinboardTask[];
+  onToggleTask?: (id: string) => void;
+  onEnterKioskMode?: () => void; // Added
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
-  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask
+  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -200,6 +201,15 @@ const Layout: React.FC<LayoutProps> = ({
                                 <span className="font-bold">Practice Reports</span>
                             </button>
                         )}
+
+                        {/* KIOSK MODE BUTTON (Admin/Dentist/Assistant) */}
+                        <button 
+                            onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }}
+                            className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors group"
+                        >
+                            <div className="bg-lilac-600 p-2 rounded-lg group-hover:scale-110 transition-transform"><Monitor size={20} className="text-white" /></div>
+                            <span className="font-bold">Enter Kiosk Mode</span>
+                        </button>
                     </div>
                     
                     {/* Demo User Switcher (Hidden in prod usually, but kept for demo) */}

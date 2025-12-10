@@ -8,6 +8,7 @@ import PatientList from './components/PatientList';
 import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
+import KioskView from './components/KioskView';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask } from './types';
 
@@ -79,6 +80,9 @@ function App() {
 
   // Auth State
   const [currentUser, setCurrentUser] = useState<User>(staff[0]); 
+
+  // KIOSK MODE STATE
+  const [isInKioskMode, setIsInKioskMode] = useState(false);
 
   // BRANCH STATE
   const [currentBranch, setCurrentBranch] = useState<string>(
@@ -388,6 +392,18 @@ ${mixList}
     document.body.removeChild(element);
   };
 
+  // --- KIOSK MODE HIJACK ---
+  if (isInKioskMode) {
+      return <KioskView 
+          patients={patients}
+          appointments={appointments}
+          onCheckIn={(id) => handleUpdateAppointmentStatus(id, AppointmentStatus.ARRIVED)}
+          onUpdatePatient={handleQuickUpdatePatient}
+          onExitKiosk={() => setIsInKioskMode(false)}
+          fieldSettings={fieldSettings}
+      />;
+  }
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -508,6 +524,7 @@ ${mixList}
       onGenerateReport={handleGenerateReport}
       tasks={tasks} 
       onToggleTask={handleToggleTask} 
+      onEnterKioskMode={() => setIsInKioskMode(true)} // Pass Kiosk trigger
     >
       {renderContent()}
 

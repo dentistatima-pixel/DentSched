@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
@@ -13,9 +14,10 @@ interface PatientRegistrationModalProps {
   readOnly?: boolean;
   initialData?: Patient | null;
   fieldSettings: FieldSettings; 
+  isKiosk?: boolean; // New Prop for Kiosk Mode
 }
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false }) => {
   const [activeSection, setActiveSection] = useState<string>('basic');
   const [isQuickReg, setIsQuickReg] = useState(true); // Default to Quick Mode for speed
   
@@ -83,7 +85,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         if (initialData) {
             // Edit Mode
             setFormData({ ...initialData });
-            setIsQuickReg(false); // Always show full form on edit
+            // In Kiosk mode, force full edit if editing, or rely on passed prop logic below
+            setIsQuickReg(false); 
         } else {
             // New Mode
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -93,9 +96,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             });
             setIsQuickReg(true);
         }
+        
+        // KIOSK OVERRIDE: If kiosk, force "Quick" off so they see everything in one go? Or keep quick?
+        // Actually, if Kiosk + InitialData (Update Info), we want them to see Medical/Dental primarily.
+        // Let's force isQuickReg to false in Kiosk mode to ensure they review everything.
+        if (isKiosk) {
+            setIsQuickReg(false);
+        }
+
         setActiveSection('basic');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, isKiosk]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -189,27 +200,36 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   if (!isOpen) return null;
 
+  // In Kiosk mode, we remove the fixed positioning overlay because it's rendered inside KioskView's container
+  const containerClasses = isKiosk 
+     ? "w-full h-full bg-white flex flex-col"
+     : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4";
+
+  const modalClasses = isKiosk
+     ? "flex-1 flex flex-col h-full bg-white overflow-hidden"
+     : "bg-white w-full md:max-w-4xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden";
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4">
-      <div className="bg-white w-full md:max-w-4xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden">
+    <div className={containerClasses}>
+      <div className={modalClasses}>
         
         {/* Header */}
-        <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white md:rounded-t-3xl shrink-0">
+        <div className={`flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
           <div className="flex items-center gap-3">
             <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20">
                <User size={24} className="text-white" />
             </div>
             <div>
-               <h2 className="text-xl font-bold">{initialData ? 'Edit Patient' : 'New Patient'}</h2>
+               <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient' : 'New Patient')}</h2>
                <p className="text-teal-200 text-xs hidden md:block">
-                   {isQuickReg ? 'Quick Registration Mode' : 'Full Clinical Registration'}
+                   {isKiosk ? 'Please review your details.' : (isQuickReg ? 'Quick Registration Mode' : 'Full Clinical Registration')}
                </p>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-              {/* Quick Toggle */}
-              {!initialData && (
+              {/* Quick Toggle (Hidden in Kiosk) */}
+              {(!initialData && !isKiosk) && (
                   <button 
                     onClick={() => setIsQuickReg(!isQuickReg)}
                     className="flex items-center gap-2 bg-teal-800 hover:bg-teal-700 px-3 py-1.5 rounded-full transition-colors border border-teal-600"
@@ -218,9 +238,12 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                       <span className="text-xs font-bold uppercase">{isQuickReg ? 'Quick Reg' : 'Full Reg'}</span>
                   </button>
               )}
-              <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                <X size={24} />
-              </button>
+              {/* Close Button (Optional in Kiosk, usually handled by footer) */}
+              {!isKiosk && (
+                  <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                    <X size={24} />
+                  </button>
+              )}
           </div>
         </div>
 
@@ -282,7 +305,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         </div>
 
         {/* Sticky Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-white md:rounded-b-3xl shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className={`p-4 border-t border-slate-200 bg-white shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ${!isKiosk && 'md:rounded-b-3xl'}`}>
             <div className="flex gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
                  {!isQuickReg && (
                      <>
@@ -296,12 +319,13 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             </div>
             
             <div className="flex gap-2">
-                 {readOnly && (
+                 {/* In Kiosk mode, we might want a cancel button to return to dashboard without saving */}
+                 {(readOnly || isKiosk) && (
                      <button 
                         onClick={onClose}
                         className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
                     >
-                        Close
+                        {isKiosk ? 'Cancel' : 'Close'}
                     </button>
                  )}
                  {!readOnly && (
@@ -310,7 +334,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all"
                     >
                         <Save size={20} /> 
-                        {isQuickReg ? 'Quick Register' : 'Save Full Record'}
+                        {isKiosk ? 'Save Changes' : (isQuickReg ? 'Quick Register' : 'Save Full Record')}
                     </button>
                  )}
             </div>
