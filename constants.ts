@@ -4,8 +4,7 @@ import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatu
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-// --- DATE UTILITY ---
-// Helper to get dynamic dates for the "Living Simulation"
+// --- DATE UTILITY (Dynamic for "Living Simulation") ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
 const getTomorrowStr = () => {
     const d = new Date();
@@ -107,11 +106,105 @@ export const STAFF: User[] = [
   }
 ];
 
-// --- DUMMY PATIENTS ---
+// --- EXTENSIVE DUMMY PATIENTS ---
 export const PATIENTS: Patient[] = [
-    // 1. THE ACTIVE ORTHO PATIENT (Recurring Revenue, Payment Plan)
+    // 1. THE HEAVY CHART (Scrolling Stress Test, 3 Month History)
     {
-        id: 'p_ortho_01',
+        id: 'p_heavy_01',
+        name: 'Michael Scott',
+        firstName: 'Michael',
+        surname: 'Scott',
+        dob: '1965-03-15',
+        age: 59,
+        sex: 'Male',
+        phone: '0917-111-2222',
+        email: 'm.scott@dunder.com',
+        occupation: 'Regional Manager',
+        lastVisit: getPastDateStr(2),
+        nextVisit: getTomorrowStr(),
+        chiefComplaint: 'Checkup on my bridges.',
+        notes: 'Very talkative. Loves jokes. Gag reflex.',
+        currentBalance: 5000,
+        dentalChart: [
+             // RECENT (Current Month)
+             { toothNumber: 46, procedure: 'Restoration', status: 'Completed', surfaces: 'MO', price: 2500, payment: 0, date: getPastDateStr(2), author: 'Dr. Alex', notes: 'Deep caries.' },
+             { toothNumber: 47, procedure: 'Restoration', status: 'Completed', surfaces: 'O', price: 2500, payment: 2500, date: getPastDateStr(2), author: 'Dr. Alex' },
+             
+             // LAST MONTH
+             { toothNumber: 11, procedure: 'Crown', status: 'Completed', notes: 'PFM Crown', price: 12000, payment: 12000, date: getPastDateStr(35), author: 'Dr. Dave' },
+             { toothNumber: 21, procedure: 'Crown', status: 'Completed', notes: 'PFM Crown', price: 12000, payment: 12000, date: getPastDateStr(35), author: 'Dr. Dave' },
+             { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Completed', price: 1500, payment: 1500, date: getPastDateStr(40), author: 'Asst. Sarah' },
+
+             // 2 MONTHS AGO
+             { toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Obturation', price: 8000, payment: 8000, date: getPastDateStr(65), author: 'Dr. Elena' },
+             { toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Cleaning & Shaping', price: 0, date: getPastDateStr(72), author: 'Dr. Elena' },
+             { toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Access Opening', price: 0, date: getPastDateStr(79), author: 'Dr. Elena' },
+
+             // HISTORICAL / EXISTING
+             { toothNumber: 18, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+             { toothNumber: 28, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+             { toothNumber: 38, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+             { toothNumber: 48, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
+             { toothNumber: 14, procedure: 'Restoration', status: 'Existing', surfaces: 'MOD', date: '2022-05-10' },
+             { toothNumber: 24, procedure: 'Restoration', status: 'Existing', surfaces: 'DO', date: '2022-05-10' },
+             { toothNumber: 16, procedure: 'Crown', status: 'Planned', notes: 'Crack lines visible', price: 15000, date: getTomorrowStr() }
+        ],
+        ledger: [
+            { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46, 47', type: 'Charge', amount: 5000, balanceAfter: 5000 },
+            { id: 'l2', date: getPastDateStr(2), description: 'Partial Payment', type: 'Payment', amount: 2500, balanceAfter: 2500 }, // Balance remaining
+            { id: 'l3', date: getPastDateStr(35), description: 'Crowns 11, 21', type: 'Charge', amount: 24000, balanceAfter: 26500 },
+            { id: 'l4', date: getPastDateStr(35), description: 'Full Payment', type: 'Payment', amount: 24000, balanceAfter: 2500 }
+        ]
+    },
+
+    // 2. THE FULL MOUTH PERIO (Rendering Stress Test)
+    {
+        id: 'p_full_perio_02',
+        name: 'Sofia Reyes',
+        firstName: 'Sofia',
+        surname: 'Reyes',
+        dob: '1975-02-14',
+        age: 49,
+        sex: 'Female',
+        phone: '0920-111-2222',
+        email: 'sofia.reyes@email.com',
+        occupation: 'Teacher',
+        lastVisit: getPastDateStr(100),
+        nextVisit: null,
+        chiefComplaint: 'Bleeding gums.',
+        notes: 'Generalized Stage III Periodontitis.',
+        perioChart: [
+            // UPPER RIGHT
+            { toothNumber: 18, pocketDepths: [5,6,5, 6,7,6], recession: [1,1,1, 2,2,2], bleeding: [true,true,true,true,true,true], mobility: 1 },
+            { toothNumber: 17, pocketDepths: [4,5,4, 5,5,5], recession: [0,0,0, 1,1,1], bleeding: [true,false,true,true,false,true], mobility: 0 },
+            { toothNumber: 16, pocketDepths: [3,3,3, 4,4,4], recession: [0,0,0, 0,0,0], bleeding: [false,false,false,true,false,false], mobility: 0 },
+            { toothNumber: 15, pocketDepths: [2,2,2, 2,3,2], recession: [0,0,0, 0,0,0], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 14, pocketDepths: [2,2,2, 2,2,2], recession: [0,0,0, 0,0,0], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 13, pocketDepths: [5,6,5, 4,4,4], recession: [2,3,2, 1,1,1], bleeding: [true,true,true,false,false,false], mobility: 1 },
+            { toothNumber: 12, pocketDepths: [3,3,3, 3,3,3], recession: [1,1,1, 1,1,1], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 11, pocketDepths: [3,3,3, 3,3,3], recession: [1,1,1, 1,1,1], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            // UPPER LEFT
+            { toothNumber: 21, pocketDepths: [3,3,3, 3,3,3], recession: [1,1,1, 1,1,1], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 22, pocketDepths: [3,3,3, 3,3,3], recession: [1,1,1, 1,1,1], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 23, pocketDepths: [4,5,4, 4,4,4], recession: [2,2,2, 1,1,1], bleeding: [true,true,true,false,false,false], mobility: 0 },
+            { toothNumber: 24, pocketDepths: [2,2,2, 2,2,2], recession: [0,0,0, 0,0,0], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 25, pocketDepths: [2,2,2, 2,2,2], recession: [0,0,0, 0,0,0], bleeding: [false,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 26, pocketDepths: [5,6,5, 5,5,5], recession: [1,1,1, 1,1,1], bleeding: [true,true,true,true,true,true], mobility: 1 },
+            { toothNumber: 27, pocketDepths: [4,4,4, 4,4,4], recession: [0,0,0, 0,0,0], bleeding: [false,true,false,false,false,false], mobility: 0 },
+            { toothNumber: 28, pocketDepths: [6,7,6, 6,7,6], recession: [2,2,2, 2,2,2], bleeding: [true,true,true,true,true,true], mobility: 2 },
+            // LOWER ARCH (Partial for brevity, but system handles full)
+            { toothNumber: 31, pocketDepths: [5,5,5, 4,4,4], recession: [1,1,1, 1,1,1], bleeding: [true, true, true, true, true, true], mobility: 1 },
+            { toothNumber: 36, pocketDepths: [4,5,4, 3,3,3], recession: [0,0,0, 0,0,0], bleeding: [true,false,false,false,false,false], mobility: 0 },
+            { toothNumber: 46, pocketDepths: [4,5,4, 5,6,5], recession: [0,0,0, 0,0,0], bleeding: [true, true, true, false, false, false], mobility: 1 }
+        ],
+        dentalChart: [
+            { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Planned', notes: 'Deep Scaling / Root Planing needed', price: 3500 }
+        ]
+    },
+
+    // 3. THE CREDIT BALANCE PATIENT (Overpayment Logic)
+    {
+        id: 'p_credit_03',
         name: 'Maria Clara',
         firstName: 'Maria',
         surname: 'Clara',
@@ -123,30 +216,27 @@ export const PATIENTS: Patient[] = [
         occupation: 'Software Engineer',
         lastVisit: getPastDateStr(25),
         nextVisit: getTodayStr(),
-        chiefComplaint: 'Wire poking on upper right back tooth.',
-        notes: 'Ortho patient. Monthly adjustments. High pain tolerance.',
-        insuranceProvider: 'Maxicare',
-        insuranceNumber: 'MAX-102938',
-        currentBalance: 38000,
+        chiefComplaint: 'Wire poking upper right.',
+        notes: 'Pre-paid for full Ortho package. Negative balance indicates credit.',
+        currentBalance: -5000, // Credit
         dentalChart: [
-             { toothNumber: 16, procedure: 'Orthodontics', status: 'Condition', notes: 'Loose Bracket', date: getPastDateStr(0) },
-             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment U/L. Wires: 016 NiTi.', price: 1000, payment: 0, date: getPastDateStr(25), author: 'Dr. Ben' },
-             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment U/L. Wires: 014 NiTi.', price: 1000, payment: 1000, date: getPastDateStr(55), author: 'Dr. Ben' },
-             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Bonding U/L', price: 50000, payment: 10000, date: getPastDateStr(85), author: 'Dr. Ben' }
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Downpayment', price: 10000, payment: 15000, date: getPastDateStr(90) },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment', price: 1000, payment: 0, date: getPastDateStr(60) },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Completed', notes: 'Adjustment', price: 1000, payment: 0, date: getPastDateStr(30) },
+             { toothNumber: 0, procedure: 'Orthodontics', status: 'Planned', notes: 'Adjustment', price: 1000, date: getTodayStr() }
         ],
         ledger: [
-            { id: 'l1', date: getPastDateStr(85), description: 'Ortho Package Downpayment', type: 'Payment', amount: 10000, balanceAfter: 40000 },
-            { id: 'l2', date: getPastDateStr(85), description: 'Ortho Package Total', type: 'Charge', amount: 50000, balanceAfter: 40000 },
-            { id: 'l3', date: getPastDateStr(55), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: 41000 },
-            { id: 'l4', date: getPastDateStr(55), description: 'Payment', type: 'Payment', amount: 1000, balanceAfter: 40000 },
-            { id: 'l5', date: getPastDateStr(25), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: 41000 }, // Unpaid
-            { id: 'l6', date: getPastDateStr(0), description: 'Payment (Partial)', type: 'Payment', amount: 3000, balanceAfter: 38000 }
+            { id: 'l1', date: getPastDateStr(90), description: 'Ortho Package Downpayment', type: 'Payment', amount: 15000, balanceAfter: -15000 },
+            { id: 'l2', date: getPastDateStr(90), description: 'Initial Bonding Fee', type: 'Charge', amount: 10000, balanceAfter: -5000 },
+            { id: 'l3', date: getPastDateStr(60), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: -4000 },
+            { id: 'l4', date: getPastDateStr(30), description: 'Adjustment Fee', type: 'Charge', amount: 1000, balanceAfter: -3000 },
+            { id: 'l5', date: getPastDateStr(0), description: 'Advance Payment', type: 'Payment', amount: 2000, balanceAfter: -5000 }
         ]
     },
 
-    // 2. THE SURGICAL CASE (Medical Alerts, High Risk)
+    // 4. THE SURGICAL CASE (Medical Alerts, High Risk)
     {
-        id: 'p_surg_02',
+        id: 'p_surg_04',
         name: 'Juan Dela Cruz',
         firstName: 'Juan',
         surname: 'Dela Cruz',
@@ -174,9 +264,9 @@ export const PATIENTS: Patient[] = [
         currentBalance: 0
     },
 
-    // 3. THE PEDIATRIC PATIENT (Guardian Info, Mixed Dentition)
+    // 5. THE PEDIATRIC PATIENT (Guardian Info, Mixed Dentition)
     {
-        id: 'p_pedia_03',
+        id: 'p_pedia_05',
         name: 'Timothy Santos',
         firstName: 'Timothy',
         surname: 'Santos',
@@ -200,35 +290,9 @@ export const PATIENTS: Patient[] = [
         ]
     },
 
-    // 4. THE PERIO PATIENT (Detailed Perio Chart, Gum Disease)
+    // 6. THE PROSTHO / LAB CASE (Lab Tracking)
     {
-        id: 'p_perio_04',
-        name: 'Sofia Reyes',
-        firstName: 'Sofia',
-        surname: 'Reyes',
-        dob: '1975-02-14',
-        age: 49,
-        sex: 'Female',
-        phone: '0920-111-2222',
-        email: 'sofia.reyes@email.com',
-        occupation: 'Teacher',
-        lastVisit: getPastDateStr(100),
-        nextVisit: null,
-        chiefComplaint: 'Bleeding gums when brushing.',
-        notes: 'Heavy calculus on lower anteriors. Generalized gingivitis.',
-        perioChart: [
-            { toothNumber: 46, pocketDepths: [4,5,4, 5,6,5], recession: [0,0,0, 0,0,0], bleeding: [true, true, true, false, false, false], mobility: 1 },
-            { toothNumber: 42, pocketDepths: [3,4,3, 3,3,3], recession: [2,2,2, 2,2,2], bleeding: [true, false, false, false, false, false], mobility: 0 },
-            { toothNumber: 31, pocketDepths: [5,5,5, 4,4,4], recession: [1,1,1, 1,1,1], bleeding: [true, true, true, true, true, true], mobility: 1 }
-        ],
-        dentalChart: [
-            { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Planned', notes: 'Deep Scaling / Root Planing needed', price: 3500 }
-        ]
-    },
-
-    // 5. THE PROSTHO / LAB CASE (Lab Tracking, Senior Citizen)
-    {
-        id: 'p_prostho_05',
+        id: 'p_prostho_06',
         name: 'Lola Nidora Zobel',
         firstName: 'Nidora',
         surname: 'Zobel',
@@ -247,16 +311,12 @@ export const PATIENTS: Patient[] = [
              { toothNumber: 0, procedure: 'Prosthodontics', status: 'Completed', notes: 'Impressions taken', date: getPastDateStr(7) },
              { toothNumber: 0, procedure: 'Prosthodontics', status: 'Planned', notes: 'Trial Fitting', date: getTomorrowStr() }
         ],
-        ledger: [
-            { id: 'l1', date: getPastDateStr(7), description: 'CD Full Upper/Lower Downpayment', type: 'Payment', amount: 15000, balanceAfter: 15000 },
-            { id: 'l2', date: getPastDateStr(7), description: 'CD Full Upper/Lower Total', type: 'Charge', amount: 30000, balanceAfter: 15000 }
-        ],
         currentBalance: 15000
     },
 
-    // 6. THE COSMETIC / VIP (High Value, Zero Balance)
+    // 7. THE VIP / COSMETIC (High Value)
     {
-        id: 'p_vip_06',
+        id: 'p_vip_07',
         name: 'Bella Hadid (Demo)',
         firstName: 'Bella',
         surname: 'Hadid',
@@ -276,16 +336,12 @@ export const PATIENTS: Patient[] = [
             { toothNumber: 21, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) },
             { toothNumber: 22, procedure: 'Crown', status: 'Completed', surfaces: 'All', notes: 'Emax Veneer Prep', date: getPastDateStr(3) }
         ],
-        ledger: [
-            { id: 'l1', date: getPastDateStr(3), description: 'Veneers 4 units (Full)', type: 'Charge', amount: 80000, balanceAfter: 80000 },
-            { id: 'l2', date: getPastDateStr(3), description: 'Payment via Bank Transfer', type: 'Payment', amount: 80000, balanceAfter: 0 }
-        ],
         currentBalance: 0
     },
 
-    // 7. THE EMERGENCY WALK-IN (Pain, No History)
+    // 8. THE EMERGENCY WALK-IN (Pain)
     {
-        id: 'p_emerg_07',
+        id: 'p_emerg_08',
         name: 'Mark Techy',
         firstName: 'Mark',
         surname: 'Techy',
@@ -304,50 +360,9 @@ export const PATIENTS: Patient[] = [
         ]
     },
 
-    // 8. THE ARCHIVE / INACTIVE (History Data)
+    // 9. THE BAD DEBTOR (Red Flags)
     {
-        id: 'p_done_08',
-        name: 'Alice Done',
-        firstName: 'Alice',
-        surname: 'Done',
-        dob: '1985-05-05',
-        age: 39,
-        sex: 'Female',
-        phone: '0915-555-5555',
-        email: 'alice.done@email.com',
-        lastVisit: getPastDateStr(365),
-        nextVisit: null,
-        notes: 'Patient moved to province. Inactive.',
-        dentalChart: [
-            { toothNumber: 36, procedure: 'Extraction', status: 'Completed', date: getPastDateStr(400) },
-            { toothNumber: 37, procedure: 'Restoration', status: 'Completed', surfaces: 'O', date: getPastDateStr(365) }
-        ],
-        currentBalance: 0
-    },
-
-    // 9. THE RECALL PATIENT (Due for Hygiene)
-    {
-        id: 'p_recall_09',
-        name: 'Joe Regular',
-        firstName: 'Joe',
-        surname: 'Regular',
-        dob: '1970-07-07',
-        age: 53,
-        sex: 'Male',
-        phone: '0917-777-7777',
-        email: 'joe.regular@email.com',
-        lastVisit: getPastDateStr(200), // Due for 6mo cleaning
-        nextVisit: null,
-        notes: 'Due for cleaning. Sends recall SMS.',
-        dentalChart: [
-            { toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Completed', date: getPastDateStr(200) }
-        ],
-        currentBalance: 0
-    },
-
-    // 10. THE BAD DEBTOR (Red Flags)
-    {
-        id: 'p_debt_10',
+        id: 'p_debt_09',
         name: 'Ronnie Runner',
         firstName: 'Ronnie',
         surname: 'Runner',
@@ -368,9 +383,9 @@ export const PATIENTS: Patient[] = [
         ]
     },
     
-    // 11. THE COMPLEX RESTORATIVE (Many existing fillings)
+    // 10. THE COMPLEX RESTORATIVE (Many existing fillings)
     {
-        id: 'p_complex_11',
+        id: 'p_complex_10',
         name: 'Gary Grinder',
         firstName: 'Gary',
         surname: 'Grinder',
@@ -396,60 +411,72 @@ export const PATIENTS: Patient[] = [
 ];
 
 export const APPOINTMENTS: Appointment[] = [
-    // --- TODAY'S SCHEDULE (Mix of statuses for Dashboard Flow) ---
+    // --- TODAY'S SCHEDULE (Packed Flow) ---
     {
         id: 'apt_today_01',
-        patientId: 'p_ortho_01',
+        patientId: 'p_credit_03',
         providerId: 'doc2',
         branch: 'Quezon City Branch',
         date: getTodayStr(),
         time: '09:00',
         durationMinutes: 30,
         type: AppointmentType.ORTHODONTICS,
-        status: AppointmentStatus.ARRIVED, // Waiting in lobby
-        notes: 'Monthly Adjustment. Wire change.'
+        status: AppointmentStatus.COMPLETED, // Already done
+        notes: 'Morning Adjustment.'
     },
     {
         id: 'apt_today_02',
-        patientId: 'p_surg_02',
+        patientId: 'p_surg_04',
         providerId: 'doc1',
         branch: 'Makati Branch',
         date: getTodayStr(),
         time: '10:00',
         durationMinutes: 90,
         type: AppointmentType.SURGERY,
-        status: AppointmentStatus.SEATED, // In chair
+        status: AppointmentStatus.TREATING, // Currently in chair
         notes: 'Wisdom tooth removal. Consent signed.'
     },
     {
         id: 'apt_today_03',
-        patientId: 'p_pedia_03',
+        patientId: 'p_pedia_05',
         providerId: 'doc3',
         branch: 'Makati Branch',
         date: getTodayStr(),
-        time: '14:00',
+        time: '13:00',
         durationMinutes: 45,
         type: AppointmentType.CONSULTATION,
-        status: AppointmentStatus.SCHEDULED,
+        status: AppointmentStatus.SEATED, // Prepped, waiting for doctor
         notes: 'Sealants and Fluoride.'
     },
     {
         id: 'apt_today_04',
-        patientId: 'p_emerg_07',
+        patientId: 'p_emerg_08',
         providerId: 'doc5',
         branch: 'Makati Branch',
         date: getTodayStr(),
-        time: '16:00',
+        time: '14:00',
         durationMinutes: 60,
         type: AppointmentType.ROOT_CANAL,
-        status: AppointmentStatus.CONFIRMED,
+        status: AppointmentStatus.ARRIVED, // Waiting in lobby
         notes: 'Emergency Pain. Walk-in.'
+    },
+    {
+        id: 'apt_today_05',
+        patientId: 'p_heavy_01',
+        providerId: 'doc1',
+        branch: 'Makati Branch',
+        date: getTodayStr(),
+        time: '15:30',
+        durationMinutes: 60,
+        type: AppointmentType.RESTORATION,
+        status: AppointmentStatus.CONFIRMED, // Not yet arrived
+        notes: 'Filling on 16.'
     },
 
     // --- TOMORROW (Prep Stats / Lab Watch) ---
     {
         id: 'apt_tom_01',
-        patientId: 'p_prostho_05',
+        patientId: 'p_prostho_06',
         providerId: 'doc4',
         branch: 'Quezon City Branch',
         date: getTomorrowStr(),
@@ -462,7 +489,7 @@ export const APPOINTMENTS: Appointment[] = [
     },
     {
         id: 'apt_tom_02',
-        patientId: 'p_vip_06',
+        patientId: 'p_vip_07',
         providerId: 'doc1',
         branch: 'Makati Branch',
         date: getTomorrowStr(),
@@ -476,7 +503,7 @@ export const APPOINTMENTS: Appointment[] = [
     // --- FUTURE (Next Month) ---
     {
         id: 'apt_future_01',
-        patientId: 'p_ortho_01',
+        patientId: 'p_credit_03',
         providerId: 'doc2',
         branch: 'Quezon City Branch',
         date: getFutureDateStr(30),
@@ -490,19 +517,19 @@ export const APPOINTMENTS: Appointment[] = [
     // --- PAST HISTORY (Previous Month) ---
     {
         id: 'apt_past_01',
-        patientId: 'p_done_08',
+        patientId: 'p_heavy_01',
         providerId: 'doc1',
         branch: 'Makati Branch',
-        date: getPastDateStr(365),
+        date: getPastDateStr(2),
         time: '10:00',
         durationMinutes: 60,
         type: AppointmentType.RESTORATION,
         status: AppointmentStatus.COMPLETED,
-        notes: 'Final filling.'
+        notes: 'Deep caries treated.'
     },
     {
         id: 'apt_past_02',
-        patientId: 'p_debt_10',
+        patientId: 'p_debt_09',
         providerId: 'doc5',
         branch: 'Makati Branch',
         date: getPastDateStr(30),
@@ -514,10 +541,10 @@ export const APPOINTMENTS: Appointment[] = [
     },
     {
         id: 'apt_past_03',
-        patientId: 'p_ortho_01',
+        patientId: 'p_credit_03',
         providerId: 'doc2',
         branch: 'Quezon City Branch',
-        date: getPastDateStr(25),
+        date: getPastDateStr(60),
         time: '09:00',
         durationMinutes: 30,
         type: AppointmentType.ORTHODONTICS,
@@ -526,7 +553,7 @@ export const APPOINTMENTS: Appointment[] = [
     }
 ];
 
-// Initial defaults updated with prices and IDs to match scenarios
+// Initial defaults
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D', 'Jr', 'Sr', 'III'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],

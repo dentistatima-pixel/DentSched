@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PerioMeasurement } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity } from 'lucide-react';
@@ -11,6 +10,105 @@ interface PerioChartProps {
 
 const TEETH_UPPER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const TEETH_LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+
+interface PerioRowProps {
+    tooth: number;
+    measurement?: PerioMeasurement;
+    onValueChange: (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => void;
+    onMobilityChange: (tooth: number, value: string) => void;
+    onBleedingToggle: (tooth: number, index: number) => void;
+    readOnly?: boolean;
+}
+
+const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, onValueChange, onBleedingToggle, onMobilityChange, readOnly }) => {
+    const m = measurement;
+    if (!m) return null;
+
+    // Visual alert for deep pockets (>4mm)
+    const maxDepth = Math.max(...(m.pocketDepths.filter(d => d !== null) as number[]), 0);
+    const isConcern = maxDepth >= 5;
+
+    return (
+        <div className={`flex flex-col border-r border-slate-200 min-w-[120px] ${isConcern ? 'bg-red-50' : 'bg-white'}`}>
+            {/* Header / Tooth # */}
+            <div className={`text-center font-bold py-2 border-b border-slate-200 ${isConcern ? 'text-red-700' : 'text-slate-700'}`}>
+                #{tooth}
+                {isConcern && <AlertTriangle size={12} className="inline ml-1 text-red-500"/>}
+            </div>
+
+            {/* Facial / Buccal Inputs */}
+            <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
+                <span className="text-[9px] text-slate-400 font-bold uppercase w-full text-center mb-1 absolute opacity-0">Facial</span>
+                {[0, 1, 2].map(i => (
+                    <div key={`F-${i}`} className="flex flex-col items-center gap-1">
+                        {/* Pocket Depth */}
+                        <input 
+                            type="text" 
+                            maxLength={2}
+                            value={m.pocketDepths[i] ?? ''}
+                            onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
+                            className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
+                                ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
+                            `}
+                            placeholder="-"
+                            disabled={readOnly}
+                        />
+                        {/* Bleeding Toggle */}
+                        <button 
+                            onClick={() => onBleedingToggle(tooth, i)}
+                            className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
+                            title="Bleeding on Probing"
+                            disabled={readOnly}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            {/* Mobility */}
+            <div className="py-1 flex justify-center border-y border-slate-100 bg-slate-100/50">
+                    <select 
+                    value={m.mobility ?? ''}
+                    onChange={(e) => onMobilityChange(tooth, e.target.value)}
+                    className="text-xs bg-transparent font-bold text-center outline-none cursor-pointer text-blue-700 w-full appearance-none"
+                    disabled={readOnly}
+                    >
+                        <option value="">Mob: -</option>
+                        <option value="0">0</option>
+                        <option value="1">I</option>
+                        <option value="2">II</option>
+                        <option value="3">III</option>
+                    </select>
+            </div>
+
+            {/* Lingual / Palatal Inputs */}
+            <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
+                {[3, 4, 5].map(i => (
+                        <div key={`L-${i}`} className="flex flex-col items-center gap-1">
+                        {/* Bleeding Toggle */}
+                        <button 
+                            onClick={() => onBleedingToggle(tooth, i)}
+                            className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
+                            title="Bleeding on Probing"
+                            disabled={readOnly}
+                        />
+                        {/* Pocket Depth */}
+                        <input 
+                            type="text" 
+                            maxLength={2}
+                            value={m.pocketDepths[i] ?? ''}
+                            onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
+                            className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
+                                ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
+                            `}
+                            placeholder="-"
+                            disabled={readOnly}
+                        />
+                        </div>
+                ))}
+            </div>
+        </div>
+    );
+});
 
 const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
     // Map toothNumber to measurement object for fast lookup
@@ -76,96 +174,6 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         onSave(arrayData);
     };
 
-    const PerioRow = ({ tooth }: { tooth: number }) => {
-        const m = measurements[tooth];
-        if (!m) return null;
-
-        // Visual alert for deep pockets (>4mm)
-        const maxDepth = Math.max(...(m.pocketDepths.filter(d => d !== null) as number[]), 0);
-        const isConcern = maxDepth >= 5;
-
-        return (
-            <div className={`flex flex-col border-r border-slate-200 min-w-[120px] ${isConcern ? 'bg-red-50' : 'bg-white'}`}>
-                {/* Header / Tooth # */}
-                <div className={`text-center font-bold py-2 border-b border-slate-200 ${isConcern ? 'text-red-700' : 'text-slate-700'}`}>
-                    #{tooth}
-                    {isConcern && <AlertTriangle size={12} className="inline ml-1 text-red-500"/>}
-                </div>
-
-                {/* Facial / Buccal Inputs */}
-                <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
-                    <span className="text-[9px] text-slate-400 font-bold uppercase w-full text-center mb-1 absolute opacity-0">Facial</span>
-                    {[0, 1, 2].map(i => (
-                        <div key={`F-${i}`} className="flex flex-col items-center gap-1">
-                            {/* Pocket Depth */}
-                            <input 
-                                type="text" 
-                                maxLength={2}
-                                value={m.pocketDepths[i] ?? ''}
-                                onChange={(e) => handleValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
-                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
-                                `}
-                                placeholder="-"
-                                disabled={readOnly}
-                            />
-                            {/* Bleeding Toggle */}
-                            <button 
-                                onClick={() => toggleBleeding(tooth, i)}
-                                className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
-                                title="Bleeding on Probing"
-                                disabled={readOnly}
-                            />
-                        </div>
-                    ))}
-                </div>
-
-                {/* Mobility */}
-                <div className="py-1 flex justify-center border-y border-slate-100 bg-slate-100/50">
-                     <select 
-                        value={m.mobility ?? ''}
-                        onChange={(e) => handleMobilityChange(tooth, e.target.value)}
-                        className="text-xs bg-transparent font-bold text-center outline-none cursor-pointer text-blue-700 w-full appearance-none"
-                        disabled={readOnly}
-                     >
-                         <option value="">Mob: -</option>
-                         <option value="0">0</option>
-                         <option value="1">I</option>
-                         <option value="2">II</option>
-                         <option value="3">III</option>
-                     </select>
-                </div>
-
-                {/* Lingual / Palatal Inputs */}
-                <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
-                    {[3, 4, 5].map(i => (
-                         <div key={`L-${i}`} className="flex flex-col items-center gap-1">
-                            {/* Bleeding Toggle */}
-                            <button 
-                                onClick={() => toggleBleeding(tooth, i)}
-                                className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
-                                title="Bleeding on Probing"
-                                disabled={readOnly}
-                            />
-                            {/* Pocket Depth */}
-                            <input 
-                                type="text" 
-                                maxLength={2}
-                                value={m.pocketDepths[i] ?? ''}
-                                onChange={(e) => handleValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
-                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
-                                `}
-                                placeholder="-"
-                                disabled={readOnly}
-                            />
-                         </div>
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="flex flex-col h-full bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
              {/* Header */}
@@ -205,7 +213,17 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                         <ChevronUp size={14}/> Upper Arch (18 - 28)
                     </div>
                     <div className="flex border border-slate-300 rounded-lg overflow-hidden shadow-sm w-max">
-                        {TEETH_UPPER.map(t => <PerioRow key={t} tooth={t} />)}
+                        {TEETH_UPPER.map(t => (
+                            <PerioRow 
+                                key={t} 
+                                tooth={t} 
+                                measurement={measurements[t]} 
+                                onValueChange={handleValueChange}
+                                onMobilityChange={handleMobilityChange}
+                                onBleedingToggle={toggleBleeding}
+                                readOnly={readOnly}
+                            />
+                        ))}
                     </div>
                 </div>
 
@@ -215,7 +233,17 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                         <ChevronDown size={14}/> Lower Arch (48 - 38)
                     </div>
                     <div className="flex border border-slate-300 rounded-lg overflow-hidden shadow-sm w-max">
-                        {TEETH_LOWER.map(t => <PerioRow key={t} tooth={t} />)}
+                        {TEETH_LOWER.map(t => (
+                            <PerioRow 
+                                key={t} 
+                                tooth={t} 
+                                measurement={measurements[t]} 
+                                onValueChange={handleValueChange}
+                                onMobilityChange={handleMobilityChange}
+                                onBleedingToggle={toggleBleeding}
+                                readOnly={readOnly}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
