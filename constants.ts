@@ -1,4 +1,3 @@
-
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings } from './types';
 
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
@@ -47,16 +46,31 @@ export const PATIENTS: Patient[] = [
         email: 'm.scott@dunder.com',
         lastVisit: getPastDateStr(2),
         nextVisit: getTomorrowStr(),
-        chiefComplaint: 'Checkup on my bridges.',
-        notes: 'Gag reflex.',
+        chiefComplaint: 'Checkup On My Bridges.',
+        notes: 'Gag Reflex.',
         currentBalance: 2500,
         dentalChart: [
-             { toothNumber: 46, procedure: 'Restoration', status: 'Completed', surfaces: 'MO', price: 2500, payment: 0, date: getPastDateStr(2), author: 'Dr. Alex', notes: 'Deep caries.' },
+             { toothNumber: 46, procedure: 'Restoration', status: 'Completed', surfaces: 'MO', price: 2500, payment: 0, date: getPastDateStr(2), author: 'Dr. Alex', notes: 'Deep Caries.' },
              { toothNumber: 11, procedure: 'Crown', status: 'Completed', price: 12000, payment: 12000, date: getPastDateStr(35), author: 'Dr. Alex' }
         ],
         ledger: [
             { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46', type: 'Charge', amount: 2500, balanceAfter: 2500 }
         ]
+    },
+    {
+        id: 'p_ashwin_02',
+        name: 'Ashwin Benedict Fernandes',
+        firstName: 'Ashwin',
+        surname: 'Fernandes',
+        dob: '1990-05-10',
+        age: 34,
+        sex: 'Male',
+        phone: '0918-555-4444',
+        email: 'ashwin.fernandes@email.com',
+        lastVisit: getPastDateStr(10),
+        nextVisit: getFutureDateStr(5),
+        chiefComplaint: 'Routine Checkup And Scaling.',
+        notes: 'Long Name Display Test.'
     },
     {
         id: 'p_full_perio_02',
@@ -70,57 +84,17 @@ export const PATIENTS: Patient[] = [
         email: 'sofia.reyes@email.com',
         lastVisit: getPastDateStr(100),
         nextVisit: null,
-        chiefComplaint: 'Bleeding gums.',
+        chiefComplaint: 'Bleeding Gums.',
         notes: 'Stage III Periodontitis.',
         perioChart: [
             { toothNumber: 18, pocketDepths: [5,6,5, 6,7,6], recession: [1,1,1, 2,2,2], bleeding: [true,true,true,true,true,true], mobility: 1 }
         ]
-    },
-    {
-        id: 'p_credit_03',
-        name: 'Maria Clara',
-        firstName: 'Maria',
-        surname: 'Clara',
-        dob: '1995-06-19',
-        age: 29,
-        sex: 'Female',
-        phone: '0917-123-4567',
-        email: 'maria.clara@email.com',
-        lastVisit: getPastDateStr(25),
-        nextVisit: getTodayStr(),
-        chiefComplaint: 'Ortho adjustment.',
-        // FIX: Added missing 'notes' property
-        notes: '',
-        currentBalance: -5000,
-        ledger: [
-            { id: 'l1', date: getPastDateStr(90), description: 'Payment', type: 'Payment', amount: 15000, balanceAfter: -15000 },
-            { id: 'l2', date: getPastDateStr(90), description: 'Bonding Fee', type: 'Charge', amount: 10000, balanceAfter: -5000 }
-        ]
-    },
-    {
-        id: 'p_surg_04',
-        name: 'Juan Dela Cruz',
-        firstName: 'Juan',
-        surname: 'Dela Cruz',
-        dob: '1980-12-30',
-        age: 43,
-        sex: 'Male',
-        phone: '0919-987-6543',
-        email: 'juan.dc@email.com',
-        lastVisit: getPastDateStr(5),
-        nextVisit: getTodayStr(),
-        medicalConditions: ['High BP', 'Diabetes'],
-        allergies: ['Penicillin'],
-        goodHealth: false,
-        chiefComplaint: 'Impacted wisdom tooth.',
-        notes: 'Needs medical clearance.'
     }
 ];
 
 export const APPOINTMENTS: Appointment[] = [
-    { id: 'a1', patientId: 'p_surg_04', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '10:00', durationMinutes: 90, type: AppointmentType.SURGERY, status: AppointmentStatus.TREATING, notes: 'Wisdom tooth removal.' },
-    { id: 'a2', patientId: 'p_credit_03', providerId: 'doc2', branch: 'Quezon City Branch', date: getTodayStr(), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.COMPLETED },
-    { id: 'a3', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED }
+    { id: 'a1', patientId: 'p_ashwin_02', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '10:00', durationMinutes: 60, type: AppointmentType.ORAL_PROPHYLAXIS, status: AppointmentStatus.SCHEDULED, notes: 'Welcome Mr. Fernandes.' },
+    { id: 'a2', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED }
 ];
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
@@ -139,5 +113,13 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   ], 
   branches: ['Makati Branch', 'Quezon City Branch'],
   features: { enableLabTracking: true, enableComplianceAudit: true, enableDentalAssistantFlow: true, enableMultiBranch: true },
-  smsTemplates: { bookingConfirmation: "Hi {PatientName}, appt confirmed: {Date} @ {Time}.", confirmationRequest: "Hi {PatientName}, confirm appt on {Date}?", reminder24h: "Reminder: Appt tomorrow {Date}.", postOpCheckup: "Checking in after your visit.", registrationWelcome: "Welcome to our clinic!" }
+  smsTemplates: { 
+    bookingConfirmation: "Hi {PatientName}, Your Visit Is Confirmed For {Date} At {Time}. Please Arrive 5 Minutes Early To Avoid Delay. See You!", 
+    confirmationRequest: "Hi {PatientName}, Can You Confirm Your Visit On {Date} At {Time}? Reply YES To Confirm. Please Arrive 5 Minutes Early To Avoid Delay.", 
+    reminder24h: "Reminder: Your Appointment Is Tomorrow, {Date} At {Time}. Please Arrive 5 Minutes Early To Help Us Stay On Schedule.", 
+    postOpCheckup: "Hi {PatientName}, Checking In After Your Procedure Today. Please Follow The Care Instructions Provided. Text Us If You Have Concerns!", 
+    registrationWelcome: "Welcome To Our Clinic, {PatientName}! Your Dental Record Is Now Active. We Look Forward To Seeing You Soon.",
+    after1Month: "Hi {PatientName}, It Has Been One Month Since Your Last Treatment. We Are Checking In To See How Everything Is Feeling! Hope All Is Well.",
+    after3Months: "Hi {PatientName}, Time For Your 3-Month Dental Review! Regular Maintenance Is Key To A Lasting Smile. Reply To Book A Slot."
+  }
 };

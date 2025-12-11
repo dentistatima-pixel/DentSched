@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -60,6 +59,8 @@ export interface SmsTemplates {
   reminder24h: string;         // Sent 24h before
   postOpCheckup: string;       // Sent 2h after completion
   registrationWelcome: string; // Sent after new patient save
+  after1Month: string;        // NEW: 30 day checkup
+  after3Months: string;       // NEW: 90 day recall
 }
 
 export interface FieldSettings {
