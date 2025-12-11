@@ -11,7 +11,6 @@ import KioskView from './components/KioskView';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask } from './types';
 import { useToast } from './components/ToastSystem';
-import { sendSms } from './src/lib/sms';
 
 // Increment this to force-clear user data and load the new dataset
 const CURRENT_DATA_VERSION = 'stress_test_v2';
@@ -175,19 +174,6 @@ function App() {
             notes: newPatientData.notes || ''
         };
         setPatients(prev => [...prev, newPatient]);
-        toast.success(`Patient ${newPatient.name} registered successfully!`);
-
-        if (newPatient.phone) {
-            const welcomeMessage = `Hello ${newPatient.name}, welcome to our dental clinic! We are happy to have you.`;
-            sendSms(newPatient.phone, welcomeMessage)
-                .then(success => {
-                    if (success) {
-                        toast.success(`Welcome SMS sent to ${newPatient.name}.`);
-                    } else {
-                        toast.error(`Failed to send SMS to ${newPatient.name}.`);
-                    }
-                });
-        }
     }
   };
 
