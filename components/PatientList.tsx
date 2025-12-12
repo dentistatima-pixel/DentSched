@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature } from 'lucide-react';
-// FIX: Added 'AppointmentStatus' to the import list to resolve the "Cannot find name 'AppointmentStatus'" error.
-import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus } from '../types';
+// FIX: Added 'LedgerEntry' to fix missing type error.
+import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
@@ -10,6 +9,7 @@ import TreatmentPlan from './TreatmentPlan';
 import PerioChart from './PerioChart'; // NEW
 import PatientLedger from './PatientLedger'; // NEW
 import ConsentCaptureModal from './ConsentCaptureModal'; // NEW
+import EPrescriptionModal from './EPrescriptionModal'; // NEW
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -27,6 +27,7 @@ interface PatientListProps {
   onBookAppointment: (patientId: string) => void;
   fieldSettings?: FieldSettings; 
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  onPreparePhilHealthClaim?: (ledgerEntry: LedgerEntry, procedureName: string) => void;
 }
 
 const downloadMockPDF = (filename: string, contentDescription: string) => {
@@ -66,7 +67,8 @@ const PatientList: React.FC<PatientListProps> = ({
     onDeletePatient,
     onBookAppointment,
     fieldSettings,
-    logAction
+    logAction,
+    onPreparePhilHealthClaim
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'chart' | 'perio' | 'plan' | 'ledger' | 'documents'>('info'); 
@@ -78,6 +80,8 @@ const PatientList: React.FC<PatientListProps> = ({
 
   // New state for Media Consent Modal
   const [isMediaConsentModalOpen, setIsMediaConsentModalOpen] = useState(false);
+  const [isEPrescriptionModalOpen, setIsEPrescriptionModalOpen] = useState(false);
+
 
   // Charting Modal State (For "Cursor" mode legacy edits)
   const [editingTooth, setEditingTooth] = useState<number | null>(null);
@@ -511,7 +515,10 @@ const PatientList: React.FC<PatientListProps> = ({
                         <a href={`tel:${selectedPatient.phone}`} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="Call"><Phone size={20} /></a>
                         <a href={`sms:${selectedPatient.phone}`} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="SMS"><MessageSquare size={20} /></a>
                         <button onClick={() => onBookAppointment(selectedPatient.id)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-lilac-100 hover:bg-lilac-200 text-lilac-700'}`} title="Book"><CalendarPlus size={20} /></button>
-                        <button onClick={() => onEditPatient(selectedPatient)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-teal-100 hover:bg-teal-200 text-teal-700'}`} title="Edit"><Pencil size={20} /></button>
+                        {currentUser.role === UserRole.DENTIST && fieldSettings?.features.enableEPrescription && (
+                            <button onClick={() => setIsEPrescriptionModalOpen(true)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-teal-100 hover:bg-teal-200 text-teal-700'}`} title="e-Prescribe"><Pill size={20} /></button>
+                        )}
+                        <button onClick={() => onEditPatient(selectedPatient)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="Edit"><Pencil size={20} /></button>
                         {isAdmin && (
                             <button onClick={handleExportRecord} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 text-slate-700'}`} title="Export Full Record"><DownloadCloud size={20} /></button>
                         )}
@@ -631,7 +638,7 @@ const PatientList: React.FC<PatientListProps> = ({
                 
                 {activeTab === 'perio' && (<PerioChart data={selectedPatient.perioChart || []} onSave={handlePerioUpdate} readOnly={isClinicalReadOnly}/>)}
                 {activeTab === 'plan' && (<TreatmentPlan patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} readOnly={false} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings?.features}/>)}
-                {activeTab === 'ledger' && (<PatientLedger patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} readOnly={isClinicalReadOnly && !currentUser.canViewFinancials}/>)}
+                {activeTab === 'ledger' && (<PatientLedger patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} readOnly={isClinicalReadOnly && !currentUser.canViewFinancials} onPreparePhilHealthClaim={onPreparePhilHealthClaim} fieldSettings={fieldSettings} />)}
                 
                 {activeTab === 'documents' && (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -679,6 +686,15 @@ const PatientList: React.FC<PatientListProps> = ({
             appointment={{id: '', patientId: selectedPatient.id, providerId: '', branch: '', date: new Date().toISOString(), time: '', durationMinutes: 0, type: 'General', status: AppointmentStatus.SCHEDULED}} // Dummy appointment
             provider={currentUser}
             template={fieldSettings.mediaConsentTemplate}
+          />
+      )}
+
+      {selectedPatient && fieldSettings && (
+          <EPrescriptionModal 
+            isOpen={isEPrescriptionModalOpen}
+            onClose={() => setIsEPrescriptionModalOpen(false)}
+            patient={selectedPatient}
+            fieldSettings={fieldSettings}
           />
       )}
     </div>

@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask } from '../types';
 
@@ -34,7 +34,8 @@ const Layout: React.FC<LayoutProps> = ({
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
 
   // FEATURE TOGGLES
-  const enableMultiBranch = fieldSettings?.features?.enableMultiBranch ?? true;
+  const features = fieldSettings?.features;
+  const enableMultiBranch = features?.enableMultiBranch ?? true;
 
   // Filter available branches based on user's allowed branches
   const userAllowedBranches = (currentUser.role === UserRole.ADMIN) 
@@ -48,6 +49,14 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'patients', label: 'Patients', icon: Users },
   ];
+
+  if (features?.enableInventory) {
+      navItems.push({ id: 'inventory', label: 'Inventory', icon: Package });
+  }
+  if (features?.enableHMOClaims || features?.enableAnalytics) { // Broad financial group
+      navItems.push({ id: 'financials', label: 'Financials', icon: DollarSign });
+  }
+
 
   // Add Settings tab for Admins so they can access it on Desktop
   if (currentUser.role === UserRole.ADMIN) {
@@ -241,7 +250,7 @@ const Layout: React.FC<LayoutProps> = ({
       </main>
 
       {/* Universal Bottom Tab Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
             {navItems.map((item) => (
             <button
                 key={item.id}

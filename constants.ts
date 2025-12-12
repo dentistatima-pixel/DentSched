@@ -1,6 +1,6 @@
 
 
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -226,6 +226,7 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_03', patientId: 'p_pedia_05', providerId: 'doc3', branch: 'Makati Branch', date: getTodayStr(), time: '13:00', durationMinutes: 45, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SEATED },
     { id: 'apt_today_04', patientId: 'p_emerg_08', providerId: 'doc5', branch: 'Makati Branch', date: getTodayStr(), time: '14:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_05', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED },
+    { id: 'apt_today_06', patientId: 'p_vip_07', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '17:00', durationMinutes: 30, type: AppointmentType.TELE_DENTISTRY, status: AppointmentStatus.SCHEDULED },
     // --- TOMORROW ---
     { id: 'apt_tom_01', patientId: 'p_prostho_06', providerId: 'doc4', branch: 'Quezon City Branch', date: getTomorrowStr(), time: '11:00', durationMinutes: 60, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.SCHEDULED, labStatus: LabStatus.PENDING },
     { id: 'apt_tom_02', patientId: 'p_vip_07', providerId: 'doc1', branch: 'Makati Branch', date: getTomorrowStr(), time: '13:00', durationMinutes: 120, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.CONFIRMED },
@@ -264,6 +265,13 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
     { id: 'al2', timestamp: new Date().toISOString(), userId: 'admin1', userName: 'Sarah Connor', action: 'LOGIN', entity: 'Patient', entityId: 'p_heavy_01', details: 'Viewed patient record.' }
 ];
 
+// NEW: Teledentistry Requests
+export const MOCK_TELEHEALTH_REQUESTS: TelehealthRequest[] = [
+    { id: 'thr_1', patientId: 'p_credit_03', patientName: 'Maria Clara', chiefComplaint: 'My gums are swollen near my back molar.', dateRequested: getPastDateStr(1), status: 'Pending' },
+    { id: 'thr_2', patientId: 'p_complex_10', patientName: 'Gary Grinder', chiefComplaint: 'Follow-up on my night guard fitting.', dateRequested: getPastDateStr(2), status: 'Pending' }
+];
+
+
 // Initial defaults
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicProfile: 'boutique', // New: Default clinic profile
@@ -278,8 +286,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   procedures: [
       { id: 'p1', name: 'Consultation', price: 500, category: 'General' },
       { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive' },
-      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative' },
-      { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true },
+      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }] },
+      { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true, billOfMaterials: [ { stockItemId: 'stk_1', quantity: 2 }, { stockItemId: 'stk_2', quantity: 2 }] },
       { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true },
       { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative' },
       { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
@@ -327,6 +335,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   // NEW Corporate Settings
   receiptBooklets: [{ id: 'rb1', seriesStart: 1, seriesEnd: 1000, prefix: 'A', isActive: true }],
   stockCategories: Object.values(StockCategory),
+  stockItems: MOCK_STOCK,
   expenseCategories: ['Lab Fee', 'Supplies', 'Utilities', 'Rent', 'Salary', 'Other'],
   // NEW Document & Protocol Settings
   documentCategories: ['X-Ray', 'Medical Clearance', 'Consent Form', 'Lab Result', 'Insurance Form', 'Media Consent', 'Other'],
@@ -350,8 +359,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   ],
   // NEW: Content Management Mock Data
   medications: [
-      { id: 'med1', name: 'Amoxicillin', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.' },
-      { id: 'med2', name: 'Mefenamic Acid', dosage: '500mg', instructions: 'Take 1 tablet every 6 hours as needed for pain.' },
+      { id: 'med1', name: 'Amoxicillin', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'] },
+      { id: 'med2', name: 'Mefenamic Acid', dosage: '500mg', instructions: 'Take 1 tablet every 6 hours as needed for pain.', contraindicatedAllergies: ['Aspirin', 'Ibuprofen'] },
   ],
   consentFormTemplates: [
       { id: 'cft1', name: 'General Consent', content: 'I, {PatientName}, consent to the dental treatment as discussed with {DoctorName} on {Date}.' },

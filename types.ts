@@ -33,7 +33,8 @@ export enum AppointmentType {
   ORTHODONTICS = 'Orthodontics',
   SURGERY = 'Surgery',
   WHITENING = 'Whitening',
-  DENTURE_ADJUSTMENTS = 'Denture Adjustments'
+  DENTURE_ADJUSTMENTS = 'Denture Adjustments',
+  TELE_DENTISTRY = 'Tele-dentistry Consultation' // NEW
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
@@ -46,6 +47,15 @@ export enum HMOClaimStatus {
   PENDING = 'Pending',
   PAID = 'Paid',
   REJECTED = 'Rejected'
+}
+
+// NEW: PhilHealth
+export enum PhilHealthClaimStatus {
+    PREPARED = 'Prepared',
+    SUBMITTED = 'Submitted',
+    IN_PROCESS = 'In Process',
+    RETURNED = 'Returned',
+    PAID = 'Paid'
 }
 
 export enum StockCategory {
@@ -68,6 +78,21 @@ export interface HMOClaim {
   dateSubmitted?: string;
   dateReceived?: string;
   notes?: string;
+}
+
+// NEW: PhilHealth
+export interface PhilHealthClaim {
+    id: string;
+    patientId: string;
+    ledgerEntryId: string;
+    procedureName: string;
+    caseRateCode?: string;
+    amountClaimed: number;
+    amountReceived?: number;
+    status: PhilHealthClaimStatus;
+    dateSubmitted?: string;
+    dateReceived?: string;
+    trackingNumber?: string;
 }
 
 export interface OfficialReceiptBooklet {
@@ -98,6 +123,16 @@ export interface StockItem {
   expiryDate?: string;
 }
 
+// NEW: Sterilization
+export interface SterilizationCycle {
+    id: string;
+    date: string;
+    autoclaveName: string;
+    cycleNumber: string;
+    operator: string; // User's name
+    passed: boolean;
+}
+
 export interface Expense {
   id: string;
   date: string;
@@ -114,7 +149,7 @@ export interface AuditLogEntry {
   userId: string;
   userName: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory';
   entityId: string;
   details: string;
 }
@@ -128,6 +163,8 @@ export interface ProcedureItem {
   category?: string;
   traySetup?: string[]; // List of instruments needed
   requiresConsent?: boolean; // NEW for hard stop
+  billOfMaterials?: { stockItemId: string; quantity: number }[]; // NEW: For auto inventory
+  isPhilHealthCovered?: boolean; // NEW
 }
 
 export interface FeatureToggles {
@@ -190,6 +227,7 @@ export interface Medication {
     name: string;
     dosage: string; // e.g., "500mg"
     instructions: string; // e.g., "Take 1 tablet every 8 hours for 7 days"
+    contraindicatedAllergies?: string[]; // NEW: For allergy cross-check
 }
 
 export interface ConsentFormTemplate {
@@ -222,6 +260,7 @@ export interface FieldSettings {
   // NEW Corporate Settings
   receiptBooklets?: OfficialReceiptBooklet[];
   stockCategories?: string[];
+  stockItems?: StockItem[]; // NEW: Full stock list
   expenseCategories?: string[];
   // NEW Document & Protocol Settings
   documentCategories?: string[];
@@ -312,6 +351,7 @@ export interface LedgerEntry {
   notes?: string;
   // NEW Corporate Links
   hmoClaimId?: string; // Link to an HMO Claim
+  philHealthClaimId?: string; // NEW
   orNumber?: string; // Official Receipt Number
 }
 
@@ -455,6 +495,7 @@ export interface Patient {
   
   // NEW: Document Management
   files?: PatientFile[];
+  receipts?: IssuedReceipt[]; // NEW for Portal
   
   // NEW: Governance
   treatmentPlans?: TreatmentPlan[];
@@ -476,6 +517,7 @@ export interface Appointment {
   status: AppointmentStatus;
   labStatus?: LabStatus; // For Prostho/Ortho cases
   notes?: string;
+  sterilizationCycleId?: string; // NEW
   
   isBlock?: boolean; 
   title?: string; 
@@ -507,4 +549,14 @@ export interface WaitlistEntry {
     durationMinutes: number;
     priority: 'High' | 'Normal' | 'Low';
     notes?: string;
+}
+
+// NEW: Teledentistry
+export interface TelehealthRequest {
+    id: string;
+    patientId: string;
+    patientName: string;
+    chiefComplaint: string;
+    dateRequested: string;
+    status: 'Pending' | 'Scheduled' | 'Completed';
 }

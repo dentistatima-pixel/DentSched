@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { LedgerEntry, Patient } from '../types';
-import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard } from 'lucide-react';
+import { LedgerEntry, Patient, FieldSettings } from '../types';
+import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard, Heart } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -9,9 +9,11 @@ interface PatientLedgerProps {
     patient: Patient;
     onUpdatePatient: (updatedPatient: Patient) => void;
     readOnly?: boolean;
+    onPreparePhilHealthClaim?: (ledgerEntry: LedgerEntry, procedureName: string) => void;
+    fieldSettings?: FieldSettings;
 }
 
-const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly }) => {
+const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, onPreparePhilHealthClaim, fieldSettings }) => {
     const toast = useToast();
     const [mode, setMode] = useState<'view' | 'add_charge' | 'add_payment'>('view');
     
@@ -40,9 +42,6 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
 
         const type = mode === 'add_charge' ? 'Charge' : 'Payment';
         
-        // Calculate new balance
-        // Charge increases balance (Patient owes more)
-        // Payment decreases balance (Patient owes less)
         const newBalance = type === 'Charge' 
             ? currentBalance + val 
             : currentBalance - val;
@@ -171,34 +170,45 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {[...ledger].reverse().map((entry) => (
-                                    <tr key={entry.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="p-4 text-slate-500 font-mono text-xs whitespace-nowrap">
-                                            {formatDate(entry.date)}
-                                        </td>
-                                        <td className="p-4 font-medium text-slate-700">
-                                            {entry.description}
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            {entry.type === 'Charge' && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-600 text-[10px] font-bold uppercase">
-                                                    <ArrowUpRight size={10} /> Charge
-                                                </span>
-                                            )}
-                                            {entry.type === 'Payment' && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase">
-                                                    <ArrowDownLeft size={10} /> Payment
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-right font-bold text-slate-700">
-                                            ₱{entry.amount.toLocaleString()}
-                                        </td>
-                                        <td className="p-4 text-right font-mono font-bold text-slate-500 bg-slate-50/50 group-hover:bg-slate-100/50 transition-colors">
-                                            ₱{entry.balanceAfter.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {[...ledger].reverse().map((entry) => {
+                                    const procedureName = entry.description.split(' (')[0];
+                                    const procedure = fieldSettings?.procedures.find(p => p.name === procedureName);
+                                    const canPrepareClaim = onPreparePhilHealthClaim && entry.type === 'Charge' && !entry.philHealthClaimId && procedure?.isPhilHealthCovered;
+
+                                    return (
+                                        <tr key={entry.id} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="p-4 text-slate-500 font-mono text-xs whitespace-nowrap">
+                                                {formatDate(entry.date)}
+                                            </td>
+                                            <td className="p-4 font-medium text-slate-700">
+                                                {entry.description}
+                                                {canPrepareClaim && (
+                                                    <button onClick={() => onPreparePhilHealthClaim(entry, procedureName)} className="ml-2 opacity-0 group-hover:opacity-100 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">
+                                                        Prepare PhilHealth Claim
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {entry.type === 'Charge' && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-600 text-[10px] font-bold uppercase">
+                                                        <ArrowUpRight size={10} /> Charge
+                                                    </span>
+                                                )}
+                                                {entry.type === 'Payment' && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase">
+                                                        <ArrowDownLeft size={10} /> Payment
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-right font-bold text-slate-700">
+                                                ₱{entry.amount.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-right font-mono font-bold text-slate-500 bg-slate-50/50 group-hover:bg-slate-100/50 transition-colors">
+                                                ₱{entry.balanceAfter.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

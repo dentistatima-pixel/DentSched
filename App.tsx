@@ -9,8 +9,11 @@ import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
-import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry } from './types';
+import Inventory from './components/Inventory';
+import Financials from './components/Financials';
+import PatientPortal from './components/PatientPortal'; // NEW
+import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES } from './constants';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry } from './types';
 import { useToast } from './components/ToastSystem';
 
 function App() {
@@ -33,6 +36,11 @@ function App() {
     return saved ? JSON.parse(saved) : STAFF;
   });
   
+  const [stock, setStock] = useState<StockItem[]>(() => {
+      const saved = localStorage.getItem('dentsched_stock');
+      return saved ? JSON.parse(saved) : MOCK_STOCK;
+  });
+
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(() => {
       const saved = localStorage.getItem('dentsched_fields');
       const parsed = saved ? JSON.parse(saved) : DEFAULT_FIELD_SETTINGS;
@@ -61,6 +69,10 @@ function App() {
       const saved = localStorage.getItem('dentsched_auditlog');
       return saved ? JSON.parse(saved) : MOCK_AUDIT_LOG;
   });
+  
+  // NEW: Patient Portal State
+  const [isPatientPortalActive, setIsPatientPortalActive] = useState(false);
+  const [currentPatientUser, setCurrentPatientUser] = useState<Patient | null>(null);
 
   const logAction = (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
       if (!fieldSettings.features.enableAccountabilityLog) return;
@@ -86,6 +98,10 @@ function App() {
   useEffect(() => {
       localStorage.setItem('dentsched_auditlog', JSON.stringify(auditLog));
   }, [auditLog]);
+  
+  useEffect(() => {
+    localStorage.setItem('dentsched_stock', JSON.stringify(stock));
+  }, [stock]);
 
   const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
       const newTask: PinboardTask = {
@@ -264,6 +280,52 @@ function App() {
   };
 
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
+      const previousPatient = patients.find(p => p.id === updatedPatient.id);
+
+      // --- AUTOMATED INVENTORY DEDUCTION ---
+      if (previousPatient && fieldSettings.features.enableInventory) {
+          const previousChart = previousPatient.dentalChart || [];
+          const updatedChart = updatedPatient.dentalChart || [];
+
+          const newlyCompletedItems = updatedChart.filter((updatedEntry: DentalChartEntry) => {
+              if (updatedEntry.status !== 'Completed') return false;
+              const previousEntry = previousChart.find(prev => prev.id === updatedEntry.id);
+              return !previousEntry || previousEntry.status !== 'Completed';
+          });
+
+          if (newlyCompletedItems.length > 0) {
+              setStock(currentStock => {
+                  let stockToUpdate = [...currentStock];
+                  let itemsUpdated = false;
+                  let updatedItemsLog: string[] = [];
+
+                  newlyCompletedItems.forEach(item => {
+                      const procedure = fieldSettings.procedures.find(p => p.name === item.procedure);
+                      if (procedure && procedure.billOfMaterials) {
+                          procedure.billOfMaterials.forEach(bomItem => {
+                              const stockIndex = stockToUpdate.findIndex(s => s.id === bomItem.stockItemId);
+                              if (stockIndex > -1) {
+                                  const stockItem = stockToUpdate[stockIndex];
+                                  stockToUpdate[stockIndex] = {
+                                      ...stockItem,
+                                      quantity: stockItem.quantity - bomItem.quantity
+                                  };
+                                  itemsUpdated = true;
+                                  updatedItemsLog.push(`${bomItem.quantity}x ${stockItem.name}`);
+                              }
+                          });
+                      }
+                  });
+
+                  if (itemsUpdated) {
+                      toast.info(`Inventory deducted: ${updatedItemsLog.join(', ')}`);
+                  }
+                  return stockToUpdate;
+              });
+          }
+      }
+      // --- END INVENTORY DEDUCTION ---
+
       setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
   };
   
@@ -337,6 +399,18 @@ function App() {
           apt.id === appointmentId ? { ...apt, signedConsentUrl: consentUrl } : apt
       ));
       toast.success("Consent form saved successfully!");
+  };
+
+  const handlePatientPortalToggle = () => {
+      if(isPatientPortalActive) {
+          setIsPatientPortalActive(false);
+          setCurrentPatientUser(null);
+      } else {
+          // For demo, log in as first patient with appointments
+          const patientWithApt = patients.find(p => appointments.some(a => a.patientId === p.id));
+          setCurrentPatientUser(patientWithApt || patients[0]);
+          setIsPatientPortalActive(true);
+      }
   };
 
   // --- REPORT GENERATION (Business Intelligence) ---
@@ -453,6 +527,16 @@ ${mixList}
       />;
   }
 
+  // --- PATIENT PORTAL HIJACK ---
+  if (isPatientPortalActive && currentPatientUser) {
+      return <PatientPortal 
+          patient={currentPatientUser}
+          appointments={appointments.filter(a => a.patientId === currentPatientUser.id)}
+          staff={staff}
+          onExit={handlePatientPortalToggle}
+      />;
+  }
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -477,6 +561,7 @@ ${mixList}
           onDeleteTask={handleDeleteTask}
           onChangeBranch={setCurrentBranch} // Allow branch switching from HQ mode
           onSaveConsent={handleSaveConsent}
+          onPatientPortalToggle={handlePatientPortalToggle}
         />;
       case 'schedule':
         return <CalendarView 
@@ -505,30 +590,14 @@ ${mixList}
           fieldSettings={fieldSettings} 
           logAction={logAction}
         />;
+      case 'inventory':
+          return <Inventory stock={stock} onUpdateStock={setStock} />;
+      case 'financials':
+          return <Financials claims={MOCK_CLAIMS} expenses={MOCK_EXPENSES} />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
-             return <Dashboard 
-                appointments={branchAppointments} 
-                allAppointments={appointments}
-                patientsCount={patients.length}
-                staffCount={staff.length}
-                staff={staff}
-                currentUser={currentUser}
-                patients={patients}
-                onAddPatient={openNewPatientModal}
-                onPatientSelect={handlePatientSelectFromDashboard}
-                onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
-                onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
-                onCompleteRegistration={handleCompleteRegistration}
-                fieldSettings={fieldSettings}
-                onViewAllSchedule={() => setActiveTab('schedule')}
-                tasks={tasks}
-                onAddTask={handleAddTask}
-                onToggleTask={handleToggleTask}
-                onDeleteTask={handleDeleteTask}
-                onChangeBranch={setCurrentBranch}
-                onSaveConsent={handleSaveConsent}
-              />;
+             setActiveTab('dashboard'); // Redirect non-admins
+             return null;
         }
         return <FieldManagement 
           settings={fieldSettings}
@@ -559,6 +628,7 @@ ${mixList}
           onDeleteTask={handleDeleteTask}
           onChangeBranch={setCurrentBranch}
           onSaveConsent={handleSaveConsent}
+          onPatientPortalToggle={handlePatientPortalToggle}
         />;
     }
   };

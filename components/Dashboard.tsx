@@ -1,10 +1,11 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature } from 'lucide-react';
-import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus } from '../types';
+import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video } from 'lucide-react';
+import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus, TelehealthRequest } from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal'; // NEW IMPORT
+import { MOCK_TELEHEALTH_REQUESTS } from '../constants'; // NEW
 
 interface DashboardProps {
   appointments: Appointment[];
@@ -22,6 +23,7 @@ interface DashboardProps {
   fieldSettings?: FieldSettings;
   onViewAllSchedule?: () => void; 
   onChangeBranch?: (branch: string) => void;
+  onPatientPortalToggle: () => void; // NEW
   
   // Tasks Props (Lifted)
   tasks?: PinboardTask[];
@@ -35,7 +37,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule, onChangeBranch,
+  onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule, onChangeBranch, onPatientPortalToggle,
   tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,6 +50,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   // NEW: Consent Modal State
   const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
+
+  // NEW: Teledentistry requests state
+  const [telehealthRequests, setTelehealthRequests] = useState<TelehealthRequest[]>(MOCK_TELEHEALTH_REQUESTS);
 
   const handleAddTaskSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -230,39 +235,45 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <button onClick={onAddPatient} className="h-11 px-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Add Patient">
                     <UserPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Add Patient</span>
                 </button>
+                 <button onClick={onPatientPortalToggle} className="h-11 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl flex items-center justify-center gap-2 transition-colors" title="Patient Login">
+                    <UserIcon size={20} /> <span className="hidden md:inline font-bold text-sm">Patient Login</span>
+                </button>
             </div>
       </header>
       
       {/* --- STACKED LAYOUT: SCHEDULE -> PREP -> LAB -> OPPORTUNITIES -> PINBOARD --- */}
       <div className="space-y-6">
 
-          {/* NEW: FOR REVIEW (Admin Only) */}
-          {plansForReview.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden">
-                  <div className="flex justify-between items-center px-6 py-3 border-b border-amber-100 bg-amber-50">
-                      <h2 className="font-bold text-amber-800 text-sm flex items-center gap-2">
-                          <Inbox className="text-amber-600" size={16}/> For Review
+          {/* NEW: TELEHEALTH REQUESTS */}
+          {telehealthRequests.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
+                  <div className="flex justify-between items-center px-6 py-3 border-b border-blue-100 bg-blue-50">
+                      <h2 className="font-bold text-blue-800 text-sm flex items-center gap-2">
+                          <Video className="text-blue-600" size={16}/> Tele-dentistry Inbox
                       </h2>
-                      <span className="text-[10px] font-bold text-amber-600 uppercase bg-white border border-amber-200 px-2 py-0.5 rounded-full">{plansForReview.length} Pending</span>
+                      <span className="text-[10px] font-bold text-blue-600 uppercase bg-white border border-blue-200 px-2 py-0.5 rounded-full">{telehealthRequests.length} Pending</span>
                   </div>
-                  <div className="divide-y divide-amber-50">
-                      {plansForReview.map(({ patient, plan }) => (
-                          <button 
-                            key={plan.id}
-                            onClick={() => onPatientSelect(patient.id)}
-                            className="w-full flex justify-between items-center p-3 text-left hover:bg-amber-50/50 transition-colors group"
-                          >
+                  <div className="divide-y divide-blue-50">
+                      {telehealthRequests.map(req => (
+                          <div key={req.id} className="p-3 flex justify-between items-center">
                               <div>
-                                  <div className="font-bold text-sm text-slate-800 group-hover:text-amber-900">{patient.name}</div>
-                                  <div className="text-xs text-slate-500">{plan.name} by <span className="font-semibold">{plan.createdBy}</span></div>
+                                  <div className="font-bold text-sm text-slate-800">{req.patientName}</div>
+                                  <div className="text-xs text-slate-500 italic">"{req.chiefComplaint}"</div>
                               </div>
-                              <ArrowRight size={16} className="text-slate-300 group-hover:text-amber-500"/>
-                          </button>
+                              <button 
+                                onClick={() => onBookAppointment(req.patientId)}
+                                className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200"
+                              >
+                                  Schedule Call
+                              </button>
+                          </div>
                       ))}
                   </div>
               </div>
           )}
 
+          {/* ... other dashboard sections ... */}
+          
           {/* 1. TODAY'S SCHEDULE */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
