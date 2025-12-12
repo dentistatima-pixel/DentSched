@@ -1,7 +1,10 @@
+
+
 import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin } from 'lucide-react';
-import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask } from '../types';
+import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature } from 'lucide-react';
+import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus } from '../types';
 import Fuse from 'fuse.js';
+import ConsentCaptureModal from './ConsentCaptureModal'; // NEW IMPORT
 
 interface DashboardProps {
   appointments: Appointment[];
@@ -25,12 +28,15 @@ interface DashboardProps {
   onAddTask?: (text: string, isUrgent: boolean, assignedTo: string) => void;
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
+
+  // NEW: Consent Workflow
+  onSaveConsent: (appointmentId: string, consentUrl: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule, onChangeBranch,
-  tasks = [], onAddTask, onToggleTask, onDeleteTask
+  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openTrayId, setOpenTrayId] = useState<string | null>(null);
@@ -39,6 +45,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  
+  // NEW: Consent Modal State
+  const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
 
   const handleAddTaskSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -128,10 +137,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [patients]);
 
   const unscheduledTreatments = useMemo(() => {
-      // Find patients with "Planned" chart entries who have no future appointments
-      // Simplified: Just finding "Planned" entries for now
-      return patients.filter(p => p.dentalChart?.some(e => e.status === 'Planned')).slice(0, 3);
+      return patients.filter(p => p.dentalChart?.some(e => e.status === 'Planned' && !e.planId)).slice(0, 3);
   }, [patients]);
+
+  // NEW: Treatment Plans for Review
+  const plansForReview = useMemo(() => {
+      if (currentUser.role !== UserRole.ADMIN || !fieldSettings?.features.enableTreatmentPlanApprovals) return [];
+      
+      const reviewable: { patient: Patient, plan: any }[] = [];
+      patients.forEach(p => {
+          p.treatmentPlans?.forEach(plan => {
+              if (plan.status === TreatmentPlanStatus.PENDING_REVIEW) {
+                  reviewable.push({ patient: p, plan });
+              }
+          });
+      });
+      return reviewable;
+  }, [patients, currentUser.role, fieldSettings]);
 
   // Helpers
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
@@ -214,6 +236,33 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* --- STACKED LAYOUT: SCHEDULE -> PREP -> LAB -> OPPORTUNITIES -> PINBOARD --- */}
       <div className="space-y-6">
 
+          {/* NEW: FOR REVIEW (Admin Only) */}
+          {plansForReview.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden">
+                  <div className="flex justify-between items-center px-6 py-3 border-b border-amber-100 bg-amber-50">
+                      <h2 className="font-bold text-amber-800 text-sm flex items-center gap-2">
+                          <Inbox className="text-amber-600" size={16}/> For Review
+                      </h2>
+                      <span className="text-[10px] font-bold text-amber-600 uppercase bg-white border border-amber-200 px-2 py-0.5 rounded-full">{plansForReview.length} Pending</span>
+                  </div>
+                  <div className="divide-y divide-amber-50">
+                      {plansForReview.map(({ patient, plan }) => (
+                          <button 
+                            key={plan.id}
+                            onClick={() => onPatientSelect(patient.id)}
+                            className="w-full flex justify-between items-center p-3 text-left hover:bg-amber-50/50 transition-colors group"
+                          >
+                              <div>
+                                  <div className="font-bold text-sm text-slate-800 group-hover:text-amber-900">{patient.name}</div>
+                                  <div className="text-xs text-slate-500">{plan.name} by <span className="font-semibold">{plan.createdBy}</span></div>
+                              </div>
+                              <ArrowRight size={16} className="text-slate-300 group-hover:text-amber-500"/>
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          )}
+
           {/* 1. TODAY'S SCHEDULE */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
@@ -230,6 +279,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                           const patient = getPatient(apt.patientId);
                           const isProvisional = patient?.provisional;
                           const hasMedicalAlert = isCritical(patient);
+                          const procedure = fieldSettings?.procedures.find(p => p.name === apt.type);
+                          const needsConsent = procedure?.requiresConsent;
                           
                           // DYNAMIC ROW STYLING based on Status
                           const getRowStyle = (s: string) => {
@@ -261,84 +312,104 @@ const Dashboard: React.FC<DashboardProps> = ({
                           };
 
                           return (
-                              <div key={apt.id} className={`p-3 transition-colors group relative flex items-start gap-3 ${rowClass}`}>
+                              <div key={apt.id} className={`p-3 transition-colors group relative flex flex-col md:flex-row items-start gap-3 ${rowClass}`}>
                                   
-                                  {/* Column 1: Time */}
-                                  <div className="bg-white/80 text-slate-600 px-2 py-0.5 rounded text-xs font-bold font-mono mt-0.5 shrink-0 shadow-sm border border-slate-100">
-                                      {apt.time}
-                                  </div>
-
-                                  {/* Column 2: Name & Details Stack (Tight) */}
-                                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                                      {/* Name Row */}
-                                      <div className="flex items-center gap-2">
-                                          <button 
-                                            onClick={() => onPatientSelect(apt.patientId)}
-                                            className={`font-bold text-sm leading-none flex items-center gap-2 hover:underline text-left ${
-                                                hasMedicalAlert ? 'text-red-600' : 
-                                                apt.status === AppointmentStatus.COMPLETED ? 'text-slate-500' : 'text-slate-800'
-                                            }`}
-                                          >
-                                              {patient?.name || 'Unknown'}
-                                              {/* ALERTS */}
-                                              {hasMedicalAlert && <HeartPulse size={14} className="text-red-500 fill-red-100 animate-pulse" />}
-                                              {apt.labStatus === LabStatus.PENDING && <Beaker size={14} className="text-amber-500 fill-amber-100" />}
-                                          </button>
-                                          
-                                          {isProvisional && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 rounded uppercase tracking-wider">New</span>}
+                                  <div className="flex-1 flex items-start gap-3">
+                                      {/* Column 1: Time */}
+                                      <div className="bg-white/80 text-slate-600 px-2 py-0.5 rounded text-xs font-bold font-mono mt-0.5 shrink-0 shadow-sm border border-slate-100">
+                                          {apt.time}
                                       </div>
-                                      
-                                      {/* Details Row */}
-                                      <div className="flex items-center gap-2 text-xs text-slate-500 leading-none">
-                                          <span className="truncate max-w-[200px] font-medium">{apt.type}</span>
-                                          <span className="text-slate-300">•</span>
-                                          <span>{apt.durationMinutes}m</span>
+
+                                      {/* Column 2: Name & Details Stack (Tight) */}
+                                      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                          {/* Name Row */}
+                                          <div className="flex items-center gap-2">
+                                              <button 
+                                                onClick={() => onPatientSelect(apt.patientId)}
+                                                className={`font-bold text-sm leading-none flex items-center gap-2 hover:underline text-left ${
+                                                    hasMedicalAlert ? 'text-red-600' : 
+                                                    apt.status === AppointmentStatus.COMPLETED ? 'text-slate-500' : 'text-slate-800'
+                                                }`}
+                                              >
+                                                  {patient?.name || 'Unknown'}
+                                                  {/* ALERTS */}
+                                                  {hasMedicalAlert && <HeartPulse size={14} className="text-red-500 fill-red-100 animate-pulse" />}
+                                                  {apt.labStatus === LabStatus.PENDING && <Beaker size={14} className="text-amber-500 fill-amber-100" />}
+                                              </button>
+                                              
+                                              {isProvisional && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 rounded uppercase tracking-wider">New</span>}
+                                          </div>
                                           
-                                          {/* INLINE TRAY ICON */}
-                                          {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST || (currentUser.role === UserRole.DENTAL_ASSISTANT && currentUser.preferences?.showTraySetup)) && (
-                                              <div className="relative ml-1">
-                                                  <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenTrayId(openTrayId === apt.id ? null : apt.id);
-                                                    }}
-                                                    className={`p-0.5 rounded hover:bg-teal-50 text-slate-400 hover:text-teal-600 transition-colors ${openTrayId === apt.id ? 'text-teal-600 bg-teal-50' : ''}`}
-                                                    title="View Tray Setup"
-                                                  >
-                                                      <ClipboardList size={12} />
-                                                  </button>
-                                                  
-                                                  {/* Tray Popup */}
-                                                  {openTrayId === apt.id && (
-                                                      <>
-                                                        <div className="fixed inset-0 z-10 cursor-default" onClick={(e) => { e.stopPropagation(); setOpenTrayId(null); }} />
-                                                        <div 
-                                                            className="absolute left-0 top-full mt-1 bg-white shadow-xl border border-slate-100 p-3 rounded-xl z-20 text-xs w-48 text-left animate-in fade-in zoom-in-95 duration-200"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <h4 className="font-bold mb-1 border-b pb-1 text-slate-800">Setup: {apt.type}</h4>
-                                                            <ul className="list-disc pl-4 text-slate-600">
-                                                                {getTrayItems(apt.type).map(i => <li key={i}>{i}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                      </>
-                                                  )}
+                                          {/* Details Row */}
+                                          <div className="flex items-center gap-2 text-xs text-slate-500 leading-none">
+                                              <span className="truncate max-w-[200px] font-medium">{apt.type}</span>
+                                              <span className="text-slate-300">•</span>
+                                              <span>{apt.durationMinutes}m</span>
+                                              
+                                              {/* INLINE TRAY ICON */}
+                                              {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST || (currentUser.role === UserRole.DENTAL_ASSISTANT && currentUser.preferences?.showTraySetup)) && (
+                                                  <div className="relative ml-1">
+                                                      <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenTrayId(openTrayId === apt.id ? null : apt.id);
+                                                        }}
+                                                        className={`p-0.5 rounded hover:bg-teal-50 text-slate-400 hover:text-teal-600 transition-colors ${openTrayId === apt.id ? 'text-teal-600 bg-teal-50' : ''}`}
+                                                        title="View Tray Setup"
+                                                      >
+                                                          <ClipboardList size={12} />
+                                                      </button>
+                                                      
+                                                      {/* Tray Popup */}
+                                                      {openTrayId === apt.id && (
+                                                          <>
+                                                            <div className="fixed inset-0 z-10 cursor-default" onClick={(e) => { e.stopPropagation(); setOpenTrayId(null); }} />
+                                                            <div 
+                                                                className="absolute left-0 top-full mt-1 bg-white shadow-xl border border-slate-100 p-3 rounded-xl z-20 text-xs w-48 text-left animate-in fade-in zoom-in-95 duration-200"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <h4 className="font-bold mb-1 border-b pb-1 text-slate-800">Setup: {apt.type}</h4>
+                                                                <ul className="list-disc pl-4 text-slate-600">
+                                                                    {getTrayItems(apt.type).map(i => <li key={i}>{i}</li>)}
+                                                                </ul>
+                                                            </div>
+                                                          </>
+                                                      )}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+
+                                      {/* Column 3: Status Badge Selector */}
+                                      <div className="relative shrink-0">
+                                          <select 
+                                              value={apt.status}
+                                              onChange={(e) => onUpdateAppointmentStatus(apt.id, e.target.value as AppointmentStatus)}
+                                              className={`appearance-none text-[10px] font-bold px-3 py-1 rounded-full uppercase border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500 ${getStatusColor(apt.status)}`}
+                                              onClick={(e) => e.stopPropagation()}
+                                          >
+                                               {Object.values(AppointmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                          </select>
+                                      </div>
+                                  </div>
+                                  
+                                  {/* NEW: CONSENT ACTION ROW */}
+                                  {needsConsent && apt.status !== AppointmentStatus.COMPLETED && (
+                                      <div className="w-full md:w-auto mt-2 md:mt-0 flex justify-end md:ml-auto md:pl-16">
+                                          {apt.signedConsentUrl ? (
+                                              <div className="px-3 py-1.5 text-xs font-bold text-green-700 bg-green-100 border border-green-200 rounded-lg flex items-center gap-1">
+                                                  <CheckCircle size={14}/> Consent Signed
                                               </div>
+                                          ) : (
+                                              <button 
+                                                onClick={() => setConsentModalApt(apt)}
+                                                className="px-3 py-1.5 text-xs font-bold text-lilac-700 bg-lilac-100 border border-lilac-200 rounded-lg flex items-center gap-1 hover:bg-lilac-200 transition-colors shadow-sm"
+                                              >
+                                                  <FileSignature size={14}/> Sign Consent
+                                              </button>
                                           )}
                                       </div>
-                                  </div>
-
-                                  {/* Column 3: Status Badge Selector */}
-                                  <div className="relative shrink-0">
-                                      <select 
-                                          value={apt.status}
-                                          onChange={(e) => onUpdateAppointmentStatus(apt.id, e.target.value as AppointmentStatus)}
-                                          className={`appearance-none text-[10px] font-bold px-3 py-1 rounded-full uppercase border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500 ${getStatusColor(apt.status)}`}
-                                          onClick={(e) => e.stopPropagation()}
-                                      >
-                                           {Object.values(AppointmentStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                  </div>
+                                  )}
                               </div>
                           );
                       })
@@ -613,8 +684,31 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
         )}
-
       </div>
+
+      {/* CONSENT MODAL */}
+      {consentModalApt && (() => {
+          const patient = getPatient(consentModalApt.patientId);
+          const provider = staff?.find(s => s.id === consentModalApt.providerId);
+          const template = fieldSettings?.consentFormTemplates?.find(t => t.name.toLowerCase().includes(consentModalApt.type.toLowerCase()));
+
+          if (!patient || !template) return null;
+
+          return (
+              <ConsentCaptureModal
+                  isOpen={!!consentModalApt}
+                  onClose={() => setConsentModalApt(null)}
+                  onSave={(url) => {
+                      onSaveConsent(consentModalApt.id, url);
+                      setConsentModalApt(null);
+                  }}
+                  patient={patient}
+                  appointment={consentModalApt}
+                  provider={provider}
+                  template={template}
+              />
+          );
+      })()}
     </div>
   );
 };

@@ -126,16 +126,19 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, currentU
   const [stagedSignature, setStagedSignature] = useState<string | null>(null);
   const [stagedDrawing, setStagedDrawing] = useState<string | null>(null);
 
+  const isCommLog = selectedProcedure === 'Communication Log';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!noteText.trim() && !selectedProcedure && !charge && !payment) return;
     
-    const tNum = toothNum ? parseInt(toothNum) : 0;
+    const tNum = isCommLog ? 0 : (toothNum ? parseInt(toothNum) : 0);
     
     // Auto-select "Clinical Note" if no procedure selected but notes exist
     const procName = selectedProcedure || (noteText ? 'Clinical Note' : 'Transaction');
     
     const newEntry: DentalChartEntry = {
+        id: `dc_${Date.now()}`,
         toothNumber: tNum,
         procedure: procName,
         status: 'Completed',
@@ -188,13 +191,14 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, currentU
              <form onSubmit={handleSubmit} className="space-y-3">
                  {/* Row 1: Clinical Basics */}
                  <div className="flex gap-2">
-                     <div className="w-16">
+                     <div className={`w-16 transition-all ${isCommLog ? 'opacity-50' : ''}`}>
                          <input
                              type="number"
                              placeholder="#"
                              className="w-full p-2 rounded-lg border border-slate-300 text-sm focus:border-teal-500 outline-none font-mono text-center"
                              value={toothNum}
                              onChange={e => setToothNum(e.target.value)}
+                             disabled={isCommLog}
                          />
                      </div>
                      <div className="flex-1 relative">
@@ -236,7 +240,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, currentU
                  {/* Row 3: Notes Text Area */}
                  <div className="relative">
                      <textarea
-                         placeholder="Detailed clinical notes..."
+                         placeholder={isCommLog ? "Log details of phone call, SMS, or other communication..." : "Detailed clinical notes..."}
                          className="w-full p-3 rounded-lg border border-slate-300 text-sm focus:border-teal-500 outline-none min-h-[60px]"
                          value={noteText}
                          onChange={e => setNoteText(e.target.value)}

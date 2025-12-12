@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus } from '../types';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -112,11 +112,18 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   }, [selectedPatient]);
 
   const handleApplyPlannedTreatment = (tx: any) => {
+      // --- GOVERNANCE CHECK: APPROVAL GATE ---
+      if (fieldSettings.features.enableTreatmentPlanApprovals && tx.planId) {
+          const plan = selectedPatient?.treatmentPlans?.find(p => p.id === tx.planId);
+          if (plan && plan.status !== TreatmentPlanStatus.APPROVED) {
+              toast.error(`Cannot schedule: Procedure is part of a plan that is "${plan.status}". It must be approved first.`);
+              return;
+          }
+      }
+
       setProcedureType(tx.procedure);
-      // Try to find if this procedure is in settings to get a price or guess duration
       const procDef = fieldSettings.procedures.find(p => p.name === tx.procedure);
       
-      // Smart Duration Guessing
       let guessDuration = 60;
       const lowerProc = tx.procedure.toLowerCase();
       if (lowerProc.includes('cleaning') || lowerProc.includes('prophylaxis')) guessDuration = 45;
@@ -125,7 +132,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       setDuration(guessDuration);
       
-      // Auto-fill notes with Tooth #
       const toothInfo = tx.toothNumber ? `Tooth #${tx.toothNumber}` : '';
       const surfaceInfo = tx.surfaces ? `(${tx.surfaces})` : '';
       setNotes(`Scheduled from Treatment Plan: ${toothInfo} ${surfaceInfo}`);
@@ -135,7 +141,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const availableSlots = useMemo(() => {
       if (!providerId || !date) return [];
       
-      // 1. Generate all possible slots (e.g. 9:00 to 17:00)
       const slots: string[] = [];
       let startHour = 9;
       const endHour = 17;
@@ -145,27 +150,20 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           slots.push(`${h.toString().padStart(2, '0')}:30`);
       }
 
-      // 2. Find conflicts
       const dayAppointments = appointments.filter(a => 
           a.providerId === providerId && 
           a.date === date && 
           a.status !== AppointmentStatus.CANCELLED &&
-          a.id !== existingAppointment?.id // Ignore self if editing
+          a.id !== existingAppointment?.id
       );
 
-      // 3. Filter slots
       return slots.map(slot => {
-          const isTaken = dayAppointments.some(a => {
-              // Simple check: exact match or overlap (simplified for demo)
-              // Real logic needs minute-by-minute collision detection
-              return a.time === slot; 
-          });
+          const isTaken = dayAppointments.some(a => a.time === slot); 
           return { time: slot, available: !isTaken };
       });
   }, [providerId, date, appointments, existingAppointment]);
 
 
-  // Helper to format date
   const getDisplayDate = (dateStr: string) => {
     if (!dateStr) return '';
     try {
@@ -197,7 +195,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           return;
       }
 
-      // Double Booking Check
       const conflict = appointments.find(a => 
         a.providerId === providerId &&
         a.date === date &&
@@ -208,8 +205,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       if (conflict) {
           const busyProvider = staff.find(s => s.id === providerId)?.name || 'Provider';
-          // Using standard confirm for critical flow interruption as requested in thought process, 
-          // but could be replaced by a Toast action in future.
           if (!window.confirm(`Double Booking Warning:\n${busyProvider} is already busy at ${time}.\n\nBook anyway?`)) {
               return;
           }
@@ -255,7 +250,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           id: existingAppointment?.id || Math.random().toString(36).substr(2, 9),
           patientId: finalPatientId,
           providerId,
-          branch: existingAppointment?.branch || '', // Placeholder if new, App.tsx will handle assignment
+          branch: existingAppointment?.branch || '',
           date,
           time,
           durationMinutes: duration,
@@ -264,7 +259,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           notes,
           labStatus: isBlock ? LabStatus.NONE : labStatus,
           isBlock,
-          title
+          title,
+          signedConsentUrl: existingAppointment?.signedConsentUrl || undefined,
       };
 
       if (existingAppointment) {
@@ -294,12 +290,13 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   if (!isOpen) return null;
+  
+  const procedureRequiresConsent = fieldSettings.procedures.find(p => p.name === procedureType)?.requiresConsent;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-end md:items-center p-0 md:p-4">
       <div className="bg-white w-full max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 md:duration-200 md:zoom-in-95 max-h-[95vh] overflow-y-auto">
         
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <div>
             <div className="md:hidden w-12 h-1 bg-slate-200 rounded-full mb-3 mx-auto"></div>
@@ -310,7 +307,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </button>
         </div>
 
-        {/* --- PATIENT SNAPSHOT HEADER --- */}
         {selectedPatient && activeTab === 'existing' && (
             <div className={`
                 p-4 flex flex-col gap-3 border-b transition-colors
@@ -342,7 +338,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <button onClick={() => setSelectedPatientId('')} className="text-xs font-bold underline opacity-50 hover:opacity-100">Change</button>
                 </div>
 
-                {/* --- CLINICAL BRIDGE: TREATMENT PLAN INTEGRATION --- */}
                 {plannedTreatments.length > 0 && (
                     <div className="bg-white/60 p-2 rounded-lg border border-black/5">
                         <div className="flex items-center gap-1 text-[10px] font-bold uppercase opacity-60 mb-2">
@@ -366,7 +361,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             </div>
         )}
 
-        {/* Tabs */}
         {!existingAppointment && (
             <div className="flex border-b border-slate-200">
                 <button onClick={() => setActiveTab('existing')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'existing' ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-500'}`}>Existing Patient</button>
@@ -377,7 +371,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
         <div className="p-6 space-y-6 pb-safe">
             
-            {/* EXISTING PATIENT SEARCH */}
             {activeTab === 'existing' && !selectedPatient && (
                 <div className="space-y-2">
                     <label className="block text-sm font-bold text-slate-700">Find Patient</label>
@@ -409,7 +402,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </div>
             )}
 
-            {/* NEW PATIENT FORM */}
             {activeTab === 'new' && (
                 <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                      <div className="col-span-2 text-xs font-bold text-teal-600 uppercase flex items-center gap-2"><Sparkles size={14}/> Quick Registration</div>
@@ -419,7 +411,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </div>
             )}
 
-            {/* BLOCK FORM */}
             {activeTab === 'block' && (
                 <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
                     <label className="block text-sm font-bold text-slate-700 mb-2">Block Reason</label>
@@ -427,10 +418,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </div>
             )}
 
-            {/* --- SCHEDULING DETAILS --- */}
             <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                     {/* Provider Select */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Provider</label>
                         <select 
@@ -446,7 +435,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         </select>
                     </div>
 
-                    {/* Date Picker */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
                         <div className="relative group">
@@ -464,14 +452,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </div>
                 </div>
 
-                {/* SMART TIME PICKER */}
                 <div>
                      <label className="flex justify-between items-center text-sm font-bold text-slate-700 mb-2">
                         <span>Time Slot</span>
                         <span className="text-xs font-normal text-slate-400">{availableSlots.filter(s => s.available).length} available</span>
                      </label>
                      
-                     {/* Grid of Slots */}
                      <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto mb-2 custom-scrollbar">
                          {availableSlots.map(slot => (
                              <button
@@ -493,7 +479,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                          ))}
                      </div>
                      
-                     {/* Custom Time Fallback */}
                      <div className="flex items-center gap-2 mt-2">
                          <span className="text-xs font-bold text-slate-400 uppercase">Manual:</span>
                          <input 
@@ -505,7 +490,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                      </div>
                 </div>
 
-                {/* Duration & Procedure */}
                 <div className="grid grid-cols-2 gap-4">
                      <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Duration</label>
@@ -530,8 +514,25 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         </div>
                     )}
                 </div>
+                
+                {/* NEW CONSENT INDICATOR */}
+                {procedureRequiresConsent && (
+                    <div className={`p-3 rounded-xl border flex items-center gap-2 text-sm ${
+                        existingAppointment?.signedConsentUrl 
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : 'bg-orange-50 border-orange-200 text-orange-800'
+                    }`}>
+                        {existingAppointment?.signedConsentUrl 
+                            ? <CheckCircle size={18} />
+                            : <FileSignature size={18} />
+                        }
+                        <span className="font-bold">
+                            {existingAppointment?.signedConsentUrl ? 'Consent is on file.' : 'Patient consent will be required for this procedure.'}
+                        </span>
+                    </div>
+                )}
 
-                {/* Lab & Notes */}
+
                 {activeTab !== 'block' && (
                     <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-center justify-between">
                          <span className="text-xs font-bold text-amber-800 uppercase flex items-center gap-1"><Beaker size={14}/> Lab Case?</span>
@@ -556,7 +557,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     onChange={(e) => setNotes(e.target.value)}
                 />
 
-                {/* Reschedule Reason */}
                 {existingAppointment && (
                      <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex flex-col gap-2">
                          <label className="text-xs font-bold text-blue-800 uppercase">Modification Reason</label>
@@ -573,7 +573,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             </div>
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t border-slate-100 flex gap-3 pb-8 md:pb-4 bg-white md:rounded-b-3xl sticky bottom-0 z-20">
             <button 
                 onClick={onClose}

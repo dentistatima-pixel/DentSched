@@ -1,11 +1,11 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap } from 'lucide-react';
+import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
+import { useToast } from './ToastSystem';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ interface PatientRegistrationModalProps {
 }
 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false }) => {
+  const toast = useToast();
   const [activeSection, setActiveSection] = useState<string>('basic');
   const [isQuickReg, setIsQuickReg] = useState(true); // Default to Quick Mode for speed
   
@@ -74,7 +75,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     alcoholDrugsUse: false,
     pregnant: false,
     nursing: false,
-    birthControl: false
+    birthControl: false,
+    dpaConsent: false,
+    marketingConsent: false
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -85,7 +88,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         if (initialData) {
             // Edit Mode
             setFormData({ ...initialData });
-            // In Kiosk mode, force full edit if editing, or rely on passed prop logic below
             setIsQuickReg(false); 
         } else {
             // New Mode
@@ -97,9 +99,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             setIsQuickReg(true);
         }
         
-        // KIOSK OVERRIDE: If kiosk, force "Quick" off so they see everything in one go? Or keep quick?
-        // Actually, if Kiosk + InitialData (Update Info), we want them to see Medical/Dental primarily.
-        // Let's force isQuickReg to false in Kiosk mode to ensure they review everything.
         if (isKiosk) {
             setIsQuickReg(false);
         }
@@ -116,14 +115,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         const newData = { ...prev };
         
         if (type === 'checkbox') {
-             if ((e.target as HTMLInputElement).name === 'pregnant' || 
-                 (e.target as HTMLInputElement).name === 'nursing' || 
-                 (e.target as HTMLInputElement).name === 'birthControl' ||
-                 (e.target as HTMLInputElement).name === 'tobaccoUse' ||
-                 (e.target as HTMLInputElement).name === 'alcoholDrugsUse' ||
-                 (e.target as HTMLInputElement).name === 'goodHealth') {
-                 (newData as any)[name] = (e.target as HTMLInputElement).checked;
-             }
+             const checked = (e.target as HTMLInputElement).checked;
+             (newData as any)[name] = checked;
         } else {
             (newData as any)[name] = value;
         }
@@ -183,9 +176,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
+
+    // LEGAL COMPLIANCE
+    if (!formData.dpaConsent && !isQuickReg) {
+        toast.error("Patient must agree to the Privacy Policy to proceed.");
+        return;
+    }
+    if (!formData.firstName || !formData.surname || !formData.phone) {
+        toast.error("First Name, Surname, and Mobile Number are required.");
+        return;
+    }
+
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    // Force provisional false on full save
-    onSave({ ...formData, name: fullName, provisional: false });
+    
+    onSave({ ...formData, name: fullName, provisional: isQuickReg });
     onClose();
   };
 
@@ -200,7 +204,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   if (!isOpen) return null;
 
-  // In Kiosk mode, we remove the fixed positioning overlay because it's rendered inside KioskView's container
   const containerClasses = isKiosk 
      ? "w-full h-full bg-white flex flex-col"
      : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4";
@@ -228,17 +231,15 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           </div>
           
           <div className="flex items-center gap-4">
-              {/* Quick Toggle (Hidden in Kiosk) */}
-              {(!initialData && !isKiosk) && (
+              {!initialData && !isKiosk && (
                   <button 
                     onClick={() => setIsQuickReg(!isQuickReg)}
                     className="flex items-center gap-2 bg-teal-800 hover:bg-teal-700 px-3 py-1.5 rounded-full transition-colors border border-teal-600"
                   >
-                      {isQuickReg ? <ToggleLeft size={20} className="text-teal-300"/> : <ToggleRight size={20} className="text-lilac-300"/>}
-                      <span className="text-xs font-bold uppercase">{isQuickReg ? 'Quick Reg' : 'Full Reg'}</span>
+                      {isQuickReg ? <Zap size={16} className="text-yellow-300"/> : <FileText size={16} className="text-teal-300"/>}
+                      <span className="text-xs font-bold uppercase">{isQuickReg ? 'Quick' : 'Full'}</span>
                   </button>
               )}
-              {/* Close Button (Optional in Kiosk, usually handled by footer) */}
               {!isKiosk && (
                   <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                     <X size={24} />
@@ -251,88 +252,61 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth">
             <form id="patientForm" onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
                 
-                {/* SECTION 1: PROFILE & CONTACT (Merged) */}
-                <div ref={basicRef} className="scroll-mt-6">
-                    <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
-                        <User className="text-teal-600" size={20} />
-                        <h3 className="font-bold text-lg text-slate-800">Patient Profile</h3>
-                    </div>
-                    <RegistrationBasicInfo 
-                        formData={formData} 
-                        handleChange={handleChange} 
-                        readOnly={readOnly}
-                        fieldSettings={fieldSettings}
-                        isQuickReg={isQuickReg} // Passed down to hide extra fields
-                    />
-                </div>
+                <div ref={basicRef}><RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
 
-                {/* SECTION 2: MEDICAL (Conditional) */}
                 {!isQuickReg && (
-                    <div ref={medicalRef} className="scroll-mt-6 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 pt-4">
-                            <Heart className="text-red-500" size={20} />
-                            <h3 className="font-bold text-lg text-slate-800">Medical History</h3>
-                        </div>
-                        <RegistrationMedical 
-                            formData={formData} 
-                            handleChange={handleChange} 
-                            handleArrayChange={handleArrayChange}
-                            readOnly={readOnly}
-                            fieldSettings={fieldSettings}
-                        />
-                    </div>
-                )}
+                    <>
+                        <div ref={medicalRef}><RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
+                        <div ref={dentalRef}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} handleTreatmentSelect={handleTreatmentSelect} handleTreatmentDetailChange={handleTreatmentDetailChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
 
-                {/* SECTION 3: DENTAL (Conditional) */}
-                {!isQuickReg && (
-                    <div ref={dentalRef} className="scroll-mt-6 animate-in fade-in slide-in-from-bottom-4">
-                         <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2 pt-4">
-                            <Shield className="text-blue-500" size={20} />
-                            <h3 className="font-bold text-lg text-slate-800">Dental History</h3>
+                        {/* LEGAL & CONSENT SECTION */}
+                        <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Lock size={20} />
+                                <h3 className="font-bold text-lg">Data Privacy & Consent</h3>
+                            </div>
+                            <div className="space-y-4">
+                                <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
+                                    <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
+                                    <div>
+                                        <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
+                                        <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data for the purpose of my dental treatment, in accordance with the Data Privacy Act of 2012.</p>
+                                    </div>
+                                </label>
+                                <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
+                                    <input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
+                                    <div>
+                                        <span className="font-bold">Communications (Optional)</span>
+                                        <p className="text-xs text-slate-300 mt-1">I agree to receive SMS/email reminders, promotions, and other non-essential communications from the clinic.</p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
-                        <RegistrationDental 
-                            formData={formData}
-                            handleChange={handleChange}
-                            handleArrayChange={handleArrayChange}
-                            handleTreatmentSelect={handleTreatmentSelect}
-                            handleTreatmentDetailChange={handleTreatmentDetailChange}
-                            readOnly={readOnly}
-                            fieldSettings={fieldSettings}
-                        />
-                    </div>
+                    </>
                 )}
             </form>
         </div>
 
         {/* Sticky Footer Actions */}
         <div className={`p-4 border-t border-slate-200 bg-white shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ${!isKiosk && 'md:rounded-b-3xl'}`}>
-            <div className="flex gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
-                 {!isQuickReg && (
-                     <>
-                        <button onClick={() => scrollToSection('basic')} className={`hover:text-teal-600 ${activeSection === 'basic' ? 'text-teal-600' : ''}`}>Profile</button>
-                        <span>•</span>
-                        <button onClick={() => scrollToSection('medical')} className={`hover:text-teal-600 ${activeSection === 'medical' ? 'text-teal-600' : ''}`}>Medical</button>
-                        <span>•</span>
-                        <button onClick={() => scrollToSection('dental')} className={`hover:text-teal-600 ${activeSection === 'dental' ? 'text-teal-600' : ''}`}>Dental</button>
-                     </>
-                 )}
-            </div>
+             {!isQuickReg ? (
+                <div className="hidden md:flex gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    <button onClick={() => scrollToSection('basic')} className={`hover:text-teal-600 ${activeSection === 'basic' ? 'text-teal-600' : ''}`}>Profile</button>
+                    <span>•</span>
+                    <button onClick={() => scrollToSection('medical')} className={`hover:text-teal-600 ${activeSection === 'medical' ? 'text-teal-600' : ''}`}>Medical</button>
+                    <span>•</span>
+                    <button onClick={() => scrollToSection('dental')} className={`hover:text-teal-600 ${activeSection === 'dental' ? 'text-teal-600' : ''}`}>Dental</button>
+                </div>
+             ) : <div />}
             
             <div className="flex gap-2">
-                 {/* In Kiosk mode, we might want a cancel button to return to dashboard without saving */}
                  {(readOnly || isKiosk) && (
-                     <button 
-                        onClick={onClose}
-                        className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
-                    >
+                     <button onClick={onClose} className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">
                         {isKiosk ? 'Cancel' : 'Close'}
                     </button>
                  )}
                  {!readOnly && (
-                    <button 
-                        onClick={handleSubmit}
-                        className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all"
-                    >
+                    <button onClick={handleSubmit} className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all">
                         <Save size={20} /> 
                         {isKiosk ? 'Save Changes' : (isQuickReg ? 'Quick Register' : 'Save Full Record')}
                     </button>
@@ -342,26 +316,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       </div>
       
       <style>{`
-        .input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background-color: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.75rem;
-            outline: none;
-            transition: all 0.2s;
-        }
-        .input:focus {
-            border-color: #0d9488;
-            box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
-        }
-        .label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 0.375rem;
-        }
+        .input { width: 100%; padding: 0.75rem 1rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; }
+        .input:focus { border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1); }
+        .label { display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 0.375rem; }
       `}</style>
     </div>
   );

@@ -9,10 +9,12 @@ import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
-import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask } from './types';
+import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG } from './constants';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry } from './types';
+import { useToast } from './components/ToastSystem';
 
 function App() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // PERSISTENCE & INITIALIZATION
@@ -54,9 +56,36 @@ function App() {
       return saved ? JSON.parse(saved) : [];
   });
 
+  // NEW: Accountability Log State
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() => {
+      const saved = localStorage.getItem('dentsched_auditlog');
+      return saved ? JSON.parse(saved) : MOCK_AUDIT_LOG;
+  });
+
+  const logAction = (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
+      if (!fieldSettings.features.enableAccountabilityLog) return;
+      
+      const newLog: AuditLogEntry = {
+          id: `log_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action,
+          entity,
+          entityId,
+          details
+      };
+      setAuditLog(prev => [newLog, ...prev]);
+  };
+
+
   useEffect(() => {
       localStorage.setItem('dentsched_pinboard_tasks', JSON.stringify(tasks));
   }, [tasks]);
+  
+  useEffect(() => {
+      localStorage.setItem('dentsched_auditlog', JSON.stringify(auditLog));
+  }, [auditLog]);
 
   const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
       const newTask: PinboardTask = {
@@ -279,6 +308,19 @@ function App() {
   };
   
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
+      const apt = appointments.find(a => a.id === appointmentId);
+      if (!apt) return;
+
+      // --- GOVERNANCE HARD STOP: CONSENT CHECK ---
+      if (status === AppointmentStatus.TREATING) {
+          const procedure = fieldSettings.procedures.find(p => p.name === apt.type);
+          if (procedure?.requiresConsent && !apt.signedConsentUrl) { // UPDATED CHECK
+              toast.error(`Consent Required: Please have the patient sign the consent form for "${procedure.name}" before starting treatment.`);
+              logAction('OVERRIDE_ALERT', 'ClinicalAlert', apt.id, `Attempted to start treatment without signed consent for ${apt.type}.`);
+              return; // Block the status change
+          }
+      }
+
       setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
   };
 
@@ -288,6 +330,13 @@ function App() {
           setEditingPatient(patient);
           setIsPatientModalOpen(true);
       }
+  };
+  
+  const handleSaveConsent = (appointmentId: string, consentUrl: string) => {
+      setAppointments(prev => prev.map(apt => 
+          apt.id === appointmentId ? { ...apt, signedConsentUrl: consentUrl } : apt
+      ));
+      toast.success("Consent form saved successfully!");
   };
 
   // --- REPORT GENERATION (Business Intelligence) ---
@@ -427,6 +476,7 @@ ${mixList}
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
           onChangeBranch={setCurrentBranch} // Allow branch switching from HQ mode
+          onSaveConsent={handleSaveConsent}
         />;
       case 'schedule':
         return <CalendarView 
@@ -453,6 +503,7 @@ ${mixList}
           onDeletePatient={handleDeletePatient}
           onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)}
           fieldSettings={fieldSettings} 
+          logAction={logAction}
         />;
       case 'field-mgmt':
         if (currentUser.role !== UserRole.ADMIN) {
@@ -476,6 +527,7 @@ ${mixList}
                 onToggleTask={handleToggleTask}
                 onDeleteTask={handleDeleteTask}
                 onChangeBranch={setCurrentBranch}
+                onSaveConsent={handleSaveConsent}
               />;
         }
         return <FieldManagement 
@@ -483,6 +535,7 @@ ${mixList}
           onUpdateSettings={handleUpdateFieldSettings}
           staff={staff}
           onUpdateStaff={handleUpdateStaffList}
+          auditLog={auditLog}
         />;
       default:
         return <Dashboard 
@@ -505,6 +558,7 @@ ${mixList}
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
           onChangeBranch={setCurrentBranch}
+          onSaveConsent={handleSaveConsent}
         />;
     }
   };

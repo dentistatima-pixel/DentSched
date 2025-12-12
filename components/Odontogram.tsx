@@ -316,6 +316,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
           // Whole Tooth Tools
           if (['extraction', 'missing', 'crown', 'endo'].includes(activeToolId)) {
                const newEntry: DentalChartEntry = {
+                   id: `dc_${Date.now()}`,
                    toothNumber: tooth,
                    procedure: activeTool.procedure,
                    status: activeTool.status,
@@ -328,6 +329,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
           
           // Surface Specific Tools
           const newEntry: DentalChartEntry = {
+              id: `dc_${Date.now()}`,
               toothNumber: tooth,
               procedure: activeTool.procedure,
               status: activeTool.status,
@@ -359,6 +361,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
           const sorted = stagedSurfaces.sort((a,b) => order.indexOf(a) - order.indexOf(b)).join('');
           
           const newEntry: DentalChartEntry = {
+              id: `dc_${Date.now()}`,
               toothNumber: zoomedTooth,
               procedure: activeToolId === 'cursor' ? 'Restoration' : activeTool.procedure,
               status: activeToolId === 'cursor' ? 'Planned' : activeTool.status,
@@ -510,6 +513,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                                 entries={[
                                     ...getToothData(zoomedTooth), 
                                     { 
+                                        id: 'temp',
                                         toothNumber: zoomedTooth, 
                                         procedure: activeTool.procedure, 
                                         status: activeTool.status, 
