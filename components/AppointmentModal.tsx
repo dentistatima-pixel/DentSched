@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
@@ -35,6 +35,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState('');
   const [labStatus, setLabStatus] = useState<LabStatus>(LabStatus.NONE);
+  const [labVendorId, setLabVendorId] = useState(''); // NEW: Compliance
   const [sterilizationCycleId, setSterilizationCycleId] = useState(''); // NEW
 
   // ... (rest of the state remains the same)
@@ -48,6 +49,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const dentists = staff.filter(s => s.role === UserRole.DENTIST);
   const assistants = staff.filter(s => s.role === UserRole.DENTAL_ASSISTANT);
 
+  // Filter Compliant Vendors
+  const compliantVendors = useMemo(() => {
+      const today = new Date();
+      return fieldSettings.vendors?.filter(v => {
+          if (v.status !== 'Active') return false;
+          if (!v.dsaExpiryDate) return false;
+          return new Date(v.dsaExpiryDate) >= today;
+      }) || [];
+  }, [fieldSettings.vendors]);
+
   useEffect(() => {
       if (isOpen) {
           if (existingAppointment) {
@@ -57,6 +68,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setDuration(existingAppointment.durationMinutes);
               setNotes(existingAppointment.notes || '');
               setLabStatus(existingAppointment.labStatus || LabStatus.NONE);
+              setLabVendorId(existingAppointment.labDetails?.vendorId || ''); // Load Vendor
               setSterilizationCycleId(existingAppointment.sterilizationCycleId || ''); // NEW
               
               if (existingAppointment.isBlock) {
@@ -73,6 +85,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setTime(initialTime || '09:00');
               setProviderId(staff.find(s => s.role === UserRole.DENTIST)?.id || '');
               setLabStatus(LabStatus.NONE);
+              setLabVendorId('');
               setSterilizationCycleId(''); // NEW
               
               if (initialPatientId) {
@@ -90,6 +103,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   
   const selectedProcedure = fieldSettings.procedures.find(p => p.name === procedureType);
   const isCriticalProcedure = ['Surgery', 'Root Canal'].includes(procedureType);
+  // Auto-enable Lab UI for specific categories
+  const isLabRelevant = ['Prosthodontics', 'Orthodontics', 'Crown', 'Bridge', 'Denture', 'Inlay'].some(k => procedureType.includes(k) || selectedProcedure?.category === 'Prosthodontics');
 
   // ... (search, planned treatments, smart slot logic is unchanged)
   const fuse = useMemo(() => new Fuse(patients, { keys: ['name', 'phone', 'id'], threshold: 0.3 }), [patients]);
@@ -113,6 +128,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           toast.error(`A passed Sterilization Cycle ID is mandatory for ${procedureType}.`);
           return;
       }
+      // DPO CHECK: If lab is required, vendor is mandatory if we track it
+      if (labStatus !== LabStatus.NONE && !labVendorId) {
+          toast.error("Compliance Check: You must select a compliant Vendor for this lab case.");
+          return;
+      }
+
       // ... (double booking check)
 
       let finalPatientId = selectedPatientId;
@@ -134,6 +155,10 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
           notes,
           labStatus: isBlock ? LabStatus.NONE : labStatus,
+          labDetails: (labStatus !== LabStatus.NONE) ? {
+              ...existingAppointment?.labDetails,
+              vendorId: labVendorId // NEW
+          } : undefined,
           sterilizationCycleId: isBlock ? undefined : sterilizationCycleId, // NEW
           isBlock, title,
           signedConsentUrl: existingAppointment?.signedConsentUrl,
@@ -159,8 +184,47 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 {/* ... other fields ... */}
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Procedure</label>
-                    <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl ...">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select>
+                    <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select>
                 </div>
+            </div>
+
+            {/* NEW: Lab Tracking Section with Vendor Hard Stop */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                        <Beaker size={16} className="text-teal-600"/> Lab Case
+                    </label>
+                    <select 
+                        value={labStatus} 
+                        onChange={e => setLabStatus(e.target.value as LabStatus)}
+                        className="text-xs font-bold bg-white border border-slate-300 rounded-lg px-2 py-1"
+                    >
+                        <option value={LabStatus.NONE}>No Lab</option>
+                        <option value={LabStatus.PENDING}>Pending</option>
+                        <option value={LabStatus.RECEIVED}>Received</option>
+                    </select>
+                </div>
+                
+                {labStatus !== LabStatus.NONE && (
+                    <div className="mt-3 animate-in slide-in-from-top-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                            <Briefcase size={12}/> Assigned Vendor
+                        </label>
+                        <select 
+                            value={labVendorId} 
+                            onChange={e => setLabVendorId(e.target.value)}
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-teal-500 outline-none"
+                        >
+                            <option value="">- Select Compliant Vendor -</option>
+                            {compliantVendors.map(v => (
+                                <option key={v.id} value={v.id}>{v.name} (Expires: {formatDate(v.dsaExpiryDate)})</option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-slate-400 mt-1 italic flex items-center gap-1">
+                            <Lock size={10}/> Only vendors with valid Data Sharing Agreements (DSA) are shown.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* NEW: Sterilization Field (Conditional) */}
@@ -185,12 +249,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             )}
             
             {/* ... rest of the form ... */}
-            <textarea placeholder="Internal Notes..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl ... h-20" />
+            <textarea placeholder="Internal Notes..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-20 outline-none" />
         </div>
         
         <div className="p-4 border-t border-slate-100 flex gap-3 pb-8 md:pb-4 bg-white md:rounded-b-3xl sticky bottom-0 z-20">
-            <button onClick={onClose} className="flex-1 py-3 px-4 bg-slate-100 ...">Cancel</button>
-            <button onClick={handleSave} className="flex-[2] py-3 px-4 bg-teal-600 ..."><Save size={20} />{existingAppointment ? 'Update' : 'Confirm'}</button>
+            <button onClick={onClose} className="flex-1 py-3 px-4 bg-slate-100 rounded-xl font-bold text-slate-600">Cancel</button>
+            <button onClick={handleSave} className="flex-[2] py-3 px-4 bg-teal-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"><Save size={20} />{existingAppointment ? 'Update' : 'Confirm'}</button>
         </div>
       </div>
     </div>

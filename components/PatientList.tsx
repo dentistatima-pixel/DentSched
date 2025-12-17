@@ -179,6 +179,24 @@ const PatientList: React.FC<PatientListProps> = ({
       toast.success("Entry saved with trusted timestamp");
   };
 
+  const toggleMarketingConsent = async () => {
+      if (!selectedPatient) return;
+      const newVal = !selectedPatient.marketingConsent;
+      
+      if (!newVal) {
+          // REVOKING
+          if (!window.confirm("Are you sure you want to REVOKE Marketing Consent? The patient will no longer receive promo or birthday messages.")) return;
+          logAction('UPDATE', 'Patient', selectedPatient.id, `Marketing Consent REVOKED by user request.`);
+          toast.success("Marketing consent revoked.");
+      } else {
+          // GRANTING
+          logAction('UPDATE', 'Patient', selectedPatient.id, `Marketing Consent GRANTED.`);
+          toast.success("Marketing consent active.");
+      }
+      
+      onQuickUpdatePatient({ ...selectedPatient, marketingConsent: newVal });
+  };
+
   const InfoRow = ({ icon: Icon, label, value, subValue }: { icon: any, label: string, value?: string | number, subValue?: string }) => (
       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
           <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm shrink-0"><Icon size={16} className="text-teal-600" /></div>
@@ -217,7 +235,16 @@ const PatientList: React.FC<PatientListProps> = ({
                         <div className="flex flex-col items-end gap-1">
                             {selectedPatient.isArchived && <div className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-300">ARCHIVED RECORD</div>}
                             {!selectedPatient.isArchived && enableCompliance && (isPaperworkPending(selectedPatient) ? (<div className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-200 shadow-sm"><Printer size={12} /> Paperwork Pending</div>) : (<div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200 shadow-sm"><FileCheck size={12} /> Compliant</div>))}
-                            {!selectedPatient.marketingConsent && <div className="bg-red-50 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 border border-red-200"><BellOff size={10}/> NO MARKETING</div>}
+                            
+                            {/* MARKETING CONSENT TOGGLE */}
+                            <button 
+                                onClick={toggleMarketingConsent}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 border transition-all hover:scale-105 ${selectedPatient.marketingConsent ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-red-50 text-red-700 border-red-200'}`}
+                                title={selectedPatient.marketingConsent ? 'Click to Revoke Consent' : 'Click to Grant Consent'}
+                            >
+                                {selectedPatient.marketingConsent ? <Megaphone size={10}/> : <BellOff size={10}/>}
+                                {selectedPatient.marketingConsent ? 'MARKETING ACTIVE' : 'NO MARKETING'}
+                            </button>
                         </div>
                     </div>
                     <div className={`flex flex-wrap gap-6 text-base font-semibold mt-2 ${critical ? 'text-slate-900' : 'text-slate-500'}`}><span className="flex items-center gap-2"><Hash size={16} strokeWidth={2.5}/> {selectedPatient.id}</span><span className="flex items-center gap-2"><Phone size={16} strokeWidth={2.5}/> {selectedPatient.phone}</span>{(selectedPatient.currentBalance || 0) > 0 && (<span className="flex items-center gap-2 text-red-700 bg-red-100 px-2 rounded"><DollarSign size={16} strokeWidth={2.5}/> Due: ₱{selectedPatient.currentBalance?.toLocaleString()}</span>)}</div>

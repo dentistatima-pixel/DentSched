@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Appointment, Patient, User } from '../types';
-import { Video, Mic, PhoneOff, Send, Plus, StickyNote, X } from 'lucide-react';
+import { Video, Mic, PhoneOff, Send, Plus, StickyNote, X, ShieldCheck } from 'lucide-react';
 
 interface TelehealthModalProps {
     appointment: Appointment;
@@ -48,13 +48,18 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ appointment, patient,
                 
                 {/* Main Video Feed */}
                 <div className="flex-1 flex flex-col bg-black rounded-2xl overflow-hidden relative shadow-2xl">
+                    {/* Security Banner */}
+                    <div className="absolute top-0 left-0 right-0 bg-emerald-600/90 text-white text-[10px] font-bold py-1 px-4 text-center z-20 flex items-center justify-center gap-2 backdrop-blur-sm">
+                        <ShieldCheck size={12}/> This session is End-to-End Encrypted and NOT RECORDED by the system.
+                    </div>
+
                     <video ref={patientVideoRef} autoPlay muted playsInline className="w-full h-full object-cover"></video>
                     <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded-lg text-sm font-bold">
                         {patient.name}
                     </div>
 
                     {/* Doctor's Picture-in-Picture */}
-                    <div className="absolute top-4 right-4 w-1/4 max-w-[200px] aspect-video bg-slate-800 rounded-lg overflow-hidden border-2 border-slate-600">
+                    <div className="absolute top-8 right-4 w-1/4 max-w-[200px] aspect-video bg-slate-800 rounded-lg overflow-hidden border-2 border-slate-600 shadow-xl">
                         <video ref={doctorVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform -scale-x-100"></video>
                          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-0.5 rounded text-xs font-bold">
                             {doctor.name}

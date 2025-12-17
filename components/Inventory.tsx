@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag } from 'lucide-react';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle } from 'lucide-react';
 import { StockItem, StockCategory, SterilizationCycle, User } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
@@ -20,6 +20,7 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
         category: StockCategory.CONSUMABLES,
         quantity: 0,
         lowStockThreshold: 5,
+        expiryDate: '', // NEW: Default empty
         ...item
     });
 
@@ -31,26 +32,46 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
     return (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
             <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 animate-in zoom-in-95">
-                <h3 className="font-bold text-lg">{item.id ? 'Edit Item' : 'New Stock Item'}</h3>
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-lg">{item.id ? 'Edit Item' : 'New Stock Item'}</h3>
+                    <button type="button" onClick={onClose}><X size={20} className="text-slate-400"/></button>
+                </div>
+                
                 <div>
                     <label className="text-xs font-bold text-slate-500 uppercase">Item Name</label>
-                    <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 focus:ring-2 focus:ring-teal-500 outline-none" />
+                    <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 focus:ring-2 focus:ring-teal-500 outline-none" placeholder="e.g. Lidocaine 2%"/>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="text-xs font-bold text-slate-500 uppercase">Category</label>
-                        <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as StockCategory})} className="w-full p-3 border rounded-xl mt-1 outline-none">
+                        <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as StockCategory})} className="w-full p-3 border rounded-xl mt-1 outline-none bg-white">
                             {Object.values(StockCategory).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Threshold</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase">Alert Threshold</label>
                         <input type="number" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value)})} className="w-full p-3 border rounded-xl mt-1" />
                     </div>
                 </div>
+
+                {/* NEW: Expiry Date Field */}
+                <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                        <Calendar size={12}/> Expiry Date (Optional)
+                    </label>
+                    <input 
+                        type="date" 
+                        value={formData.expiryDate || ''} 
+                        onChange={e => setFormData({...formData, expiryDate: e.target.value})} 
+                        className="w-full p-3 border rounded-xl mt-1" 
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1 italic">Leave blank for non-perishables (e.g. instruments)</p>
+                </div>
+
                 <div className="flex gap-2 mt-6">
-                    <button type="button" onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button type="submit" className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl">Save Item</button>
+                    <button type="button" onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">Cancel</button>
+                    <button type="submit" className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20">Save Item</button>
                 </div>
             </form>
         </div>
@@ -86,7 +107,6 @@ const ReceiveStockModal = ({ items, onReceive, onClose }: { items: StockItem[], 
                     <button 
                         onClick={() => {
                             const final: Record<string, number> = {};
-                            // Added explicit cast and radix to fix TypeScript error on line 88/89
                             (Object.entries(counts) as [string, string][]).forEach(([id, val]) => { 
                                 if (val) {
                                     final[id] = parseInt(val, 10); 
@@ -110,7 +130,23 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
 
   const filteredStock = stock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  
+  // Calculate Statuses
   const lowItems = stock.filter(s => s.quantity <= s.lowStockThreshold);
+  const expiredItems = stock.filter(s => s.expiryDate && new Date(s.expiryDate) < new Date());
+  
+  // Helper: Get Expiry Status
+  const getExpiryStatus = (dateStr?: string) => {
+      if (!dateStr) return null;
+      const today = new Date();
+      const exp = new Date(dateStr);
+      const diffTime = exp.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) return { label: 'EXPIRED', color: 'bg-red-100 text-red-700 border-red-200' };
+      if (diffDays <= 90) return { label: `Expiring: ${diffDays}d`, color: 'bg-orange-100 text-orange-700 border-orange-200' };
+      return { label: 'Good', color: 'bg-green-50 text-green-700 border-green-200' };
+  };
 
   const handleSaveItem = (item: StockItem) => {
       const exists = stock.find(s => s.id === item.id);
@@ -143,12 +179,20 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                 <div className="bg-blue-100 p-3 rounded-2xl text-blue-700 shadow-sm"><Package size={32} /></div>
                 <div><h1 className="text-3xl font-bold text-slate-800">Operational Inventory</h1><p className="text-slate-500">Stock control and clinical sterilization records.</p></div>
             </div>
-            {lowItems.length > 0 && (
-                <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-orange-200 animate-pulse shadow-sm">
-                    <AlertTriangle size={18} />
-                    <span className="font-bold text-sm">{lowItems.length} Items Critical</span>
-                </div>
-            )}
+            <div className="flex gap-2">
+                {expiredItems.length > 0 && (
+                    <div className="bg-red-100 text-red-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-red-200 shadow-sm">
+                        <AlertCircle size={18} />
+                        <span className="font-bold text-sm">{expiredItems.length} Expired</span>
+                    </div>
+                )}
+                {lowItems.length > 0 && (
+                    <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-orange-200 animate-pulse shadow-sm">
+                        <AlertTriangle size={18} />
+                        <span className="font-bold text-sm">{lowItems.length} Low Stock</span>
+                    </div>
+                )}
+            </div>
         </header>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
@@ -176,7 +220,7 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                                     <th className="p-4">Item Name</th>
                                     <th className="p-4">Category</th>
                                     <th className="p-4 text-center">Available</th>
-                                    <th className="p-4">Last Restock</th>
+                                    <th className="p-4">Expiry</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4"></th>
                                 </tr>
@@ -184,12 +228,28 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                             <tbody className="divide-y divide-slate-50">
                                 {filteredStock.map(item => {
                                     const isLow = item.quantity <= item.lowStockThreshold;
+                                    const expStatus = getExpiryStatus(item.expiryDate);
+
                                     return (
                                         <tr key={item.id} className="group hover:bg-slate-50/80 transition-colors">
                                             <td className="p-4"><div className="font-bold text-slate-800">{item.name}</div><div className="text-[10px] text-slate-400 font-mono">{item.id}</div></td>
                                             <td className="p-4"><span className="flex items-center gap-1.5 text-slate-600"><Tag size={12} className="text-slate-300"/> {item.category}</span></td>
                                             <td className="p-4 text-center font-mono font-bold text-lg text-slate-700">{item.quantity}</td>
-                                            <td className="p-4 text-slate-500">{item.lastRestockDate ? formatDate(item.lastRestockDate) : '-'}</td>
+                                            
+                                            {/* NEW: Expiry Column */}
+                                            <td className="p-4">
+                                                {item.expiryDate ? (
+                                                    <div>
+                                                        <div className="text-slate-600 font-medium">{formatDate(item.expiryDate)}</div>
+                                                        {expStatus && expStatus.label !== 'Good' && (
+                                                            <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded mt-1 w-fit border ${expStatus.color}`}>
+                                                                {expStatus.label}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : <span className="text-slate-300">-</span>}
+                                            </td>
+
                                             <td className="p-4">
                                                 {isLow ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-red-100"><TrendingDown size={10}/> REORDER</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-green-100"><CheckCircle size={10}/> STABLE</span>}
                                             </td>
@@ -213,6 +273,7 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
   );
 };
 
+// ... SterilizationLogTab and SterilizationLogModal remain unchanged ...
 const SterilizationLogTab: React.FC<{cycles: SterilizationCycle[], onAddCycle?: any, currentUser: User}> = ({ cycles, onAddCycle, currentUser }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     return (

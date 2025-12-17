@@ -483,6 +483,7 @@ export interface Appointment {
       shade?: string;
       material?: string;
       notes?: string;
+      vendorId?: string; // NEW: Compliance
   };
   notes?: string;
   sterilizationCycleId?: string;

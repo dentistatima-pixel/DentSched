@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Patient, Appointment, AppointmentStatus, AuditLogEntry } from '../types';
-import { Phone, CheckCircle, User, Calendar, Activity, ChevronRight, LogOut, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Phone, CheckCircle, User, Calendar, Activity, ChevronRight, LogOut, RefreshCw, ArrowLeft, Cake } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 
@@ -20,7 +20,11 @@ type KioskStep = 'welcome' | 'identify' | 'verify' | 'dashboard' | 'update';
 const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn, onUpdatePatient, onExitKiosk, fieldSettings, logAction }) => {
   const toast = useToast();
   const [step, setStep] = useState<KioskStep>('welcome');
+  
+  // Auth Inputs
   const [identifier, setIdentifier] = useState('');
+  const [birthDateInput, setBirthDateInput] = useState('');
+  
   const [foundPatient, setFoundPatient] = useState<Patient | null>(null);
   const [todaysApt, setTodaysApt] = useState<Appointment | null>(null);
 
@@ -28,6 +32,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
   useEffect(() => {
     if (step === 'welcome') {
         setIdentifier('');
+        setBirthDateInput('');
         setFoundPatient(null);
         setTodaysApt(null);
     }
@@ -35,14 +40,30 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
 
   const handleIdentify = (e: React.FormEvent) => {
       e.preventDefault();
-      const cleanId = identifier.replace(/\D/g, ''); 
       
+      // 1. Verify Mobile Number
+      const cleanId = identifier.replace(/\D/g, ''); 
+      if (cleanId.length < 4) {
+          toast.error("Please enter a valid mobile number.");
+          return;
+      }
+
+      // 2. Find Patient Matching Phone
       const match = patients.find(p => {
           const pPhone = p.phone.replace(/\D/g, '');
-          return pPhone.includes(cleanId) && cleanId.length >= 4;
+          return pPhone.includes(cleanId);
       });
 
+      // 3. Verify Birth Date (2-Factor Check)
       if (match) {
+          if (!match.dob || match.dob !== birthDateInput) {
+              // SECURITY: Do not reveal that the phone number was correct. Generic error.
+              toast.error("Authentication Failed: Record not found matching these credentials.");
+              if (logAction) logAction('SECURITY_ALERT', 'Kiosk', 'System', `Failed Kiosk Auth: Phone matched but DOB failed.`);
+              return;
+          }
+
+          // SUCCESS
           setFoundPatient(match);
           const today = new Date().toLocaleDateString('en-CA');
           const apt = appointments.find(a => 
@@ -52,6 +73,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
           );
           setTodaysApt(apt || null);
           setStep('verify');
+          
       } else {
           toast.error("Record not found. Please ask staff for help.");
       }
@@ -139,7 +161,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
                 </div>
             )}
 
-            {/* STEP 2: IDENTIFY */}
+            {/* STEP 2: IDENTIFY (SECURE 2FA) */}
             {step === 'identify' && (
                 <div className="w-full max-w-md animate-in slide-in-from-right-10 duration-300">
                     <button onClick={() => setStep('welcome')} className="mb-6 flex items-center gap-2 text-slate-500 font-bold hover:text-teal-600 transition-colors">
@@ -147,26 +169,40 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
                     </button>
                     <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 text-center">
                         <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6 text-teal-600">
-                            <Phone size={32} />
+                            <User size={32} />
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-800 mb-2">Find Your Record</h3>
-                        <p className="text-slate-500 mb-6">Enter your mobile number to look up your file.</p>
+                        <h3 className="text-2xl font-bold text-slate-800 mb-2">Secure Verification</h3>
+                        <p className="text-slate-500 mb-6">Please enter your details to verify your identity.</p>
                         
-                        <form onSubmit={handleIdentify}>
-                            <input 
-                                type="tel" 
-                                autoFocus
-                                className="w-full text-center text-3xl font-mono tracking-widest p-4 border-2 border-slate-200 rounded-2xl focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none mb-6 text-slate-800 placeholder:text-slate-300 transition-all"
-                                placeholder="09XX..."
-                                value={identifier}
-                                onChange={(e) => setIdentifier(e.target.value)}
-                            />
+                        <form onSubmit={handleIdentify} className="space-y-4">
+                            <div className="text-left">
+                                <label className="text-xs font-bold text-slate-400 uppercase ml-1 flex items-center gap-1"><Phone size={12}/> Mobile Number</label>
+                                <input 
+                                    type="tel" 
+                                    autoFocus
+                                    className="w-full text-center text-xl font-mono tracking-wider p-4 border-2 border-slate-200 rounded-2xl focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none text-slate-800 placeholder:text-slate-300 transition-all"
+                                    placeholder="09XX..."
+                                    value={identifier}
+                                    onChange={(e) => setIdentifier(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="text-left">
+                                <label className="text-xs font-bold text-slate-400 uppercase ml-1 flex items-center gap-1"><Cake size={12}/> Birth Date</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full text-center text-xl p-4 border-2 border-slate-200 rounded-2xl focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none text-slate-800"
+                                    value={birthDateInput}
+                                    onChange={(e) => setBirthDateInput(e.target.value)}
+                                />
+                            </div>
+
                             <button 
                                 type="submit"
-                                disabled={identifier.length < 4}
-                                className="w-full bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg transition-all"
+                                disabled={identifier.length < 4 || !birthDateInput}
+                                className="w-full bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg transition-all mt-4"
                             >
-                                Continue
+                                Verify & Continue
                             </button>
                         </form>
                     </div>
@@ -177,7 +213,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
             {step === 'verify' && foundPatient && (
                 <div className="w-full max-w-md animate-in slide-in-from-right-10 duration-300">
                     <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 text-center">
-                        <h3 className="text-xl font-bold text-slate-800 mb-6">Is this you?</h3>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6">Identity Verified</h3>
                         
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8">
                             <div className="text-2xl font-bold text-teal-900 mb-1">{foundPatient.name}</div>
@@ -189,13 +225,13 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
                                 onClick={() => setStep('identify')}
                                 className="py-4 rounded-xl font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
                             >
-                                No, Go Back
+                                Incorrect
                             </button>
                             <button 
                                 onClick={() => setStep('dashboard')}
                                 className="py-4 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-lg transition-colors"
                             >
-                                Yes, It's Me
+                                Proceed
                             </button>
                         </div>
                     </div>
