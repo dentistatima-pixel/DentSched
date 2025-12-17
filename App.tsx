@@ -22,7 +22,9 @@ import { getTrustedTime } from './services/timeService';
 
 // --- SECURITY CONSTANTS ---
 const CANARY_KEY = 'dentsched_auth_canary';
+const SALT_KEY = 'dentsched_security_salt';
 const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
+const TERMS_VERSION = '1.0-2024'; // Increment this to force re-acceptance
 
 // --- DIFFING UTILITY ---
 const generateDiff = (oldObj: any, newObj: any): string => {
@@ -65,7 +67,11 @@ function App() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   
   // --- SESSION STATE ---
-  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(() => {
+      // Check local storage for SPECIFIC version
+      const acceptedVersion = localStorage.getItem('dentsched_terms_version');
+      return acceptedVersion === TERMS_VERSION;
+  });
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const idleTimerRef = useRef<any>(null);
   const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Min
@@ -75,12 +81,23 @@ function App() {
       e.preventDefault();
       setIsInitializing(true);
 
-      // 1. Derive Key from Password (PBKDF2)
-      // In a real app, use a unique salt per user. Here using a constant salt for the demo.
-      const salt = "dentsched-salt-v1"; 
+      // 1. Get or Init Dynamic Salt
+      let salt = localStorage.getItem(SALT_KEY);
+      if (!salt) {
+          // Migration: If data exists but no salt, assume legacy hardcoded salt to preserve access
+          if (localStorage.getItem(CANARY_KEY)) {
+              salt = "dentsched-salt-v1"; 
+          } else {
+              // Fresh install: Generate robust random salt
+              salt = CryptoJS.lib.WordArray.random(128/8).toString();
+          }
+          localStorage.setItem(SALT_KEY, salt);
+      }
+
+      // 2. Derive Key from Password using Dynamic Salt (PBKDF2)
       const derivedKey = CryptoJS.PBKDF2(passwordInput, salt, { keySize: 256/32, iterations: 1000 }).toString();
 
-      // 2. Validate Key against Canary
+      // 3. Validate Key against Canary
       const storedCanary = localStorage.getItem(CANARY_KEY);
       
       if (storedCanary) {
@@ -101,7 +118,7 @@ function App() {
           localStorage.setItem(CANARY_KEY, encryptedCanary);
       }
 
-      // 3. Success: Set Key & Load Data
+      // 4. Success: Set Key & Load Data
       setEncryptionKey(derivedKey);
       await loadSecureData(derivedKey);
       setIsAuthenticated(true);
@@ -205,6 +222,42 @@ function App() {
           details: finalDetails
       };
       setAuditLog(prev => [newLog, ...prev]);
+  };
+
+  // --- SECURE AUDIT LOG EXPORT ---
+  const handleExportSecureAuditLog = () => {
+      if (!auditLog.length) {
+          toast.info("Audit log is empty.");
+          return;
+      }
+      
+      const exportData = {
+          metadata: {
+              exportedAt: new Date().toISOString(),
+              exportedBy: currentUser.name,
+              recordCount: auditLog.length,
+              integrityCheck: 'SHA-256'
+          },
+          logs: auditLog
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      // Create hash for integrity
+      const hash = CryptoJS.SHA256(dataStr).toString();
+      const finalPayload = JSON.stringify({ ...exportData, signature: hash }, null, 2);
+
+      const blob = new Blob([finalPayload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SECURE_AUDIT_LOG_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      logAction('EXPORT_RECORD', 'System', 'AuditLog', `Exported secure audit trail with SHA-256 integrity check.`);
+      toast.success("Secure Audit Log exported.");
   };
 
   const [isPatientPortalActive, setIsPatientPortalActive] = useState(false);
@@ -462,16 +515,20 @@ function App() {
               <div className="bg-white max-w-lg w-full rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
                   <div className="flex items-center gap-3 mb-6">
                       <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl">D</div>
-                      <h1 className="text-2xl font-bold text-slate-900">Terms of Use</h1>
+                      <h1 className="text-2xl font-bold text-slate-900">Terms of Use Update</h1>
                   </div>
                   <div className="h-64 overflow-y-auto bg-slate-50 p-4 rounded-xl text-sm text-slate-600 border border-slate-200 mb-6 leading-relaxed">
+                      <p className="font-bold text-slate-800 mb-2">Version {TERMS_VERSION}</p>
                       <p className="font-bold text-slate-800 mb-2">Liability Disclaimer</p>
                       <p className="mb-4">By using dentsched ("the Software"), you acknowledge that this tool is designed to assist in practice management but does not replace professional judgment.</p>
                       <p className="font-bold text-slate-800 mb-2">Data Privacy & Security</p>
                       <p>You agree to handle data in accordance with DPA 2012. You acknowledge that data security depends on your password strength.</p>
                   </div>
-                  <button onClick={() => setIsTermsAccepted(true)} className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-                      <CheckCircle size={20}/> I Accept Terms & Enter System
+                  <button onClick={() => {
+                      localStorage.setItem('dentsched_terms_version', TERMS_VERSION);
+                      setIsTermsAccepted(true);
+                  }} className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                      <CheckCircle size={20}/> I Accept New Terms & Enter System
                   </button>
               </div>
           </div>
@@ -521,7 +578,7 @@ function App() {
       case 'financials': return <Financials claims={MOCK_CLAIMS} expenses={MOCK_EXPENSES} currentUser={currentUser} />;
       case 'field-mgmt': 
         if (currentUser.role !== UserRole.ADMIN) { setActiveTab('dashboard'); return null; }
-        return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} />;
+        return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} onExportAuditLog={handleExportSecureAuditLog} />;
       default: return null;
     }
   };

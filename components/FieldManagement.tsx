@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates, OfficialReceiptBooklet, ClinicProfile, Medication, ConsentFormTemplate, ClinicalNoteTemplate, ClinicalProtocolRule, UserRole, RolePermissions, AuditLogEntry, Vendor, Patient } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -10,8 +11,9 @@ interface FieldManagementProps {
   staff?: User[];
   onUpdateStaff?: (updatedStaff: User[]) => void;
   auditLog: AuditLogEntry[];
-  patients?: Patient[]; // NEW
-  onPurgePatient?: (id: string) => void; // NEW
+  patients?: Patient[]; 
+  onPurgePatient?: (id: string) => void; 
+  onExportAuditLog?: () => void; // NEW
 }
 
 const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -20,7 +22,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
     [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canManageInventory: true }
 };
 
-const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff, onUpdateStaff, auditLog, patients = [], onPurgePatient }) => {
+const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff, onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog }) => {
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
 
@@ -141,7 +143,14 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
                 <div className="p-4 bg-white border-b flex justify-between items-center shrink-0">
                     <h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4>
-                    <button className="text-xs font-bold text-teal-600 hover:underline">Export to CSV</button>
+                    {onExportAuditLog && (
+                        <button 
+                            onClick={onExportAuditLog} 
+                            className="text-xs font-bold text-teal-600 hover:text-white hover:bg-teal-600 border border-teal-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
+                        >
+                            <DownloadCloud size={14} /> Export Secure Log
+                        </button>
+                    )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {auditLog.length > 0 ? auditLog.map(log => {

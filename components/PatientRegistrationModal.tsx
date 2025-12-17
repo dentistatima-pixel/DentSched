@@ -180,8 +180,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     if (readOnly) return;
 
     // LEGAL COMPLIANCE
-    if (!formData.dpaConsent && !isQuickReg) {
-        toast.error("Compliance Error: Patient must accept the Privacy Policy to proceed.");
+    if (!formData.dpaConsent) {
+        toast.error("Compliance Error: Data Privacy Consent is required for all registrations.");
         return;
     }
     if (!formData.firstName || !formData.surname || !formData.phone) {
@@ -260,48 +260,48 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                     <>
                         <div ref={medicalRef}><RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
                         <div ref={dentalRef}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} handleTreatmentSelect={handleTreatmentSelect} handleTreatmentDetailChange={handleTreatmentDetailChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
-
-                        {/* LEGAL & CONSENT SECTION */}
-                        <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
-                            <div className="flex items-center gap-3 mb-4">
-                                <Lock size={20} />
-                                <h3 className="font-bold text-lg">Data Privacy & Consent</h3>
-                            </div>
-                            <div className="space-y-4">
-                                <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
-                                    <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
-                                            <button 
-                                                type="button" 
-                                                onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }}
-                                                className="text-xs bg-slate-600 px-2 py-0.5 rounded hover:bg-slate-500 flex items-center gap-1"
-                                            >
-                                                <BookOpen size={10} /> Read Policy
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data in accordance with the Data Privacy Act of 2012.</p>
-                                    </div>
-                                </label>
-                                <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
-                                    <input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
-                                    <div>
-                                        <span className="font-bold">Communications (Optional)</span>
-                                        <p className="text-xs text-slate-300 mt-1">I agree to receive SMS/email reminders, promotions, and other non-essential communications from the clinic.</p>
-                                    </div>
-                                </label>
-                            </div>
-                            
-                            {/* DPO Footer */}
-                            <div className="mt-6 pt-4 border-t border-slate-600 text-xs text-slate-400 flex flex-col gap-1">
-                                <span className="font-bold uppercase tracking-wider text-slate-500">Data Protection Officer (DPO) Contact:</span>
-                                <span>Atty. Compliance Officer</span>
-                                <span>dpo@dentsched-clinic.com | (02) 8888-1234</span>
-                            </div>
-                        </div>
                     </>
                 )}
+
+                {/* LEGAL & CONSENT SECTION - ALWAYS VISIBLE */}
+                <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Lock size={20} />
+                        <h3 className="font-bold text-lg">Data Privacy & Consent</h3>
+                    </div>
+                    <div className="space-y-4">
+                        <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
+                            <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }}
+                                        className="text-xs bg-slate-600 px-2 py-0.5 rounded hover:bg-slate-500 flex items-center gap-1"
+                                    >
+                                        <BookOpen size={10} /> Read Policy
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data in accordance with the Data Privacy Act of 2012.</p>
+                            </div>
+                        </label>
+                        <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
+                            <input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
+                            <div>
+                                <span className="font-bold">Communications (Optional)</span>
+                                <p className="text-xs text-slate-300 mt-1">I agree to receive SMS/email reminders, promotions, and other non-essential communications from the clinic.</p>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    {/* DPO Footer */}
+                    <div className="mt-6 pt-4 border-t border-slate-600 text-xs text-slate-400 flex flex-col gap-1">
+                        <span className="font-bold uppercase tracking-wider text-slate-500">Data Protection Officer (DPO) Contact:</span>
+                        <span>Atty. Compliance Officer</span>
+                        <span>dpo@dentsched-clinic.com | (02) 8888-1234</span>
+                    </div>
+                </div>
             </form>
         </div>
 

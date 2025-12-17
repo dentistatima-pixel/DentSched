@@ -33,7 +33,7 @@ interface PatientListProps {
   onPreparePhilHealthClaim?: (ledgerEntry: LedgerEntry, procedureName: string) => void;
 }
 
-const generatePatientPDF = (patient: Patient, currentUser: User) => {
+const generatePatientPDF = (patient: Patient, currentUser: User, logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void) => {
     const doc = new jsPDF();
     const primaryColor = [13, 148, 136]; // Teal
 
@@ -126,6 +126,9 @@ const generatePatientPDF = (patient: Patient, currentUser: User) => {
     }
 
     doc.save(`Record_${patient.surname}_${patient.id}.pdf`);
+    
+    // AUDIT LOGGING
+    logAction('EXPORT_RECORD', 'Patient', patient.id, 'User exported full clinical record to PDF.');
 };
 
 const PatientList: React.FC<PatientListProps> = ({ 
@@ -310,7 +313,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         <a href={`sms:${selectedPatient.phone}`} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="SMS"><MessageSquare size={20} /></a>
                         <button onClick={() => onBookAppointment(selectedPatient.id)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-lilac-100 hover:bg-lilac-200 text-lilac-700'}`} title="Book"><CalendarPlus size={20} /></button>
                         <button onClick={() => onEditPatient(selectedPatient)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="Edit"><Pencil size={20} /></button>
-                        {isAdmin && (<button onClick={() => generatePatientPDF(selectedPatient, currentUser)} className={`p-3 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700`} title="Export Record"><DownloadCloud size={20} /></button>)}
+                        {isAdmin && (<button onClick={() => generatePatientPDF(selectedPatient, currentUser, logAction)} className={`p-3 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700`} title="Export Record"><DownloadCloud size={20} /></button>)}
                         
                         {/* ARCHIVE BUTTON */}
                         {canDelete && !selectedPatient.isArchived && (
