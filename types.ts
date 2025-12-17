@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -9,18 +8,18 @@ export enum UserRole {
 export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
-  ARRIVED = 'Arrived',        // Patient in Lobby
-  SEATED = 'Seated',          // Patient in Chair, Numbed/Prepped
-  TREATING = 'Treating',      // Doctor is with Patient
-  COMPLETED = 'Completed',    // Check out
+  ARRIVED = 'Arrived',
+  SEATED = 'Seated',
+  TREATING = 'Treating',
+  COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
 }
 
 export enum LabStatus {
   NONE = 'None',
-  PENDING = 'Pending',   // Sent to lab
-  RECEIVED = 'Received'  // Back from lab, ready for insert
+  PENDING = 'Pending',
+  RECEIVED = 'Received'
 }
 
 export enum AppointmentType {
@@ -34,12 +33,10 @@ export enum AppointmentType {
   SURGERY = 'Surgery',
   WHITENING = 'Whitening',
   DENTURE_ADJUSTMENTS = 'Denture Adjustments',
-  TELE_DENTISTRY = 'Tele-dentistry Consultation' // NEW
+  TELE_DENTISTRY = 'Tele-dentistry Consultation'
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
-
-// --- NEW: Corporate Module Types ---
 
 export enum HMOClaimStatus {
   PREPARED = 'Prepared',
@@ -49,7 +46,6 @@ export enum HMOClaimStatus {
   REJECTED = 'Rejected'
 }
 
-// NEW: PhilHealth
 export enum PhilHealthClaimStatus {
     PREPARED = 'Prepared',
     SUBMITTED = 'Submitted',
@@ -80,7 +76,6 @@ export interface HMOClaim {
   notes?: string;
 }
 
-// NEW: PhilHealth
 export interface PhilHealthClaim {
     id: string;
     patientId: string;
@@ -123,13 +118,12 @@ export interface StockItem {
   expiryDate?: string;
 }
 
-// NEW: Sterilization
 export interface SterilizationCycle {
     id: string;
     date: string;
     autoclaveName: string;
     cycleNumber: string;
-    operator: string; // User's name
+    operator: string;
     passed: boolean;
 }
 
@@ -142,106 +136,113 @@ export interface Expense {
   branch: string;
 }
 
-// EXPANDED Audit Log for Governance
 export interface AuditLogEntry {
   id: string;
   timestamp: string;
+  isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive';
   entityId: string;
   details: string;
 }
 
-
-// --- Field Management Types ---
 export interface ProcedureItem {
   id: string;
   name: string;
   price: number;
   category?: string;
-  traySetup?: string[]; // List of instruments needed
-  requiresConsent?: boolean; // NEW for hard stop
-  billOfMaterials?: { stockItemId: string; quantity: number }[]; // NEW: For auto inventory
-  isPhilHealthCovered?: boolean; // NEW
+  traySetup?: string[];
+  requiresConsent?: boolean;
+  riskDisclosures?: string[];
+  billOfMaterials?: { stockItemId: string; quantity: number }[];
+  isPhilHealthCovered?: boolean;
+}
+
+export interface RolePermissions {
+    canVoidNotes: boolean;
+    canEditFinancials: boolean;
+    canDeletePatients: boolean;
+    canOverrideProtocols: boolean;
+    canManageInventory: boolean;
 }
 
 export interface FeatureToggles {
-  // Foundational
   enableLabTracking: boolean;
   enableComplianceAudit: boolean;
   enableMultiBranch: boolean;
   enableDentalAssistantFlow: boolean;
-  
-  // Corporate Modules (Phase 1)
   enableHMOClaims: boolean;
   enableInventory: boolean;
   enableAnalytics: boolean;
   enableBIRCompliance: boolean;
-  
-  // Patient Experience (Phase 2)
   enablePatientPortal: boolean;
   enableDigitalConsent: boolean;
   enableAutomatedRecall: boolean;
   enableOnlineForms: boolean;
-
-  // Advanced Clinical/Admin (Phase 2)
   enableEPrescription: boolean;
   enableAdvancedPermissions: boolean;
   enablePhilHealthClaims: boolean;
   enableLabPortal: boolean;
   enableDocumentManagement: boolean;
   enableClinicalProtocolAlerts: boolean;
-
-  // NEW: Governance & Legal
   enableTreatmentPlanApprovals: boolean; 
   enableAccountabilityLog: boolean;
-
-  // Business Growth (Phase 2)
   enableReferralTracking: boolean;
   enablePromotions: boolean;
 }
 
 export interface SmsTemplates {
-  bookingConfirmation: string; // Sent immediately on save
-  confirmationRequest: string; // Sent 48h before
-  reminder24h: string;         // Sent 24h before
-  postOpCheckup: string;       // Sent 2h after completion
-  registrationWelcome: string; // Sent after new patient save
+  bookingConfirmation: string;
+  confirmationRequest: string;
+  reminder24h: string;
+  postOpCheckup: string;
+  registrationWelcome: string;
 }
 
-// NEW: Clinical Protocol Rules
 export interface ClinicalProtocolRule {
     id: string;
     name: string;
-    triggerProcedureCategories: string[]; // e.g., ['Surgery']
-    requiresMedicalConditions: string[]; // e.g., ['High BP', 'Diabetes']
-    requiresDocumentCategory: string; // e.g., 'Medical Clearance'
+    triggerProcedureCategories: string[];
+    requiresMedicalConditions: string[];
+    requiresDocumentCategory: string;
     alertMessage: string;
 }
 
-// --- NEW: CONTENT MANAGEMENT TYPES ---
 export interface Medication {
     id: string;
     name: string;
-    dosage: string; // e.g., "500mg"
-    instructions: string; // e.g., "Take 1 tablet every 8 hours for 7 days"
-    contraindicatedAllergies?: string[]; // NEW: For allergy cross-check
+    dosage: string;
+    instructions: string;
+    contraindicatedAllergies?: string[];
+    isS2Controlled?: boolean;
 }
 
 export interface ConsentFormTemplate {
     id: string;
     name: string;
-    content: string; // Markdown/text content with placeholders
+    content: string;
 }
 
 export interface ClinicalNoteTemplate {
     id: string;
     name: string;
-    content: string; // Default text for the note
+    content: string;
 }
 
+export interface Vendor {
+    id: string;
+    name: string;
+    type: 'Lab' | 'HMO' | 'Supplier' | 'Other';
+    contactPerson: string;
+    contactNumber: string;
+    email: string;
+    dsaSignedDate?: string; // Data Sharing Agreement
+    dsaExpiryDate?: string;
+    status: 'Active' | 'Suspended' | 'Pending Review';
+    notes?: string;
+}
 
 export type ClinicProfile = 'boutique' | 'corporate';
 
@@ -257,23 +258,21 @@ export interface FieldSettings {
   branches: string[];
   features: FeatureToggles;
   smsTemplates: SmsTemplates;
-  // NEW Corporate Settings
+  permissions?: Record<UserRole, RolePermissions>;
   receiptBooklets?: OfficialReceiptBooklet[];
   stockCategories?: string[];
-  stockItems?: StockItem[]; // NEW: Full stock list
+  stockItems?: StockItem[];
   expenseCategories?: string[];
-  // NEW Document & Protocol Settings
   documentCategories?: string[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
-  // NEW Content Management
   medications?: Medication[];
   consentFormTemplates?: ConsentFormTemplate[];
   clinicalNoteTemplates?: ClinicalNoteTemplate[];
   postOpTemplates?: Record<string, string>;
   mediaConsentTemplate?: ConsentFormTemplate;
+  vendors?: Vendor[]; // NEW: Vendor Compliance
 }
 
-// NEW: Governance Types
 export enum TreatmentPlanStatus {
     DRAFT = 'Draft',
     PENDING_REVIEW = 'Pending Review',
@@ -286,54 +285,53 @@ export interface TreatmentPlan {
     patientId: string;
     name: string;
     createdAt: string;
-    createdBy: string; // User's name
+    createdBy: string;
     status: TreatmentPlanStatus;
     reviewNotes?: string;
-    reviewedBy?: string; // User's name
+    reviewedBy?: string;
     reviewedAt?: string;
-    // WATER TIGHT: Financial Consent
     signedQuoteUrl?: string;
     quoteSignedAt?: string;
 }
 
-// WATER TIGHT: Clinical Record Integrity
 export interface DentalChartEntry {
-  id: string; // Unique, immutable ID for each entry
-  toothNumber: number; // 1-32 (Universal System) or 11-48 (FDI)
+  id: string;
+  toothNumber: number;
   procedure: string;
   status: TreatmentStatus;
-  surfaces?: string; // e.g. "MOD", "B", "L"
-  price?: number; // Snapshot of price at time of charting
-  
-  // Financial & Legal
+  surfaces?: string;
+  price?: number;
   payment?: number;
   receiptNumber?: string;
   balance?: number;
-  signature?: string; // Data URL for signature on this specific note
-  drawing?: string; // Data URL for annotation
-  
-  date?: string;
+  signature?: string;
+  drawing?: string;
+  date?: string; // Legacy YYYY-MM-DD
+  timestamp?: string; // NEW: ISO Timestamp for sorting/evidence
+  isVerifiedTimestamp?: boolean; // NEW: Trusted Time flag
   notes?: string;
   author?: string;
-  planId?: string; // Link to a treatment plan
-
-  // --- IMMUTABILITY & AMENDMENT FIELDS ---
+  planId?: string;
   isVoid?: boolean;
+  isLocked?: boolean; 
+  lockedInfo?: {
+      by: string;
+      at: string;
+  };
   voidedInfo?: {
-      by: string; // User's name
-      at: string; // ISO Timestamp
+      by: string;
+      at: string;
       reason: string;
   };
   amendmentInfo?: {
-      amends: string; // ID of the entry being amended
-      by: string;     // User's name
-      at: string;     // ISO Timestamp
+      amends: string;
+      by: string;
+      at: string;
   };
 }
 
 export interface PerioMeasurement {
   toothNumber: number;
-  // 6 points: [Facial-Distal, Facial-Mid, Facial-Mesial, Lingual-Distal, Lingual-Mid, Lingual-Mesial]
   pocketDepths: (number | null)[]; 
   recession: (number | null)[];    
   bleeding: boolean[];             
@@ -346,18 +344,17 @@ export interface LedgerEntry {
   description: string;
   type: 'Charge' | 'Payment' | 'Adjustment';
   amount: number;
-  balanceAfter: number; // Running balance at that point
-  procedureId?: string; // Link to procedure if needed
+  balanceAfter: number;
+  procedureId?: string;
   notes?: string;
-  // NEW Corporate Links
-  hmoClaimId?: string; // Link to an HMO Claim
-  philHealthClaimId?: string; // NEW
-  orNumber?: string; // Official Receipt Number
+  hmoClaimId?: string;
+  philHealthClaimId?: string;
+  orNumber?: string;
 }
 
 export interface UserPreferences {
   showTraySetup?: boolean;
-  showPatientFlow?: boolean; // Arrived -> Seated -> Treating
+  showPatientFlow?: boolean;
   showFinancials?: boolean;
   showLabAlerts?: boolean;
   autoOpenMedicalHistory?: boolean;
@@ -370,8 +367,6 @@ export interface User {
   role: UserRole;
   avatar: string;
   email?: string;
-  
-  // Philippine Regulatory Compliance (Dentists)
   prcLicense?: string;
   prcValidity?: string;
   ptrNumber?: string;
@@ -381,43 +376,34 @@ export interface User {
   pdaChapter?: string;
   specialization?: string;
   clinicHours?: string;
-  
-  // Operational (Assistants)
   employeeId?: string;
   certifications?: string[]; 
   assignedDoctors?: string[]; 
   canViewFinancials?: boolean;
-
-  // Efficiency & Preferences
   allowedBranches?: string[]; 
   defaultBranch?: string; 
   colorPreference?: string; 
   defaultConsultationFee?: number; 
   isReadOnly?: boolean; 
-  
   preferences?: UserPreferences;
-
-  // GLOBAL STAFFING
-  roster?: Record<string, string>; // Key: 'Mon', 'Tue'... Value: 'Makati Branch' or 'OFF'
+  roster?: Record<string, string>;
 }
 
-// NEW: Document Management Type
 export interface PatientFile {
     id: string;
     patientId: string;
     title: string;
     category: string;
     fileType: 'image/jpeg' | 'image/png' | 'application/pdf' | 'data_url';
-    url: string; // For mock, this will be a placeholder or data URL
-    uploadedBy: string; // User ID
-    uploadedAt: string; // ISO Date string
+    url: string;
+    uploadedBy: string;
+    uploadedAt: string;
 }
 
 export interface Patient {
   id: string;
   provisional?: boolean; 
-  isArchived?: boolean; // NEW FOR DATA LIFECYCLE
-  // Basic Info
+  isArchived?: boolean;
   suffix?: string;
   name: string; 
   firstName: string;
@@ -438,13 +424,9 @@ export interface Patient {
   barangay?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
-
-  // Contact Info
   email: string;
   phone: string;
   mobile2?: string;
-
-  // Dental History
   previousDentist?: string;
   lastVisit: string;
   nextVisit: string | null;
@@ -452,15 +434,10 @@ export interface Patient {
   chiefComplaint?: string;
   treatments?: string[]; 
   treatmentDetails?: Record<string, string>; 
-  
-  // Visual Chart
   dentalChart?: DentalChartEntry[];
-  
   perioChart?: PerioMeasurement[];
   ledger?: LedgerEntry[];
   currentBalance?: number;
-
-  // Medical History
   goodHealth?: boolean;
   underMedicalTreatment?: boolean;
   medicalTreatmentDetails?: string;
@@ -472,35 +449,21 @@ export interface Patient {
   medicationDetails?: string;
   tobaccoUse?: boolean;
   alcoholDrugsUse?: boolean;
-  
   medicalHistoryReviewedBy?: string;
   medicalHistoryReviewedDate?: string;
-
-  // Female Specific
   pregnant?: boolean;
   nursing?: boolean;
   birthControl?: boolean;
-
-  // Lists
   allergies?: string[];
   otherAllergies?: string;
   medicalConditions?: string[];
   otherConditions?: string;
-  
   bloodGroup?: string;
-
-  // COMPLIANCE TRACKING
-  lastDigitalUpdate?: string; // ISO Date of last chart/history edit
-  lastPrintedDate?: string | null; // ISO Date of last physical file print
-  
-  // NEW: Document Management
+  lastDigitalUpdate?: string;
+  lastPrintedDate?: string | null; 
   files?: PatientFile[];
-  receipts?: IssuedReceipt[]; // NEW for Portal
-  
-  // NEW: Governance
+  receipts?: IssuedReceipt[]; 
   treatmentPlans?: TreatmentPlan[];
-  
-  // NEW: Data Privacy Act Compliance
   dpaConsent?: boolean;
   marketingConsent?: boolean;
 }
@@ -515,10 +478,14 @@ export interface Appointment {
   durationMinutes: number;
   type: string; 
   status: AppointmentStatus;
-  labStatus?: LabStatus; // For Prostho/Ortho cases
+  labStatus?: LabStatus;
+  labDetails?: {
+      shade?: string;
+      material?: string;
+      notes?: string;
+  };
   notes?: string;
-  sterilizationCycleId?: string; // NEW
-  
+  sterilizationCycleId?: string;
   isBlock?: boolean; 
   title?: string; 
   rescheduleHistory?: {
@@ -528,9 +495,7 @@ export interface Appointment {
       reason: 'Reschedule' | 'Correction' | 'Provider Change';
       timestamp: string;
   }[];
-  
-  // NEW: Governance
-  signedConsentUrl?: string; // Replaced boolean with data URL for proof
+  signedConsentUrl?: string;
 }
 
 export interface PinboardTask {
@@ -538,7 +503,7 @@ export interface PinboardTask {
     text: string;
     isCompleted: boolean;
     isUrgent: boolean;
-    assignedTo?: string; // User ID
+    assignedTo?: string;
     createdAt: number;
 }
 
@@ -551,7 +516,6 @@ export interface WaitlistEntry {
     notes?: string;
 }
 
-// NEW: Teledentistry
 export interface TelehealthRequest {
     id: string;
     patientId: string;

@@ -1,17 +1,20 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature } from 'lucide-react';
-// FIX: Added 'LedgerEntry' to fix missing type error.
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import TreatmentPlan from './TreatmentPlan';
-import PerioChart from './PerioChart'; // NEW
-import PatientLedger from './PatientLedger'; // NEW
-import ConsentCaptureModal from './ConsentCaptureModal'; // NEW
-import EPrescriptionModal from './EPrescriptionModal'; // NEW
+import PerioChart from './PerioChart';
+import PatientLedger from './PatientLedger';
+import ConsentCaptureModal from './ConsentCaptureModal';
+import EPrescriptionModal from './EPrescriptionModal';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import { getTrustedTime } from '../services/timeService';
 
 interface PatientListProps {
   patients: Patient[];
@@ -26,94 +29,135 @@ interface PatientListProps {
   onDeletePatient: (patientId: string) => void;
   onBookAppointment: (patientId: string) => void;
   fieldSettings?: FieldSettings; 
-  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, previousState?: any, newState?: any) => void;
   onPreparePhilHealthClaim?: (ledgerEntry: LedgerEntry, procedureName: string) => void;
 }
 
-const downloadMockPDF = (filename: string, contentDescription: string) => {
-    const content = `
-    %PDF-1.4
-    %DENT_SCHED_MOCK_PDF_HEADER
+const generatePatientPDF = (patient: Patient, currentUser: User) => {
+    const doc = new jsPDF();
+    const primaryColor = [13, 148, 136]; // Teal
+
+    // Header
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("PATIENT CLINICAL RECORD", 14, 20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text("CONFIDENTIAL MEDICAL DOCUMENT", 150, 20);
+
+    // Basic Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Patient: ${patient.name}`, 14, 45);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`ID: ${patient.id}`, 14, 52);
+    doc.text(`DOB: ${patient.dob} (${patient.age} yrs)`, 14, 59);
+    doc.text(`Sex: ${patient.sex}`, 14, 66);
+    doc.text(`Contact: ${patient.phone}`, 120, 45);
+    doc.text(`Email: ${patient.email || 'N/A'}`, 120, 52);
+    doc.text(`Address: ${patient.homeAddress || 'N/A'}`, 120, 59);
+
+    // Medical History Summary
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, 75, 196, 75);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Medical Alert Summary", 14, 85);
     
-    OFFICIAL DENTAL RECORD
-    ----------------------
-    File: ${filename}
-    Generated: ${new Date().toLocaleString()}
+    let medY = 92;
+    const alerts = [];
+    if (patient.allergies?.length && !patient.allergies.includes('None')) alerts.push(`Allergies: ${patient.allergies.join(', ')}`);
+    if (patient.medicalConditions?.length && !patient.medicalConditions.includes('None')) alerts.push(`Conditions: ${patient.medicalConditions.join(', ')}`);
+    if (patient.seriousIllness) alerts.push(`Serious Illness: ${patient.seriousIllnessDetails}`);
     
-    ${contentDescription}
+    doc.setFont('helvetica', 'normal');
+    if (alerts.length > 0) {
+        doc.setTextColor(220, 38, 38); // Red
+        alerts.forEach(alert => {
+            doc.text(`• ${alert}`, 14, medY);
+            medY += 6;
+        });
+    } else {
+        doc.text("No critical medical alerts recorded.", 14, medY);
+        medY += 6;
+    }
+
+    // Clinical Chart Table
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Clinical Notes / Treatment History", 14, medY + 10);
     
-    [ This is a simulated PDF file for demonstration purposes. ]
-    `;
-    
-    const element = document.createElement("a");
-    const file = new Blob([content], {type: 'application/pdf'});
-    element.href = URL.createObjectURL(file);
-    element.download = filename;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    const chartData = (patient.dentalChart || [])
+        .filter(c => !c.isVoid)
+        .sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime())
+        .map(row => [
+            row.date,
+            row.toothNumber?.toString() || '-',
+            row.procedure,
+            row.notes,
+            row.author || '-'
+        ]);
+
+    (doc as any).autoTable({
+        startY: medY + 15,
+        head: [['Date', 'Tooth', 'Procedure', 'Notes', 'Provider']],
+        body: chartData,
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor },
+        columnStyles: { 
+            0: { cellWidth: 25 },
+            1: { cellWidth: 15 },
+            2: { cellWidth: 40 },
+            4: { cellWidth: 30 }
+        }
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Page ${i} of ${pageCount} | Generated by dentsched | ${new Date().toLocaleString()}`, 14, 285);
+    }
+
+    doc.save(`Record_${patient.surname}_${patient.id}.pdf`);
 };
 
 const PatientList: React.FC<PatientListProps> = ({ 
-    patients, 
-    appointments, 
-    currentUser, 
-    selectedPatientId, 
-    onSelectPatient,
-    onAddPatient,
-    onEditPatient,
-    onQuickUpdatePatient,
-    onBulkUpdatePatients,
-    onDeletePatient,
-    onBookAppointment,
-    fieldSettings,
-    logAction,
-    onPreparePhilHealthClaim
+    patients, appointments, currentUser, selectedPatientId, onSelectPatient, onAddPatient, onEditPatient,
+    onQuickUpdatePatient, onBulkUpdatePatients, onDeletePatient, onBookAppointment, fieldSettings, logAction, onPreparePhilHealthClaim
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'chart' | 'perio' | 'plan' | 'ledger' | 'documents'>('info'); 
   const [showNeedsPrintingOnly, setShowNeedsPrintingOnly] = useState(false);
-  const [showArchived, setShowArchived] = useState(false); // New state for archiving
-  
-  // Chart View Toggle
+  const [showArchived, setShowArchived] = useState(false);
   const [chartViewMode, setChartViewMode] = useState<'visual' | 'notes'>('visual');
-
-  // New state for Media Consent Modal
   const [isMediaConsentModalOpen, setIsMediaConsentModalOpen] = useState(false);
   const [isEPrescriptionModalOpen, setIsEPrescriptionModalOpen] = useState(false);
-
-
-  // Charting Modal State (For "Cursor" mode legacy edits)
   const [editingTooth, setEditingTooth] = useState<number | null>(null);
-  const [toothModalData, setToothModalData] = useState<{
-      procedure: string;
-      status: TreatmentStatus;
-      notes: string;
-      surfaces: string[]; 
-      price: number;
-  }>({ procedure: '', status: 'Planned', notes: '', surfaces: [], price: 0 });
-
-  // Sticky Note Edit State
   const [isEditingComplaint, setIsEditingComplaint] = useState(false);
   const [tempComplaint, setTempComplaint] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const enableCompliance = fieldSettings?.features?.enableComplianceAudit ?? true;
-
-  const selectedPatient = useMemo(() => 
-    patients.find(p => p.id === selectedPatientId) || null, 
-  [patients, selectedPatientId]);
+  const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId) || null, [patients, selectedPatientId]);
 
   useEffect(() => {
     if (selectedPatientId) {
         setActiveTab('info');
         setEditingTooth(null); 
+        logAction('VIEW_RECORD', 'Patient', selectedPatientId, `User accessed full clinical record.`);
     }
   }, [selectedPatientId]);
 
   const filteredPatients = useMemo(() => {
     let result = patients;
-    
+    // Archive Logic: Hide archived unless toggle is ON
     if (!showArchived) {
         result = result.filter(p => !p.isArchived);
     }
@@ -125,16 +169,10 @@ const PatientList: React.FC<PatientListProps> = ({
              return new Date(p.lastDigitalUpdate) > new Date(p.lastPrintedDate);
         });
     }
-
     if (searchTerm) {
-        const fuse = new Fuse(result, {
-        keys: ['name', 'firstName', 'surname', 'email', 'phone', 'insuranceProvider', 'id'],
-        threshold: 0.3,
-        distance: 100,
-        });
+        const fuse = new Fuse(result, { keys: ['name', 'firstName', 'surname', 'email', 'phone', 'insuranceProvider', 'id'], threshold: 0.3, distance: 100 });
         result = fuse.search(searchTerm).map(r => r.item);
     }
-    
     return result;
   }, [patients, searchTerm, showNeedsPrintingOnly, showArchived, enableCompliance]);
 
@@ -142,559 +180,195 @@ const PatientList: React.FC<PatientListProps> = ({
   const canDelete = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST;
   const isAdmin = currentUser.role === UserRole.ADMIN;
 
-  const isCritical = (p: Patient) => {
-    return (
-        p.seriousIllness || 
-        p.underMedicalTreatment ||
-        p.takingMedications ||
-        (p.allergies && p.allergies.length > 0 && !p.allergies.includes('None')) || 
-        (p.medicalConditions && p.medicalConditions.length > 0 && !p.medicalConditions.includes('None'))
-    );
-  };
-
-  const isPaperworkPending = (p: Patient) => {
-      if (!enableCompliance) return false;
-      if (!p.lastDigitalUpdate) return false;
-      if (!p.lastPrintedDate) return true;
-      return new Date(p.lastDigitalUpdate) > new Date(p.lastPrintedDate);
-  }
-
+  const isCritical = (p: Patient) => p.seriousIllness || p.underMedicalTreatment || p.takingMedications || (p.allergies && p.allergies.length > 0 && !p.allergies.includes('None')) || (p.medicalConditions && p.medicalConditions.length > 0 && !p.medicalConditions.includes('None'));
+  const isPaperworkPending = (p: Patient) => enableCompliance && p.lastDigitalUpdate && (!p.lastPrintedDate || new Date(p.lastDigitalUpdate) > new Date(p.lastPrintedDate));
   const critical = selectedPatient ? isCritical(selectedPatient) : false;
 
-  const confirmDelete = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (selectedPatient && window.confirm(`Are you sure you want to delete ${selectedPatient.name}? This cannot be undone.`)) {
-          onDeletePatient(selectedPatient.id);
-          toast.success(`Deleted patient ${selectedPatient.name}`);
-      }
-  };
-
-  const handleExportRecord = () => {
+  const handleSignOffToday = async () => {
       if (!selectedPatient) return;
-      const filename = `FullExport_ClinicalRecord_${selectedPatient.surname}_${selectedPatient.id}.pdf`;
-      const desc = `CONFIDENTIAL PATIENT RECORD\nPatient: ${selectedPatient.name}\nID: ${selectedPatient.id}\nExported By: ${currentUser.name}\nDate: ${new Date().toLocaleString()}`;
-      downloadMockPDF(filename, desc);
-      logAction('EXPORT_RECORD', 'Patient', selectedPatient.id, 'Full patient record exported to PDF.');
-      toast.success(`Full record exported: ${filename}`);
-  };
-
-  const handleSaveMediaConsent = (dataUrl: string) => {
-      if (!selectedPatient) return;
+      const today = new Date().toISOString().split('T')[0];
+      const todayEntries = selectedPatient.dentalChart?.filter(e => e.date === today && !e.isLocked) || [];
       
-      const newFile: PatientFile = {
-          id: `file_${Date.now()}`,
-          patientId: selectedPatient.id,
-          title: 'Signed Media Consent',
-          category: 'Media Consent',
-          fileType: 'data_url',
-          url: dataUrl,
-          uploadedBy: currentUser.id,
-          uploadedAt: new Date().toISOString()
-      };
+      if (todayEntries.length === 0) {
+          toast.info("No unsigned clinical entries found for today.");
+          return;
+      }
 
-      const updatedFiles = [...(selectedPatient.files || []), newFile];
-      onQuickUpdatePatient({
-          ...selectedPatient,
-          files: updatedFiles,
-          marketingConsent: true
-      });
-      setIsMediaConsentModalOpen(false);
-      logAction('UPDATE', 'Patient', selectedPatient.id, 'Captured Media Consent signature.');
-      toast.success('Media Consent saved to patient documents.');
+      if (window.confirm(`Are you sure you want to digitally sign off on today's clinical notes? This will lock ${todayEntries.length} entries.`)) {
+          // Fetch Trusted Time for Sign-Off
+          const { timestamp } = await getTrustedTime();
+          
+          const updatedChart = selectedPatient.dentalChart?.map(e => {
+              if (e.date === today && !e.isLocked) {
+                  return { ...e, isLocked: true, lockedInfo: { by: currentUser.name, at: timestamp } };
+              }
+              return e;
+          });
+          onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
+          logAction('SIGN_OFF_RECORD', 'ClinicalNote', selectedPatient.id, `Digitally signed off on today's notes.`);
+          toast.success("Record sealed and signed off.");
+      }
   };
 
-  const handlePrintRecord = () => {
-      if (!selectedPatient) return;
-      const filename = `ClinicalRecord_${selectedPatient.surname}_${selectedPatient.id}.pdf`;
-      const desc = `Patient: ${selectedPatient.name}\nID: ${selectedPatient.id}\nIncludes: Odontogram, Perio Chart, Ledger, Medical History`;
-      downloadMockPDF(filename, desc);
+  const handleQuickUpdateChart = (entry: DentalChartEntry) => {
+      if (!selectedPatient || isClinicalReadOnly) return;
+      const updatedChart = selectedPatient.dentalChart?.map(e => e.id === entry.id ? entry : e);
+      onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
+  };
+
+  const handleDirectChartUpdate = async (entry: DentalChartEntry) => {
+      if (!selectedPatient || isClinicalReadOnly) return;
       
-      if (enableCompliance) {
-        onQuickUpdatePatient({
-            ...selectedPatient,
-            lastPrintedDate: new Date().toISOString()
-        });
-      }
-      toast.success(`File downloaded: ${filename}`);
-  };
-
-  const handleBatchPrint = () => {
-      if (filteredPatients.length === 0) return;
-      const dateStr = new Date().toISOString().split('T')[0];
-      const filename = `Batch_Clinical_Records_${dateStr}.pdf`;
-      const names = filteredPatients.map(p => p.name).join(', ');
-      const desc = `BATCH EXPORT\nPatients: ${filteredPatients.length}\nNames: ${names}`;
-      downloadMockPDF(filename, desc);
-
-      if (enableCompliance) {
-          const updatedPatients = filteredPatients.map(p => ({
-              ...p,
-              lastPrintedDate: new Date().toISOString()
-          }));
-          if (onBulkUpdatePatients) {
-              onBulkUpdatePatients(updatedPatients);
-          } else {
-              updatedPatients.forEach(p => onQuickUpdatePatient(p));
-          }
-      }
-      toast.success(`Batch file downloaded: ${filename}`);
-      setShowNeedsPrintingOnly(false); 
-  };
-
-  // --- UPDATE HANDLERS ---
-  const handlePerioUpdate = (newData: PerioMeasurement[]) => {
-      if (!selectedPatient || isClinicalReadOnly) return;
-      onQuickUpdatePatient({
-          ...selectedPatient,
-          perioChart: newData,
-          lastDigitalUpdate: new Date().toISOString()
-      });
-      toast.success("Periodontal chart saved");
-  };
-
-  const handleToothClick = (tooth: number) => {
-      if(!selectedPatient || isClinicalReadOnly) return;
-      setEditingTooth(tooth);
-      const firstProc = fieldSettings?.procedures?.[0];
-      setToothModalData({ 
-          procedure: firstProc?.name || 'Restoration', 
-          status: 'Planned', 
-          notes: '', 
-          surfaces: [],
-          price: firstProc?.price || 0
-      });
-  };
-
-  const handleDirectChartUpdate = (entry: DentalChartEntry) => {
-      if (!selectedPatient || isClinicalReadOnly) return;
+      // Fetch Time
+      const { timestamp, isVerified } = await getTrustedTime();
+      
       const procDef = fieldSettings?.procedures.find(p => p.name === entry.procedure);
-      const entryWithPrice = {
-          ...entry,
-          price: procDef?.price || 0,
+      const entryWithPrice = { 
+          ...entry, 
+          price: procDef?.price || 0, 
           author: currentUser.name,
+          timestamp,
+          isVerifiedTimestamp: isVerified
       };
       const updatedChart = [...(selectedPatient.dentalChart || []), entryWithPrice];
-      onQuickUpdatePatient({ 
-          ...selectedPatient, 
-          dentalChart: updatedChart,
-          lastDigitalUpdate: new Date().toISOString()
-      });
+      onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart, lastDigitalUpdate: timestamp });
       toast.success(`${entry.procedure} added to tooth #${entry.toothNumber}`);
   };
 
-  const handleAddChartEntry = (newEntry: DentalChartEntry) => {
+  const handleAddChartEntry = async (newEntry: DentalChartEntry) => {
       if (!selectedPatient || isClinicalReadOnly) return;
       
-      const updatedChart = [...(selectedPatient.dentalChart || []), newEntry];
+      // Fetch Trusted Time
+      const { timestamp, isVerified } = await getTrustedTime();
       
+      const entryWithTime = {
+          ...newEntry,
+          timestamp,
+          isVerifiedTimestamp: isVerified,
+          // If the entry doesn't have a date yet, use the trusted timestamp's date part
+          date: newEntry.date || timestamp.split('T')[0]
+      };
+
+      const updatedChart = [...(selectedPatient.dentalChart || []), entryWithTime];
       let updatedLedger = selectedPatient.ledger || [];
       let newBalance = selectedPatient.currentBalance || 0;
-
-      if ((newEntry.price && newEntry.price > 0) || (newEntry.payment && newEntry.payment > 0)) {
-          if (newEntry.price && newEntry.price > 0) {
-              newBalance += newEntry.price;
-              updatedLedger = [...updatedLedger, {
-                  id: Math.random().toString(36).substr(2, 9),
-                  date: newEntry.date || new Date().toISOString().split('T')[0],
-                  description: `${newEntry.procedure} (Charge)`,
-                  type: 'Charge',
-                  amount: newEntry.price,
-                  balanceAfter: newBalance,
-                  notes: newEntry.notes
-              }];
-          }
-          if (newEntry.payment && newEntry.payment > 0) {
-              newBalance -= newEntry.payment;
-              updatedLedger = [...updatedLedger, {
-                  id: Math.random().toString(36).substr(2, 9),
-                  date: newEntry.date || new Date().toISOString().split('T')[0],
-                  description: `Payment ${newEntry.receiptNumber ? `(OR: ${newEntry.receiptNumber})` : ''}`,
-                  type: 'Payment',
-                  amount: newEntry.payment,
-                  balanceAfter: newBalance,
-                  notes: ''
-              }];
-          }
+      
+      if (entryWithTime.price && entryWithTime.price > 0) {
+          newBalance += entryWithTime.price;
+          updatedLedger = [...updatedLedger, { id: Math.random().toString(36).substr(2, 9), date: entryWithTime.date, description: `${entryWithTime.procedure} (Charge)`, type: 'Charge', amount: entryWithTime.price, balanceAfter: newBalance, notes: entryWithTime.notes }];
       }
-
-      onQuickUpdatePatient({ 
-          ...selectedPatient, 
-          dentalChart: updatedChart,
-          ledger: updatedLedger,
-          currentBalance: newBalance,
-          lastDigitalUpdate: new Date().toISOString()
-      });
-      toast.success("Entry saved to chart & ledger");
-  };
-
-  const handleSaveComplaint = () => {
-      if (!selectedPatient) return;
-      onQuickUpdatePatient({ ...selectedPatient, chiefComplaint: tempComplaint });
-      setIsEditingComplaint(false);
-      toast.success("Chief Complaint updated");
-  };
-
-  const handleAddLegacyEntry = () => {
-      if (!selectedPatient || !editingTooth) return;
-      const surfaceString = toothModalData.surfaces.sort().join('');
-      const newEntry: DentalChartEntry = {
-          id: `dc_${Date.now()}`,
-          toothNumber: editingTooth,
-          procedure: toothModalData.procedure,
-          status: toothModalData.status,
-          notes: toothModalData.notes,
-          surfaces: surfaceString,
-          price: toothModalData.price,
-          date: new Date().toISOString().split('T')[0],
-          author: currentUser.name,
-      };
-      const updatedChart = [...(selectedPatient.dentalChart || []), newEntry];
-      onQuickUpdatePatient({ 
-          ...selectedPatient, 
-          dentalChart: updatedChart,
-          lastDigitalUpdate: new Date().toISOString()
-      });
-      setToothModalData(prev => ({ ...prev, notes: '', surfaces: [] }));
-      setEditingTooth(null);
-      toast.success("Entry added to chart");
+      if (entryWithTime.payment && entryWithTime.payment > 0) {
+          newBalance -= entryWithTime.payment;
+          updatedLedger = [...updatedLedger, { id: Math.random().toString(36).substr(2, 9), date: entryWithTime.date, description: `Payment ${entryWithTime.receiptNumber ? `(OR: ${entryWithTime.receiptNumber})` : ''}`, type: 'Payment', amount: entryWithTime.payment, balanceAfter: newBalance, notes: '' }];
+      }
+      
+      onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart, ledger: updatedLedger, currentBalance: newBalance, lastDigitalUpdate: timestamp });
+      toast.success("Entry saved with trusted timestamp");
   };
 
   const InfoRow = ({ icon: Icon, label, value, subValue }: { icon: any, label: string, value?: string | number, subValue?: string }) => (
       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-          <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm shrink-0">
-            <Icon size={16} className="text-teal-600" />
-          </div>
-          <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{label}</div>
-              <div className="font-semibold text-slate-800 text-sm">{value || '-'}</div>
-              {subValue && <div className="text-xs text-slate-500">{subValue}</div>}
-          </div>
+          <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm shrink-0"><Icon size={16} className="text-teal-600" /></div>
+          <div><div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{label}</div><div className="font-semibold text-slate-800 text-sm">{value || '-'}</div>{subValue && <div className="text-xs text-slate-500">{subValue}</div>}</div>
       </div>
   );
 
   return (
     <div className="h-full flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-      
-      {/* List Column */}
       <div className={`flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col ${selectedPatientId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-slate-100 flex justify-between items-center gap-2">
-          <div className="flex-1">
-             <h2 className="text-xl font-bold text-slate-800">Patients</h2>
-          </div>
-          <button onClick={onAddPatient} className="bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium shadow-sm">
-                <UserPlus size={18} /> <span className="hidden sm:inline">New</span>
-          </button>
+          <div className="flex-1"><h2 className="text-xl font-bold text-slate-800">Patients</h2></div>
+          <button onClick={onAddPatient} className="bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium shadow-sm"><UserPlus size={18} /> <span className="hidden sm:inline">New</span></button>
         </div>
-        
         <div className="p-4 pt-2 space-y-2">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                    type="text" 
-                    placeholder="Search..." 
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
+            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/></div>
             <div className="grid grid-cols-2 gap-2">
-                {enableCompliance && (
-                    <button 
-                        onClick={() => setShowNeedsPrintingOnly(!showNeedsPrintingOnly)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold border transition-all ${
-                            showNeedsPrintingOnly ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}
-                    >
-                        <div className="flex items-center gap-2"><Printer size={16} /> Needs Printing</div>
-                        {showNeedsPrintingOnly && <CheckCircle size={16} />}
-                    </button>
-                )}
-                 {isAdmin && (
-                    <button 
-                        onClick={() => setShowArchived(!showArchived)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold border transition-all ${
-                            showArchived ? 'bg-slate-200 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}
-                    >
-                        <div className="flex items-center gap-2"><Archive size={16} /> Show Archived</div>
-                        {showArchived && <CheckCircle size={16} />}
-                    </button>
-                )}
+                {enableCompliance && (<button onClick={() => setShowNeedsPrintingOnly(!showNeedsPrintingOnly)} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold border transition-all ${showNeedsPrintingOnly ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}><div className="flex items-center gap-2"><Printer size={16} /> Needs Printing</div>{showNeedsPrintingOnly && <CheckCircle size={16} />}</button>)}
+                 {(isAdmin || currentUser.role === UserRole.DENTIST) && (<button onClick={() => setShowArchived(!showArchived)} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold border transition-all ${showArchived ? 'bg-slate-200 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}><div className="flex items-center gap-2"><Archive size={16} /> Show Archived</div>{showArchived && <CheckCircle size={16} />}</button>)}
             </div>
         </div>
-        
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {filteredPatients.length === 0 ? (
-            <div className="text-center py-8 text-slate-400"><p>No patients found.</p></div>
-          ) : (
-            filteredPatients.map(patient => (
-              <button
-                key={patient.id}
-                onClick={() => onSelectPatient(patient.id)}
-                className={`w-full text-left p-4 hover:bg-slate-50 rounded-xl transition-all group flex items-center justify-between border border-transparent hover:border-slate-100 ${selectedPatientId === patient.id ? 'bg-teal-50 border-teal-100' : ''}`}
-              >
-                <div className="flex-1 min-w-0 pr-2">
-                    <div className="flex items-center gap-2">
-                        <h3 className={`font-semibold truncate ${selectedPatientId === patient.id ? 'text-teal-800' : 'text-slate-800 group-hover:text-teal-700'}`}>{patient.name}</h3>
-                        {isCritical(patient) && <AlertTriangle size={14} className="text-red-500 fill-red-100 shrink-0" />}
-                        {isPaperworkPending(patient) && <Printer size={14} className="text-amber-500 shrink-0" />}
-                        {patient.isArchived && <Archive size={14} className="text-slate-400 shrink-0" />}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                        <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 flex items-center gap-1">
-                            <Hash size={10} className="text-slate-400"/> {patient.id}
-                        </span>
-                        {patient.currentBalance && patient.currentBalance > 0 ? (
-                            <span className="flex items-center gap-1 text-red-600 font-bold text-xs">
-                                <DollarSign size={10} /> Bal: ₱{patient.currentBalance.toLocaleString()}
-                            </span>
-                        ) : (
-                            <span className="flex items-center gap-1">
-                                <Phone size={10} className="text-slate-400"/> {patient.phone}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                <ChevronRight size={18} className={`text-slate-300 group-hover:text-teal-500 ${selectedPatientId === patient.id ? 'text-teal-500' : ''}`} />
-              </button>
-            ))
-          )}
+          {filteredPatients.length === 0 ? (<div className="text-center py-8 text-slate-400"><p>No patients found.</p></div>) : (filteredPatients.map(p => (
+              <button key={p.id} onClick={() => onSelectPatient(p.id)} className={`w-full text-left p-4 hover:bg-slate-50 rounded-xl transition-all group flex items-center justify-between border border-transparent hover:border-slate-100 ${selectedPatientId === p.id ? 'bg-teal-50 border-teal-100' : ''} ${p.isArchived ? 'opacity-60 bg-slate-100' : ''}`}><div className="flex-1 min-w-0 pr-2"><div className="flex items-center gap-2"><h3 className={`font-semibold truncate ${selectedPatientId === p.id ? 'text-teal-800' : 'text-slate-800 group-hover:text-teal-700'}`}>{p.name}</h3>{isCritical(p) && <AlertTriangle size={14} className="text-red-500 fill-red-100 shrink-0" />}{isPaperworkPending(p) && <Printer size={14} className="text-amber-500 shrink-0" />}{p.isArchived && <span className="text-[10px] bg-slate-300 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase">Archived</span>}</div><div className="flex items-center gap-3 text-sm text-slate-500 mt-1"><span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 flex items-center gap-1"><Hash size={10} className="text-slate-400"/> {p.id}</span>{p.currentBalance && p.currentBalance > 0 ? (<span className="flex items-center gap-1 text-red-600 font-bold text-xs"><DollarSign size={10} /> Bal: ₱{p.currentBalance.toLocaleString()}</span>) : (<span className="flex items-center gap-1"><Phone size={10} className="text-slate-400"/> {p.phone}</span>)}</div></div><ChevronRight size={18} className={`text-slate-300 group-hover:text-teal-500 ${selectedPatientId === p.id ? 'text-teal-500' : ''}`} /></button>
+          )))}
         </div>
       </div>
 
-      {/* Detail Column */}
       {selectedPatient ? (
         <div className="flex-[2] bg-white rounded-2xl shadow-sm border border-slate-100 p-0 relative animate-in slide-in-from-right-10 duration-300 overflow-hidden flex flex-col">
-           
-           {/* HEADER */}
-           <div 
-                className={`pt-6 px-6 pb-6 border-b sticky top-0 z-10 transition-colors duration-300 ${
-                    critical ? 'border-red-200 text-slate-900' : 'bg-white border-slate-100 text-slate-900'
-                }`}
-                style={{ backgroundColor: critical ? 'rgb(247, 185, 181)' : undefined }}
-           >
-                <button 
-                    onClick={() => onSelectPatient(null)}
-                    className={`md:hidden absolute top-4 right-4 p-2 rounded-full transition-colors ${
-                        critical ? 'bg-white/50 hover:bg-white/70 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                    }`}
-                >
-                    <X size={20} />
-                </button>
-
+           <div className={`pt-6 px-6 pb-6 border-b sticky top-0 z-10 transition-colors duration-300 ${critical ? 'border-red-200 text-slate-900' : 'bg-white border-slate-100 text-slate-900'}`} style={{ backgroundColor: critical ? 'rgb(247, 185, 181)' : undefined }}>
+                <button onClick={() => onSelectPatient(null)} className={`md:hidden absolute top-4 right-4 p-2 rounded-full transition-colors ${critical ? 'bg-white/50 hover:bg-white/70 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}><X size={20} /></button>
                 <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <h2 className="text-3xl font-bold">{selectedPatient.name}</h2>
-                            <div className="flex gap-2 mt-1">
-                                {selectedPatient.suffix && <span className="text-sm font-semibold opacity-70">{selectedPatient.suffix}</span>}
-                                <span className="text-sm font-semibold opacity-70">({selectedPatient.sex}, {selectedPatient.age} yrs)</span>
-                            </div>
-                        </div>
-                        {enableCompliance && (
-                            isPaperworkPending(selectedPatient) ? (
-                                <div className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-200 shadow-sm">
-                                    <Printer size={12} /> Paperwork Pending
-                                </div>
-                            ) : (
-                                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200 shadow-sm">
-                                    <FileCheck size={12} /> Compliant
-                                </div>
-                            )
-                        )}
+                        <div><h2 className="text-3xl font-bold">{selectedPatient.name}</h2><div className="flex gap-2 mt-1">{selectedPatient.suffix && <span className="text-sm font-semibold opacity-70">{selectedPatient.suffix}</span>}<span className="text-sm font-semibold opacity-70">({selectedPatient.sex}, {selectedPatient.age} yrs)</span></div></div>
+                        {selectedPatient.isArchived && <div className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-300">ARCHIVED RECORD</div>}
+                        {!selectedPatient.isArchived && enableCompliance && (isPaperworkPending(selectedPatient) ? (<div className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-200 shadow-sm"><Printer size={12} /> Paperwork Pending</div>) : (<div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200 shadow-sm"><FileCheck size={12} /> Compliant</div>))}
                     </div>
-                    <div className={`flex flex-wrap gap-6 text-base font-semibold mt-2 ${critical ? 'text-slate-900' : 'text-slate-500'}`}>
-                        <span className="flex items-center gap-2"><Hash size={16} strokeWidth={2.5}/> {selectedPatient.id}</span>
-                        <span className="flex items-center gap-2"><Phone size={16} strokeWidth={2.5}/> {selectedPatient.phone}</span>
-                        {(selectedPatient.currentBalance || 0) > 0 && (
-                            <span className="flex items-center gap-2 text-red-700 bg-red-100 px-2 rounded"><DollarSign size={16} strokeWidth={2.5}/> Due: ₱{selectedPatient.currentBalance?.toLocaleString()}</span>
-                        )}
-                    </div>
-
+                    <div className={`flex flex-wrap gap-6 text-base font-semibold mt-2 ${critical ? 'text-slate-900' : 'text-slate-500'}`}><span className="flex items-center gap-2"><Hash size={16} strokeWidth={2.5}/> {selectedPatient.id}</span><span className="flex items-center gap-2"><Phone size={16} strokeWidth={2.5}/> {selectedPatient.phone}</span>{(selectedPatient.currentBalance || 0) > 0 && (<span className="flex items-center gap-2 text-red-700 bg-red-100 px-2 rounded"><DollarSign size={16} strokeWidth={2.5}/> Due: ₱{selectedPatient.currentBalance?.toLocaleString()}</span>)}</div>
                     <div className="flex items-center gap-2 mt-4 flex-wrap">
                         <a href={`tel:${selectedPatient.phone}`} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="Call"><Phone size={20} /></a>
                         <a href={`sms:${selectedPatient.phone}`} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="SMS"><MessageSquare size={20} /></a>
                         <button onClick={() => onBookAppointment(selectedPatient.id)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-lilac-100 hover:bg-lilac-200 text-lilac-700'}`} title="Book"><CalendarPlus size={20} /></button>
-                        {currentUser.role === UserRole.DENTIST && fieldSettings?.features.enableEPrescription && (
-                            <button onClick={() => setIsEPrescriptionModalOpen(true)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-teal-100 hover:bg-teal-200 text-teal-700'}`} title="e-Prescribe"><Pill size={20} /></button>
-                        )}
                         <button onClick={() => onEditPatient(selectedPatient)} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`} title="Edit"><Pencil size={20} /></button>
-                        {isAdmin && (
-                            <button onClick={handleExportRecord} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-slate-100 text-slate-700'}`} title="Export Full Record"><DownloadCloud size={20} /></button>
-                        )}
-                        {enableCompliance && (
-                            <button onClick={handlePrintRecord} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${isPaperworkPending(selectedPatient) ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-100 text-slate-700'}`} title="Print Record"><Download size={20} /></button>
-                        )}
-                        {canDelete && (
-                            <button onClick={confirmDelete} className={`p-3 rounded-xl font-medium flex items-center justify-center transition-colors ${critical ? 'bg-white/40 hover:bg-white/60 text-black' : 'bg-red-100 hover:bg-red-200 text-red-700'}`} title="Delete"><Trash2 size={20} /></button>
+                        {isAdmin && (<button onClick={() => generatePatientPDF(selectedPatient, currentUser)} className={`p-3 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700`} title="Export Record"><DownloadCloud size={20} /></button>)}
+                        
+                        {/* ARCHIVE BUTTON */}
+                        {canDelete && !selectedPatient.isArchived && (
+                            <button 
+                                onClick={() => onDeletePatient(selectedPatient.id)} 
+                                className="p-3 rounded-xl font-medium bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors ml-auto" 
+                                title="Archive Patient Record"
+                            >
+                                <Archive size={20} />
+                            </button>
                         )}
                     </div>
                 </div>
            </div>
-
-           {/* Tabs */}
-           <div className="bg-white px-6 border-b border-slate-200 flex gap-6 shrink-0 z-0 overflow-x-auto">
-                {['info', 'medical', 'chart', 'perio', 'plan', 'ledger', 'documents'].map((tab) => (
-                    <button 
-                        key={tab}
-                        onClick={() => setActiveTab(tab as any)} 
-                        className={`py-4 font-bold text-sm border-b-2 transition-all whitespace-nowrap capitalize 
-                        ${activeTab === tab ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                    >
-                        {tab === 'perio' ? 'Perio Chart' : tab === 'plan' ? 'Treatment Plan' : tab}
-                    </button>
-                ))}
-           </div>
-
-           {/* Content */}
+           <div className="bg-white px-6 border-b border-slate-200 flex gap-6 shrink-0 z-0 overflow-x-auto">{['info', 'medical', 'chart', 'perio', 'plan', 'ledger', 'documents'].map(t => (<button key={t} onClick={() => setActiveTab(t as any)} className={`py-4 font-bold text-sm border-b-2 transition-all whitespace-nowrap capitalize ${activeTab === t ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>{t === 'perio' ? 'Perio Chart' : t === 'plan' ? 'Treatment Plan' : t}</button>))}</div>
            <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
-                {['chart', 'perio', 'plan'].includes(activeTab) && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 shadow-sm relative group">
-                        <div className="flex items-center gap-2 mb-2 text-yellow-800 font-bold uppercase text-xs tracking-wider">
-                            <StickyNote size={14} /> Chief Complaint / Alert
-                        </div>
-                        {isEditingComplaint ? (
-                            <div className="flex gap-2">
-                                <input type="text" autoFocus className="flex-1 bg-white border border-yellow-300 rounded p-2 text-sm" value={tempComplaint} onChange={(e) => setTempComplaint(e.target.value)} placeholder="Enter chief complaint..."/>
-                                <button onClick={handleSaveComplaint} className="px-3 py-1 bg-yellow-400 text-yellow-900 rounded font-bold text-xs hover:bg-yellow-500">Save</button>
-                                <button onClick={() => setIsEditingComplaint(false)} className="px-3 py-1 bg-white text-yellow-900 border border-yellow-200 rounded font-bold text-xs">Cancel</button>
-                            </div>
-                        ) : (
-                            <div className="flex justify-between items-start cursor-pointer" onClick={() => { setTempComplaint(selectedPatient.chiefComplaint || ''); setIsEditingComplaint(true); }}>
-                                <p className={`text-sm ${selectedPatient.chiefComplaint ? 'text-slate-800 font-medium' : 'text-slate-400 italic'}`}>{selectedPatient.chiefComplaint || 'Click to add chief complaint...'}</p>
-                                <PenLine size={14} className="text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'info' && (
-                    <div className="space-y-6">
-                        <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><UserIcon size={18} className="text-teal-600"/> Personal Demographics</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InfoRow icon={UserIcon} label="Full Name" value={selectedPatient.name} subValue={`${selectedPatient.firstName} ${selectedPatient.middleName || ''} ${selectedPatient.surname} ${selectedPatient.suffix || ''}`} />
-                                <InfoRow icon={Baby} label="Date of Birth" value={formatDate(selectedPatient.dob)} subValue={`${selectedPatient.age} years old`} />
-                                <InfoRow icon={Users} label="Sex" value={selectedPatient.sex} />
-                                <InfoRow icon={Briefcase} label="Occupation" value={selectedPatient.occupation} />
-                            </div>
-                        </section>
-                        <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Phone size={18} className="text-teal-600"/> Contact Information</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InfoRow icon={Phone} label="Mobile" value={selectedPatient.phone} />
-                                <InfoRow icon={Phone} label="Secondary Mobile" value={selectedPatient.mobile2} />
-                                <InfoRow icon={Mail} label="Email" value={selectedPatient.email} />
-                                <InfoRow icon={MapPin} label="Home Address" value={selectedPatient.homeAddress} subValue={selectedPatient.barangay} />
-                            </div>
-                        </section>
-                        <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Users size={18} className="text-teal-600"/> Family & Guardian</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InfoRow icon={UserIcon} label="Father" value={selectedPatient.fatherName} subValue={selectedPatient.fatherOccupation} />
-                                <InfoRow icon={UserIcon} label="Mother" value={selectedPatient.motherName} subValue={selectedPatient.motherOccupation} />
-                                {selectedPatient.guardian && (<><InfoRow icon={Shield} label="Guardian" value={selectedPatient.guardian} /><InfoRow icon={Phone} label="Guardian Contact" value={selectedPatient.guardianMobile} /></>)}
-                            </div>
-                        </section>
-                         <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><CreditCard size={18} className="text-teal-600"/> Insurance & Billing</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InfoRow icon={CreditCard} label="Insurance Provider" value={selectedPatient.insuranceProvider} />
-                                <InfoRow icon={Hash} label="Insurance Number" value={selectedPatient.insuranceNumber} />
-                                <InfoRow icon={UserIcon} label="Responsible Party" value={selectedPatient.responsibleParty} />
-                            </div>
-                        </section>
-                    </div>
-                )}
-
-                {activeTab === 'medical' && (
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-5 md:col-span-2">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Heart size={18} className="text-teal-600"/> Medical Overview</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center py-2 border-b border-slate-50"><span className="text-sm text-slate-500">Overall Health</span>{selectedPatient.goodHealth ? (<span className="text-sm font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Good</span>) : (<span className="text-sm font-bold text-orange-600 flex items-center gap-1"><AlertCircle size={14}/> Issues Reported</span>)}</div>
-                                    <div className="flex justify-between items-center py-2 border-b border-slate-50"><span className="text-sm text-slate-500">Blood Type</span><span className="text-sm font-bold text-slate-800 bg-slate-100 px-2 rounded">{selectedPatient.bloodGroup || 'Unknown'}</span></div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div><span className="text-xs font-bold text-slate-400 uppercase block mb-2">Allergies</span>{(selectedPatient.allergies && selectedPatient.allergies.length > 0) || selectedPatient.otherAllergies ? (<div className="flex flex-wrap gap-2">{selectedPatient.allergies?.map(a => (<span key={a} className="bg-red-50 text-red-700 border border-red-100 px-2 py-1 rounded text-xs font-bold flex items-center gap-1"><AlertTriangle size={10} /> {a}</span>))}{selectedPatient.otherAllergies && (<span className="bg-red-50 text-red-700 border border-red-100 px-2 py-1 rounded text-xs font-bold flex items-center gap-1"><AlertTriangle size={10} /> {selectedPatient.otherAllergies}</span>)}</div>) : (<span className="text-sm text-slate-400 italic">No allergies reported.</span>)}</div>
-                                    <div><span className="text-xs font-bold text-slate-400 uppercase block mb-2">Conditions</span>{(selectedPatient.medicalConditions && selectedPatient.medicalConditions.length > 0) || selectedPatient.otherConditions ? (<div className="flex flex-wrap gap-2">{selectedPatient.medicalConditions?.map(c => (<span key={c} className="bg-orange-50 text-orange-700 border border-orange-100 px-2 py-1 rounded text-xs font-bold">{c}</span>))}{selectedPatient.otherConditions && (<span className="bg-orange-50 text-orange-700 border border-orange-100 px-2 py-1 rounded text-xs font-bold">{selectedPatient.otherConditions}</span>)}</div>) : (<span className="text-sm text-slate-400 italic">No conditions reported.</span>)}</div>
-                                </div>
-                            </div>
-                        </section>
-                        <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-5 md:col-span-2">
-                             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Stethoscope size={18} className="text-teal-600"/> Detailed History</h3>
-                             <div className="space-y-4">{selectedPatient.underMedicalTreatment && (<div className="bg-slate-50 p-3 rounded-lg border border-slate-100"><span className="text-xs font-bold text-slate-500 uppercase">Under Medical Treatment</span><p className="font-medium text-slate-800 mt-1">{selectedPatient.medicalTreatmentDetails}</p></div>)}{selectedPatient.takingMedications && (<div className="bg-slate-50 p-3 rounded-lg border border-slate-100"><span className="text-xs font-bold text-slate-500 uppercase">Current Medications</span><p className="font-medium text-slate-800 mt-1">{selectedPatient.medicationDetails}</p></div>)}</div>
-                        </section>
-                     </div>
-                )}
-
                 {activeTab === 'chart' && (
                      <div className="space-y-6">
-                         <div className="flex items-center justify-between"><div><h4 className="font-bold text-slate-800 text-lg">Dental Chart</h4><p className="text-xs text-slate-400">Clinical Record & Notes</p></div><div className="bg-slate-100 p-1 rounded-xl flex gap-1"><button onClick={() => setChartViewMode('visual')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}><Grid size={16} /> <span className="hidden sm:inline">Visual</span></button><button onClick={() => setChartViewMode('notes')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'notes' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}><List size={16} /> <span className="hidden sm:inline">Notes</span></button></div></div>
-                         {chartViewMode === 'visual' ? (<div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="flex justify-between items-center mb-4"><div className="flex items-baseline gap-2"><h3 className="font-bold text-lg text-slate-800">Odontogram</h3><span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FDI Notation</span></div><div className="text-xs text-slate-400 flex items-center gap-1"><Shield size={12}/> {isClinicalReadOnly ? 'Read Only' : 'Interactive'}</div></div><Odontogram chart={selectedPatient.dentalChart || []} readOnly={isClinicalReadOnly} onToothClick={handleToothClick} onChartUpdate={handleDirectChartUpdate}/></div>) : (<div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><div className="p-4 border-b border-slate-100 bg-slate-50/50"><h3 className="font-bold text-lg text-slate-800 mb-1">Clinical Notes Log</h3><p className="text-xs text-slate-500">Chronological history of all procedures and notes.</p></div><div><Odontonotes entries={selectedPatient.dentalChart || []} onAddEntry={handleAddChartEntry} currentUser={currentUser.name} readOnly={isClinicalReadOnly} procedures={fieldSettings?.procedures || []}/></div></div>)}
+                         <div className="flex items-center justify-between">
+                            <div><h4 className="font-bold text-slate-800 text-lg">Clinical Records</h4><p className="text-xs text-slate-400">Digital charts and signed clinical notes.</p></div>
+                            <div className="flex gap-2">
+                                {(currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.ADMIN) && (
+                                    <button onClick={handleSignOffToday} className="px-4 py-2 bg-lilac-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 transition-all"><ShieldCheck size={16}/> Sign-Off Today</button>
+                                )}
+                                <div className="bg-slate-100 p-1 rounded-xl flex gap-1"><button onClick={() => setChartViewMode('visual')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}><Grid size={16} /> <span className="hidden sm:inline">Visual</span></button><button onClick={() => setChartViewMode('notes')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${chartViewMode === 'notes' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}><List size={16} /> <span className="hidden sm:inline">Notes</span></button></div>
+                            </div>
+                         </div>
+                         {chartViewMode === 'visual' ? (<div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><div className="flex justify-between items-center mb-4"><div className="flex items-baseline gap-2"><h3 className="font-bold text-lg text-slate-800">Odontogram</h3><span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FDI Notation</span></div><div className="text-xs text-slate-400 flex items-center gap-1"><Shield size={12}/> {isClinicalReadOnly ? 'Read Only' : 'Interactive'}</div></div><Odontogram chart={selectedPatient.dentalChart || []} readOnly={isClinicalReadOnly} onToothClick={setEditingTooth} onChartUpdate={handleDirectChartUpdate}/></div>) : (<div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><div className="p-4 border-b border-slate-100 bg-slate-50/50"><h3 className="font-bold text-lg text-slate-800 mb-1">Clinical Notes Log</h3><p className="text-xs text-slate-500">Locked and timestamped clinical documentation.</p></div><div><Odontonotes entries={selectedPatient.dentalChart || []} onAddEntry={handleAddChartEntry} onUpdateEntry={handleQuickUpdateChart} currentUser={currentUser.name} readOnly={isClinicalReadOnly} procedures={fieldSettings?.procedures || []}/></div></div>)}
                      </div>
                 )}
-                
-                {activeTab === 'perio' && (<PerioChart data={selectedPatient.perioChart || []} onSave={handlePerioUpdate} readOnly={isClinicalReadOnly}/>)}
-                {activeTab === 'plan' && (<TreatmentPlan patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} readOnly={false} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings?.features}/>)}
+                {activeTab === 'info' && (<section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"><h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><UserIcon size={18} className="text-teal-600"/> Personal Demographics</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><InfoRow icon={UserIcon} label="Full Name" value={selectedPatient.name} subValue={`${selectedPatient.firstName} ${selectedPatient.middleName || ''} ${selectedPatient.surname}`} /><InfoRow icon={Baby} label="Date of Birth" value={formatDate(selectedPatient.dob)} subValue={`${selectedPatient.age} years old`} /><InfoRow icon={Users} label="Sex" value={selectedPatient.sex} /><InfoRow icon={Briefcase} label="Occupation" value={selectedPatient.occupation} /></div></section>)}
                 {activeTab === 'ledger' && (<PatientLedger patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} readOnly={isClinicalReadOnly && !currentUser.canViewFinancials} onPreparePhilHealthClaim={onPreparePhilHealthClaim} fieldSettings={fieldSettings} />)}
+                {activeTab === 'perio' && (<PerioChart data={selectedPatient.perioChart || []} onSave={(d) => onQuickUpdatePatient({...selectedPatient, perioChart: d, lastDigitalUpdate: new Date().toISOString()})} readOnly={isClinicalReadOnly}/>)}
+                {activeTab === 'plan' && (<TreatmentPlan patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings?.features}/>)}
                 
+                {/* Documents Tab (NEW: Placeholder for E-Prescription) */}
                 {activeTab === 'documents' && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg text-slate-800">Patient Documents</h3>
-                            <div className="flex gap-2">
-                                <button className="px-3 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-lg flex items-center gap-2"><FileUp size={16}/> Upload File</button>
-                                <button onClick={() => setIsMediaConsentModalOpen(true)} className="px-3 py-2 text-sm font-bold text-lilac-700 bg-lilac-100 rounded-lg flex items-center gap-2"><FileSignature size={16}/> Media Consent</button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onClick={() => setIsEPrescriptionModalOpen(true)} className="p-6 bg-teal-50 border border-teal-200 rounded-xl flex items-center gap-4 hover:shadow-md transition-all">
+                            <div className="bg-white p-4 rounded-full shadow-sm text-teal-600"><Pill size={24}/></div>
+                            <div className="text-left">
+                                <h4 className="font-bold text-teal-900">Create e-Prescription</h4>
+                                <p className="text-xs text-teal-700">Generate PDF with S2 validation.</p>
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            {(selectedPatient.files || []).length > 0 ? (selectedPatient.files || []).map(file => (
-                                <div key={file.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <FileImage size={24} className="text-slate-400"/>
-                                        <div>
-                                            <p className="font-bold text-slate-800">{file.title}</p>
-                                            <p className="text-xs text-slate-500">Uploaded {formatDate(file.uploadedAt)}</p>
-                                        </div>
-                                    </div>
-                                    <button className="p-2 hover:bg-slate-200 rounded-full"><Download size={16}/></button>
-                                </div>
-                            )) : (
-                                <div className="text-center p-8 text-slate-400 italic">No documents uploaded.</div>
-                            )}
-                        </div>
+                        </button>
                     </div>
                 )}
            </div>
         </div>
-      ) : (
-        <div className="hidden md:flex flex-[2] items-center justify-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-           <div className="text-center text-slate-400"><Shield size={48} className="mx-auto mb-2 opacity-20" /><p className="font-medium">Select a patient to view full medical record</p></div>
-        </div>
-      )}
-
-      {editingTooth && selectedPatient && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4"><div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"><div className="bg-teal-900 text-white p-4 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2"><Shield size={20} /> Tooth #{editingTooth}</h3><button onClick={() => setEditingTooth(null)} className="p-1 hover:bg-white/20 rounded-full"><X size={20} /></button></div><div className="p-4 space-y-4"><button onClick={handleAddLegacyEntry} className="w-full py-2 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 shadow-sm flex items-center justify-center gap-2"><Plus size={16} /> Add to Chart</button></div></div></div>)}
+      ) : (<div className="hidden md:flex flex-[2] items-center justify-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl"><div className="text-center text-slate-400"><Shield size={48} className="mx-auto mb-2 opacity-20" /><p className="font-medium">Select a patient to view full medical record</p></div></div>)}
       
-      {selectedPatient && fieldSettings?.mediaConsentTemplate && (
-          <ConsentCaptureModal
-            isOpen={isMediaConsentModalOpen}
-            onClose={() => setIsMediaConsentModalOpen(false)}
-            onSave={handleSaveMediaConsent}
-            patient={selectedPatient}
-            appointment={{id: '', patientId: selectedPatient.id, providerId: '', branch: '', date: new Date().toISOString(), time: '', durationMinutes: 0, type: 'General', status: AppointmentStatus.SCHEDULED}} // Dummy appointment
-            provider={currentUser}
-            template={fieldSettings.mediaConsentTemplate}
-          />
-      )}
-
-      {selectedPatient && fieldSettings && (
+      {isEPrescriptionModalOpen && selectedPatient && (
           <EPrescriptionModal 
-            isOpen={isEPrescriptionModalOpen}
-            onClose={() => setIsEPrescriptionModalOpen(false)}
-            patient={selectedPatient}
-            fieldSettings={fieldSettings}
+            isOpen={isEPrescriptionModalOpen} 
+            onClose={() => setIsEPrescriptionModalOpen(false)} 
+            patient={selectedPatient} 
+            fieldSettings={fieldSettings || { medications: [] } as any}
+            currentUser={currentUser}
           />
       )}
     </div>

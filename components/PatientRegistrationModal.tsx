@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock } from 'lucide-react';
+import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
 import { useToast } from './ToastSystem';
 
 interface PatientRegistrationModalProps {
@@ -14,13 +15,14 @@ interface PatientRegistrationModalProps {
   readOnly?: boolean;
   initialData?: Patient | null;
   fieldSettings: FieldSettings; 
-  isKiosk?: boolean; // New Prop for Kiosk Mode
+  isKiosk?: boolean; 
 }
 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false }) => {
   const toast = useToast();
   const [activeSection, setActiveSection] = useState<string>('basic');
-  const [isQuickReg, setIsQuickReg] = useState(true); // Default to Quick Mode for speed
+  const [isQuickReg, setIsQuickReg] = useState(true);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
   // Refs for scrolling
   const basicRef = useRef<HTMLDivElement>(null);
@@ -179,7 +181,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
     // LEGAL COMPLIANCE
     if (!formData.dpaConsent && !isQuickReg) {
-        toast.error("Patient must agree to the Privacy Policy to proceed.");
+        toast.error("Compliance Error: Patient must accept the Privacy Policy to proceed.");
         return;
     }
     if (!formData.firstName || !formData.surname || !formData.phone) {
@@ -269,8 +271,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                                 <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
                                     <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
                                     <div>
-                                        <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
-                                        <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data for the purpose of my dental treatment, in accordance with the Data Privacy Act of 2012.</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
+                                            <button 
+                                                type="button" 
+                                                onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }}
+                                                className="text-xs bg-slate-600 px-2 py-0.5 rounded hover:bg-slate-500 flex items-center gap-1"
+                                            >
+                                                <BookOpen size={10} /> Read Policy
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data in accordance with the Data Privacy Act of 2012.</p>
                                     </div>
                                 </label>
                                 <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
@@ -280,6 +291,13 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                                         <p className="text-xs text-slate-300 mt-1">I agree to receive SMS/email reminders, promotions, and other non-essential communications from the clinic.</p>
                                     </div>
                                 </label>
+                            </div>
+                            
+                            {/* DPO Footer */}
+                            <div className="mt-6 pt-4 border-t border-slate-600 text-xs text-slate-400 flex flex-col gap-1">
+                                <span className="font-bold uppercase tracking-wider text-slate-500">Data Protection Officer (DPO) Contact:</span>
+                                <span>Atty. Compliance Officer</span>
+                                <span>dpo@dentsched-clinic.com | (02) 8888-1234</span>
                             </div>
                         </div>
                     </>
@@ -315,6 +333,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         </div>
       </div>
       
+      {/* Privacy Policy Modal Layer */}
+      <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
+
       <style>{`
         .input { width: 100%; padding: 0.75rem 1rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; }
         .input:focus { border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1); }

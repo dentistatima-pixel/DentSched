@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus, CreditCard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus, CreditCard, ArrowRightLeft } from 'lucide-react';
 import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus, FieldSettings, WaitlistEntry } from '../types';
 
 interface CalendarViewProps {
@@ -263,7 +263,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const handleSlotClick = (providerId: string, hour: number, dateIso: string) => {
       const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      onAddAppointment(dateIso, timeStr);
+      
+      // Tap-to-Move Logic
+      if (movingAptId && onMoveAppointment) {
+          onMoveAppointment(movingAptId, dateIso, timeStr, providerId);
+          setMovingAptId(null); // Clear move state
+      } else {
+          // Normal Click -> Add Appointment
+          onAddAppointment(dateIso, timeStr);
+      }
   };
 
   return (
@@ -320,7 +328,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                         </div>
                     )}
                 </div>
-                {movingAptId && <div className="mt-1 text-xs font-bold text-white bg-teal-600 px-2 py-1 rounded animate-pulse shadow-sm flex items-center gap-1"><Move size={10} /> Tap to move</div>}
+                {movingAptId ? (
+                    <div className="mt-1 text-xs font-bold text-white bg-teal-600 px-2 py-1 rounded animate-pulse shadow-sm flex items-center gap-1">
+                        <Move size={10} /> Tap destination slot...
+                        <button onClick={() => setMovingAptId(null)} className="ml-2 bg-teal-800 rounded-full p-0.5 hover:bg-teal-900"><div className="w-2 h-2 bg-white rounded-full"></div></button>
+                    </div>
+                ) : null}
             </div>
         </div>
 
@@ -443,7 +456,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                         key={`${colKey}-${hour}`} 
                                         className={`
                                             ${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative group transition-colors 
-                                            ${(draggedAptId || movingAptId || draggedWaitlistId) ? "bg-green-50/30 ring-inset ring-2 ring-green-100" : "hover:bg-slate-50/30"}
+                                            ${(draggedAptId || movingAptId || draggedWaitlistId) ? "bg-green-50/30 ring-inset ring-2 ring-green-100 cursor-crosshair" : "hover:bg-slate-50/30"}
                                         `}
                                         style={getZoneStyle(hour)} 
                                         onDragOver={handleDragOver}
@@ -473,7 +486,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                                 onAddAppointment(undefined, undefined, undefined, apt);
                                                             }}
                                                             className={`
-                                                                rounded-xl p-2 text-xs border cursor-grab active:cursor-grabbing hover:shadow-lg transition-all flex flex-col shrink-0 relative
+                                                                rounded-xl p-2 text-xs border cursor-grab active:cursor-grabbing hover:shadow-lg transition-all flex flex-col shrink-0 relative group/card
                                                                 ${apt.isBlock ? 'bg-slate-100 border-slate-200 text-slate-500 min-h-[80px]' : `${styles?.bg} ${styles?.border} ${styles?.text} min-h-[100px]`}
                                                                 ${isBeingMoved ? 'ring-4 ring-teal-400 ring-offset-2 scale-95 shadow-xl z-20 opacity-90' : ''}
                                                             `}
@@ -485,6 +498,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                                     <div className="flex justify-between items-start mb-1">
                                                                         <span className="font-bold opacity-75 flex items-center gap-1 cursor-grab"><GripHorizontal size={10} className="opacity-50" /> {apt.time}</span>
                                                                         {apt.labStatus && apt.labStatus !== LabStatus.NONE && <Beaker size={10} className="text-amber-600" />}
+                                                                        
+                                                                        {/* TAP-TO-MOVE TRIGGER */}
+                                                                        <button 
+                                                                            onClick={(e) => { e.stopPropagation(); setMovingAptId(apt.id); }}
+                                                                            className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1 bg-white/50 hover:bg-teal-500 hover:text-white rounded text-teal-600"
+                                                                            title="Move"
+                                                                        >
+                                                                            <ArrowRightLeft size={10} />
+                                                                        </button>
                                                                     </div>
                                                                     <div className="font-bold text-xs mb-1 line-clamp-2 flex items-center gap-1">
                                                                         {patient ? patient.name : 'Unknown'}

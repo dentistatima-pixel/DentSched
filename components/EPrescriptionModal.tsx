@@ -1,22 +1,25 @@
 
 import React, { useState, useMemo } from 'react';
-import { Patient, Medication, FieldSettings } from '../types';
-import { X, Pill, Printer, AlertTriangle } from 'lucide-react';
+import { Patient, Medication, FieldSettings, User } from '../types';
+import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
     onClose: () => void;
     patient: Patient;
     fieldSettings: FieldSettings;
+    currentUser: User;
 }
 
-const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings }) => {
+const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser }) => {
     const [selectedMedId, setSelectedMedId] = useState<string>('');
     const [dosage, setDosage] = useState('');
     const [instructions, setInstructions] = useState('');
     const [quantity, setQuantity] = useState('');
     
     const medications = fieldSettings.medications || [];
+    const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
     const handleMedicationSelect = (medId: string) => {
         setSelectedMedId(medId);
@@ -41,31 +44,84 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         return conflict || null;
     }, [selectedMedId, patient.allergies, medications]);
 
-    const handlePrint = () => {
-        const med = medications.find(m => m.id === selectedMedId);
-        if (!med) return;
+    // --- PDA GOLD STANDARD: S2 GUARD ---
+    const s2Violation = useMemo(() => {
+        return selectedMed?.isS2Controlled && !currentUser.s2License;
+    }, [selectedMed, currentUser.s2License]);
 
-        const content = `
-            <div style="font-family: sans-serif; padding: 20px; width: 400px; border: 1px solid #ccc;">
-                <h2 style="margin: 0;">Dr. Alexander Crentist</h2>
-                <p style="margin: 0; font-size: 12px;">General Dentistry | PRC: 0123456</p>
-                <hr style="margin: 15px 0;">
-                <p style="font-size: 12px;"><strong>Patient:</strong> ${patient.name}</p>
-                <p style="font-size: 12px;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                <div style="margin-top: 20px; border-top: 2px solid #000; padding-top: 10px;">
-                    <strong style="font-size: 24px;">Rx:</strong>
-                    <div style="margin-top: 10px;">
-                        <p style="font-size: 18px; font-weight: bold; margin: 0;">${med.name} ${dosage}</p>
-                        <p style="margin: 5px 0;"><strong>Dispense:</strong> #${quantity}</p>
-                        <p style="margin: 0;"><strong>Sig:</strong> ${instructions}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-        const printWindow = window.open('', '_blank');
-        printWindow?.document.write(content);
-        printWindow?.document.close();
-        printWindow?.print();
+    const handlePrint = () => {
+        if (!selectedMed) return;
+        if (s2Violation) return; // Hard stop
+
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a5' // Classic prescription pad size
+        });
+
+        // Header
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(currentUser.name.toUpperCase(), 74, 20, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(currentUser.specialization || 'General Dentistry', 74, 26, { align: 'center' });
+        
+        doc.setFontSize(9);
+        doc.text(`PRC No: ${currentUser.prcLicense}  |  PTR No: ${currentUser.ptrNumber}`, 74, 32, { align: 'center' });
+        if (currentUser.s2License) {
+            doc.text(`PDEA S2: ${currentUser.s2License}`, 74, 37, { align: 'center' });
+        }
+
+        // S2 Warning Banner
+        if (selectedMed.isS2Controlled) {
+            doc.setFontSize(10);
+            doc.setTextColor(128, 0, 128); // Purple
+            doc.text("CONTROLLED SUBSTANCE - YELLOW PRESCRIPTION REQUIRED", 74, 45, { align: 'center' });
+            doc.setTextColor(0, 0, 0);
+        }
+
+        // Line
+        doc.setLineWidth(0.5);
+        doc.line(15, 50, 133, 50);
+
+        // Patient Details
+        doc.setFontSize(11);
+        doc.text(`Patient: ${patient.name}`, 15, 60);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 66);
+        doc.text(`Age: ${patient.age || '-'}   Sex: ${patient.sex || '-'}`, 15, 72);
+
+        // Rx Symbol
+        doc.setFont('times', 'bolditalic');
+        doc.setFontSize(40);
+        doc.text("Rx", 15, 90);
+
+        // Meds
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text(`${selectedMed.name} ${dosage}`, 25, 95);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(12);
+        doc.text(`Disp: #${quantity}`, 25, 105);
+        
+        doc.setFont('helvetica', 'italic');
+        doc.text(`Sig: ${instructions}`, 25, 115);
+
+        // Footer / Signature
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.line(80, 170, 133, 170);
+        doc.text("Prescriber's Signature", 106, 175, { align: 'center' });
+        
+        // LEGAL DISCLAIMER
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        doc.text("This electronic prescription must be validated with a wet signature unless", 74, 195, { align: 'center' });
+        doc.text("transmitted via a DOH-accredited e-prescription system. (R.A. 8792 / DDB)", 74, 198, { align: 'center' });
+
+        doc.save(`Rx_${patient.surname}_${selectedMed.name}.pdf`);
     };
 
     if (!isOpen) return null;
@@ -97,11 +153,27 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         </div>
                     )}
 
+                    {s2Violation && (
+                         <div className="bg-lilac-100 border-l-4 border-lilac-600 text-lilac-900 p-4 rounded-r-lg shadow-md" role="alert">
+                            <div className="flex items-center gap-3">
+                                <Lock size={24} />
+                                <div>
+                                    <p className="font-bold">S2 License Verification Failed</p>
+                                    <p className="text-sm">This is a controlled substance. You must add your <strong>PDEA S2 License</strong> to your user profile to prescribe this medication.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <label className="label">Medication</label>
                         <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className="input">
                             <option value="">Select from formulary...</option>
-                            {medications.map(med => <option key={med.id} value={med.id}>{med.name}</option>)}
+                            {medications.map(med => (
+                                <option key={med.id} value={med.id}>
+                                    {med.name} {med.isS2Controlled ? '(S2 CONTROLLED)' : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -120,12 +192,21 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         <label className="label">Instructions (Sig.)</label>
                         <textarea value={instructions} onChange={e => setInstructions(e.target.value)} className="input h-24" />
                     </div>
+                    
+                    <div className="bg-slate-100 p-3 rounded-lg text-[10px] text-slate-500 italic border border-slate-200">
+                        * A legal disclaimer regarding wet signature requirements will be automatically appended to the PDF output.
+                    </div>
                 </div>
 
                 <div className="p-4 bg-white border-t border-slate-100 flex justify-end gap-3">
                     <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
-                    <button onClick={handlePrint} disabled={!selectedMedId || !quantity} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold disabled:opacity-50 flex items-center gap-2">
-                        <Printer size={20} /> Print Prescription
+                    <button 
+                        onClick={handlePrint} 
+                        disabled={!selectedMedId || !quantity || !!s2Violation} 
+                        className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${s2Violation ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-600/20'}`}
+                    >
+                        <Printer size={20} /> 
+                        {selectedMed?.isS2Controlled ? 'Generate Controlled Rx' : 'Generate Prescription'}
                     </button>
                 </div>
             </div>

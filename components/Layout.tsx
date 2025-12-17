@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
@@ -72,10 +71,10 @@ const Layout: React.FC<LayoutProps> = ({
   const badgeCount = myActiveTasks.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
+    <div className="h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">
       
       {/* Universal Mobile-Style Header */}
-      <header className="h-16 bg-teal-900 text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0">
+      <header className="h-16 bg-teal-900 text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0">
              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-lilac-400 rounded-xl flex items-center justify-center shadow-lg shadow-lilac-500/20">
                     <span className="text-white font-bold text-xl">D</span>
@@ -243,7 +242,7 @@ const Layout: React.FC<LayoutProps> = ({
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50 relative">
+      <main className="flex-1 flex flex-col h-[calc(100dvh-64px)] overflow-hidden bg-slate-50 relative">
         <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-4'} pb-24`}>
             {children}
         </div>

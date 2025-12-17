@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Patient, Appointment, AppointmentStatus } from '../types';
+import { Patient, Appointment, AppointmentStatus, AuditLogEntry } from '../types';
 import { Phone, CheckCircle, User, Calendar, Activity, ChevronRight, LogOut, RefreshCw, ArrowLeft } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
@@ -12,17 +12,17 @@ interface KioskViewProps {
   onUpdatePatient: (patient: Partial<Patient>) => void;
   onExitKiosk: () => void;
   fieldSettings: any;
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
 type KioskStep = 'welcome' | 'identify' | 'verify' | 'dashboard' | 'update';
 
-const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn, onUpdatePatient, onExitKiosk, fieldSettings }) => {
+const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn, onUpdatePatient, onExitKiosk, fieldSettings, logAction }) => {
   const toast = useToast();
   const [step, setStep] = useState<KioskStep>('welcome');
   const [identifier, setIdentifier] = useState('');
   const [foundPatient, setFoundPatient] = useState<Patient | null>(null);
   const [todaysApt, setTodaysApt] = useState<Appointment | null>(null);
-  const [isExitMenuOpen, setIsExitMenuOpen] = useState(false);
 
   // Reset when returning to welcome
   useEffect(() => {
@@ -35,9 +35,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
 
   const handleIdentify = (e: React.FormEvent) => {
       e.preventDefault();
-      // Simple lookup by phone (last 4 digits or full) or exact name match
-      // For demo: Searching by Phone is best
-      const cleanId = identifier.replace(/\D/g, ''); // Remove non-digits
+      const cleanId = identifier.replace(/\D/g, ''); 
       
       const match = patients.find(p => {
           const pPhone = p.phone.replace(/\D/g, '');
@@ -46,8 +44,6 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
 
       if (match) {
           setFoundPatient(match);
-          
-          // Find today's appointment
           const today = new Date().toLocaleDateString('en-CA');
           const apt = appointments.find(a => 
               a.patientId === match.id && 
@@ -72,16 +68,18 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
   const handlePatientSave = (updated: Partial<Patient>) => {
       onUpdatePatient(updated);
       toast.success("Information updated.");
-      setStep('dashboard'); // Return to dashboard, don't auto-exit yet
+      setStep('dashboard'); 
   };
 
-  // Exit "Secret" Gesture logic or simple button for now
   const handleExitClick = () => {
       const pin = prompt("Enter Staff PIN to Exit Kiosk:");
       if (pin === '1234') { // Mock PIN
           onExitKiosk();
       } else {
           toast.error("Incorrect PIN");
+          if (logAction) {
+              logAction('SECURITY_ALERT', 'Kiosk', 'System', `Failed Kiosk Exit Attempt: Incorrect PIN entered.`);
+          }
       }
   };
 
@@ -111,7 +109,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
 
             {step === 'welcome' && (
                 <button 
-                    onDoubleClick={handleExitClick} // Double click to avoid accidents
+                    onDoubleClick={handleExitClick} 
                     className="opacity-20 hover:opacity-100 transition-opacity p-2 text-xs font-bold text-slate-400"
                     title="Staff: Double Click to Exit"
                 >
@@ -304,7 +302,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, appointments, onCheckIn
                     onSave={handlePatientSave}
                     initialData={foundPatient}
                     fieldSettings={fieldSettings}
-                    isKiosk={true} // SPECIAL PROP
+                    isKiosk={true} 
                  />
             </div>
         )}
