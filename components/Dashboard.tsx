@@ -130,6 +130,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     return patients.filter(p => {
         if (!p.lastVisit) return false;
+        // DPA FIX: Enforce Marketing Consent
+        if (!p.marketingConsent) return false;
+        
         const d = new Date(p.lastVisit);
         return !isNaN(d.getTime()) && d < sixMonthsAgo && !p.nextVisit;
     }).slice(0, 5);

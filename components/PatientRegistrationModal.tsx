@@ -267,30 +267,30 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
                     <div className="flex items-center gap-3 mb-4">
                         <Lock size={20} />
-                        <h3 className="font-bold text-lg">Data Privacy & Consent</h3>
+                        <h3 className="font-bold text-lg">Data Privacy & Consent (DPA 2012)</h3>
                     </div>
                     <div className="space-y-4">
                         <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
                             <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <span className="font-bold text-teal-300">Privacy Policy (Required) *</span>
+                                    <span className="font-bold text-teal-300">Mandatory Data Processing *</span>
                                     <button 
                                         type="button" 
                                         onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }}
                                         className="text-xs bg-slate-600 px-2 py-0.5 rounded hover:bg-slate-500 flex items-center gap-1"
                                     >
-                                        <BookOpen size={10} /> Read Policy
+                                        <BookOpen size={10} /> Policy
                                     </button>
                                 </div>
-                                <p className="text-xs text-slate-300 mt-1">I consent to the collection and processing of my personal and medical data in accordance with the Data Privacy Act of 2012.</p>
+                                <p className="text-xs text-slate-300 mt-1">I expressly consent to the processing of my Sensitive Personal Information for the primary purposes of <strong>medical diagnosis, treatment, billing, and regulatory compliance</strong>.</p>
                             </div>
                         </label>
                         <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all">
                             <input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" />
                             <div>
-                                <span className="font-bold">Communications (Optional)</span>
-                                <p className="text-xs text-slate-300 mt-1">I agree to receive SMS/email reminders, promotions, and other non-essential communications from the clinic.</p>
+                                <span className="font-bold">Optional Communications</span>
+                                <p className="text-xs text-slate-300 mt-1">I agree to receive <strong>SMS/Email reminders, birthday greetings, and clinic promotions</strong>. I understand I can revoke this specific consent at any time.</p>
                             </div>
                         </label>
                     </div>

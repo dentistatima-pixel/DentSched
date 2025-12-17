@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase } from 'lucide-react';
-import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, PhilHealthClaimStatus, User, UserRole, AppointmentStatus } from '../types';
+import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, PhilHealthClaimStatus, User, UserRole, AppointmentStatus, HMOClaimStatus } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -14,7 +14,7 @@ interface FinancialsProps {
   appointments?: Appointment[];
   fieldSettings?: FieldSettings;
   staff?: User[];
-  currentUser: User; // NEW
+  currentUser: User;
   onUpdatePhilHealthClaim?: (updatedClaim: PhilHealthClaim) => void;
 }
 
@@ -34,6 +34,7 @@ const Financials: React.FC<FinancialsProps> = ({ claims, expenses, philHealthCla
       case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
       case 'productivity': return <ProductivityTab appointments={appointments || []} currentUser={currentUser} fieldSettings={fieldSettings} />;
       case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients} onUpdateClaim={onUpdatePhilHealthClaim} />;
+      case 'claims': return <HMOClaimsTab claims={claims} patients={patients} />;
       default: return <div className="p-10 text-center text-slate-400 italic">Interface for this financial group is under development.</div>;
     }
   };
@@ -54,7 +55,7 @@ const Financials: React.FC<FinancialsProps> = ({ claims, expenses, philHealthCla
 };
 
 const ProductivityTab: React.FC<{appointments: Appointment[], currentUser: User, fieldSettings?: FieldSettings}> = ({ appointments, currentUser, fieldSettings }) => {
-    const commissionRate = 0.30; // 30% Default for demo
+    const commissionRate = 0.30; 
     
     const myStats = useMemo(() => {
         const completed = appointments.filter(a => a.providerId === currentUser.id && a.status === AppointmentStatus.COMPLETED);
@@ -99,7 +100,6 @@ const ProductivityTab: React.FC<{appointments: Appointment[], currentUser: User,
 }
 
 const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patient[], onUpdateClaim?: (c: PhilHealthClaim) => void }> = ({ claims, patients, onUpdateClaim }) => {
-    const [editingClaim, setEditingClaim] = useState<PhilHealthClaim | null>(null);
     const getPatientName = (id: string) => patients.find(p => p.id === id)?.name || 'Unknown';
     const getStatusChip = (status: PhilHealthClaimStatus) => {
         switch(status) {
@@ -113,9 +113,36 @@ const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patie
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs"><tr className="divide-x divide-slate-100"><th className="p-4">Patient</th><th className="p-4">Procedure</th><th className="p-4">Date Submitted</th><th className="p-4 text-right">Amount Claimed</th><th className="p-4 text-center">Status</th><th className="p-4"></th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{claims.map(claim => (
-                    <tr key={claim.id} className="group hover:bg-slate-50/50"><td className="p-4 font-bold text-slate-800">{getPatientName(claim.patientId)}</td><td className="p-4">{claim.procedureName}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td><td className="p-4 text-right font-mono font-bold">₱{claim.amountClaimed.toLocaleString()}</td><td className="p-4 text-center">{getStatusChip(claim.status)}</td><td className="p-4"><button onClick={() => setEditingClaim(claim)} className="opacity-0 group-hover:opacity-100 bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-all"><Edit2 size={14}/></button></td></tr>
-                ))}</tbody>
+                <tbody className="divide-y divide-slate-100">
+                    {claims.length > 0 ? claims.map(claim => (
+                        <tr key={claim.id} className="group hover:bg-slate-50/50"><td className="p-4 font-bold text-slate-800">{getPatientName(claim.patientId)}</td><td className="p-4">{claim.procedureName}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td><td className="p-4 text-right font-mono font-bold">₱{claim.amountClaimed.toLocaleString()}</td><td className="p-4 text-center">{getStatusChip(claim.status)}</td><td className="p-4"><button className="opacity-0 group-hover:opacity-100 bg-slate-100 p-1.5 rounded text-slate-500 hover:bg-slate-200 transition-all"><Edit2 size={14}/></button></td></tr>
+                    )) : <tr><td colSpan={6} className="p-10 text-center text-slate-400 italic">No PhilHealth claims recorded.</td></tr>}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+// NEW: HMO Claims Tab
+const HMOClaimsTab: React.FC<{ claims: HMOClaim[], patients: Patient[] }> = ({ claims, patients }) => {
+    const getPatientName = (id: string) => patients.find(p => p.id === id)?.name || 'Unknown';
+    const getStatusChip = (status: HMOClaimStatus) => {
+        switch(status) {
+            case HMOClaimStatus.PAID: return <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle size={10}/> Paid</span>;
+            case HMOClaimStatus.PENDING: return <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Clock size={10}/> Pending</span>;
+            case HMOClaimStatus.REJECTED: return <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Rejected</span>;
+            default: return <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{status}</span>;
+        }
+    }
+    return (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs"><tr className="divide-x divide-slate-100"><th className="p-4">Patient</th><th className="p-4">Provider</th><th className="p-4">Procedure</th><th className="p-4">Date Submitted</th><th className="p-4 text-right">Amount Claimed</th><th className="p-4 text-center">Status</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                    {claims.length > 0 ? claims.map(claim => (
+                        <tr key={claim.id} className="group hover:bg-slate-50/50"><td className="p-4 font-bold text-slate-800">{getPatientName(claim.patientId)}</td><td className="p-4 font-bold text-blue-700">{claim.hmoProvider}</td><td className="p-4">{claim.procedureName}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td><td className="p-4 text-right font-mono font-bold">₱{claim.amountClaimed.toLocaleString()}</td><td className="p-4 text-center">{getStatusChip(claim.status)}</td></tr>
+                    )) : <tr><td colSpan={6} className="p-10 text-center text-slate-400 italic">No HMO claims recorded.</td></tr>}
+                </tbody>
             </table>
         </div>
     );
