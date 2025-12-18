@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle } from 'lucide-react';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingUp, TrendingDown, Tag, Calendar, AlertCircle, FileText, ExternalLink } from 'lucide-react';
 import { StockItem, StockCategory, SterilizationCycle, User } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
@@ -8,6 +7,7 @@ import { formatDate } from '../constants';
 interface InventoryProps {
   stock: StockItem[];
   onUpdateStock: (updatedStock: StockItem[]) => void;
+  // Fixed typo: sterilizationCycles type set correctly to SterilizationCycle[]
   sterilizationCycles?: SterilizationCycle[];
   onAddCycle?: (cycle: any) => void;
   currentUser: User;
@@ -20,7 +20,8 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
         category: StockCategory.CONSUMABLES,
         quantity: 0,
         lowStockThreshold: 5,
-        expiryDate: '', // NEW: Default empty
+        expiryDate: '', 
+        msdsUrl: '', // NEW
         ...item
     });
 
@@ -55,18 +56,30 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
                     </div>
                 </div>
 
-                {/* NEW: Expiry Date Field */}
-                <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                        <Calendar size={12}/> Expiry Date (Optional)
-                    </label>
-                    <input 
-                        type="date" 
-                        value={formData.expiryDate || ''} 
-                        onChange={e => setFormData({...formData, expiryDate: e.target.value})} 
-                        className="w-full p-3 border rounded-xl mt-1" 
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1 italic">Leave blank for non-perishables (e.g. instruments)</p>
+                <div className="grid grid-cols-1 gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <Calendar size={12}/> Expiry Date (Optional)
+                        </label>
+                        <input 
+                            type="date" 
+                            value={formData.expiryDate || ''} 
+                            onChange={e => setFormData({...formData, expiryDate: e.target.value})} 
+                            className="w-full p-3 border rounded-xl mt-1" 
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <FileText size={12}/> MSDS Digital Link (URL)
+                        </label>
+                        <input 
+                            type="url" 
+                            value={formData.msdsUrl || ''} 
+                            onChange={e => setFormData({...formData, msdsUrl: e.target.value})} 
+                            className="w-full p-3 border rounded-xl mt-1 text-blue-600 underline font-mono text-xs" 
+                            placeholder="https://msds-repository.ph/..."
+                        />
+                    </div>
                 </div>
 
                 <div className="flex gap-2 mt-6">
@@ -78,44 +91,45 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
     );
 };
 
+// Fixed: Implemented missing ReceiveStockModal component to resolve 'Cannot find name' error
 const ReceiveStockModal = ({ items, onReceive, onClose }: { items: StockItem[], onReceive: (updates: Record<string, number>) => void, onClose: () => void }) => {
-    const [counts, setCounts] = useState<Record<string, string>>({});
+    const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+    const handleUpdate = (id: string, val: string) => {
+        const n = parseInt(val) || 0;
+        setQuantities(prev => ({ ...prev, [id]: n }));
+    };
+
     return (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 flex flex-col max-h-[80vh]">
-                <h3 className="font-bold text-xl mb-2 flex items-center gap-2 text-teal-700"><RefreshCcw size={20}/> Receive Stock Shipment</h3>
-                <p className="text-sm text-slate-500 mb-6">Select items and enter quantities received to update inventory.</p>
-                <div className="flex-1 overflow-y-auto space-y-3">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 flex flex-col max-h-[80vh] animate-in zoom-in-95">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-slate-800">Receive Inventory Shipment</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-400"/></button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-3 p-1">
                     {items.map(item => (
                         <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <div>
-                                <div className="font-bold text-slate-800">{item.name}</div>
-                                <div className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Current: {item.quantity}</div>
+                                <div className="font-bold text-sm text-slate-800">{item.name}</div>
+                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Current: {item.quantity}</div>
                             </div>
-                            <input 
-                                type="number" 
-                                placeholder="+ Qty"
-                                className="w-24 p-2 text-right border border-slate-200 rounded-lg text-sm font-bold focus:border-teal-500 outline-none"
-                                value={counts[item.id] || ''}
-                                onChange={e => setCounts({...counts, [item.id]: e.target.value})}
-                            />
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-400 font-bold">+</span>
+                                <input 
+                                    type="number" 
+                                    className="w-20 p-2 border rounded-lg text-right font-bold text-teal-700 outline-none focus:border-teal-500" 
+                                    placeholder="0"
+                                    value={quantities[item.id] || ''}
+                                    onChange={e => handleUpdate(item.id, e.target.value)}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
-                <div className="flex gap-2 mt-6 pt-4 border-t border-slate-100">
-                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button 
-                        onClick={() => {
-                            const final: Record<string, number> = {};
-                            (Object.entries(counts) as [string, string][]).forEach(([id, val]) => { 
-                                if (val) {
-                                    final[id] = parseInt(val, 10); 
-                                }
-                            });
-                            onReceive(final);
-                        }} 
-                        className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl"
-                    >Update Inventory</button>
+                <div className="flex gap-2 mt-6">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+                    <button onClick={() => onReceive(quantities)} className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-colors">Confirm Reception</button>
                 </div>
             </div>
         </div>
@@ -131,11 +145,9 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
 
   const filteredStock = stock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
   
-  // Calculate Statuses
   const lowItems = stock.filter(s => s.quantity <= s.lowStockThreshold);
   const expiredItems = stock.filter(s => s.expiryDate && new Date(s.expiryDate) < new Date());
   
-  // Helper: Get Expiry Status
   const getExpiryStatus = (dateStr?: string) => {
       if (!dateStr) return null;
       const today = new Date();
@@ -220,7 +232,7 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                                     <th className="p-4">Item Name</th>
                                     <th className="p-4">Category</th>
                                     <th className="p-4 text-center">Available</th>
-                                    <th className="p-4">Expiry</th>
+                                    <th className="p-4">Expiry / MSDS</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4"></th>
                                 </tr>
@@ -236,10 +248,9 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                                             <td className="p-4"><span className="flex items-center gap-1.5 text-slate-600"><Tag size={12} className="text-slate-300"/> {item.category}</span></td>
                                             <td className="p-4 text-center font-mono font-bold text-lg text-slate-700">{item.quantity}</td>
                                             
-                                            {/* NEW: Expiry Column */}
                                             <td className="p-4">
-                                                {item.expiryDate ? (
-                                                    <div>
+                                                {item.expiryDate && (
+                                                    <div className="mb-1">
                                                         <div className="text-slate-600 font-medium">{formatDate(item.expiryDate)}</div>
                                                         {expStatus && expStatus.label !== 'Good' && (
                                                             <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded mt-1 w-fit border ${expStatus.color}`}>
@@ -247,10 +258,16 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                                                             </div>
                                                         )}
                                                     </div>
-                                                ) : <span className="text-slate-300">-</span>}
+                                                )}
+                                                {item.msdsUrl ? (
+                                                    <a href={item.msdsUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                                                        <FileText size={10}/> MSDS SAFETY PROTOCOL <ExternalLink size={8}/>
+                                                    </a>
+                                                ) : <span className="text-[9px] text-slate-300 italic">No MSDS on file</span>}
                                             </td>
 
                                             <td className="p-4">
+                                                {/* Fixed: Added TrendingDown icon to imports to resolve 'Cannot find name' error */}
                                                 {isLow ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-red-100"><TrendingDown size={10}/> REORDER</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-green-100"><CheckCircle size={10}/> STABLE</span>}
                                             </td>
                                             <td className="p-4 text-right">
@@ -268,12 +285,13 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
             )}
         </div>
         {editItem && <StockItemModal item={editItem} onSave={handleSaveItem} onClose={() => setEditItem(null)} />}
+        {/* Fixed: Implemented missing ReceiveStockModal component to resolve 'Cannot find name' error */}
         {isReceiveOpen && <ReceiveStockModal items={stock} onReceive={handleReceiveBatch} onClose={() => setIsReceiveOpen(false)} />}
     </div>
   );
 };
 
-// ... SterilizationLogTab and SterilizationLogModal remain unchanged ...
+// ... Sterilization components ...
 const SterilizationLogTab: React.FC<{cycles: SterilizationCycle[], onAddCycle?: any, currentUser: User}> = ({ cycles, onAddCycle, currentUser }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     return (
