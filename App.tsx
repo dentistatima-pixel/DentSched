@@ -12,7 +12,7 @@ import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import PatientPortal from './components/PatientPortal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -24,8 +24,8 @@ import { getTrustedTime } from './services/timeService';
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
 const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
-const TERMS_VERSION = '1.0-2024'; // Increment this to force re-acceptance
-const PBKDF2_ITERATIONS = 600000; // NIST Recommendation for 2025
+const TERMS_VERSION = '1.0-2024'; 
+const PBKDF2_ITERATIONS = 600000; 
 
 // --- DIFFING UTILITY ---
 const generateDiff = (oldObj: any, newObj: any): string => {
@@ -50,13 +50,11 @@ const generateDiff = (oldObj: any, newObj: any): string => {
 function App() {
   const toast = useToast();
   
-  // --- AUTH & ENCRYPTION STATE ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // --- DATA STATE (Starts Empty, Loaded on Login) ---
   const [activeTab, setActiveTab] = useState('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -66,47 +64,37 @@ function App() {
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
   const [tasks, setTasks] = useState<PinboardTask[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [incidents, setIncidents] = useState<ClinicalIncident[]>([]); 
+  const [referrals, setReferrals] = useState<Referral[]>([]); 
   
-  // --- CLAIMS STATE ---
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
 
-  // --- SESSION STATE ---
   const [isTermsAccepted, setIsTermsAccepted] = useState(() => {
-      // Check local storage for SPECIFIC version
       const acceptedVersion = localStorage.getItem('dentsched_terms_version');
       return acceptedVersion === TERMS_VERSION;
   });
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const idleTimerRef = useRef<any>(null);
-  const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Min
+  const IDLE_TIMEOUT_MS = 15 * 60 * 1000; 
 
-  // --- LOGIN & DECRYPTION HANDLER ---
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
 
-      // Use setTimeout to allow UI to render "Verifying..." before blocking thread
       setTimeout(async () => {
           try {
-              // 1. Get or Init Dynamic Salt
               let salt = localStorage.getItem(SALT_KEY);
               if (!salt) {
-                  // Migration: If data exists but no salt, assume legacy hardcoded salt to preserve access
                   if (localStorage.getItem(CANARY_KEY)) {
                       salt = "dentsched-salt-v1"; 
                   } else {
-                      // Fresh install: Generate robust random salt
                       salt = CryptoJS.lib.WordArray.random(128/8).toString();
                   }
                   localStorage.setItem(SALT_KEY, salt);
               }
 
-              // 2. Derive Key from Password using Dynamic Salt (PBKDF2)
-              // NOTE: High iterations (600k) will block thread for ~500ms-1s depending on device
               const derivedKey = CryptoJS.PBKDF2(passwordInput, salt, { keySize: 256/32, iterations: PBKDF2_ITERATIONS }).toString();
-
-              // 3. Validate Key against Canary
               const storedCanary = localStorage.getItem(CANARY_KEY);
               
               if (storedCanary) {
@@ -122,12 +110,10 @@ function App() {
                       return;
                   }
               } else {
-                  // First run: Set canary
                   const encryptedCanary = CryptoJS.AES.encrypt(VERIFICATION_TOKEN, derivedKey).toString();
                   localStorage.setItem(CANARY_KEY, encryptedCanary);
               }
 
-              // 4. Success: Set Key & Load Data
               setEncryptionKey(derivedKey);
               await loadSecureData(derivedKey);
               setIsAuthenticated(true);
@@ -148,7 +134,7 @@ function App() {
           try {
               const bytes = CryptoJS.AES.decrypt(enc, key);
               return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-          } catch { return def; } // Should not happen if canary passed
+          } catch { return def; } 
       };
 
       setAppointments(load('dentsched_appointments', APPOINTMENTS));
@@ -160,6 +146,8 @@ function App() {
       setTasks(load('dentsched_pinboard_tasks', []));
       setHmoClaims(load('dentsched_hmo_claims', MOCK_CLAIMS));
       setPhilHealthClaims(load('dentsched_philhealth_claims', []));
+      setIncidents(load('dentsched_incidents', []));
+      setReferrals(load('dentsched_referrals', []));
       
       const savedSettings = load('dentsched_fields', null);
       if (savedSettings) {
@@ -171,8 +159,6 @@ function App() {
       }
   };
 
-  // --- SECURE SAVE EFFECT ---
-  // Only runs when authenticated and key exists
   useEffect(() => {
       if (!isAuthenticated || !encryptionKey) return;
 
@@ -191,11 +177,12 @@ function App() {
       save('dentsched_fields', fieldSettings);
       save('dentsched_hmo_claims', hmoClaims);
       save('dentsched_philhealth_claims', philHealthClaims);
+      save('dentsched_incidents', incidents);
+      save('dentsched_referrals', referrals);
 
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, isAuthenticated, encryptionKey]);
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, isAuthenticated, encryptionKey]);
 
 
-  // --- IDLE TIMER ---
   const resetIdleTimer = () => {
       if (isSessionLocked || !isAuthenticated) return;
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -216,7 +203,6 @@ function App() {
   }, [isSessionLocked, isAuthenticated]);
 
 
-  // --- TRUSTED TIMESTAMP LOGGING ---
   const logAction = async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, previousState?: any, newState?: any) => {
       if (!fieldSettings.features.enableAccountabilityLog) return;
       
@@ -226,7 +212,6 @@ function App() {
           finalDetails = `${details} [Changes: ${diff}]`;
       }
 
-      // FETCH ATOMIC TIME
       const { timestamp, isVerified } = await getTrustedTime();
 
       const newLog: AuditLogEntry = {
@@ -243,7 +228,6 @@ function App() {
       setAuditLog(prev => [newLog, ...prev]);
   };
 
-  // --- SECURE AUDIT LOG EXPORT ---
   const handleExportSecureAuditLog = () => {
       if (!auditLog.length) {
           toast.info("Audit log is empty.");
@@ -261,7 +245,6 @@ function App() {
       };
 
       const dataStr = JSON.stringify(exportData, null, 2);
-      // Create hash for integrity
       const hash = CryptoJS.SHA256(dataStr).toString();
       const finalPayload = JSON.stringify({ ...exportData, signature: hash }, null, 2);
 
@@ -279,42 +262,21 @@ function App() {
       toast.success("Secure Audit Log exported.");
   };
 
-  // --- DATABASE BACKUP & RESTORE ---
   const handleDatabaseBackup = () => {
       if (!isAuthenticated || !encryptionKey) return;
       
       const backupData = {
-          metadata: {
-              version: '1.0',
-              timestamp: new Date().toISOString(),
-              exportedBy: currentUser.name,
-              type: 'FULL_BACKUP'
-          },
-          data: {
-              appointments,
-              patients,
-              staff,
-              stock,
-              sterilizationCycles,
-              auditLog,
-              tasks,
-              fieldSettings,
-              hmoClaims,
-              philHealthClaims
-          }
+          metadata: { version: '1.0', timestamp: new Date().toISOString(), exportedBy: currentUser.name, type: 'FULL_BACKUP' },
+          data: { appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals }
       };
 
-      // Encrypt the entire backup with the current session key
       const encryptedBackup = CryptoJS.AES.encrypt(JSON.stringify(backupData), encryptionKey).toString();
-      
       const blob = new Blob([encryptedBackup], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `dentsched_backup_${new Date().toISOString().split('T')[0]}.db`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       logAction('EXPORT_RECORD', 'System', 'Database', 'Executed full encrypted database backup.');
@@ -331,14 +293,11 @@ function App() {
               const bytes = CryptoJS.AES.decrypt(encryptedContent, encryptionKey);
               const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
               
-              if (!decryptedString) {
-                  throw new Error("Decryption failed. Invalid key or file.");
-              }
+              if (!decryptedString) throw new Error("Decryption failed. Invalid key or file.");
 
               const backupData = JSON.parse(decryptedString);
               if (!backupData.data) throw new Error("Invalid backup format.");
 
-              // Restore State
               const { data } = backupData;
               if (data.appointments) setAppointments(data.appointments);
               if (data.patients) setPatients(data.patients);
@@ -350,6 +309,8 @@ function App() {
               if (data.fieldSettings) setFieldSettings(data.fieldSettings);
               if (data.hmoClaims) setHmoClaims(data.hmoClaims);
               if (data.philHealthClaims) setPhilHealthClaims(data.philHealthClaims);
+              if (data.incidents) setIncidents(data.incidents);
+              if (data.referrals) setReferrals(data.referrals);
 
               logAction('UPDATE', 'System', 'Database', 'Restored database from backup file.');
               toast.success("Database restored successfully.");
@@ -365,14 +326,7 @@ function App() {
   const [currentPatientUser, setCurrentPatientUser] = useState<Patient | null>(null);
   
   const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
-      const newTask: PinboardTask = {
-          id: Date.now().toString(),
-          text,
-          isCompleted: false,
-          isUrgent,
-          assignedTo: assignedTo || undefined,
-          createdAt: Date.now()
-      };
+      const newTask: PinboardTask = { id: Date.now().toString(), text, isCompleted: false, isUrgent, assignedTo: assignedTo || undefined, createdAt: Date.now() };
       setTasks(prev => [newTask, ...prev]);
   };
 
@@ -385,22 +339,15 @@ function App() {
   };
 
   const handleAddCycle = (cycleData: any) => {
-      const newCycle: SterilizationCycle = {
-          id: `cycle_${Date.now()}`,
-          date: new Date().toISOString(),
-          operator: currentUser.name,
-          ...cycleData
-      };
+      const newCycle: SterilizationCycle = { id: `cycle_${Date.now()}`, date: new Date().toISOString(), operator: currentUser.name, ...cycleData };
       setSterilizationCycles(prev => [newCycle, ...prev]);
       logAction('CREATE', 'Inventory', newCycle.id, `Logged Sterilization Cycle ${newCycle.cycleNumber}`);
   };
 
-  // Auth State
   const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
   const [isInKioskMode, setIsInKioskMode] = useState(false);
   const [currentBranch, setCurrentBranch] = useState<string>('Makati Branch');
 
-  // Sync Current User after load
   useEffect(() => {
       if (staff.length > 0 && !currentUser.id) {
           setCurrentUser(staff[0]);
@@ -410,7 +357,6 @@ function App() {
       }
   }, [staff]);
 
-  // View States
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState<string | undefined>(undefined);
   const [bookingTime, setBookingTime] = useState<string | undefined>(undefined);
@@ -423,11 +369,7 @@ function App() {
   const branchAppointments = appointments.filter(a => a.branch === currentBranch);
 
   const handleOpenBooking = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => {
-    setBookingDate(date);
-    setBookingTime(time);
-    setInitialBookingPatientId(patientId);
-    setEditingAppointment(appointmentToEdit || null);
-    setIsAppointmentModalOpen(true);
+    setBookingDate(date); setBookingTime(time); setInitialBookingPatientId(patientId); setEditingAppointment(appointmentToEdit || null); setIsAppointmentModalOpen(true);
   };
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
@@ -460,11 +402,7 @@ function App() {
         setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
         setEditingPatient(null);
     } else {
-        const newPatient: Patient = {
-            ...dataWithTimestamp as Patient,
-            id: newPatientData.id || `p_new_${Date.now()}`,
-            lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || ''
-        };
+        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '' };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
         setPatients(prev => [...prev, newPatient]);
         if (!newPatient.provisional) { setSelectedPatientId(newPatient.id); setActiveTab('patients'); }
@@ -506,26 +444,15 @@ function App() {
       toast.success("Patient archived successfully.");
   };
 
-  // --- DPA COMPLIANT SECURE PURGE ---
   const handlePurgePatient = (patientId: string) => {
       const p = patients.find(pt => pt.id === patientId);
       if (!p) return;
-      
-      // First confirmation (Intent)
       if (!window.confirm(`SECURE PURGE PROTOCOL\n\nAre you sure you want to permanently delete the record for ${p.name}? This action complies with the Right to Erasure but is IRREVERSIBLE.`)) return;
-
-      // Second confirmation (Safety Popup - Explicit Request)
       if (!window.confirm(`FINAL SAFETY CHECK\n\nThis will also remove all associated appointments, claims, and clinical history for ${p.name}.\n\nClick OK to confirm PERMANENT DESTRUCTION.`)) return;
-
-      // Cascade Delete
       setPatients(prev => prev.filter(pt => pt.id !== patientId));
       setAppointments(prev => prev.filter(a => a.patientId !== patientId));
       setHmoClaims(prev => prev.filter(c => c.patientId !== patientId));
       setPhilHealthClaims(prev => prev.filter(c => c.patientId !== patientId));
-      
-      // Note: We deliberately do NOT delete the specific audit log entries about this patient to maintain the "Certificate of Destruction" 
-      // trail, but the patient object itself is gone.
-      
       logAction('DESTRUCTION_CERTIFICATE', 'DataArchive', patientId, `Securely purged patient record and associated data: ${p.name} (Retention Period Expired/Right to Erasure)`);
       toast.success("Record and all associated data securely purged.");
   };
@@ -574,81 +501,39 @@ function App() {
     doc.save("report.pdf");
   };
 
-  // --- NEW: CLAIM CREATION HANDLER ---
   const handleCreateClaim = (patientId: string, ledgerEntryId: string, provider: string, amount: number, type: 'HMO' | 'PhilHealth') => {
       if (type === 'HMO') {
-          const newHmoClaim: HMOClaim = {
-              id: `hmo_${Date.now()}`,
-              patientId,
-              ledgerEntryId,
-              hmoProvider: provider,
-              procedureName: 'Dental Service', // Simplified for demo
-              amountClaimed: amount,
-              status: HMOClaimStatus.SUBMITTED,
-              dateSubmitted: new Date().toISOString()
-          };
+          const newHmoClaim: HMOClaim = { id: `hmo_${Date.now()}`, patientId, ledgerEntryId, hmoProvider: provider, procedureName: 'Dental Service', amountClaimed: amount, status: HMOClaimStatus.SUBMITTED, dateSubmitted: new Date().toISOString() };
           setHmoClaims(prev => [...prev, newHmoClaim]);
           logAction('CREATE', 'Claim', newHmoClaim.id, `Generated HMO Claim for ${provider}`);
       } else {
-          const newPhClaim: PhilHealthClaim = {
-              id: `ph_${Date.now()}`,
-              patientId,
-              ledgerEntryId,
-              procedureName: 'Dental Service',
-              amountClaimed: amount,
-              status: PhilHealthClaimStatus.SUBMITTED,
-              dateSubmitted: new Date().toISOString()
-          };
+          const newPhClaim: PhilHealthClaim = { id: `ph_${Date.now()}`, patientId, ledgerEntryId, procedureName: 'Dental Service', amountClaimed: amount, status: PhilHealthClaimStatus.SUBMITTED, dateSubmitted: new Date().toISOString() };
           setPhilHealthClaims(prev => [...prev, newPhClaim]);
           logAction('CREATE', 'Claim', newPhClaim.id, `Generated PhilHealth Claim`);
       }
   };
 
-  // --- WIRE UP BACKUP TRIGGER FOR FIELD MANAGEMENT ---
   useEffect(() => {
       const handleTrigger = () => handleDatabaseBackup();
       window.addEventListener('trigger-backup', handleTrigger);
       return () => window.removeEventListener('trigger-backup', handleTrigger);
-  }, [isAuthenticated, encryptionKey, appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims]);
+  }, [isAuthenticated, encryptionKey, appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals]);
 
-
-  // --- RENDER GATES ---
 
   if (!isAuthenticated) {
       return (
           <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
               <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
                   <div className="flex flex-col items-center mb-8">
-                      <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-600/20 mb-4">
-                          <ShieldCheck size={32} className="text-white"/>
-                      </div>
+                      <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-600/20 mb-4"><ShieldCheck size={32} className="text-white"/></div>
                       <h1 className="text-2xl font-bold text-slate-800">Secure Access</h1>
                       <p className="text-slate-500 text-center text-sm mt-2">Data is encrypted at rest. Enter your password to derive the decryption key.</p>
                   </div>
-                  
                   <form onSubmit={handleLogin} className="space-y-4">
-                      <div>
-                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
-                          <input 
-                            type="password" 
-                            required
-                            value={passwordInput}
-                            onChange={e => setPasswordInput(e.target.value)}
-                            className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-lg font-bold"
-                            placeholder="••••••••"
-                          />
-                      </div>
-                      <button 
-                        type="submit" 
-                        disabled={isInitializing || !passwordInput}
-                        className="w-full py-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xl shadow-teal-600/20 transition-all flex items-center justify-center gap-2"
-                      >
-                          {isInitializing ? 'Verifying...' : 'Unlock System'}
-                      </button>
+                      <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-lg font-bold" placeholder="••••••••" /></div>
+                      <button type="submit" disabled={isInitializing || !passwordInput} className="w-full py-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xl shadow-teal-600/20 transition-all flex items-center justify-center gap-2">{isInitializing ? 'Verifying...' : 'Unlock System'}</button>
                   </form>
-                  <p className="text-[10px] text-center text-slate-400 mt-6">
-                      Security Protocol: PBKDF2 Key Derivation • AES-256 Encryption
-                  </p>
+                  <p className="text-[10px] text-center text-slate-400 mt-6">Security Protocol: PBKDF2 Key Derivation • AES-256 Encryption</p>
               </div>
           </div>
       )
@@ -658,10 +543,7 @@ function App() {
       return (
           <div className="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center p-4">
               <div className="bg-white max-w-lg w-full rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
-                  <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl">D</div>
-                      <h1 className="text-2xl font-bold text-slate-900">Terms of Use Update</h1>
-                  </div>
+                  <div className="flex items-center gap-3 mb-6"><div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl">D</div><h1 className="text-2xl font-bold text-slate-900">Terms of Use Update</h1></div>
                   <div className="h-64 overflow-y-auto bg-slate-50 p-4 rounded-xl text-sm text-slate-600 border border-slate-200 mb-6 leading-relaxed">
                       <p className="font-bold text-slate-800 mb-2">Version {TERMS_VERSION}</p>
                       <p className="font-bold text-slate-800 mb-2">Liability Disclaimer</p>
@@ -669,12 +551,7 @@ function App() {
                       <p className="font-bold text-slate-800 mb-2">Data Privacy & Security</p>
                       <p>You agree to handle data in accordance with DPA 2012. You acknowledge that data security depends on your password strength.</p>
                   </div>
-                  <button onClick={() => {
-                      localStorage.setItem('dentsched_terms_version', TERMS_VERSION);
-                      setIsTermsAccepted(true);
-                  }} className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-                      <CheckCircle size={20}/> I Accept New Terms & Enter System
-                  </button>
+                  <button onClick={() => { localStorage.setItem('dentsched_terms_version', TERMS_VERSION); setIsTermsAccepted(true); }} className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"><CheckCircle size={20}/> I Accept New Terms & Enter System</button>
               </div>
           </div>
       );
@@ -682,41 +559,21 @@ function App() {
 
   if (isSessionLocked) {
       return (
-          <div className="fixed inset-0 bg-teal-900/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white">
-              <Lock size={64} className="mb-6 opacity-80" />
-              <h2 className="text-3xl font-bold mb-2">Session Locked</h2>
-              <p className="opacity-70 mb-8">Your session timed out due to inactivity (15m).</p>
-              <button onClick={() => { setIsSessionLocked(false); resetIdleTimer(); }} className="px-8 py-3 bg-white text-teal-900 font-bold rounded-xl hover:scale-105 transition-transform shadow-xl">
-                  Resume Session
-              </button>
-          </div>
+          <div className="fixed inset-0 bg-teal-900/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white"><Lock size={64} className="mb-6 opacity-80" /><h2 className="text-3xl font-bold mb-2">Session Locked</h2><p className="opacity-70 mb-8">Your session timed out due to inactivity (15m).</p><button onClick={() => { setIsSessionLocked(false); resetIdleTimer(); }} className="px-8 py-3 bg-white text-teal-900 font-bold rounded-xl hover:scale-105 transition-transform shadow-xl">Resume Session</button></div>
       );
   }
 
   if (isInKioskMode) {
-      return <KioskView 
-          patients={patients}
-          appointments={appointments}
-          onCheckIn={(id) => handleUpdateAppointmentStatus(id, AppointmentStatus.ARRIVED)}
-          onUpdatePatient={handleQuickUpdatePatient}
-          onExitKiosk={() => setIsInKioskMode(false)}
-          fieldSettings={fieldSettings}
-          logAction={logAction} 
-      />;
+      return <KioskView patients={patients} appointments={appointments} onCheckIn={(id) => handleUpdateAppointmentStatus(id, AppointmentStatus.ARRIVED)} onUpdatePatient={handleQuickUpdatePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} />;
   }
 
   if (isPatientPortalActive && currentPatientUser) {
-      return <PatientPortal 
-          patient={currentPatientUser}
-          appointments={appointments.filter(a => a.patientId === currentPatientUser.id)}
-          staff={staff}
-          onExit={handlePatientPortalToggle}
-      />;
+      return <PatientPortal patient={currentPatientUser} appointments={appointments.filter(a => a.patientId === currentPatientUser.id)} staff={staff} auditLog={auditLog} onExit={handlePatientPortalToggle} />;
   }
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={branchAppointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={openNewPatientModal} onPatientSelect={handlePatientSelectFromDashboard} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={handleCompleteRegistration} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} onChangeBranch={setCurrentBranch} onSaveConsent={handleSaveConsent} onPatientPortalToggle={handlePatientPortalToggle} />;
+      case 'dashboard': return <Dashboard appointments={branchAppointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={openNewPatientModal} onPatientSelect={handlePatientSelectFromDashboard} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={handleCompleteRegistration} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} onChangeBranch={setCurrentBranch} onSaveConsent={handleSaveConsent} onPatientPortalToggle={handlePatientPortalToggle} logAction={logAction} />; // Updated
       case 'schedule': return <CalendarView appointments={branchAppointments} staff={staff} onAddAppointment={handleOpenBooking} onMoveAppointment={handleMoveAppointment} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={openNewPatientModal} onEditPatient={handleEditPatientClick} onQuickUpdatePatient={handleQuickUpdatePatient} onBulkUpdatePatients={handleBulkUpdatePatients} onDeletePatient={handleDeletePatient} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} fieldSettings={fieldSettings} logAction={logAction} onCreateClaim={handleCreateClaim} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} />;
@@ -724,16 +581,7 @@ function App() {
       case 'field-mgmt': 
         if (currentUser.role !== UserRole.ADMIN) { setActiveTab('dashboard'); return null; }
         return (
-            <FieldManagement 
-                settings={fieldSettings} 
-                onUpdateSettings={handleUpdateFieldSettings} 
-                staff={staff} 
-                onUpdateStaff={handleUpdateStaffList} 
-                auditLog={auditLog} 
-                patients={patients} 
-                onPurgePatient={handlePurgePatient} 
-                onExportAuditLog={handleExportSecureAuditLog}
-            />
+            <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} onExportAuditLog={handleExportSecureAuditLog} incidents={incidents} />
         );
       default: return null;
     }
@@ -744,18 +592,7 @@ function App() {
       {renderContent()}
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} onSavePatient={handleSavePatient} patients={patients} staff={staff} appointments={branchAppointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => { setIsPatientModalOpen(false); setEditingPatient(null); }} onSave={handleSavePatient} readOnly={currentUser.role === 'Dental Assistant' && currentUser.isReadOnly} initialData={editingPatient} fieldSettings={fieldSettings} />
-      <input 
-        id="restore-db-input"
-        type="file" 
-        accept=".db" 
-        style={{ display: 'none' }} 
-        onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-                handleDatabaseRestore(e.target.files[0]);
-            }
-            e.target.value = ''; 
-        }}
-      />
+      <input id="restore-db-input" type="file" accept=".db" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) { handleDatabaseRestore(e.target.files[0]); } e.target.value = ''; }} />
     </Layout>
   );
 }

@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
-import { LedgerEntry, Patient, FieldSettings } from '../types';
-import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard, Heart, Ban, AlertCircle, Shield } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { LedgerEntry, Patient, FieldSettings, DiscountType } from '../types';
+import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard, Heart, Ban, AlertCircle, Shield, Tag, Hash } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -18,342 +18,133 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     const toast = useToast();
     const [mode, setMode] = useState<'view' | 'add_charge' | 'add_payment'>('view');
     
-    // Form State
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    
-    // Claim State
-    const [createClaim, setCreateClaim] = useState(false);
-    const [claimProvider, setClaimProvider] = useState('');
-
-    // Void State
-    const [voidItem, setVoidItem] = useState<LedgerEntry | null>(null);
-    const [voidReason, setVoidReason] = useState('');
+    const [discountType, setDiscountType] = useState<DiscountType>('None');
+    const [idNumber, setIdNumber] = useState('');
+    const [orNumber, setOrNumber] = useState(''); // NEW: Sequenced OR
 
     const ledger = useMemo(() => patient.ledger || [], [patient.ledger]);
-    const currentBalance = useMemo(() => {
-        if (ledger.length === 0) return 0;
-        return ledger[ledger.length - 1].balanceAfter;
-    }, [ledger]);
+    const currentBalance = useMemo(() => ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter, [ledger]);
+
+    // NEW: Deterministic OR Sequencing Logic
+    useEffect(() => {
+        if (mode === 'add_payment') {
+            const booklet = fieldSettings?.receiptBooklets?.find(b => b.isActive);
+            if (booklet) {
+                // Find highest existing OR in this patient or system mock (using prefix)
+                const lastOr = ledger.filter(e => e.orNumber?.startsWith(booklet.prefix || '')).map(e => parseInt(e.orNumber?.replace(/\D/g, '') || '0')).sort((a,b) => b-a)[0];
+                const nextVal = (lastOr || booklet.seriesStart - 1) + 1;
+                setOrNumber(`${booklet.prefix || ''}${nextVal.toString().padStart(4, '0')}`);
+            }
+        }
+    }, [mode, fieldSettings, ledger]);
 
     const handleTransaction = (e: React.FormEvent) => {
         e.preventDefault();
         const val = parseFloat(amount);
-        if (isNaN(val) || val <= 0) {
-            toast.error("Please enter a valid amount");
-            return;
-        }
-        if (!description.trim()) {
-            toast.error("Please enter a description");
-            return;
-        }
-        if (createClaim && !claimProvider) {
-            toast.error("Please select an Insurance/HMO provider");
+        if (isNaN(val) || val <= 0) { toast.error("Enter valid amount"); return; }
+        
+        if ((discountType === 'Senior Citizen' || discountType === 'PWD') && !idNumber.trim()) {
+            toast.error(`Mandatory: Please enter the ${discountType} ID number for tax auditing.`);
             return;
         }
 
         const type = mode === 'add_charge' ? 'Charge' : 'Payment';
-        
-        const newBalance = type === 'Charge' 
-            ? currentBalance + val 
-            : currentBalance - val;
-
-        const newEntryId = Math.random().toString(36).substr(2, 9);
+        const newBalance = type === 'Charge' ? currentBalance + val : currentBalance - val;
         const newEntry: LedgerEntry = {
-            id: newEntryId,
-            date,
-            description,
-            type,
-            amount: val,
-            balanceAfter: newBalance,
-            notes: createClaim ? `Billed to ${claimProvider}` : ''
+            id: Math.random().toString(36).substr(2, 9), date, description, type, amount: val, balanceAfter: newBalance,
+            discountType: discountType !== 'None' ? discountType : undefined,
+            idNumber: idNumber.trim() || undefined,
+            orNumber: type === 'Payment' ? orNumber : undefined,
+            notes: discountType !== 'None' ? `${discountType} Applied (ID: ${idNumber})` : ''
         };
 
-        const updatedLedger = [...ledger, newEntry];
-        
-        onUpdatePatient({
-            ...patient,
-            ledger: updatedLedger,
-            currentBalance: newBalance
-        });
-
-        // Trigger Claim Creation
-        if (createClaim && onCreateClaim && type === 'Charge') {
-            const claimType = claimProvider === 'PhilHealth' ? 'PhilHealth' : 'HMO';
-            onCreateClaim(patient.id, newEntryId, claimProvider, val, claimType);
-            toast.success(`Charge added & ${claimType} claim created`);
-        } else {
-            toast.success(`${type} recorded successfully`);
-        }
-
-        setMode('view');
-        setAmount('');
-        setDescription('');
-        setCreateClaim(false);
-        setClaimProvider('');
-    };
-
-    const handleVoidConfirm = () => {
-        if (!voidItem || !voidReason.trim()) {
-            toast.error("Void reason is required for audit trail.");
-            return;
-        }
-
-        // Logic: Create a reversing entry
-        // If voiding a Charge -> Add a Credit (Payment/Adjustment)
-        // If voiding a Payment -> Add a Debit (Charge)
-        
-        const isReversingCharge = voidItem.type === 'Charge';
-        const reversalType = isReversingCharge ? 'Adjustment' : 'Charge'; // Adjustment acts like payment reducing balance
-        
-        // Calculate new balance
-        const reversalAmount = voidItem.amount;
-        const newBalance = isReversingCharge
-            ? currentBalance - reversalAmount
-            : currentBalance + reversalAmount;
-
-        const reversalEntry: LedgerEntry = {
-            id: `void_${Date.now()}`,
-            date: new Date().toISOString().split('T')[0],
-            description: `VOID: ${voidItem.description} - [${voidReason}]`,
-            type: reversalType,
-            amount: reversalAmount,
-            balanceAfter: newBalance,
-            notes: `Reversal of transaction ${voidItem.id}`
-        };
-
-        const updatedLedger = [...ledger, reversalEntry];
-
-        onUpdatePatient({
-            ...patient,
-            ledger: updatedLedger,
-            currentBalance: newBalance
-        });
-
-        toast.success("Transaction voided successfully.");
-        setVoidItem(null);
-        setVoidReason('');
+        onUpdatePatient({ ...patient, ledger: [...ledger, newEntry], currentBalance: newBalance });
+        setMode('view'); setAmount(''); setDescription(''); setDiscountType('None'); setIdNumber(''); setOrNumber('');
+        toast.success(`${type} recorded`);
     };
 
     return (
         <div className="h-full flex flex-col bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative">
-            
-            {/* Header / Stats */}
-            <div className="bg-white p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm z-10">
+            <div className="bg-white p-6 border-b flex justify-between items-center shadow-sm z-10">
+                <div className="flex items-center gap-4"><div className="bg-emerald-100 p-3 rounded-xl text-emerald-700"><DollarSign size={28}/></div><div><h3 className="font-bold text-lg">Financial Ledger</h3><p className="text-xs text-slate-500">Compliance & Billing</p></div></div>
                 <div className="flex items-center gap-4">
-                    <div className="bg-emerald-100 p-3 rounded-xl text-emerald-700">
-                        <DollarSign size={28} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-800 text-lg">Financial Ledger</h3>
-                        <p className="text-xs text-slate-500">Statement of Account & Payments</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                    <div className="text-right">
-                        <span className="block text-[10px] font-bold uppercase text-slate-400">Outstanding Balance</span>
-                        <span className={`text-2xl font-bold ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                            ₱{currentBalance.toLocaleString()}
-                        </span>
-                    </div>
+                    <div className="text-right"><span className="block text-[10px] font-bold uppercase text-slate-400">Balance</span><span className={`text-2xl font-bold ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span></div>
                     {!readOnly && (
                         <div className="flex gap-2">
-                             <button 
-                                onClick={() => { setMode('add_charge'); setDescription(''); setAmount(''); setCreateClaim(false); }}
-                                className="bg-white border border-slate-200 text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors"
-                             >
-                                <Plus size={16} /> Charge
-                             </button>
-                             <button 
-                                onClick={() => { setMode('add_payment'); setDescription('Payment - Cash'); setAmount(''); }}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-sm"
-                             >
-                                <CreditCard size={16} /> Payment
-                             </button>
+                             <button onClick={() => setMode('add_charge')} className="bg-white border px-4 py-2 rounded-xl font-bold text-sm">Charge</button>
+                             <button onClick={() => setMode('add_payment')} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm">Payment</button>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Form Area (Conditional) */}
             {mode !== 'view' && (
-                <div className="p-4 bg-slate-100 border-b border-slate-200 animate-in slide-in-from-top-2">
-                    <form onSubmit={handleTransaction} className="max-w-3xl mx-auto bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex flex-col gap-4">
-                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                            {mode === 'add_charge' ? <ArrowUpRight className="text-red-500"/> : <ArrowDownLeft className="text-emerald-500"/>}
-                            {mode === 'add_charge' ? 'Add New Charge' : 'Record Payment'}
-                        </h4>
-                        
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                            </div>
-                            <div className="flex-[2]">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
-                                <input 
-                                    type="text" 
-                                    value={description} 
-                                    onChange={e => setDescription(e.target.value)} 
-                                    placeholder={mode === 'add_charge' ? "e.g. Consultation Fee" : "e.g. Cash Payment"}
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                    autoFocus 
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Amount</label>
-                                <input 
-                                    type="number" 
-                                    value={amount} 
-                                    onChange={e => setAmount(e.target.value)} 
-                                    placeholder="0.00"
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-right" 
-                                />
-                            </div>
+                <div className="p-4 bg-slate-100 border-b animate-in slide-in-from-top-2">
+                    <form onSubmit={handleTransaction} className="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-xl border border-slate-200 space-y-4">
+                        <h4 className="font-bold text-slate-800 flex items-center gap-2">{mode === 'add_charge' ? 'New Charge' : 'New Payment'}</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2"><input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." className="w-full p-3 bg-slate-50 border rounded-xl" autoFocus required/></div>
+                            <div><label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm" /></div>
+                            <div><label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Amount (₱)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-bold text-right" required/></div>
                         </div>
 
-                        {/* CLAIMS INTEGRATION (Only for Charges) */}
-                        {mode === 'add_charge' && onCreateClaim && (
-                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex items-center gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={createClaim} 
-                                        onChange={e => setCreateClaim(e.target.checked)} 
-                                        className="w-5 h-5 accent-blue-600 rounded"
-                                    />
-                                    <span className="text-sm font-bold text-blue-800">Bill to Insurance/HMO?</span>
-                                </label>
-                                
-                                {createClaim && (
-                                    <select 
-                                        value={claimProvider} 
-                                        onChange={e => setClaimProvider(e.target.value)}
-                                        className="flex-1 p-2 border border-blue-200 rounded-lg text-sm bg-white"
-                                        required
-                                    >
-                                        <option value="">- Select Provider -</option>
-                                        <option value="PhilHealth">PhilHealth</option>
-                                        {fieldSettings?.insuranceProviders.map(p => (
-                                            <option key={p} value={p}>{p}</option>
-                                        ))}
-                                    </select>
-                                )}
+                        {mode === 'add_payment' && (
+                            <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                                <label className="text-[10px] font-bold text-teal-800 uppercase ml-1 flex items-center gap-1"><Hash size={12}/> Suggested Next BIR Official Receipt (OR) #</label>
+                                <input type="text" value={orNumber} onChange={e => setOrNumber(e.target.value)} className="w-full p-3 border border-teal-300 rounded-xl bg-white font-mono font-bold text-teal-900" placeholder="OR-0000" />
+                                <p className="text-[10px] text-teal-600 mt-1 italic">Sequential numbering is mandatory for BIR compliance.</p>
                             </div>
                         )}
 
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                             <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase"><Tag size={14}/> Discount Category</div>
+                             <select value={discountType} onChange={e => setDiscountType(e.target.value as DiscountType)} className="w-full p-2 border rounded-lg bg-white text-sm">
+                                <option value="None">No Discount / Regular</option>
+                                <option value="Senior Citizen">Senior Citizen (20% + VAT Exempt)</option>
+                                <option value="PWD">PWD (20% + VAT Exempt)</option>
+                                <option value="PhilHealth">PhilHealth Case Rate</option>
+                                <option value="Employee">Employee Discount</option>
+                             </select>
+                             {(discountType === 'Senior Citizen' || discountType === 'PWD') && (
+                                 <div className="animate-in fade-in slide-in-from-top-1">
+                                     <label className="text-[10px] font-bold text-red-600 ml-1 uppercase">Mandatory: OSCA / PWD ID Number</label>
+                                     <input type="text" value={idNumber} onChange={e => setIdNumber(e.target.value)} className="w-full p-2 border border-red-200 rounded-lg text-sm focus:border-red-500 outline-none" placeholder="Enter ID #..." required />
+                                 </div>
+                             )}
+                        </div>
+
                         <div className="flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={() => setMode('view')} className="px-6 py-2 text-slate-500 hover:bg-slate-100 rounded-xl font-bold">
-                                Cancel
-                            </button>
-                            <button type="submit" className="bg-slate-900 text-white px-8 py-2 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-lg">
-                                Confirm Transaction
-                            </button>
+                            <button type="button" onClick={() => setMode('view')} className="px-6 py-2 text-slate-500 font-bold">Cancel</button>
+                            <button type="submit" className="bg-slate-900 text-white px-8 py-2 rounded-xl font-bold shadow-lg">Process Transaction</button>
                         </div>
                     </form>
                 </div>
             )}
 
-            {/* Ledger Table */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                {ledger.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50">
-                        <Receipt size={48} className="mb-2"/>
-                        <p>No transactions recorded.</p>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-xs">
-                                <tr>
-                                    <th className="p-4">Date</th>
-                                    <th className="p-4">Description</th>
-                                    <th className="p-4 text-center">Type</th>
-                                    <th className="p-4 text-right">Amount</th>
-                                    <th className="p-4 text-right">Balance</th>
-                                    <th className="p-4 w-10"></th>
+            <div className="flex-1 overflow-y-auto p-4">
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px]"><tr><th className="p-4 text-left">Date</th><th className="p-4 text-left">Description / OR</th><th className="p-4 text-right">Amount</th><th className="p-4 text-right">Balance</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {[...ledger].reverse().map((entry) => (
+                                <tr key={entry.id} className="hover:bg-slate-50 group">
+                                    <td className="p-4 text-slate-500 font-mono text-xs">{formatDate(entry.date)}</td>
+                                    <td className="p-4 font-medium">
+                                        {entry.description}
+                                        {entry.orNumber && <span className="ml-2 font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">OR: {entry.orNumber}</span>}
+                                        {entry.discountType && <span className="ml-2 bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded font-bold">{entry.discountType}</span>}
+                                    </td>
+                                    <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-600' : 'text-emerald-600'}`}>₱{entry.amount.toLocaleString()}</td>
+                                    <td className="p-4 text-right font-mono font-bold text-slate-500 bg-slate-50/50">₱{entry.balanceAfter.toLocaleString()}</td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {[...ledger].reverse().map((entry) => {
-                                    const isVoid = entry.description.startsWith('VOID:');
-                                    const isReversal = entry.description.startsWith('Reversal of');
-                                    
-                                    return (
-                                        <tr key={entry.id} className={`hover:bg-slate-50 transition-colors group ${isVoid || isReversal ? 'bg-slate-50/50 opacity-60' : ''}`}>
-                                            <td className="p-4 text-slate-500 font-mono text-xs whitespace-nowrap">
-                                                {formatDate(entry.date)}
-                                            </td>
-                                            <td className="p-4 font-medium text-slate-700">
-                                                <div className={`${isVoid ? 'line-through decoration-red-500 decoration-2' : ''}`}>{entry.description}</div>
-                                                {entry.notes && <div className="text-xs text-slate-400 italic mt-0.5">{entry.notes}</div>}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {entry.type === 'Charge' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-600 text-[10px] font-bold uppercase border border-red-100">
-                                                        <ArrowUpRight size={10} /> Charge
-                                                    </span>
-                                                )}
-                                                {(entry.type === 'Payment' || entry.type === 'Adjustment') && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase border border-emerald-100">
-                                                        <ArrowDownLeft size={10} /> {entry.type}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className={`p-4 text-right font-bold ${isVoid ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                                                ₱{entry.amount.toLocaleString()}
-                                            </td>
-                                            <td className="p-4 text-right font-mono font-bold text-slate-500 bg-slate-50/50 group-hover:bg-slate-100/50 transition-colors">
-                                                ₱{entry.balanceAfter.toLocaleString()}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {!isVoid && !isReversal && !readOnly && (
-                                                    <button 
-                                                        onClick={() => setVoidItem(entry)}
-                                                        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                        title="Void Transaction"
-                                                    >
-                                                        <Ban size={16} />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
-            {/* Void Modal */}
-            {voidItem && (
-                <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-slate-200 animate-in zoom-in-95">
-                        <div className="flex items-center gap-3 text-red-600 mb-4">
-                            <AlertCircle size={24} />
-                            <h3 className="font-bold text-lg">Void Transaction</h3>
-                        </div>
-                        <p className="text-sm text-slate-600 mb-4">
-                            Are you sure you want to void <strong>{voidItem.description}</strong> (₱{voidItem.amount})? 
-                            This will create a reversing entry in the ledger.
-                        </p>
-                        <textarea 
-                            className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500/20 outline-none mb-4"
-                            placeholder="Reason for voiding (Required)..."
-                            value={voidReason}
-                            onChange={e => setVoidReason(e.target.value)}
-                            autoFocus
-                        />
-                        <div className="flex gap-2">
-                            <button onClick={() => setVoidItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">Cancel</button>
-                            <button onClick={handleVoidConfirm} className="flex-1 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20">Confirm Void</button>
-                        </div>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </div>
         </div>
     );
 };

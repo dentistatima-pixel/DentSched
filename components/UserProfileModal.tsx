@@ -1,7 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, FieldSettings, UserPreferences } from '../types';
-import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye } from 'lucide-react';
+import { User, UserRole, FieldSettings, UserPreferences, ImmunizationRecord } from '../types';
+// Added CheckCircle to lucide-react imports
+import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle } from 'lucide-react';
+// Added formatDate import from constants
+import { formatDate } from '../constants';
 
 interface UserProfileModalProps {
   user: User;
@@ -14,6 +16,10 @@ interface UserProfileModalProps {
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClose, onSave, fieldSettings }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<User>(user);
+  
+  // Immunization temp state
+  const [newImmType, setNewImmType] = useState('Hepatitis B');
+  const [newImmDate, setNewImmDate] = useState('');
 
   useEffect(() => {
     setFormData(user);
@@ -30,7 +36,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
     }));
   };
 
-  // Handle toggling nested preference objects
   const handlePreferenceToggle = (prefKey: keyof UserPreferences) => {
       setFormData(prev => {
           const currentPrefs = prev.preferences || {};
@@ -53,6 +58,17 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
               return { ...prev, allowedBranches: [...currentBranches, branch] };
           }
       });
+  };
+
+  const addImmunization = () => {
+      if (!newImmDate) return;
+      const newRec: ImmunizationRecord = { type: newImmType, date: newImmDate };
+      setFormData(prev => ({ ...prev, immunizations: [...(prev.immunizations || []), newRec] }));
+      setNewImmDate('');
+  };
+
+  const removeImmunization = (idx: number) => {
+      setFormData(prev => ({ ...prev, immunizations: (prev.immunizations || []).filter((_, i) => i !== idx) }));
   };
 
   const handleSave = () => {
@@ -103,7 +119,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-center p-4">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
-        {/* Header Profile Card */}
         <div className="bg-teal-900 text-white p-6 relative shrink-0">
           <div className="absolute top-4 right-4 flex gap-2">
             {!isEditing && onSave && (
@@ -126,20 +141,42 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
             
-            {/* 1. PERSONAL PREFERENCES (User Toggleable) */}
+            {/* Staff Immunization Tracker */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-200 pb-2 mb-3">
+                    <CheckCircle size={18} /> DOH Immunization Record
+                </div>
+                <div className="space-y-2">
+                    {(formData.immunizations || []).map((imm, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100 text-sm">
+                            <div><span className="font-bold text-slate-700">{imm.type}</span><div className="text-[10px] text-slate-400 font-bold uppercase">Date: {formatDate(imm.date)}</div></div>
+                            {isEditing && <button onClick={() => removeImmunization(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>}
+                        </div>
+                    ))}
+                    {isEditing && (
+                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                            <select value={newImmType} onChange={e => setNewImmType(e.target.value)} className="w-full p-2 text-xs border rounded-lg">
+                                <option>Hepatitis B</option><option>Influenza</option><option>COVID-19</option><option>Tdap</option><option>Other</option>
+                            </select>
+                            <div className="flex gap-2">
+                                <input type="date" value={newImmDate} onChange={e => setNewImmDate(e.target.value)} className="flex-1 p-2 text-xs border rounded-lg" />
+                                <button onClick={addImmunization} className="bg-teal-600 text-white p-2 rounded-lg"><Plus size={14}/></button>
+                            </div>
+                        </div>
+                    )}
+                    {(!formData.immunizations || formData.immunizations.length === 0) && !isEditing && <p className="text-[10px] text-slate-400 italic text-center py-2">No vaccination records on file.</p>}
+                </div>
+            </div>
+
             <div>
                  <div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-100 pb-2 mb-3">
                     <Sliders size={18} /> Workflow Preferences
                 </div>
                 <div className="grid grid-cols-1 gap-2">
-                    {/* Common */}
                     <TogglePreference label="Show Lab Case Alerts" prefKey="showLabAlerts" />
                     <TogglePreference label="Auto-Open Medical History" prefKey="autoOpenMedicalHistory" />
-                    
-                    {/* Role Specific */}
                     {(formData.role === UserRole.DENTIST || formData.role === UserRole.ADMIN) && (
                         <TogglePreference label="Show Financial Goals" prefKey="showFinancials" />
                     )}
@@ -152,7 +189,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                 </div>
             </div>
 
-            {/* 2. OPERATIONAL SETTINGS */}
             <div>
                  <div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-100 pb-2 mb-3">
                     <Settings size={18} /> Operational Defaults
@@ -186,13 +222,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                 )}
             </div>
 
-            {/* 3. REGULATORY & ADMIN (Compliance for E-Prescription) */}
             {(formData.role === UserRole.DENTIST || formData.role === UserRole.ADMIN) && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-100 pb-2"><Shield size={18} /> Regulatory Compliance</div>
                     {isEditing ? (
                         <>
-                            <div className="grid grid-cols-2 gap-4"><InputField label="PRC License" name="prcLicense" value={formData.prcLicense} /><InputField label="Valid Until" name="prcValidity" value={formData.prcValidity} type="date" /></div>
+                            <div className="grid grid-cols-2 gap-4"><InputField label="PRC License" name="prcLicense" value={formData.prcLicense} /><InputField label="Valid Until" name="prcExpiry" value={formData.prcExpiry} type="date" /></div>
                             <div className="grid grid-cols-2 gap-4"><InputField label="PTR Number" name="ptrNumber" value={formData.ptrNumber} /><InputField label="TIN" name="tin" value={formData.tin} /></div>
                             <div className="grid grid-cols-2 gap-4"><InputField label="S2 License (PDEA)" name="s2License" value={formData.s2License} /><InputField label="PDA Chapter" name="pdaChapter" value={formData.pdaChapter} /></div>
                         </>
@@ -206,20 +241,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                 <div className="bg-slate-50 p-3 rounded-lg"><span className="block text-xs text-slate-500 font-bold uppercase">TIN</span><span className="font-mono font-bold text-slate-800 text-sm">{formData.tin || '---'}</span></div>
                                 <div className="bg-slate-50 p-3 rounded-lg"><span className="block text-xs text-slate-500 font-bold uppercase">S2 License</span><span className="font-mono font-bold text-slate-800 text-sm">{formData.s2License || '---'}</span></div>
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-lg border-l-4 border-lilac-400">
-                                <span className="block text-xs text-slate-500 font-bold uppercase">PDA Chapter</span>
-                                <span className="font-bold text-slate-800">{formData.pdaChapter || 'No Chapter Assigned'}</span>
-                            </div>
                         </div>
                     )}
                 </div>
-            )}
-
-            {formData.role === UserRole.ADMIN && (
-                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-red-800 font-bold border-b border-red-100 pb-2"><Server size={18} /> System Privileges</div>
-                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-center"><span className="block text-[10px] text-red-400 font-bold uppercase mb-1">Data Access</span><span className="font-bold text-red-900 text-sm">Full Control</span></div>
-                 </div>
             )}
         </div>
 

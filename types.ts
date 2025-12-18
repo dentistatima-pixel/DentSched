@@ -116,6 +116,7 @@ export interface StockItem {
   lowStockThreshold: number;
   lastRestockDate?: string;
   expiryDate?: string;
+  batchNumber?: string;
 }
 
 export interface SterilizationCycle {
@@ -125,6 +126,27 @@ export interface SterilizationCycle {
     cycleNumber: string;
     operator: string;
     passed: boolean;
+}
+
+export interface WasteLogEntry {
+    id: string;
+    date: string;
+    type: 'Sharps' | 'Bio-hazard (Yellow)' | 'Amalgam' | 'General Medical';
+    manifestNumber: string;
+    transporterName: string;
+    weightKg: number;
+    collectedBy: string;
+}
+
+export interface AssetMaintenanceEntry {
+    id: string;
+    assetName: string;
+    serialNumber: string;
+    date: string;
+    type: 'Preventive' | 'Repair' | 'Calibration';
+    technician: string;
+    notes: string;
+    nextDueDate?: string;
 }
 
 export interface Expense {
@@ -142,10 +164,31 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral';
   entityId: string;
   details: string;
+}
+
+export interface ClinicalIncident {
+    id: string;
+    patientId: string;
+    date: string;
+    severity: 'Minor' | 'Moderate' | 'Major';
+    category: 'Anesthetic Reaction' | 'Instrument Breakage' | 'Unexpected Bleeding' | 'Post-op Infection' | 'Other';
+    description: string;
+    managementTaken: string;
+    reportedBy: string;
+}
+
+export interface Referral {
+    id: string;
+    patientId: string;
+    date: string;
+    referredTo: string;
+    reason: string;
+    status: 'Pending' | 'Completed' | 'Declined';
+    notes?: string;
 }
 
 export interface ProcedureItem {
@@ -238,7 +281,7 @@ export interface Vendor {
     contactPerson: string;
     contactNumber: string;
     email: string;
-    dsaSignedDate?: string; // Data Sharing Agreement
+    dsaSignedDate?: string; 
     dsaExpiryDate?: string;
     status: 'Active' | 'Suspended' | 'Pending Review';
     notes?: string;
@@ -270,7 +313,7 @@ export interface FieldSettings {
   clinicalNoteTemplates?: ClinicalNoteTemplate[];
   postOpTemplates?: Record<string, string>;
   mediaConsentTemplate?: ConsentFormTemplate;
-  vendors?: Vendor[]; // NEW: Vendor Compliance
+  vendors?: Vendor[]; 
 }
 
 export enum TreatmentPlanStatus {
@@ -299,6 +342,7 @@ export interface DentalChartEntry {
   toothNumber: number;
   procedure: string;
   status: TreatmentStatus;
+  isBaseline?: boolean; 
   surfaces?: string;
   price?: number;
   payment?: number;
@@ -306,14 +350,19 @@ export interface DentalChartEntry {
   balance?: number;
   signature?: string;
   drawing?: string;
-  date?: string; // Legacy YYYY-MM-DD
-  timestamp?: string; // NEW: ISO Timestamp for sorting/evidence
-  isVerifiedTimestamp?: boolean; // NEW: Trusted Time flag
+  date?: string; 
+  timestamp?: string; 
+  isVerifiedTimestamp?: boolean; 
   notes?: string;
+  subjective?: string; 
+  objective?: string;  
+  assessment?: string; 
+  plan?: string;       
   author?: string;
   planId?: string;
   isVoid?: boolean;
   isLocked?: boolean; 
+  materialBatchId?: string; 
   lockedInfo?: {
       by: string;
       at: string;
@@ -327,6 +376,7 @@ export interface DentalChartEntry {
       amends: string;
       by: string;
       at: string;
+      previousNote: string; // NEW: Strikethrough transparency
   };
 }
 
@@ -337,6 +387,8 @@ export interface PerioMeasurement {
   bleeding: boolean[];             
   mobility: 0 | 1 | 2 | 3 | null;
 }
+
+export type DiscountType = 'None' | 'Senior Citizen' | 'PWD' | 'PhilHealth' | 'HMO' | 'Employee' | 'Promotional';
 
 export interface LedgerEntry {
   id: string;
@@ -350,6 +402,8 @@ export interface LedgerEntry {
   hmoClaimId?: string;
   philHealthClaimId?: string;
   orNumber?: string;
+  discountType?: DiscountType; 
+  idNumber?: string;          
 }
 
 export interface UserPreferences {
@@ -361,6 +415,12 @@ export interface UserPreferences {
   defaultDentition?: 'Adult' | 'Child';
 }
 
+export interface ImmunizationRecord {
+    type: string;
+    date: string;
+    remarks?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -368,10 +428,12 @@ export interface User {
   avatar: string;
   email?: string;
   prcLicense?: string;
-  prcValidity?: string;
+  prcExpiry?: string;    
   ptrNumber?: string;
+  ptrExpiry?: string;    
   tin?: string;
   s2License?: string;
+  s2Expiry?: string;     
   pdaId?: string;
   pdaChapter?: string;
   specialization?: string;
@@ -387,6 +449,7 @@ export interface User {
   isReadOnly?: boolean; 
   preferences?: UserPreferences;
   roster?: Record<string, string>;
+  immunizations?: ImmunizationRecord[]; // NEW: DOH Compliance
 }
 
 export interface PatientFile {
@@ -418,6 +481,7 @@ export interface Patient {
   motherOccupation?: string;
   dob: string;
   age?: number;
+  groupName?: string; // For HMO tagging
   guardian?: string;
   guardianMobile?: string;
   sex?: 'Male' | 'Female';
@@ -464,6 +528,7 @@ export interface Patient {
   files?: PatientFile[];
   receipts?: IssuedReceipt[]; 
   treatmentPlans?: TreatmentPlan[];
+  referrals?: Referral[]; // UPDATED: officially link diagnostics
   dpaConsent?: boolean;
   marketingConsent?: boolean;
 }
@@ -483,10 +548,11 @@ export interface Appointment {
       shade?: string;
       material?: string;
       notes?: string;
-      vendorId?: string; // NEW: Compliance
+      vendorId?: string; 
   };
   notes?: string;
   sterilizationCycleId?: string;
+  sterilizationVerified?: boolean; 
   isBlock?: boolean; 
   title?: string; 
   rescheduleHistory?: {

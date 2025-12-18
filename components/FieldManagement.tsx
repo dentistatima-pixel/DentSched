@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates, OfficialReceiptBooklet, ClinicProfile, Medication, ConsentFormTemplate, ClinicalNoteTemplate, ClinicalProtocolRule, UserRole, RolePermissions, AuditLogEntry, Vendor, Patient } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud } from 'lucide-react';
+import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates, OfficialReceiptBooklet, ClinicProfile, Medication, ConsentFormTemplate, ClinicalNoteTemplate, ClinicalProtocolRule, UserRole, RolePermissions, AuditLogEntry, Vendor, Patient, ClinicalIncident, WasteLogEntry, AssetMaintenanceEntry } from '../types';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Radio } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -14,6 +14,9 @@ interface FieldManagementProps {
   patients?: Patient[]; 
   onPurgePatient?: (id: string) => void; 
   onExportAuditLog?: () => void; 
+  incidents?: ClinicalIncident[];
+  wasteLogs?: WasteLogEntry[]; 
+  assetLogs?: AssetMaintenanceEntry[]; 
 }
 
 const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -22,7 +25,7 @@ const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
     [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canManageInventory: true }
 };
 
-const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff, onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog }) => {
+const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [], wasteLogs = [], assetLogs = [] }) => {
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
 
@@ -39,6 +42,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             { key: 'medications', label: 'Medication Formulary', icon: Pill },
             { key: 'consentForms', label: 'Consent Form Templates', icon: FileSignature },
             { key: 'protocolRules', label: 'Protocol Alert Rules', icon: Shield },
+            { key: 'incidents', label: 'Clinical Incident Registry', icon: AlertOctagon }, 
         ]},
         { group: 'Data Lists', icon: Tag, items: [
             { key: 'insuranceProviders', label: 'Insurance Providers', icon: Heart },
@@ -47,9 +51,14 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         ]},
         { group: 'Legal & Compliance', icon: Shield, items: [
             { key: 'auditLog', label: 'Audit Log', icon: Key },
+            { key: 'credentials', label: 'Credential Expiry Monitor', icon: CheckCircle }, 
+            { key: 'vatSummary', label: 'BIR Senior/PWD VAT Summary', icon: TrendingUp }, 
+            { key: 'radiologyLog', label: 'Radiology Request Log', icon: Radio }, // NEW: #1
+            { key: 'wasteLogs', label: 'Bio-Medical Waste Log', icon: Droplet }, 
+            { key: 'assetLogs', label: 'Asset Maintenance Registry', icon: Wrench }, 
             { key: 'vendors', label: 'Vendor Compliance', icon: Briefcase },
             { key: 'retention', label: 'Data Retention & Disposal', icon: Archive },
-            { key: 'database', label: 'Database & Security', icon: Database }, // NEW
+            { key: 'database', label: 'Database & Security', icon: Database }, 
         ]},
     ];
 
@@ -67,12 +76,263 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             case 'auditLog': return renderAuditLog();
             case 'vendors': return renderVendors();
             case 'retention': return renderDataRetention();
-            case 'database': return renderDatabaseManagement(); // NEW
+            case 'database': return renderDatabaseManagement();
+            case 'credentials': return renderCredentialsMonitor(); 
+            case 'vatSummary': return renderVatSummary(); 
+            case 'incidents': return renderIncidents(); 
+            case 'wasteLogs': return renderWasteLogs(); 
+            case 'assetLogs': return renderAssetLogs(); 
+            case 'radiologyLog': return renderRadiologyLog(); // NEW: #1
             default: return <div className="p-10 text-center text-slate-400"><HardHat size={32} className="mx-auto mb-2" /> Interface for this section is under construction.</div>;
         }
     };
-    
-    // ... (keep renderFeatures, renderPermissions, renderAuditLog, renderVendors, renderDataRetention unchanged) ...
+
+    function renderRadiologyLog() {
+        const radiologyReferrals = useMemo(() => {
+            const list: any[] = [];
+            patients?.forEach(p => {
+                p.referrals?.forEach(r => {
+                    if (r.reason.toLowerCase().includes('x-ray') || r.reason.toLowerCase().includes('radiology')) {
+                        list.push({ ...r, patientName: p.name });
+                    }
+                });
+            });
+            return list;
+        }, [patients]);
+
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Radio size={20} className="text-teal-600"/> Radiology Request Log (DOH Ionizing Referral)</h4>
+                    <p className="text-xs text-slate-500 mt-1">DOH regulatory register for external diagnostic requests. Tracks clinical justification and center referrals.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-tighter">
+                            <tr>
+                                <th className="p-4">Date</th>
+                                <th className="p-4">Patient Name</th>
+                                <th className="p-4">External Center</th>
+                                <th className="p-4">Type/Reason</th>
+                                <th className="p-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {radiologyReferrals.length > 0 ? radiologyReferrals.map((req, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    <td className="p-4 font-mono text-slate-400">{formatDate(req.date)}</td>
+                                    <td className="p-4 font-bold text-slate-800">{req.patientName}</td>
+                                    <td className="p-4 text-teal-700 font-bold">{req.referredTo}</td>
+                                    <td className="p-4 text-slate-500">{req.reason}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`px-2 py-0.5 rounded font-bold uppercase ${req.status === 'Completed' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
+                                            {req.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            )) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 italic">No external radiology requests found.</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
+
+    function renderWasteLogs() {
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center">
+                    <div>
+                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><Droplet size={20} className="text-red-500"/> Bio-Medical Waste Log</h4>
+                        <p className="text-xs text-slate-500 mt-1">DENR/DOH regulatory record for hazardous waste disposal and transport manifest tracking.</p>
+                    </div>
+                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Manifest</button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-tighter">
+                            <tr><th className="p-4">Date</th><th className="p-4">Manifest #</th><th className="p-4">Waste Type</th><th className="p-4">Transporter</th><th className="p-4 text-right">Weight (kg)</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {wasteLogs.length > 0 ? wasteLogs.map((log) => (
+                                <tr key={log.id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-mono text-slate-400">{formatDate(log.date)}</td>
+                                    <td className="p-4 font-bold text-slate-800">{log.manifestNumber}</td>
+                                    <td className="p-4"><span className="bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100 font-bold">{log.type}</span></td>
+                                    <td className="p-4">{log.transporterName}</td>
+                                    <td className="p-4 text-right font-mono font-bold">{log.weightKg} kg</td>
+                                </tr>
+                            )) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 italic">No waste disposal manifests recorded.</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
+
+    function renderAssetLogs() {
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center">
+                    <div>
+                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><Wrench size={20} className="text-teal-600"/> Asset Maintenance Registry</h4>
+                        <p className="text-xs text-slate-500 mt-1">Equipment health tracking (Dental Chairs, Autoclaves, Compressors) as required for DOH Licensing.</p>
+                    </div>
+                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Maintenance</button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-tighter">
+                            <tr><th className="p-4">Date</th><th className="p-4">Equipment</th><th className="p-4">Type</th><th className="p-4">Technician</th><th className="p-4">Next Due</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {assetLogs.length > 0 ? assetLogs.map((log) => (
+                                <tr key={log.id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-mono text-slate-400">{formatDate(log.date)}</td>
+                                    <td className="p-4 font-bold text-slate-800">{log.assetName} <span className="text-[9px] text-slate-400 font-normal ml-1">S/N: {log.serialNumber}</span></td>
+                                    <td className="p-4"><span className={`px-2 py-0.5 rounded border font-bold ${log.type === 'Preventive' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{log.type}</span></td>
+                                    <td className="p-4">{log.technician}</td>
+                                    <td className="p-4 font-bold text-teal-600">{formatDate(log.nextDueDate)}</td>
+                                </tr>
+                            )) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 italic">No equipment maintenance records found.</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
+
+    function renderIncidents() {
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><AlertOctagon size={20} className="text-red-600"/> Clinical Incident Registry</h4>
+                    <p className="text-xs text-slate-500 mt-1">Private repository for logging complications and adverse events for malpractice defense and peer review.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {incidents.length > 0 ? incidents.map(inc => (
+                        <div key={inc.id} className="bg-white p-4 rounded-xl border border-red-200 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${inc.severity === 'Major' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{inc.severity} Severity</span>
+                                    <h5 className="font-bold text-slate-800 mt-1">{inc.category}</h5>
+                                </div>
+                                <div className="text-right text-xs text-slate-400 font-mono">{formatDate(inc.date)}</div>
+                            </div>
+                            <p className="text-xs text-slate-600 italic">"{inc.description}"</p>
+                            <div className="mt-3 pt-3 border-t border-slate-100 text-xs">
+                                <span className="font-bold text-slate-500 uppercase text-[9px] block mb-1">Management Action</span>
+                                <p className="text-slate-700">{inc.managementTaken}</p>
+                            </div>
+                        </div>
+                    )) : <div className="text-center py-20 text-slate-400 italic">No clinical incidents recorded. Excellent clinical safety record.</div>}
+                </div>
+            </div>
+        );
+    }
+
+    function renderCredentialsMonitor() {
+        const today = new Date();
+        const thirtyDaysFromNow = new Date(); thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+        const dentists = staff.filter(s => s.role === UserRole.DENTIST || s.role === UserRole.ADMIN);
+
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><CheckCircle size={20} className="text-teal-600"/> Credential Expiry Monitor</h4>
+                    <p className="text-xs text-slate-500 mt-1">Audit active PRC, PTR, and S2 licenses to ensure legal authority to practice.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {dentists.map(dentist => {
+                        const prcExp = dentist.prcExpiry ? new Date(dentist.prcExpiry) : null;
+                        const s2Exp = dentist.s2Expiry ? new Date(dentist.s2Expiry) : null;
+                        
+                        const isPrcCritical = prcExp && prcExp < thirtyDaysFromNow;
+                        const isS2Critical = s2Exp && s2Exp < thirtyDaysFromNow;
+
+                        return (
+                            <div key={dentist.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6 group hover:border-teal-200 transition-colors">
+                                <img src={dentist.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" />
+                                <div className="flex-1">
+                                    <h5 className="font-bold text-slate-800">{dentist.name}</h5>
+                                    <p className="text-xs text-slate-500">{dentist.specialization}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-right">
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase">PRC Expiry</div>
+                                        <div className={`text-xs font-bold ${isPrcCritical ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>{formatDate(dentist.prcExpiry)}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase">S2 Expiry</div>
+                                        <div className={`text-xs font-bold ${isS2Critical ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>{formatDate(dentist.s2Expiry)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    function renderVatSummary() {
+        const vatExemptTransactions = useMemo(() => {
+            const list: any[] = [];
+            patients.forEach(p => {
+                p.ledger?.forEach(entry => {
+                    if (entry.discountType === 'Senior Citizen' || entry.discountType === 'PWD') {
+                        list.push({
+                            patientName: p.name,
+                            idNumber: entry.idNumber,
+                            type: entry.discountType,
+                            date: entry.date,
+                            basePrice: entry.amount / 0.8, // Estimate base from net
+                            discountAmount: (entry.amount / 0.8) * 0.2,
+                            netPrice: entry.amount
+                        });
+                    }
+                });
+            });
+            return list;
+        }, [patients]);
+
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><TrendingUp size={20} className="text-teal-600"/> BIR Senior/PWD VAT Summary</h4>
+                    <p className="text-xs text-slate-500 mt-1">Automated register for RR No. 7-2010. This data is mandatory during BIR tax examinations.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-tighter">
+                            <tr>
+                                <th className="p-4">Date</th>
+                                <th className="p-4">Name</th>
+                                <th className="p-4">OSCA/PWD ID</th>
+                                <th className="p-4 text-right">Base Price</th>
+                                <th className="p-4 text-right">20% Discount</th>
+                                <th className="p-4 text-right">Amount Paid</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {vatExemptTransactions.map((tx, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    <td className="p-4 font-mono text-slate-400">{formatDate(tx.date)}</td>
+                                    <td className="p-4 font-bold text-slate-800">{tx.patientName}</td>
+                                    <td className="p-4 font-mono text-teal-600 font-bold">{tx.idNumber}</td>
+                                    <td className="p-4 text-right text-slate-400">₱{tx.basePrice.toLocaleString()}</td>
+                                    <td className="p-4 text-right text-red-600 font-bold">-₱{tx.discountAmount.toLocaleString()}</td>
+                                    <td className="p-4 text-right font-bold text-slate-800">₱{tx.netPrice.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
+
     function renderFeatures() {
         return (
             <div className="p-6 bg-slate-50 h-full overflow-y-auto space-y-6">
@@ -226,11 +486,9 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     }
 
     function renderDataRetention() {
-        // Filter patients older than 10 years (Mock logic: using 10 years ago from today)
         const tenYearsAgo = new Date();
         tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
         
-        // Find archived patients whose last visit was > 10 years ago
         const purgablePatients = patients.filter(p => {
             if (!p.isArchived) return false;
             const visitDate = new Date(p.lastVisit);
@@ -277,7 +535,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         );
     }
 
-    // --- NEW: DATABASE MANAGEMENT UI ---
     function renderDatabaseManagement() {
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
@@ -290,7 +547,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                 </div>
                 
                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* BACKUP CARD */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 mb-4">
                             <DownloadCloud size={24} />
@@ -301,45 +557,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                             The file is <strong>encrypted</strong> with your current password.
                         </p>
                         <button 
-                            // We use the ID to trigger the button from the App level if passed, otherwise use App context logic (handled in App.tsx via prop)
-                            onClick={() => {
-                                const backupBtn = document.getElementById('trigger-backup-btn');
-                                if (backupBtn) backupBtn.click();
-                                // Fallback if prop provided
-                                const appBackup = (window as any).triggerAppBackup;
-                                if (appBackup) appBackup();
-                                // Since we can't easily pass the handler down through App structure without modifying layout in a huge way, 
-                                // we will use a DOM event or assume App.tsx provided a way.
-                                // EDIT: App.tsx wraps this, we can assume the prop `onBackup` if we added it to interface.
-                                // For now, we will simulate the click on a hidden button in App.tsx or use a passed prop if defined.
-                                // Wait, we can't access App.tsx functions from here unless passed.
-                                // I will trigger the download via a custom event or let the user click the button in App.tsx directly?
-                                // Better: I will use the function `handleDatabaseBackup` from App.tsx. 
-                                // See `App.tsx` implementation: it doesn't pass it yet. I need to update App.tsx to pass a handler.
-                                // Re-reading: I wired `handleDatabaseBackup` in `App.tsx` but didn't pass it to `FieldManagement` in the props yet.
-                                // I will add logic to trigger the backup from here.
-                                
-                                // Triggering the hidden button technique is easiest without heavy prop drilling refactor in `Layout`.
-                                // Actually, I updated App.tsx to pass props. Let's assume I can trigger it.
-                                // Wait, the App.tsx modification showed `onExportAuditLog` but not `onBackup`.
-                                // Let's fix this in App.tsx logic.
-                                // The simplest fix: In App.tsx, I will pass the handler to FieldManagement.
-                                // BUT, `FieldManagement` is rendered inside `renderContent`.
-                                // I'll assume the prop `onBackup` exists if I add it to interface.
-                                
-                                // Triggering the actual download logic... 
-                                // Since I can't change the interface in `types.ts` (locked file), I will cast the props.
-                                // Or better: I will trigger the backup via the `onExportAuditLog` prop if I repurpose it? No.
-                                // I will add a hidden button in App.tsx with id `trigger-db-backup` and click it here.
-                                document.getElementById('trigger-db-backup')?.click();
-                            }}
+                            onClick={() => document.getElementById('trigger-db-backup')?.click()}
                             className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
                         >
                             <DownloadCloud size={18} /> Download Backup
                         </button>
                     </div>
 
-                    {/* RESTORE CARD */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 mb-4">
                             <UploadCloud size={24} />
@@ -400,17 +624,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                 </div>
                 {renderCurrentCategory()}
             </div>
-            
-            {/* Hidden Backup Trigger for App.tsx wiring */}
-            <button 
-                id="trigger-backup-btn" 
-                style={{display: 'none'}} 
-                onClick={() => {
-                    // Logic handled in App.tsx via Event Listener or hidden element trick
-                    const event = new CustomEvent('trigger-backup');
-                    window.dispatchEvent(event);
-                }}
-            />
+            <button id="trigger-db-backup" style={{display: 'none'}} onClick={() => window.dispatchEvent(new CustomEvent('trigger-backup'))} />
         </div>
     );
 

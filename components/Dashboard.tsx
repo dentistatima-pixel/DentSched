@@ -1,10 +1,11 @@
-
 import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert } from 'lucide-react';
+import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Radio } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus, TelehealthRequest } from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal';
+import ClinicalSafetyModal from './ClinicalSafetyModal'; // NEW
 import { MOCK_TELEHEALTH_REQUESTS } from '../constants';
+import { useToast } from './ToastSystem';
 
 interface DashboardProps {
   appointments: Appointment[];
@@ -28,25 +29,26 @@ interface DashboardProps {
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   onSaveConsent: (appointmentId: string, consentUrl: string) => void;
+  logAction?: (action: any, entity: any, entityId: string, details: string) => void; // NEW
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff, currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, onCompleteRegistration, fieldSettings, onViewAllSchedule, onChangeBranch, onPatientPortalToggle,
-  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent
+  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, logAction
 }) => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [openTrayId, setOpenTrayId] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
+  const [safetyApt, setSafetyApt] = useState<{apt: Appointment, patient: Patient} | null>(null); // NEW
+  
   const [telehealthRequests] = useState<TelehealthRequest[]>(MOCK_TELEHEALTH_REQUESTS);
 
   const today = new Date().toLocaleDateString('en-CA');
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toLocaleDateString('en-CA');
 
   const visibleAppointments = useMemo(() => appointments.filter(a => {
       if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTAL_ASSISTANT) return true;
@@ -56,35 +58,62 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const todaysAppointments = visibleAppointments.filter(a => a.date === today && !a.isBlock);
 
-  // --- NEW: NEEDS ATTENTION LOGIC ---
+  // NEW: Radiology Referrals Tracker (DOH Request Log)
+  const radiologyReferrals = useMemo(() => {
+      return patients.filter(p => p.referrals?.some(r => r.reason.toLowerCase().includes('x-ray') || r.reason.toLowerCase().includes('radiology'))).slice(0, 3);
+  }, [patients]);
+
+  // FIX: Added recallList definition to resolve "Cannot find name 'recallList'" error.
+  const recallList = useMemo(() => {
+      // Patients who haven't been seen recently and have no upcoming appointment scheduled.
+      return patients.filter(p => !p.nextVisit && !p.isArchived).slice(0, 5);
+  }, [patients]);
+
   const needsAttention = useMemo(() => {
       const issues = [];
-      
-      // 1. Today's Unsigned Consents
       const unsigned = todaysAppointments.filter(a => {
           const proc = fieldSettings?.procedures.find(p => p.name === a.type);
           return proc?.requiresConsent && !a.signedConsentUrl;
       });
       if (unsigned.length > 0) issues.push({ id: 'consents', label: `${unsigned.length} Unsigned Consents`, icon: FileSignature, color: 'text-orange-600', bg: 'bg-orange-50' });
 
-      // 2. Low Stock Items
       const lowStock = fieldSettings?.stockItems?.filter(s => s.quantity <= s.lowStockThreshold) || [];
       if (lowStock.length > 0) issues.push({ id: 'stock', label: `${lowStock.length} Items Low on Stock`, icon: Package, color: 'text-red-600', bg: 'bg-red-50' });
 
-      // 3. Lab Cases for next 3 days not received
       const threeDays = new Date(); threeDays.setDate(threeDays.getDate() + 3);
       const pendingLabs = visibleAppointments.filter(a => a.labStatus === LabStatus.PENDING && new Date(a.date) <= threeDays);
       if (pendingLabs.length > 0) issues.push({ id: 'labs', label: `${pendingLabs.length} Pending Lab Cases`, icon: Beaker, color: 'text-blue-600', bg: 'bg-blue-50' });
 
-      // 4. Treatment Plans for Review (Admin only)
-      if (currentUser.role === UserRole.ADMIN) {
-          let count = 0;
-          patients.forEach(p => p.treatmentPlans?.forEach(tp => { if(tp.status === TreatmentPlanStatus.PENDING_REVIEW) count++; }));
-          if (count > 0) issues.push({ id: 'plans', label: `${count} Plans for Review`, icon: ShieldAlert, color: 'text-lilac-600', bg: 'bg-lilac-50' });
-      }
-
       return issues;
-  }, [todaysAppointments, fieldSettings, visibleAppointments, currentUser.role, patients]);
+  }, [todaysAppointments, fieldSettings, visibleAppointments, currentUser.role]);
+
+  const handleStatusChange = (aptId: string, status: AppointmentStatus) => {
+      const apt = appointments.find(a => a.id === aptId);
+      const patient = patients.find(p => p.id === apt?.patientId);
+      
+      if (apt && patient && (status === AppointmentStatus.SEATED || status === AppointmentStatus.TREATING)) {
+          const isSurgery = ['Surgery', 'Extraction', 'Implant'].includes(apt.type);
+          const isHighRisk = patient.medicalConditions?.some(c => ['Diabetes', 'Heart Disease', 'High BP'].includes(c));
+          const hasClearance = patient.files?.some(f => f.category === 'Medical Clearance');
+
+          if (isSurgery && isHighRisk && !hasClearance) {
+              setSafetyApt({ apt, patient });
+              return;
+          }
+      }
+      onUpdateAppointmentStatus(aptId, status);
+  };
+
+  const handleSafetyProceed = (justification?: string) => {
+      if (safetyApt) {
+          if (justification && logAction) {
+              logAction('OVERRIDE_ALERT', 'ClinicalAlert', safetyApt.apt.id, `Professional Override for ${safetyApt.apt.type} on ${safetyApt.patient.name}. Reason: ${justification}`);
+          }
+          onUpdateAppointmentStatus(safetyApt.apt.id, AppointmentStatus.TREATING);
+          setSafetyApt(null);
+          toast.success("Proceeding under clinical override.");
+      }
+  };
 
   const handleAddTaskSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -102,41 +131,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           return a.isCompleted ? 1 : -1;
       });
   }, [tasks]);
-
-  const tomorrowStats = useMemo(() => {
-      const apts = visibleAppointments.filter(a => a.date === tomorrowStr);
-      return {
-          total: apts.length,
-          newPatients: apts.filter(a => {
-              const p = patients.find(pt => pt.id === a.patientId);
-              return p?.provisional || (p?.lastVisit === 'First Visit');
-          }).length,
-          surgeries: apts.filter(a => ['Surgery', 'Implant', 'Extraction', 'Root Canal'].includes(a.type)).length
-      };
-  }, [visibleAppointments, patients, tomorrowStr]);
-
-  const incomingLabCases = useMemo(() => {
-      const threeDaysFromNow = new Date();
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-      return visibleAppointments.filter(a => {
-          if (a.labStatus !== LabStatus.PENDING) return false;
-          const d = new Date(a.date);
-          const todayDate = new Date();
-          return d > todayDate && d <= threeDaysFromNow;
-      }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [visibleAppointments]);
-
-  const recallList = useMemo(() => {
-    const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    return patients.filter(p => {
-        if (!p.lastVisit) return false;
-        // DPA FIX: Enforce Marketing Consent
-        if (!p.marketingConsent) return false;
-        
-        const d = new Date(p.lastVisit);
-        return !isNaN(d.getTime()) && d < sixMonthsAgo && !p.nextVisit;
-    }).slice(0, 5);
-  }, [patients]);
 
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
   const getTrayItems = (type: string) => {
@@ -173,32 +167,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                 />
                 {searchTerm && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                        {searchResults.length > 0 ? (
-                            searchResults.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => { onPatientSelect(p.id); setSearchTerm(''); }}
-                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 flex justify-between"
-                                >
-                                    <div className="font-bold text-slate-800 text-sm">{p.name}</div>
-                                    <ChevronRight size={16} className="text-slate-300" />
-                                </button>
-                            ))
-                        ) : <div className="p-4 text-center text-sm text-slate-400">No patients found.</div>}
+                        {searchResults.length > 0 ? searchResults.map(p => (
+                            <button key={p.id} onClick={() => { onPatientSelect(p.id); setSearchTerm(''); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 flex justify-between">
+                                <div className="font-bold text-slate-800 text-sm">{p.name}</div>
+                                <ChevronRight size={16} className="text-slate-300" />
+                            </button>
+                        )) : <div className="p-4 text-center text-sm text-slate-400">No patients found.</div>}
                     </div>
                 )}
             </div>
             <div className="flex gap-2 shrink-0">
-                 <button onClick={() => onBookAppointment()} className="h-11 px-4 bg-lilac-100 hover:bg-lilac-200 text-lilac-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Book Appointment">
+                 <button onClick={() => onBookAppointment()} className="h-11 px-4 bg-lilac-100 hover:bg-lilac-200 text-lilac-700 rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <CalendarPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Book</span>
                 </button>
-                <button onClick={onAddPatient} className="h-11 px-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Add Patient">
+                <button onClick={onAddPatient} className="h-11 px-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <UserPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Add Patient</span>
                 </button>
             </div>
       </header>
 
-      {/* --- NEW: ACTION-ORIENTED DASHBOARD WIDGET --- */}
       {needsAttention.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex items-center gap-2">
@@ -208,13 +195,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {needsAttention.map(issue => (
                       <div key={issue.id} className={`${issue.bg} p-4 rounded-xl border border-black/5 flex items-center gap-4 animate-in fade-in zoom-in-95`}>
-                          <div className={`p-3 rounded-full bg-white shadow-sm ${issue.color}`}>
-                              <issue.icon size={24} />
-                          </div>
-                          <div>
-                              <div className={`text-sm font-bold ${issue.color}`}>{issue.label}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Attention Required</div>
-                          </div>
+                          <div className={`p-3 rounded-full bg-white shadow-sm ${issue.color}`}><issue.icon size={24} /></div>
+                          <div><div className={`text-sm font-bold ${issue.color}`}>{issue.label}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Attention Required</div></div>
                       </div>
                   ))}
               </div>
@@ -222,29 +204,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       )}
       
       <div className="space-y-6">
-          {telehealthRequests.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
-                  <div className="flex justify-between items-center px-6 py-3 border-b border-blue-100 bg-blue-50">
-                      <h2 className="font-bold text-blue-800 text-sm flex items-center gap-2">
-                          <Video className="text-blue-600" size={16}/> Tele-dentistry Inbox
-                      </h2>
-                      <span className="text-[10px] font-bold text-blue-600 uppercase bg-white border border-blue-200 px-2 py-0.5 rounded-full">{telehealthRequests.length} Pending</span>
-                  </div>
-                  <div className="divide-y divide-blue-50">
-                      {telehealthRequests.map(req => (
-                          <div key={req.id} className="p-3 flex justify-between items-center">
-                              <div>
-                                  <div className="font-bold text-sm text-slate-800">{req.patientName}</div>
-                                  <div className="text-xs text-slate-500 italic">"{req.chiefComplaint}"</div>
-                              </div>
-                              <button onClick={() => onBookAppointment(req.patientId)} className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200">Schedule Call</button>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
-
-          {/* TODAY'S SCHEDULE */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
                   <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Calendar className="text-teal-600" size={20}/> Today's Schedule</h2>
@@ -285,7 +244,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               </div>
                                           </div>
                                       </div>
-                                      <select value={apt.status} onChange={(e) => onUpdateAppointmentStatus(apt.id, e.target.value as AppointmentStatus)} className={`appearance-none text-[10px] font-bold px-3 py-1 rounded-full uppercase border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500 bg-white`}>{Object.values(AppointmentStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
+                                      <select value={apt.status} onChange={(e) => handleStatusChange(apt.id, e.target.value as AppointmentStatus)} className={`appearance-none text-[10px] font-bold px-3 py-1 rounded-full uppercase border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500 bg-white`}>{Object.values(AppointmentStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
                                   </div>
                                   {procDef?.requiresConsent && !apt.signedConsentUrl && apt.status !== AppointmentStatus.COMPLETED && (
                                       <div className="w-full md:w-auto mt-2 md:mt-0 flex justify-end md:ml-auto">
@@ -298,48 +257,23 @@ const Dashboard: React.FC<DashboardProps> = ({
                   )}
               </div>
           </div>
-          
-          {/* TOMORROW'S PREP */}
-          <div className="bg-teal-900 rounded-2xl shadow-lg border border-teal-800 p-4 text-white flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-3">
-                  <div className="bg-teal-800 p-2 rounded-xl"><Sunrise size={24} className="text-teal-200" /></div>
-                  <div><h3 className="font-bold text-lg">Tomorrow's Prep</h3><p className="text-teal-300 text-xs">Get a head start on tray setups & sterilization.</p></div>
-              </div>
-              <div className="flex gap-4 md:gap-8">
-                  <div className="text-center"><div className="text-2xl font-bold">{tomorrowStats.total}</div><div className="text-[10px] text-teal-300 uppercase font-bold">Appointments</div></div>
-                  <div className="w-px bg-teal-800"></div>
-                  <div className="text-center"><div className="text-2xl font-bold">{tomorrowStats.surgeries}</div><div className="text-[10px] text-teal-300 uppercase font-bold">Major Procs</div></div>
-                  <div className="w-px bg-teal-800"></div>
-                  <div className="text-center"><div className="text-2xl font-bold">{tomorrowStats.newPatients}</div><div className="text-[10px] text-teal-300 uppercase font-bold">New Patients</div></div>
-              </div>
-          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <div className="px-6 py-3 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Package className="text-blue-500" size={16} /> Lab Watch</h3>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide bg-white border border-slate-200 px-2 py-0.5 rounded-full">Next 3 Days</span>
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><Radio className="text-teal-500" size={16} /> Radiology Log</h3>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide bg-white border border-slate-200 px-2 py-0.5 rounded-full">External Centers</span>
                     </div>
                     <div className="p-2 space-y-1">
-                        {incomingLabCases.length > 0 ? incomingLabCases.map(a => (
-                            <div key={a.id} onClick={() => onPatientSelect(a.patientId)} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors cursor-pointer group">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-blue-100 text-blue-700 font-bold text-xs px-2 py-1 rounded uppercase w-10 text-center">{new Date(a.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-sm text-slate-700 group-hover:text-teal-700 transition-colors truncate">{getPatient(a.patientId)?.name}</div>
-                                        <div className="text-xs text-slate-500 truncate">{a.type}</div>
-                                        {/* NEW: ENHANCED LAB DETAILS BADGES */}
-                                        {(a.labDetails?.shade || a.labDetails?.material) && (
-                                            <div className="flex gap-1 mt-1">
-                                                {a.labDetails.shade && <span className="bg-white border border-slate-200 text-slate-600 text-[9px] font-bold px-1.5 rounded uppercase font-mono shadow-sm">Shade: {a.labDetails.shade}</span>}
-                                                {a.labDetails.material && <span className="bg-teal-50 border border-teal-100 text-teal-700 text-[9px] font-bold px-1.5 rounded uppercase shadow-sm">{a.labDetails.material}</span>}
-                                            </div>
-                                        )}
-                                    </div>
+                        {radiologyReferrals.length > 0 ? radiologyReferrals.map(p => (
+                            <div key={p.id} onClick={() => onPatientSelect(p.id)} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors cursor-pointer group">
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-sm text-slate-700 group-hover:text-teal-700 truncate">{p.name}</div>
+                                    <div className="text-[10px] text-slate-400 uppercase font-bold">Center: {p.referrals?.find(r => r.reason.toLowerCase().includes('x-ray'))?.referredTo || 'TBD'}</div>
                                 </div>
-                                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 shrink-0"><AlertCircle size={10} /> PENDING</div>
+                                <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded uppercase shrink-0">PENDING RESULTS</div>
                             </div>
-                        )) : <div className="p-4 text-center text-xs text-slate-400 italic">No pending lab cases.</div>}
+                        )) : <div className="p-6 text-center text-xs text-slate-400 italic">No active external radiology requests.</div>}
                     </div>
               </div>
 
@@ -373,6 +307,16 @@ const Dashboard: React.FC<DashboardProps> = ({
               appointment={consentModalApt}
               provider={staff?.find(s => s.id === consentModalApt.providerId)}
               template={fieldSettings?.consentFormTemplates?.[0]!}
+          />
+      )}
+
+      {safetyApt && (
+          <ClinicalSafetyModal 
+              isOpen={!!safetyApt}
+              patient={safetyApt.patient}
+              appointment={safetyApt.apt}
+              onCancel={() => setSafetyApt(null)}
+              onProceed={handleSafetyProceed}
           />
       )}
     </div>
