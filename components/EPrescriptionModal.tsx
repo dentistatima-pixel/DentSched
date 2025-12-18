@@ -23,6 +23,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const medications = fieldSettings.medications || [];
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
+    // NEW: Contraindication Check
     const allergyConflict = useMemo(() => {
         if (!selectedMed || !patient.allergies) return null;
         return selectedMed.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
@@ -34,6 +35,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         if (med) { 
             setDosage(med.dosage); 
             setInstructions(med.instructions); 
+            // Alert user immediately if conflict
             const conflict = med.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
             if (conflict) {
                 toast.error(`HARD-STOP: Patient is allergic to ${conflict}. ${med.name} cannot be prescribed.`);
@@ -53,6 +55,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
 
+        // S2 Branding / Watermark logic
         if (selectedMed.isS2Controlled) {
             doc.setTextColor(240, 240, 240); 
             doc.setFontSize(28);
@@ -62,6 +65,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
             doc.setTextColor(0, 0, 0);
         }
 
+        // Header
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.text(currentUser.name.toUpperCase(), 74, 15, { align: 'center' });
@@ -73,29 +77,26 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
         doc.line(10, 32, 138, 32);
 
+        // Patient
         doc.setFontSize(10);
         doc.text(`PATIENT: ${patient.name}`, 15, 40);
         doc.text(`AGE: ${patient.age || '-'}   SEX: ${patient.sex || '-'}`, 15, 45);
         doc.text(`DATE: ${new Date().toLocaleDateString()}`, 100, 40);
 
+        // Rx
         doc.setFontSize(30);
         doc.setFont('times', 'italic');
         doc.text("Rx", 15, 60);
 
-        // COMPLIANCE: R.A. 6675 - Generic Name Prominence
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text(`${selectedMed.genericName.toUpperCase()} ${dosage}`, 25, 65);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'italic');
-        doc.text(`(${selectedMed.name})`, 25, 71);
-        
-        doc.setFont('helvetica', 'normal');
         doc.setFontSize(12);
-        doc.text(`Disp: #${quantity}`, 25, 80);
+        doc.text(`${selectedMed.name.toUpperCase()} ${dosage}`, 25, 65);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Disp: #${quantity}`, 25, 75);
         doc.setFont('helvetica', 'italic');
-        doc.text(`Sig: ${instructions}`, 25, 90);
+        doc.text(`Sig: ${instructions}`, 25, 85);
 
+        // Footer
         doc.line(80, 160, 130, 160);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
@@ -119,10 +120,6 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-widest">
-                        Generics Act Compliance: R.A. 6675 Enforced
-                    </div>
-
                     {allergyConflict && (
                         <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white animate-bounce shadow-lg">
                             <ShieldOff size={32} className="shrink-0"/>
@@ -133,34 +130,24 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {s2Violation && !allergyConflict && (
                         <div className="bg-amber-100 border border-amber-300 p-4 rounded-xl flex gap-3 text-amber-900 animate-pulse">
                             <ShieldAlert size={24} className="shrink-0"/>
-                            <div>
-                                <p className="font-bold">PDEA S2 License HARD-BLOCK</p>
-                                <p className="text-xs">This is a Controlled Substance. The "Print" function is disabled because your profile lacks a verified S2 License number.</p>
-                            </div>
+                            <div><p className="font-bold">S2 License Verification Failed</p><p className="text-xs">You must add your PDEA S2 license to your profile to prescribe controlled substances.</p></div>
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Medication (Generic Name prominence)</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Medication</label>
                         <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className={`w-full p-3 border rounded-xl bg-white outline-none focus:border-teal-500 ${allergyConflict ? 'border-red-500 bg-red-50' : ''}`}>
                             <option value="">- Select Medication -</option>
                             {medications.map(m => {
                                 const conflict = m.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
                                 return (
                                     <option key={m.id} value={m.id} className={conflict ? 'text-red-500 font-bold' : ''}>
-                                        {m.genericName.toUpperCase()} ({m.name}) {m.isS2Controlled ? '(Controlled)' : ''}
+                                        {m.name} {m.isS2Controlled ? '(Controlled)' : ''} {conflict ? `⚠️ ${conflict} Allergy` : ''}
                                     </option>
                                 );
                             })}
                         </select>
                     </div>
-
-                    {selectedMed && (
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                             <div className="text-xs font-bold text-slate-400 uppercase mb-1">Generic Name</div>
-                             <div className="text-lg font-extrabold text-slate-800">{selectedMed.genericName}</div>
-                        </div>
-                    )}
 
                     <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-2"><label className="block text-sm font-bold text-slate-700 mb-1">Dosage</label><input type="text" value={dosage} onChange={e => setDosage(e.target.value)} className="w-full p-3 border rounded-xl" /></div>
@@ -172,11 +159,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
                 <div className="p-4 border-t bg-white flex justify-end gap-3 rounded-b-3xl">
                     <button onClick={onClose} className="px-6 py-2 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button 
-                        onClick={handlePrint} 
-                        disabled={!selectedMedId || !!s2Violation || !!allergyConflict} 
-                        className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:grayscale flex items-center gap-2"
-                    >
+                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2">
                         <Printer size={18}/> {selectedMed?.isS2Controlled ? 'Print Controlled Rx' : 'Print Prescription'}
                     </button>
                 </div>

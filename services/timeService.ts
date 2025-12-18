@@ -1,8 +1,7 @@
 
 // Service to fetch time from a trusted 3rd party authority (Non-Repudiation)
-export const getTrustedTime = async (): Promise<{ timestamp: string, isVerified: boolean, driftMs?: number }> => {
+export const getTrustedTime = async (): Promise<{ timestamp: string, isVerified: boolean }> => {
     try {
-        const startTime = Date.now();
         // 3-second timeout to prevent blocking UI if offline
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -16,18 +15,7 @@ export const getTrustedTime = async (): Promise<{ timestamp: string, isVerified:
         
         if (response.ok) {
             const data = await response.json();
-            const serverTime = new Date(data.datetime).getTime();
-            const localTime = Date.now();
-            
-            // Calculate drift between system clock and atomic clock
-            // NPC Audit: Drifts > 5 mins are considered suspicious for record tampering
-            const driftMs = Math.abs(serverTime - localTime);
-            
-            return { 
-                timestamp: data.datetime, 
-                isVerified: true, 
-                driftMs 
-            };
+            return { timestamp: data.datetime, isVerified: true };
         }
     } catch (e) {
         console.warn('[Compliance] Trusted time fetch failed. Falling back to system time.');

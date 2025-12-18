@@ -45,7 +45,6 @@ const GeometricTooth: React.FC<{
     const isPatientRight = quadrant === 1 || quadrant === 4; 
     
     const toothEntries = entries || [];
-    const isMissing = toothEntries.some(e => e.procedure === 'Missing' || (e.procedure === 'Extraction' && e.status === 'Completed'));
 
     const timerRef = useRef<any>(null);
     const isLongPress = useRef(false);
@@ -153,7 +152,7 @@ const GeometricTooth: React.FC<{
 
     return (
         <div 
-            className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''} ${isMissing ? 'opacity-30' : ''}`}
+            className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
             style={{ width: isZoomed ? '240px' : '64px', height: isZoomed ? '300px' : '80px', minWidth: isZoomed ? '240px' : '64px' }} 
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
@@ -161,37 +160,30 @@ const GeometricTooth: React.FC<{
                 {number}
             </span>
             <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
-                {isMissing && (
-                    <defs>
-                        <pattern id={`hatch-${number}`} width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                            <line x1="0" y1="0" x2="0" y2="10" stroke="#94a3b8" strokeWidth="2" />
-                        </pattern>
-                    </defs>
-                )}
                 {isUpper ? (
                     <>
                         <g onClick={(e) => handleClick(e, 'R')}>
-                            <path d={u_root} fill={isMissing ? `url(#hatch-${number})` : cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
+                            <path d={u_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
                             {hasRootCanal && <line x1="50" y1="0" x2="50" y2="15" stroke="white" strokeWidth="2" />}
                         </g>
-                        <path d={u_top} fill={isMissing ? `url(#hatch-${number})` : pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} />
-                        <path d={u_rgt} fill={isMissing ? `url(#hatch-${number})` : pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} />
-                        <path d={u_btm} fill={isMissing ? `url(#hatch-${number})` : pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} />
-                        <path d={u_lft} fill={isMissing ? `url(#hatch-${number})` : pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} />
-                        <path d={u_ctr} fill={isMissing ? `url(#hatch-${number})` : cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} />
+                        <path d={u_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} />
+                        <path d={u_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} />
+                        <path d={u_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} />
+                        <path d={u_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} />
+                        <path d={u_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} />
                         {isMissingOrExtracted && <path d={u_cross} stroke={extractionColor} strokeWidth="4" opacity="0.8" />}
                     </>
                 ) : (
                     <>
                         <g onClick={(e) => handleClick(e, 'R')}>
-                            <path d={l_root} fill={isMissing ? `url(#hatch-${number})` : cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
+                            <path d={l_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
                             {hasRootCanal && <line x1="50" y1="85" x2="50" y2="100" stroke="white" strokeWidth="2" />}
                         </g>
-                        <path d={l_top} fill={isMissing ? `url(#hatch-${number})` : pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} />
-                        <path d={l_rgt} fill={isMissing ? `url(#hatch-${number})` : pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} />
-                        <path d={l_btm} fill={isMissing ? `url(#hatch-${number})` : pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} />
-                        <path d={l_lft} fill={isMissing ? `url(#hatch-${number})` : pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} />
-                        <path d={l_ctr} fill={isMissing ? `url(#hatch-${number})` : cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} />
+                        <path d={l_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} />
+                        <path d={l_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} />
+                        <path d={l_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} />
+                        <path d={l_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} />
+                        <path d={l_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} />
                         {isMissingOrExtracted && <path d={l_cross} stroke={extractionColor} strokeWidth="4" opacity="0.8" />}
                     </>
                 )}
@@ -238,12 +230,6 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
           return;
       }
       
-      const isMissing = getToothData(tooth).some(e => e.procedure === 'Missing' || (e.procedure === 'Extraction' && e.status === 'Completed'));
-      if (isMissing && !['missing', 'extraction'].includes(activeToolId)) {
-          alert("Cannot apply restorative tools to a missing tooth.");
-          return;
-      }
-
       if (onChartUpdate) {
           const newEntry: DentalChartEntry = {
               id: `dc_${Date.now()}`,

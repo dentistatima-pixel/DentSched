@@ -1,5 +1,5 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, ICD10Code } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -39,18 +39,6 @@ export const formatDate = (dateStr: string | undefined | null) => {
     year: 'numeric'
   });
 };
-
-// NEW: PHILHEALTH CF4 ICD-10 CODES
-export const ICD10_DENTAL: ICD10Code[] = [
-    { code: 'K02.1', description: 'Caries of dentine' },
-    { code: 'K02.2', description: 'Caries of cementum' },
-    { code: 'K04.0', description: 'Pulpitis' },
-    { code: 'K04.1', description: 'Necrosis of pulp' },
-    { code: 'K05.2', description: 'Acute periodontitis' },
-    { code: 'K05.3', description: 'Chronic periodontitis' },
-    { code: 'K08.1', description: 'Loss of teeth due to accident, extraction or local periodontal disease' },
-    { code: 'K00.6', description: 'Disturbances in tooth eruption' }
-];
 
 export const STAFF: User[] = [
   { 
@@ -241,12 +229,12 @@ export const MOCK_CLAIMS: HMOClaim[] = [
 ];
 
 export const MOCK_STOCK: StockItem[] = [
-    { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60), batchNumber: 'LOT-A-202' },
-    { id: 'stk_2', name: 'Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(365), batchNumber: 'GLV-991' },
-    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getFutureDateStr(20), batchNumber: 'COMP-A2-01' },
+    { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60) },
+    { id: 'stk_2', name: 'Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(365) },
+    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getFutureDateStr(20) }, // Expiring soon
     { id: 'stk_4', name: 'Mouth Mirror', category: StockCategory.INSTRUMENTS, quantity: 100, lowStockThreshold: 50 },
     { id: 'stk_5', name: 'Bond Paper (Ream)', category: StockCategory.OFFICE, quantity: 8, lowStockThreshold: 5 },
-    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getPastDateStr(5), batchNumber: 'BAD-BOND-0' },
+    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getPastDateStr(5) }, // EXPIRED
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -285,22 +273,22 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
   allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex', 'Ibuprofen', 'Seafood'],
   medicalConditions: [
-    'None', 'High BP', 'Low BP', 'Epilepsy', 'Diabetes', 'Asthma', 'Heart Disease', 'Hepatitis', 'Kidney Issues', 'Bleeding Issues', 'Pregnancy', 'Thyroid Issues', 'Periodontal Disease'
+    'None', 'High BP', 'Low BP', 'Epilepsy', 'Diabetes', 'Asthma', 'Heart Disease', 'Hepatitis', 'Kidney Issues', 'Bleeding Issues', 'Pregnancy', 'Thyroid Issues'
   ],
   procedures: [
-      { id: 'p1', name: 'Consultation', price: 500, category: 'General', recallMonths: 6 },
-      { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive', recallMonths: 6, billOfMaterials: [ { stockItemId: 'stk_2', quantity: 1 }], philHealthCaseRate: 500 },
-      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', recallMonths: 12, billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }], philHealthCaseRate: 1000 },
-      { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true, riskDisclosures: ['Alveolar osteitis (dry socket)', 'Post-operative bleeding', 'Infection', 'Damage to adjacent teeth', 'Nerve paresthesia'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 2 }, { stockItemId: 'stk_2', quantity: 2 }], philHealthCaseRate: 800 },
-      { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true, riskDisclosures: ['Post-treatment sensitivity', 'Instrument separation', 'Re-infection', 'Tooth fracture', 'Sinus involvement'] },
-      { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative', labTurnaroundDays: 10 },
-      { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics', recallMonths: 1 },
-      { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery', requiresConsent: true, riskDisclosures: ['Jaw stiffness (trismus)', 'Nerve injury', 'Sinus perforation', 'Reaction to anesthetic'] },
-      { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic', recallMonths: 12 },
+      { id: 'p1', name: 'Consultation', price: 500, category: 'General' },
+      { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive' },
+      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', riskAllergies: ['Latex'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }] },
+      { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true, riskAllergies: ['Latex', 'Penicillin'], riskDisclosures: ['Alveolar osteitis (dry socket)', 'Post-operative bleeding', 'Infection', 'Damage to adjacent teeth', 'Nerve paresthesia'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 2 }, { stockItemId: 'stk_2', quantity: 2 }] },
+      { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true, riskAllergies: ['Latex', 'Local Anesthetic'], riskDisclosures: ['Post-treatment sensitivity', 'Instrument separation', 'Re-infection', 'Tooth fracture', 'Sinus involvement'] },
+      { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative' },
+      { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
+      { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery', requiresConsent: true, riskAllergies: ['Latex', 'Penicillin', 'Local Anesthetic'], riskDisclosures: ['Jaw stiffness (trismus)', 'Nerve injury', 'Sinus perforation', 'Reaction to anesthetic'] },
+      { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic' },
       { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' },
-      { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric', recallMonths: 6 },
+      { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric' },
       { id: 'p12', name: 'Exam', price: 0, category: 'General' },
-      { id: 'p13', name: 'Crown', price: 12000, category: 'Prosthodontics', labTurnaroundDays: 7 },
+      { id: 'p13', name: 'Crown', price: 12000, category: 'Prosthodontics', riskAllergies: ['Latex'] },
       { id: 'p14', name: 'Missing', price: 0, category: 'General' },
       { id: 'p15', name: 'Communication Log', price: 0, category: 'General' }
   ], 
@@ -360,9 +348,9 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     }
   ],
   medications: [
-      { id: 'med1', name: 'Amoxil', genericName: 'Amoxicillin', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'] },
-      { id: 'med2', name: 'Ponstan', genericName: 'Mefenamic Acid', dosage: '500mg', instructions: 'Take 1 tablet every 6 hours as needed for pain.', contraindicatedAllergies: ['Aspirin', 'Ibuprofen'] },
-      { id: 'med3', name: 'Ultram', genericName: 'Tramadol', dosage: '50mg', instructions: 'Take 1 capsule every 6 hours for severe pain.', isS2Controlled: true },
+      { id: 'med1', name: 'Amoxicillin', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'] },
+      { id: 'med2', name: 'Mefenamic Acid', dosage: '500mg', instructions: 'Take 1 tablet every 6 hours as needed for pain.', contraindicatedAllergies: ['Aspirin', 'Ibuprofen'] },
+      { id: 'med3', name: 'Tramadol', dosage: '50mg', instructions: 'Take 1 capsule every 6 hours for severe pain.', isS2Controlled: true },
   ],
   consentFormTemplates: [
       { id: 'cft1', name: 'General Consent', content: 'I, {PatientName}, consent to the dental treatment as discussed with {DoctorName} on {Date}.' },
@@ -379,9 +367,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Root Canal': 'POST-OP INSTRUCTIONS: ROOT CANAL\n\n1. Avoid chewing on the treated tooth until it is fully restored.\n2. Some tenderness is normal.\n3. Maintain good oral hygiene.'
   },
   clinicalNoteTemplates: [
-      { id: 'cnt1', name: 'Prophy SOAP', content: 'S: Patient presents for routine cleaning.\nO: Generalized mild plaque and calculus.\nA: Oral Prophylaxis.\nP: Performed scaling and polishing. OHI given.'}
+      { id: 'cnt1', name: 'Prophy SOAP', content: 'S: Patient presents for routine cleaning.\nO: Generalized light plaque and calculus.\nA: Oral Prophylaxis.\nP: Performed scaling and polishing. OHI given.'}
   ],
-  vendors: MOCK_VENDORS,
-  vatRate: 0.12,
-  seniorDiscountRate: 0.20
+  vendors: MOCK_VENDORS
 };

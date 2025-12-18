@@ -62,43 +62,6 @@ export enum StockCategory {
   OFFICE = 'Office Supplies'
 }
 
-export interface ICD10Code {
-    code: string;
-    description: string;
-}
-
-export interface SecurityIncident {
-    id: string;
-    timestamp: string;
-    nature: 'Unauthorized Access' | 'Loss of Device' | 'Malware' | 'Other';
-    dataInvolved: string;
-    personsAffected: number;
-    remediationSteps: string;
-    reportedBy: string;
-}
-
-// NPC DSAR TRACKING
-export interface DataAccessRequest {
-    id: string;
-    patientId: string;
-    patientName: string;
-    requestDate: string;
-    type: 'Full Record' | 'Clinical Abstract' | 'Imaging';
-    status: 'Pending' | 'Fulfilled' | 'Rejected';
-    fulfilledAt?: string;
-    fulfilledBy?: string;
-}
-
-export interface RadiationSafetyLog {
-    id: string;
-    date: string;
-    type: 'Lead Apron Check' | 'Machine Calibration' | 'Area Monitoring';
-    assetName: string;
-    result: 'Pass' | 'Fail';
-    notes: string;
-    inspector: string;
-}
-
 export interface HMOClaim {
   id: string;
   patientId: string;
@@ -154,7 +117,6 @@ export interface StockItem {
   lastRestockDate?: string;
   expiryDate?: string;
   batchNumber?: string;
-  msdsUrl?: string; 
 }
 
 export interface SterilizationCycle {
@@ -200,11 +162,10 @@ export interface AuditLogEntry {
   id: string;
   timestamp: string;
   isVerifiedTimestamp?: boolean; 
-  timeDriftOffsetMs?: number; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'APPROVE_AMENDMENT' | 'LOG_RADIATION_CHECK' | 'LOG_BREACH' | 'FULFILL_ACCESS_REQUEST' | 'ADJUST_LEDGER';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'AmendmentRequest' | 'RadiationLog' | 'BreachReport' | 'AccessRequest';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral';
   entityId: string;
   details: string;
 }
@@ -230,33 +191,17 @@ export interface Referral {
     notes?: string;
 }
 
-export interface AmendmentRequest {
-    id: string;
-    patientId: string;
-    patientName: string;
-    dateRequested: string;
-    fieldToAmend: string;
-    currentValue: string;
-    requestedValue: string;
-    reason: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    actionedBy?: string;
-    actionedAt?: string;
-}
-
 export interface ProcedureItem {
   id: string;
   name: string;
   price: number;
-  philHealthCaseRate?: number; 
   category?: string;
   traySetup?: string[];
   requiresConsent?: boolean;
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
-  recallMonths?: number;
-  labTurnaroundDays?: number;
+  riskAllergies?: string[]; // NEW: For CDS Drug-Allergy Interaction
 }
 
 export interface RolePermissions {
@@ -312,7 +257,6 @@ export interface ClinicalProtocolRule {
 export interface Medication {
     id: string;
     name: string;
-    genericName: string; 
     dosage: string;
     instructions: string;
     contraindicatedAllergies?: string[];
@@ -371,8 +315,6 @@ export interface FieldSettings {
   postOpTemplates?: Record<string, string>;
   mediaConsentTemplate?: ConsentFormTemplate;
   vendors?: Vendor[]; 
-  vatRate?: number;
-  seniorDiscountRate?: number;
 }
 
 export enum TreatmentPlanStatus {
@@ -396,13 +338,6 @@ export interface TreatmentPlan {
     quoteSignedAt?: string;
 }
 
-export interface Vitals {
-    bp?: string;
-    hr?: number;
-    temp?: number;
-    rr?: number;
-}
-
 export interface DentalChartEntry {
   id: string;
   toothNumber: number;
@@ -419,19 +354,17 @@ export interface DentalChartEntry {
   date?: string; 
   timestamp?: string; 
   isVerifiedTimestamp?: boolean; 
-  timeDriftOffsetMs?: number; 
   notes?: string;
   subjective?: string; 
   objective?: string;  
   assessment?: string; 
-  icd10Code?: string; 
   plan?: string;       
   author?: string;
   planId?: string;
   isVoid?: boolean;
   isLocked?: boolean; 
+  isBilled?: boolean;
   materialBatchId?: string; 
-  vitals?: Vitals; // PRC PER-VISIT VITALS
   lockedInfo?: {
       by: string;
       at: string;
@@ -445,7 +378,7 @@ export interface DentalChartEntry {
       amends: string;
       by: string;
       at: string;
-      previousNote: string;
+      previousNote: string; // NEW: Strikethrough transparency
   };
 }
 
@@ -472,11 +405,7 @@ export interface LedgerEntry {
   philHealthClaimId?: string;
   orNumber?: string;
   discountType?: DiscountType; 
-  idNumber?: string;
-  isSuggested?: boolean;
-  isImmutable?: boolean; // BIR CAS IMMUTABILITY
-  adjustmentForId?: string; // BIR AUDIT TRAIL
-  indigentMember?: boolean; // PhilHealth NBB
+  idNumber?: string;          
 }
 
 export interface UserPreferences {
@@ -492,12 +421,6 @@ export interface ImmunizationRecord {
     type: string;
     date: string;
     remarks?: string;
-}
-
-export interface ProfessionalCertificate {
-    type: 'BLS' | 'Infection Control' | 'Radiation Safety' | 'Other';
-    expiry: string;
-    url?: string;
 }
 
 export interface User {
@@ -518,7 +441,7 @@ export interface User {
   specialization?: string;
   clinicHours?: string;
   employeeId?: string;
-  certifications?: ProfessionalCertificate[]; // DOH MANDATORY CERTS
+  certifications?: string[]; 
   assignedDoctors?: string[]; 
   canViewFinancials?: boolean;
   allowedBranches?: string[]; 
@@ -528,7 +451,7 @@ export interface User {
   isReadOnly?: boolean; 
   preferences?: UserPreferences;
   roster?: Record<string, string>;
-  immunizations?: ImmunizationRecord[];
+  immunizations?: ImmunizationRecord[]; // NEW: DOH Compliance
 }
 
 export interface PatientFile {
@@ -560,7 +483,6 @@ export interface Patient {
   motherOccupation?: string;
   dob: string;
   age?: number;
-  groupName?: string; 
   guardian?: string;
   guardianMobile?: string;
   sex?: 'Male' | 'Female';
@@ -607,11 +529,8 @@ export interface Patient {
   files?: PatientFile[];
   receipts?: IssuedReceipt[]; 
   treatmentPlans?: TreatmentPlan[];
-  referrals?: Referral[];
   dpaConsent?: boolean;
   marketingConsent?: boolean;
-  processingStatus?: 'Active' | 'Suspended';
-  isIndigent?: boolean; // PhilHealth NBB
 }
 
 export interface Appointment {
@@ -644,7 +563,6 @@ export interface Appointment {
       timestamp: string;
   }[];
   signedConsentUrl?: string;
-  signatoryRelationship?: string; // LEGAL: R.A. 9484
 }
 
 export interface PinboardTask {
@@ -672,6 +590,4 @@ export interface TelehealthRequest {
     chiefComplaint: string;
     dateRequested: string;
     status: 'Pending' | 'Scheduled' | 'Completed';
-    triageCategory?: 'Urgent' | 'Elective'; // DOH AO 2020-0041
-    referralIssued?: boolean;
 }
