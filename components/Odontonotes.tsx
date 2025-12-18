@@ -52,6 +52,10 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const applyTemplate = (procName: string) => {
       setSelectedProcedure(procName);
+      const procDef = procedures.find(p => p.name === procName);
+      if (procDef) {
+          setCharge(procDef.price.toString());
+      }
       const template = SOAP_TEMPLATES[procName];
       if (template) {
           setSubjective(template.s);
@@ -66,6 +70,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
     e.preventDefault();
     if (!subjective && !objective && !assessment && !plan) return;
     
+    // SAFETY GUARD: Sterilization traceability for surgery
+    const procDef = procedures.find(p => p.name === selectedProcedure);
+    if (procDef?.category === 'Surgery' && !selectedBatchId) {
+        toast.error("Safety Protocol Violation: Sterilization Autoclave ID is mandatory for all surgical procedures.");
+        return;
+    }
+
     const combinedNotes = `S: ${subjective}\nO: ${objective}\nA: ${assessment}\nP: ${plan}`;
 
     if (editingId) {
@@ -152,8 +163,9 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                         <div className="flex-1 flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-2">
                             <Box size={14} className="text-slate-400"/>
                             <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)} className="flex-1 py-2 text-xs outline-none bg-transparent" disabled={!!editingId}>
-                                <option value="">- Trace Material Batch -</option>
+                                <option value="">- Trace Material/Autoclave Batch -</option>
                                 {inventory.filter(s => s.batchNumber).map(s => <option key={s.id} value={s.batchNumber}>{s.name} (Lot: {s.batchNumber})</option>)}
+                                <option value="A-2024-001">Autoclave Cycle #001 (Mock)</option>
                             </select>
                         </div>
                      </div>

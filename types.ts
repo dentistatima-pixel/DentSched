@@ -164,8 +164,8 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'APPROVE_AMENDMENT';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'AmendmentRequest';
   entityId: string;
   details: string;
 }
@@ -191,6 +191,20 @@ export interface Referral {
     notes?: string;
 }
 
+export interface AmendmentRequest {
+    id: string;
+    patientId: string;
+    patientName: string;
+    dateRequested: string;
+    fieldToAmend: string;
+    currentValue: string;
+    requestedValue: string;
+    reason: string;
+    status: 'Pending' | 'Approved' | 'Rejected';
+    actionedBy?: string;
+    actionedAt?: string;
+}
+
 export interface ProcedureItem {
   id: string;
   name: string;
@@ -201,6 +215,8 @@ export interface ProcedureItem {
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
+  recallMonths?: number;
+  labTurnaroundDays?: number;
 }
 
 export interface RolePermissions {
@@ -314,6 +330,8 @@ export interface FieldSettings {
   postOpTemplates?: Record<string, string>;
   mediaConsentTemplate?: ConsentFormTemplate;
   vendors?: Vendor[]; 
+  vatRate?: number;
+  seniorDiscountRate?: number;
 }
 
 export enum TreatmentPlanStatus {
@@ -403,7 +421,8 @@ export interface LedgerEntry {
   philHealthClaimId?: string;
   orNumber?: string;
   discountType?: DiscountType; 
-  idNumber?: string;          
+  idNumber?: string;
+  isSuggested?: boolean;
 }
 
 export interface UserPreferences {
@@ -531,6 +550,7 @@ export interface Patient {
   referrals?: Referral[]; // UPDATED: officially link diagnostics
   dpaConsent?: boolean;
   marketingConsent?: boolean;
+  processingStatus?: 'Active' | 'Suspended'; // NEW: R.A. 10173 Compliance
 }
 
 export interface Appointment {

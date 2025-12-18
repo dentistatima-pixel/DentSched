@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates, OfficialReceiptBooklet, ClinicProfile, Medication, ConsentFormTemplate, ClinicalNoteTemplate, ClinicalProtocolRule, UserRole, RolePermissions, AuditLogEntry, Vendor, Patient, ClinicalIncident, WasteLogEntry, AssetMaintenanceEntry } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Radio } from 'lucide-react';
+import { FieldSettings, ProcedureItem, FeatureToggles, User, SmsTemplates, OfficialReceiptBooklet, ClinicProfile, Medication, ConsentFormTemplate, ClinicalNoteTemplate, ClinicalProtocolRule, UserRole, RolePermissions, AuditLogEntry, Vendor, Patient, ClinicalIncident, WasteLogEntry, AssetMaintenanceEntry, AmendmentRequest } from '../types';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Radio, PenSquare } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -15,8 +15,13 @@ interface FieldManagementProps {
   onPurgePatient?: (id: string) => void; 
   onExportAuditLog?: () => void; 
   incidents?: ClinicalIncident[];
+  onAddIncident?: (inc: Partial<ClinicalIncident>) => void;
   wasteLogs?: WasteLogEntry[]; 
+  onAddWasteLog?: (log: Partial<WasteLogEntry>) => void;
   assetLogs?: AssetMaintenanceEntry[]; 
+  onAddAssetLog?: (log: Partial<AssetMaintenanceEntry>) => void;
+  amendmentRequests?: AmendmentRequest[];
+  onActionAmendment?: (id: string, action: 'Approved' | 'Rejected') => void;
 }
 
 const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -25,9 +30,14 @@ const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
     [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canManageInventory: true }
 };
 
-const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [], wasteLogs = [], assetLogs = [] }) => {
+const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [], onAddIncident, wasteLogs = [], onAddWasteLog, assetLogs = [], onAddAssetLog, amendmentRequests = [], onActionAmendment }) => {
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
+
+    // Modals state
+    const [showWasteForm, setShowWasteForm] = useState(false);
+    const [showAssetForm, setShowAssetForm] = useState(false);
+    const [showIncidentForm, setShowIncidentForm] = useState(false);
 
     const menuStructure = [
         { group: 'System Settings', icon: Sliders, items: [
@@ -36,6 +46,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             { key: 'branches', label: 'Clinic Branches', icon: MapPin },
             { key: 'sms', label: 'Messaging & SMS', icon: MessageSquare },
             { key: 'receipts', label: 'BIR Receipt Booklets', icon: FileText },
+            { key: 'finance', label: 'Finance & Tax Rules', icon: DollarSign },
         ]},
         { group: 'Clinical Content & Protocols', icon: BookOpen, items: [
             { key: 'procedures', label: 'Procedures & Prices', icon: DollarSign },
@@ -50,10 +61,11 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             { key: 'medicalConditions', label: 'Medical Conditions', icon: Activity },
         ]},
         { group: 'Legal & Compliance', icon: Shield, items: [
+            { key: 'amendments', label: 'Amendment Requests', icon: PenSquare },
             { key: 'auditLog', label: 'Audit Log', icon: Key },
             { key: 'credentials', label: 'Credential Expiry Monitor', icon: CheckCircle }, 
             { key: 'vatSummary', label: 'BIR Senior/PWD VAT Summary', icon: TrendingUp }, 
-            { key: 'radiologyLog', label: 'Radiology Request Log', icon: Radio }, // NEW: #1
+            { key: 'radiologyLog', label: 'Radiology Request Log', icon: Radio }, 
             { key: 'wasteLogs', label: 'Bio-Medical Waste Log', icon: Droplet }, 
             { key: 'assetLogs', label: 'Asset Maintenance Registry', icon: Wrench }, 
             { key: 'vendors', label: 'Vendor Compliance', icon: Briefcase },
@@ -82,10 +94,126 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             case 'incidents': return renderIncidents(); 
             case 'wasteLogs': return renderWasteLogs(); 
             case 'assetLogs': return renderAssetLogs(); 
-            case 'radiologyLog': return renderRadiologyLog(); // NEW: #1
+            case 'radiologyLog': return renderRadiologyLog();
+            case 'finance': return renderFinanceRules();
+            case 'procedures': return renderProcedures();
+            case 'amendments': return renderAmendments();
             default: return <div className="p-10 text-center text-slate-400"><HardHat size={32} className="mx-auto mb-2" /> Interface for this section is under construction.</div>;
         }
     };
+
+    function renderAmendments() {
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><PenSquare size={20} className="text-teal-600"/> Rectification Approval Queue</h4>
+                    <p className="text-xs text-slate-500 mt-1">DPA 2012 Right to Rectification requests submitted via the patient portal.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {amendmentRequests && amendmentRequests.length > 0 ? amendmentRequests.map(req => (
+                        <div key={req.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h5 className="font-bold text-slate-800">{req.patientName}</h5>
+                                    <p className="text-xs text-slate-500 font-mono">ID: {req.patientId} • Requested: {formatDate(req.dateRequested)}</p>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                                    req.status === 'Pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                    req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    'bg-red-50 text-red-700 border-red-200'
+                                }`}>{req.status}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mb-4 bg-slate-50 p-4 rounded-xl text-xs">
+                                <div><span className="block font-bold text-slate-400 uppercase text-[9px] mb-1">Field</span><span className="font-bold text-slate-800">{req.fieldToAmend}</span></div>
+                                <div><span className="block font-bold text-slate-400 uppercase text-[9px] mb-1">Reason</span><span className="italic text-slate-600">"{req.reason}"</span></div>
+                                <div className="border-t border-slate-200 pt-2"><span className="block font-bold text-slate-400 uppercase text-[9px] mb-1">Old Value</span><span className="text-red-600 line-through">{req.currentValue}</span></div>
+                                <div className="border-t border-slate-200 pt-2"><span className="block font-bold text-slate-400 uppercase text-[9px] mb-1">New Value</span><span className="text-green-600 font-bold">{req.requestedValue}</span></div>
+                            </div>
+                            {req.status === 'Pending' && (
+                                <div className="flex gap-2 justify-end">
+                                    <button onClick={() => onActionAmendment?.(req.id, 'Rejected')} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-colors">Reject</button>
+                                    <button onClick={() => onActionAmendment?.(req.id, 'Approved')} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition-shadow">Approve & Update Record</button>
+                                </div>
+                            )}
+                            {req.status !== 'Pending' && (
+                                <div className="text-[10px] text-slate-400 text-right font-medium">Actioned by {req.actionedBy} on {formatDate(req.actionedAt)}</div>
+                            )}
+                        </div>
+                    )) : <div className="text-center py-20 text-slate-400 italic">No pending rectification requests.</div>}
+                </div>
+            </div>
+        );
+    }
+
+    function renderFinanceRules() {
+        return (
+            <div className="p-6 bg-slate-50 h-full overflow-y-auto space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2 mb-4"><DollarSign size={20} className="text-teal-600"/> Finance & Statutory Rules</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Standard VAT Rate (%)</label>
+                            <input 
+                                type="number" 
+                                value={(settings.vatRate || 0) * 100} 
+                                onChange={e => onUpdateSettings({...settings, vatRate: parseFloat(e.target.value) / 100})}
+                                className="w-full p-3 border rounded-xl"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1 italic">Default is 12% in the Philippines.</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Senior/PWD Discount Rate (%)</label>
+                            <input 
+                                type="number" 
+                                value={(settings.seniorDiscountRate || 0) * 100} 
+                                onChange={e => onUpdateSettings({...settings, seniorDiscountRate: parseFloat(e.target.value) / 100})}
+                                className="w-full p-3 border rounded-xl"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1 italic">Default is 20% statutory discount.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function renderProcedures() {
+        return (
+            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center">
+                    <div>
+                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><DollarSign size={20} className="text-teal-600"/> Procedures Registry</h4>
+                        <p className="text-xs text-slate-500 mt-1">Configure pricing, recall intervals, and supply requirements.</p>
+                    </div>
+                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> New Procedure</button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-tighter">
+                            <tr>
+                                <th className="p-4">Procedure Name</th>
+                                <th className="p-4">Category</th>
+                                <th className="p-4 text-center">Recall (mo)</th>
+                                <th className="p-4 text-center">Lab (days)</th>
+                                <th className="p-4 text-right">Standard Price</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {settings.procedures.map(proc => (
+                                <tr key={proc.id} className="hover:bg-slate-50 group">
+                                    <td className="p-4 font-bold text-slate-800">{proc.name}</td>
+                                    <td className="p-4 text-slate-500">{proc.category}</td>
+                                    <td className="p-4 text-center font-mono text-teal-600 font-bold">{proc.recallMonths || '-'}</td>
+                                    <td className="p-4 text-center font-mono text-purple-600 font-bold">{proc.labTurnaroundDays || '-'}</td>
+                                    <td className="p-4 text-right font-bold text-slate-800">₱{proc.price.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
 
     function renderRadiologyLog() {
         const radiologyReferrals = useMemo(() => {
@@ -125,7 +253,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                                     <td className="p-4 text-teal-700 font-bold">{req.referredTo}</td>
                                     <td className="p-4 text-slate-500">{req.reason}</td>
                                     <td className="p-4 text-center">
-                                        <span className={`px-2 py-0.5 rounded font-bold uppercase ${req.status === 'Completed' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-yellow-50 text-yellow-700 border border-yellow-100'}`}>
+                                        <span className={`px-2 py-0.5 rounded font-bold uppercase ${req.status === 'Completed' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-yellow-50 text-yellow-700 border-yellow-100'}`}>
                                             {req.status}
                                         </span>
                                     </td>
@@ -146,7 +274,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                         <h4 className="font-bold text-slate-700 flex items-center gap-2"><Droplet size={20} className="text-red-500"/> Bio-Medical Waste Log</h4>
                         <p className="text-xs text-slate-500 mt-1">DENR/DOH regulatory record for hazardous waste disposal and transport manifest tracking.</p>
                     </div>
-                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Manifest</button>
+                    <button onClick={() => setShowWasteForm(true)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Manifest</button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <table className="w-full text-left text-xs">
@@ -166,6 +294,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                         </tbody>
                     </table>
                 </div>
+                {showWasteForm && <WasteLogModal onSave={(log) => { onAddWasteLog?.(log); setShowWasteForm(false); }} onClose={() => setShowWasteForm(false)} />}
             </div>
         );
     }
@@ -178,7 +307,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                         <h4 className="font-bold text-slate-700 flex items-center gap-2"><Wrench size={20} className="text-teal-600"/> Asset Maintenance Registry</h4>
                         <p className="text-xs text-slate-500 mt-1">Equipment health tracking (Dental Chairs, Autoclaves, Compressors) as required for DOH Licensing.</p>
                     </div>
-                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Maintenance</button>
+                    <button onClick={() => setShowAssetForm(true)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Maintenance</button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <table className="w-full text-left text-xs">
@@ -198,6 +327,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                         </tbody>
                     </table>
                 </div>
+                {showAssetForm && <AssetLogModal onSave={(log) => { onAddAssetLog?.(log); setShowAssetForm(false); }} onClose={() => setShowAssetForm(false)} />}
             </div>
         );
     }
@@ -205,9 +335,12 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     function renderIncidents() {
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                <div className="p-6 border-b border-slate-100 bg-white">
-                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><AlertOctagon size={20} className="text-red-600"/> Clinical Incident Registry</h4>
-                    <p className="text-xs text-slate-500 mt-1">Private repository for logging complications and adverse events for malpractice defense and peer review.</p>
+                <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center">
+                    <div>
+                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><AlertOctagon size={20} className="text-red-600"/> Clinical Incident Registry</h4>
+                        <p className="text-xs text-slate-500 mt-1">Private repository for logging complications and adverse events for malpractice defense and peer review.</p>
+                    </div>
+                    <button onClick={() => setShowIncidentForm(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md"><Plus size={14}/> Log Incident</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     {incidents.length > 0 ? incidents.map(inc => (
@@ -227,6 +360,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                         </div>
                     )) : <div className="text-center py-20 text-slate-400 italic">No clinical incidents recorded. Excellent clinical safety record.</div>}
                 </div>
+                {showIncidentForm && <IncidentLogModal patients={patients} onSave={(inc) => { onAddIncident?.(inc); setShowIncidentForm(false); }} onClose={() => setShowIncidentForm(false)} />}
             </div>
         );
     }
@@ -642,6 +776,84 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
           </div>
         )
     }
+};
+
+const WasteLogModal = ({ onSave, onClose }: { onSave: (log: Partial<WasteLogEntry>) => void, onClose: () => void }) => {
+    const [formData, setFormData] = useState({ manifestNumber: '', type: 'Bio-hazard (Yellow)', transporterName: '', weightKg: 0 });
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95">
+                <h3 className="font-bold text-lg text-slate-800 mb-4">Log Waste Disposal</h3>
+                <div className="space-y-4">
+                    <input className="w-full p-3 border rounded-xl" placeholder="Manifest Number" value={formData.manifestNumber} onChange={e => setFormData({...formData, manifestNumber: e.target.value})} />
+                    <select className="w-full p-3 border rounded-xl" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
+                        <option>Bio-hazard (Yellow)</option><option>Sharps</option><option>Amalgam</option><option>General Medical</option>
+                    </select>
+                    <input className="w-full p-3 border rounded-xl" placeholder="Transporter Name" value={formData.transporterName} onChange={e => setFormData({...formData, transporterName: e.target.value})} />
+                    <input className="w-full p-3 border rounded-xl" type="number" placeholder="Weight (kg)" value={formData.weightKg} onChange={e => setFormData({...formData, weightKg: parseFloat(e.target.value)})} />
+                </div>
+                <div className="flex gap-2 mt-6">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
+                    <button onClick={() => onSave(formData)} className="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl">Save Log</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AssetLogModal = ({ onSave, onClose }: { onSave: (log: Partial<AssetMaintenanceEntry>) => void, onClose: () => void }) => {
+    const [formData, setFormData] = useState({ assetName: '', serialNumber: '', type: 'Preventive', technician: '', nextDueDate: '' });
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95">
+                <h3 className="font-bold text-lg text-slate-800 mb-4">Log Maintenance</h3>
+                <div className="space-y-4">
+                    <input className="w-full p-3 border rounded-xl" placeholder="Equipment Name" value={formData.assetName} onChange={e => setFormData({...formData, assetName: e.target.value})} />
+                    <input className="w-full p-3 border rounded-xl" placeholder="Serial Number" value={formData.serialNumber} onChange={e => setFormData({...formData, serialNumber: e.target.value})} />
+                    <select className="w-full p-3 border rounded-xl" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
+                        <option>Preventive</option><option>Repair</option><option>Calibration</option>
+                    </select>
+                    <input className="w-full p-3 border rounded-xl" placeholder="Technician" value={formData.technician} onChange={e => setFormData({...formData, technician: e.target.value})} />
+                    <input className="w-full p-3 border rounded-xl" type="date" value={formData.nextDueDate} onChange={e => setFormData({...formData, nextDueDate: e.target.value})} />
+                </div>
+                <div className="flex gap-2 mt-6">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
+                    <button onClick={() => onSave(formData)} className="flex-1 py-3 bg-teal-600 text-white font-bold rounded-xl">Save Registry</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const IncidentLogModal = ({ patients, onSave, onClose }: { patients: Patient[], onSave: (inc: Partial<ClinicalIncident>) => void, onClose: () => void }) => {
+    const [formData, setFormData] = useState({ patientId: '', severity: 'Minor', category: 'Other', description: '', managementTaken: '' });
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+                <h3 className="font-bold text-lg text-red-800 mb-4">Log Clinical Incident</h3>
+                <div className="space-y-4">
+                    <select className="w-full p-3 border rounded-xl" value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
+                        <option value="">- Select Patient -</option>
+                        {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <select className="w-full p-3 border rounded-xl" value={formData.severity} onChange={e => setFormData({...formData, severity: e.target.value as any})}>
+                            <option>Minor</option><option>Moderate</option><option>Major</option>
+                        </select>
+                        <select className="w-full p-3 border rounded-xl" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as any})}>
+                            <option>Anesthetic Reaction</option><option>Instrument Breakage</option><option>Unexpected Bleeding</option><option>Post-op Infection</option><option>Other</option>
+                        </select>
+                    </div>
+                    <textarea className="w-full p-3 border rounded-xl h-24" placeholder="Description of event..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    <textarea className="w-full p-3 border rounded-xl h-24" placeholder="Management actions taken..." value={formData.managementTaken} onChange={e => setFormData({...formData, managementTaken: e.target.value})} />
+                </div>
+                <div className="flex gap-2 mt-6">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
+                    <button onClick={() => onSave(formData)} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl">Commit Incident Log</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default FieldManagement;

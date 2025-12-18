@@ -273,22 +273,22 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
   allergies: ['None', 'Aspirin', 'Penicillin', 'Sulfa', 'Local Anesthetic', 'Latex', 'Ibuprofen', 'Seafood'],
   medicalConditions: [
-    'None', 'High BP', 'Low BP', 'Epilepsy', 'Diabetes', 'Asthma', 'Heart Disease', 'Hepatitis', 'Kidney Issues', 'Bleeding Issues', 'Pregnancy', 'Thyroid Issues'
+    'None', 'High BP', 'Low BP', 'Epilepsy', 'Diabetes', 'Asthma', 'Heart Disease', 'Hepatitis', 'Kidney Issues', 'Bleeding Issues', 'Pregnancy', 'Thyroid Issues', 'Periodontal Disease'
   ],
   procedures: [
-      { id: 'p1', name: 'Consultation', price: 500, category: 'General' },
-      { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive' },
-      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }] },
+      { id: 'p1', name: 'Consultation', price: 500, category: 'General', recallMonths: 6 },
+      { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive', recallMonths: 6, billOfMaterials: [ { stockItemId: 'stk_2', quantity: 1 }] },
+      { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', recallMonths: 12, billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }] },
       { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true, riskDisclosures: ['Alveolar osteitis (dry socket)', 'Post-operative bleeding', 'Infection', 'Damage to adjacent teeth', 'Nerve paresthesia'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 2 }, { stockItemId: 'stk_2', quantity: 2 }] },
       { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true, riskDisclosures: ['Post-treatment sensitivity', 'Instrument separation', 'Re-infection', 'Tooth fracture', 'Sinus involvement'] },
-      { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative' },
-      { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
+      { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative', labTurnaroundDays: 10 },
+      { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics', recallMonths: 1 },
       { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery', requiresConsent: true, riskDisclosures: ['Jaw stiffness (trismus)', 'Nerve injury', 'Sinus perforation', 'Reaction to anesthetic'] },
-      { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic' },
+      { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic', recallMonths: 12 },
       { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' },
-      { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric' },
+      { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric', recallMonths: 6 },
       { id: 'p12', name: 'Exam', price: 0, category: 'General' },
-      { id: 'p13', name: 'Crown', price: 12000, category: 'Prosthodontics' },
+      { id: 'p13', name: 'Crown', price: 12000, category: 'Prosthodontics', labTurnaroundDays: 7 },
       { id: 'p14', name: 'Missing', price: 0, category: 'General' },
       { id: 'p15', name: 'Communication Log', price: 0, category: 'General' }
   ], 
@@ -369,5 +369,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicalNoteTemplates: [
       { id: 'cnt1', name: 'Prophy SOAP', content: 'S: Patient presents for routine cleaning.\nO: Generalized light plaque and calculus.\nA: Oral Prophylaxis.\nP: Performed scaling and polishing. OHI given.'}
   ],
-  vendors: MOCK_VENDORS
+  vendors: MOCK_VENDORS,
+  vatRate: 0.12,
+  seniorDiscountRate: 0.20
 };

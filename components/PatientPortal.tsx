@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Patient, Appointment, User, AppointmentType, LedgerEntry, TreatmentPlan, TreatmentPlanStatus, AuditLogEntry } from '../types';
-import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, FileBox, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
+import { Patient, Appointment, User, AppointmentType, LedgerEntry, TreatmentPlan, TreatmentPlanStatus, AuditLogEntry, AmendmentRequest } from '../types';
+import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, FileBox, ShieldAlert, MonitorOff, Eye, PenSquare, Clock } from 'lucide-react';
 import { formatDate } from '../constants';
 import TelehealthModal from './TelehealthModal';
 import { useToast } from './ToastSystem';
@@ -11,20 +11,26 @@ interface PatientPortalProps {
     patient: Patient;
     appointments: Appointment[];
     staff: User[];
-    auditLog?: AuditLogEntry[]; // NEW
+    auditLog?: AuditLogEntry[]; 
     onExit: () => void;
+    onAddAmendmentRequest?: (req: Partial<AmendmentRequest>) => void;
+    amendmentRequests?: AmendmentRequest[];
 }
 
-const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, staff, auditLog = [], onExit }) => {
+const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, staff, auditLog = [], onExit, onAddAmendmentRequest, amendmentRequests = [] }) => {
     const toast = useToast();
-    const [activeTab, setActiveTab] = useState<'appointments'|'ledger'|'logs'|'forms'>('appointments');
+    const [activeTab, setActiveTab] = useState<'appointments'|'ledger'|'logs'|'forms'|'amend'>('appointments');
     const [showSecurityModal, setShowSecurityModal] = useState<{ type: 'data' | 'abstract' } | null>(null);
+
+    // Amendment Request state
+    const [amendField, setAmendField] = useState('phone');
+    const [amendValue, setAmendValue] = useState('');
+    const [amendReason, setAmendReason] = useState('');
 
     const upcomingAppointments = appointments
         .filter(a => new Date(a.date) >= new Date(new Date().toDateString()))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // NEW: NPC Transparency Privacy Log
     const privacyLogs = useMemo(() => {
         return auditLog.filter(log => log.entityId === patient.id && (log.action === 'VIEW_RECORD' || log.action === 'UPDATE' || log.action === 'AMEND_RECORD'));
     }, [auditLog, patient.id]);
@@ -34,6 +40,24 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
         if (showSecurityModal.type === 'data') execDataRequest();
         else execAbstractRequest();
         setShowSecurityModal(null);
+    };
+
+    const handleAmendmentSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!amendValue.trim() || !amendReason.trim()) return;
+        
+        onAddAmendmentRequest?.({
+            patientId: patient.id,
+            patientName: patient.name,
+            fieldToAmend: amendField,
+            currentValue: (patient as any)[amendField] || 'N/A',
+            requestedValue: amendValue,
+            reason: amendReason
+        });
+
+        setAmendValue('');
+        setAmendReason('');
+        toast.success("Amendment request sent for validation.");
     };
 
     const execDataRequest = () => {
@@ -77,6 +101,7 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                             {[
                                 {id: 'appointments', label: 'Visits', icon: Calendar}, 
                                 {id: 'logs', label: 'Privacy Log', icon: Eye},
+                                {id: 'amend', label: 'Correct Record', icon: PenSquare},
                                 {id: 'forms', label: 'Safety & Forms', icon: FileSignature}
                             ].map(tab => (
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${activeTab === tab.id ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}>
@@ -93,6 +118,59 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                                             <div><div className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-1">{apt.type}</div><div className="text-xl font-bold text-slate-800">{formatDate(apt.date)} at {apt.time}</div></div>
                                         </div>
                                     )) : <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 italic">No upcoming visits.</div>}
+                                </div>
+                            )}
+
+                            {activeTab === 'amend' && (
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <PenSquare className="text-teal-600" size={24}/>
+                                        <h3 className="font-bold text-slate-800 text-lg">Request Correction (Right to Rectification)</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-500">Under the Data Privacy Act, you may request a correction to your personal data if it is inaccurate. All requests are reviewed by our Data Protection Officer.</p>
+                                    
+                                    <form onSubmit={handleAmendmentSubmit} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Information Category</label>
+                                                <select className="w-full p-3 border rounded-xl bg-white mt-1" value={amendField} onChange={e => setAmendField(e.target.value)}>
+                                                    <option value="phone">Mobile Number</option>
+                                                    <option value="email">Email Address</option>
+                                                    <option value="homeAddress">Home Address</option>
+                                                    <option value="occupation">Occupation</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">New Accurate Value</label>
+                                                <input required className="w-full p-3 border rounded-xl bg-white mt-1" value={amendValue} onChange={e => setAmendValue(e.target.value)} placeholder="Enter corrected info..."/>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Reason for Amendment</label>
+                                            <textarea required className="w-full p-3 border rounded-xl bg-white mt-1 h-24" value={amendReason} onChange={e => setAmendReason(e.target.value)} placeholder="e.g., I changed my mobile provider last month."/>
+                                        </div>
+                                        <button type="submit" className="w-full py-4 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 transition-colors">Submit Request for Verification</button>
+                                    </form>
+
+                                    {amendmentRequests.length > 0 && (
+                                        <div className="mt-8 border-t border-slate-100 pt-6">
+                                            <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Clock size={16}/> Request History</h4>
+                                            <div className="space-y-3">
+                                                {amendmentRequests.map(r => (
+                                                    <div key={r.id} className="flex justify-between items-center p-4 bg-white border rounded-xl">
+                                                        <div>
+                                                            <div className="font-bold text-slate-800">Correct {r.fieldToAmend}</div>
+                                                            <div className="text-[10px] text-slate-400 font-mono">{formatDate(r.dateRequested)}</div>
+                                                        </div>
+                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                            r.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 
+                                                            r.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                        }`}>{r.status}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -132,6 +210,7 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                     <div className="space-y-6">
                         <div className="bg-teal-900 p-8 rounded-3xl shadow-xl text-white">
                              <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-teal-300"><Video size={24}/> Tele-dentistry</h2>
+                             <p className="text-sm text-teal-100/70 mb-6 leading-relaxed">Book a virtual consultation for triage or follow-up discussion. Physical examination may still be required.</p>
                              <button className="w-full bg-white text-teal-900 font-bold py-4 rounded-2xl hover:bg-teal-50 transition-colors">Request Call</button>
                         </div>
                     </div>

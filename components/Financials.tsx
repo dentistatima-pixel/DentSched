@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase } from 'lucide-react';
+import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Download } from 'lucide-react';
 import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, PhilHealthClaimStatus, User, UserRole, AppointmentStatus, HMOClaimStatus } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
@@ -19,6 +19,7 @@ interface FinancialsProps {
 }
 
 const Financials: React.FC<FinancialsProps> = ({ claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, onUpdatePhilHealthClaim }) => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'analytics' | 'claims' | 'philhealth' | 'productivity' | 'expenses'>('analytics');
 
   const tabs = [
@@ -28,6 +29,36 @@ const Financials: React.FC<FinancialsProps> = ({ claims, expenses, philHealthCla
     { id: 'philhealth', label: 'PhilHealth', icon: FileText },
     { id: 'expenses', label: 'Expenses', icon: Package },
   ];
+
+  const exportSeniorPwdLog = () => {
+    const data = patients.flatMap(p => 
+      (p.ledger || []).filter(e => e.discountType === 'Senior Citizen' || e.discountType === 'PWD')
+      .map(e => ({
+        Date: e.date,
+        Patient: p.name,
+        ID_Number: e.idNumber || 'N/A',
+        Type: e.discountType,
+        Amount_Paid: e.amount.toFixed(2),
+        OR_Number: e.orNumber || 'N/A'
+      }))
+    );
+
+    if (data.length === 0) {
+      toast.info("No Senior/PWD transactions found.");
+      return;
+    }
+
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(obj => Object.values(obj).join(',')).join('\n');
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `BIR_Senior_PWD_Log_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    toast.success("Regulatory BIR Log Exported.");
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -41,7 +72,18 @@ const Financials: React.FC<FinancialsProps> = ({ claims, expenses, philHealthCla
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex-shrink-0"><div className="flex items-center gap-3"><div className="bg-emerald-100 p-3 rounded-2xl text-emerald-700 shadow-sm"><DollarSign size={32} /></div><div><h1 className="text-3xl font-bold text-slate-800">Financial Command Center</h1><p className="text-slate-500">Practice economics and professional productivity.</p></div></div></header>
+      <header className="flex-shrink-0 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-700 shadow-sm"><DollarSign size={32} /></div>
+              <div><h1 className="text-3xl font-bold text-slate-800">Financial Command Center</h1><p className="text-slate-500">Practice economics and professional productivity.</p></div>
+          </div>
+          <button 
+            onClick={exportSeniorPwdLog}
+            className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-xl font-bold text-sm hover:bg-lilac-700 shadow-lg transition-all"
+          >
+              <Download size={18}/> Export BIR Statutory Log
+          </button>
+      </header>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50">
             {tabs.map(tab => (
@@ -123,7 +165,6 @@ const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patie
     );
 }
 
-// NEW: HMO Claims Tab
 const HMOClaimsTab: React.FC<{ claims: HMOClaim[], patients: Patient[] }> = ({ claims, patients }) => {
     const getPatientName = (id: string) => patients.find(p => p.id === id)?.name || 'Unknown';
     const getStatusChip = (status: HMOClaimStatus) => {

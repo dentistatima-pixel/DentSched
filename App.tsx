@@ -12,7 +12,7 @@ import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import PatientPortal from './components/PatientPortal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, AmendmentRequest, WasteLogEntry, AssetMaintenanceEntry } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -66,6 +66,9 @@ function App() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [incidents, setIncidents] = useState<ClinicalIncident[]>([]); 
   const [referrals, setReferrals] = useState<Referral[]>([]); 
+  const [amendmentRequests, setAmendmentRequests] = useState<AmendmentRequest[]>([]);
+  const [wasteLogs, setWasteLogs] = useState<WasteLogEntry[]>([]);
+  const [assetLogs, setAssetLogs] = useState<AssetMaintenanceEntry[]>([]);
   
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
@@ -148,6 +151,9 @@ function App() {
       setPhilHealthClaims(load('dentsched_philhealth_claims', []));
       setIncidents(load('dentsched_incidents', []));
       setReferrals(load('dentsched_referrals', []));
+      setAmendmentRequests(load('dentsched_amendments', []));
+      setWasteLogs(load('dentsched_waste', []));
+      setAssetLogs(load('dentsched_assets', []));
       
       const savedSettings = load('dentsched_fields', null);
       if (savedSettings) {
@@ -179,8 +185,11 @@ function App() {
       save('dentsched_philhealth_claims', philHealthClaims);
       save('dentsched_incidents', incidents);
       save('dentsched_referrals', referrals);
+      save('dentsched_amendments', amendmentRequests);
+      save('dentsched_waste', wasteLogs);
+      save('dentsched_assets', assetLogs);
 
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, isAuthenticated, encryptionKey]);
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, amendmentRequests, wasteLogs, assetLogs, isAuthenticated, encryptionKey]);
 
 
   const resetIdleTimer = () => {
@@ -267,7 +276,7 @@ function App() {
       
       const backupData = {
           metadata: { version: '1.0', timestamp: new Date().toISOString(), exportedBy: currentUser.name, type: 'FULL_BACKUP' },
-          data: { appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals }
+          data: { appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, amendmentRequests, wasteLogs, assetLogs }
       };
 
       const encryptedBackup = CryptoJS.AES.encrypt(JSON.stringify(backupData), encryptionKey).toString();
@@ -311,6 +320,9 @@ function App() {
               if (data.philHealthClaims) setPhilHealthClaims(data.philHealthClaims);
               if (data.incidents) setIncidents(data.incidents);
               if (data.referrals) setReferrals(data.referrals);
+              if (data.amendmentRequests) setAmendmentRequests(data.amendmentRequests);
+              if (data.wasteLogs) setWasteLogs(data.wasteLogs);
+              if (data.assetLogs) setAssetLogs(data.assetLogs);
 
               logAction('UPDATE', 'System', 'Database', 'Restored database from backup file.');
               toast.success("Database restored successfully.");
@@ -342,6 +354,47 @@ function App() {
       const newCycle: SterilizationCycle = { id: `cycle_${Date.now()}`, date: new Date().toISOString(), operator: currentUser.name, ...cycleData };
       setSterilizationCycles(prev => [newCycle, ...prev]);
       logAction('CREATE', 'Inventory', newCycle.id, `Logged Sterilization Cycle ${newCycle.cycleNumber}`);
+  };
+
+  const handleAddWasteLog = (log: Partial<WasteLogEntry>) => {
+      const newLog: WasteLogEntry = { id: `waste_${Date.now()}`, date: new Date().toISOString(), collectedBy: currentUser.name, ...log as any };
+      setWasteLogs(prev => [newLog, ...prev]);
+      logAction('CREATE', 'Inventory', newLog.id, `Logged Waste Disposal Manifest ${newLog.manifestNumber}`);
+  };
+
+  const handleAddAssetLog = (log: Partial<AssetMaintenanceEntry>) => {
+      const newLog: AssetMaintenanceEntry = { id: `asset_${Date.now()}`, date: new Date().toISOString(), ...log as any };
+      setAssetLogs(prev => [newLog, ...prev]);
+      logAction('CREATE', 'Inventory', newLog.id, `Logged Asset Maintenance for ${newLog.assetName}`);
+  };
+
+  const handleAddIncident = (incident: Partial<ClinicalIncident>) => {
+      const newIncident: ClinicalIncident = { id: `inc_${Date.now()}`, date: new Date().toISOString(), reportedBy: currentUser.name, ...incident as any };
+      setIncidents(prev => [newIncident, ...prev]);
+      logAction('LOG_INCIDENT', 'Incident', newIncident.id, `Logged Clinical Incident: ${newIncident.category}`);
+  };
+
+  const handleAddAmendmentRequest = (req: Partial<AmendmentRequest>) => {
+      const newReq: AmendmentRequest = { id: `amend_${Date.now()}`, dateRequested: new Date().toISOString(), status: 'Pending', ...req as any };
+      setAmendmentRequests(prev => [...prev, newReq]);
+      toast.success("Amendment request submitted for clinic review.");
+  };
+
+  const handleActionAmendment = (id: string, action: 'Approved' | 'Rejected') => {
+      setAmendmentRequests(prev => prev.map(r => {
+          if (r.id === id) {
+              const updated = { ...r, status: action, actionedBy: currentUser.name, actionedAt: new Date().toISOString() };
+              if (action === 'Approved') {
+                  const patient = patients.find(p => p.id === r.patientId);
+                  if (patient) {
+                      handleSavePatient({ ...patient, [r.fieldToAmend]: r.requestedValue });
+                  }
+                  logAction('APPROVE_AMENDMENT', 'AmendmentRequest', id, `Approved amendment for ${r.patientName}: ${r.fieldToAmend}`);
+              }
+              return updated;
+          }
+          return r;
+      }));
   };
 
   const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
@@ -396,10 +449,12 @@ function App() {
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
     const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
-    if (editingPatient) {
-        const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
-        logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
-        setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
+    if (editingPatient || newPatientData.id) {
+        const targetId = newPatientData.id || editingPatient?.id;
+        const oldPatient = patients.find(p => p.id === targetId);
+        const updatedPatient = { ...oldPatient, ...dataWithTimestamp } as Patient;
+        logAction('UPDATE', 'Patient', targetId!, 'Updated patient registration details', oldPatient, updatedPatient);
+        setPatients(prev => prev.map(p => p.id === targetId ? updatedPatient : p));
         setEditingPatient(null);
     } else {
         const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '' };
@@ -465,6 +520,31 @@ function App() {
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       const apt = appointments.find(a => a.id === appointmentId);
       if (!apt) return;
+      
+      // AUTO-DEPLETION LOGIC (BOM)
+      if (status === AppointmentStatus.COMPLETED) {
+          const procedureDef = fieldSettings.procedures.find(p => p.name === apt.type);
+          if (procedureDef?.billOfMaterials) {
+              setStock(prev => {
+                  const newStock = [...prev];
+                  let alertTriggered = false;
+                  procedureDef.billOfMaterials!.forEach(bom => {
+                      const itemIdx = newStock.findIndex(s => s.id === bom.stockItemId);
+                      if (itemIdx !== -1) {
+                          const oldQty = newStock[itemIdx].quantity;
+                          const newQty = Math.max(0, oldQty - bom.quantity);
+                          newStock[itemIdx] = { ...newStock[itemIdx], quantity: newQty };
+                          if (newQty <= newStock[itemIdx].lowStockThreshold && oldQty > newStock[itemIdx].lowStockThreshold) {
+                              alertTriggered = true;
+                          }
+                      }
+                  });
+                  if (alertTriggered) toast.warning("Inventory Alert: Procedure completion resulted in low stock for one or more items.");
+                  return newStock;
+              });
+          }
+      }
+
       if (status === AppointmentStatus.TREATING) {
           const procedure = fieldSettings.procedures.find(p => p.name === apt.type);
           if (procedure?.requiresConsent && !apt.signedConsentUrl) { 
@@ -517,7 +597,7 @@ function App() {
       const handleTrigger = () => handleDatabaseBackup();
       window.addEventListener('trigger-backup', handleTrigger);
       return () => window.removeEventListener('trigger-backup', handleTrigger);
-  }, [isAuthenticated, encryptionKey, appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals]);
+  }, [isAuthenticated, encryptionKey, appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, amendmentRequests, wasteLogs, assetLogs]);
 
 
   if (!isAuthenticated) {
@@ -568,12 +648,12 @@ function App() {
   }
 
   if (isPatientPortalActive && currentPatientUser) {
-      return <PatientPortal patient={currentPatientUser} appointments={appointments.filter(a => a.patientId === currentPatientUser.id)} staff={staff} auditLog={auditLog} onExit={handlePatientPortalToggle} />;
+      return <PatientPortal patient={currentPatientUser} appointments={appointments.filter(a => a.patientId === currentPatientUser.id)} staff={staff} auditLog={auditLog} onExit={handlePatientPortalToggle} onAddAmendmentRequest={handleAddAmendmentRequest} amendmentRequests={amendmentRequests.filter(r => r.patientId === currentPatientUser.id)} />;
   }
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={branchAppointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={openNewPatientModal} onPatientSelect={handlePatientSelectFromDashboard} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={handleCompleteRegistration} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} onChangeBranch={setCurrentBranch} onSaveConsent={handleSaveConsent} onPatientPortalToggle={handlePatientPortalToggle} logAction={logAction} />; // Updated
+      case 'dashboard': return <Dashboard appointments={branchAppointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={openNewPatientModal} onPatientSelect={handlePatientSelectFromDashboard} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={handleCompleteRegistration} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} onChangeBranch={setCurrentBranch} onSaveConsent={handleSaveConsent} onPatientPortalToggle={handlePatientPortalToggle} logAction={logAction} />; 
       case 'schedule': return <CalendarView appointments={branchAppointments} staff={staff} onAddAppointment={handleOpenBooking} onMoveAppointment={handleMoveAppointment} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={openNewPatientModal} onEditPatient={handleEditPatientClick} onQuickUpdatePatient={handleQuickUpdatePatient} onBulkUpdatePatients={handleBulkUpdatePatients} onDeletePatient={handleDeletePatient} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} fieldSettings={fieldSettings} logAction={logAction} onCreateClaim={handleCreateClaim} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} />;
@@ -581,7 +661,7 @@ function App() {
       case 'field-mgmt': 
         if (currentUser.role !== UserRole.ADMIN) { setActiveTab('dashboard'); return null; }
         return (
-            <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} onExportAuditLog={handleExportSecureAuditLog} incidents={incidents} />
+            <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} onExportAuditLog={handleExportSecureAuditLog} incidents={incidents} onAddIncident={handleAddIncident} wasteLogs={wasteLogs} onAddWasteLog={handleAddWasteLog} assetLogs={assetLogs} onAddAssetLog={handleAddAssetLog} amendmentRequests={amendmentRequests} onActionAmendment={handleActionAmendment} />
         );
       default: return null;
     }

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Radio } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus, TelehealthRequest } from '../types';
@@ -58,16 +59,41 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const todaysAppointments = visibleAppointments.filter(a => a.date === today && !a.isBlock);
 
-  // NEW: Radiology Referrals Tracker (DOH Request Log)
   const radiologyReferrals = useMemo(() => {
       return patients.filter(p => p.referrals?.some(r => r.reason.toLowerCase().includes('x-ray') || r.reason.toLowerCase().includes('radiology'))).slice(0, 3);
   }, [patients]);
 
-  // FIX: Added recallList definition to resolve "Cannot find name 'recallList'" error.
   const recallList = useMemo(() => {
-      // Patients who haven't been seen recently and have no upcoming appointment scheduled.
-      return patients.filter(p => !p.nextVisit && !p.isArchived).slice(0, 5);
-  }, [patients]);
+      return patients
+          .filter(p => !p.nextVisit && !p.isArchived)
+          .map(p => {
+              const lastCompleted = p.dentalChart
+                  ?.filter(e => e.status === 'Completed')
+                  .sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime())[0];
+              
+              const procDef = lastCompleted ? fieldSettings?.procedures.find(pr => pr.name === lastCompleted.procedure) : null;
+              const months = procDef?.recallMonths || 6;
+              const baseDate = lastCompleted ? new Date(lastCompleted.date || '') : new Date(p.lastVisit);
+              
+              const dueDate = new Date(baseDate);
+              dueDate.setMonth(dueDate.getMonth() + months);
+              
+              const diffDays = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const isHighRisk = p.medicalConditions?.some(c => ['Diabetes', 'Periodontal Disease'].includes(c));
+              
+              return { 
+                  patient: p, 
+                  dueDays: diffDays, 
+                  isOverdue: diffDays <= 0,
+                  priority: (diffDays <= 7 || isHighRisk) ? 'High' : 'Normal' 
+              };
+          })
+          .filter(item => item.dueDays <= 30)
+          .sort((a, b) => {
+              if (a.priority === b.priority) return a.dueDays - b.dueDays;
+              return a.priority === 'High' ? -1 : 1;
+          });
+  }, [patients, fieldSettings]);
 
   const needsAttention = useMemo(() => {
       const issues = [];
@@ -278,9 +304,23 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[350px]">
-                    <div className="px-6 py-4 border-b border-slate-50 bg-slate-50/50"><h3 className="font-bold text-slate-800 flex items-center gap-2"><Repeat className="text-purple-500" size={18} /> Opportunities</h3></div>
+                    <div className="px-6 py-4 border-b border-slate-50 bg-slate-50/50">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2"><Repeat className="text-purple-500" size={18} /> Recall Engine</h3>
+                    </div>
                     <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-                        <div className="space-y-2">{recallList.length > 0 ? recallList.map(p => (<div key={p.id} onClick={() => onPatientSelect(p.id)} className="flex justify-between items-center text-sm p-3 bg-slate-50 border border-slate-100 hover:bg-purple-50 rounded-xl cursor-pointer group transition-all"><span className="font-bold text-slate-700">{p.name}</span><span className="text-xs text-purple-600 font-bold opacity-0 group-hover:opacity-100">Book Now</span></div>)) : <div className="text-xs text-slate-400 italic">No recalls due.</div>}</div>
+                        <div className="space-y-2">
+                            {recallList.length > 0 ? recallList.map(item => (
+                                <div key={item.patient.id} onClick={() => onPatientSelect(item.patient.id)} className={`flex justify-between items-center text-sm p-3 border rounded-xl cursor-pointer group transition-all ${item.priority === 'High' ? 'bg-red-50 border-red-100 hover:bg-red-100' : 'bg-slate-50 border-slate-100 hover:bg-purple-50'}`}>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-slate-700">{item.patient.name}</div>
+                                        <div className={`text-[9px] font-bold uppercase ${item.dueDays <= 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                                            {item.dueDays <= 0 ? 'DUE NOW' : `In ${item.dueDays} days`}
+                                        </div>
+                                    </div>
+                                    <span className="text-xs text-purple-600 font-bold opacity-0 group-hover:opacity-100 flex items-center gap-1">Book <ArrowRight size={12}/></span>
+                                </div>
+                            )) : <div className="text-xs text-slate-400 italic text-center py-10">No intelligent recalls due.</div>}
+                        </div>
                     </div>
               </div>
 

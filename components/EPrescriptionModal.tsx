@@ -46,6 +46,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         }
     };
     
+    // REGULATORY AUDIT: PDEA Hard-Block Logic
     const s2Violation = useMemo(() => {
         return selectedMed?.isS2Controlled && !currentUser.s2License;
     }, [selectedMed, currentUser.s2License]);
@@ -130,7 +131,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {s2Violation && !allergyConflict && (
                         <div className="bg-amber-100 border border-amber-300 p-4 rounded-xl flex gap-3 text-amber-900 animate-pulse">
                             <ShieldAlert size={24} className="shrink-0"/>
-                            <div><p className="font-bold">S2 License Verification Failed</p><p className="text-xs">You must add your PDEA S2 license to your profile to prescribe controlled substances.</p></div>
+                            <div>
+                                <p className="font-bold">PDEA S2 License HARD-BLOCK</p>
+                                <p className="text-xs">This is a Controlled Substance. The "Print" function is disabled because your profile lacks a verified S2 License number.</p>
+                            </div>
                         </div>
                     )}
 
@@ -142,7 +146,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 const conflict = m.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
                                 return (
                                     <option key={m.id} value={m.id} className={conflict ? 'text-red-500 font-bold' : ''}>
-                                        {m.name} {m.isS2Controlled ? '(Controlled)' : ''} {conflict ? `⚠️ ${conflict} Allergy` : ''}
+                                        {m.name} {m.isS2Controlled ? '(Controlled Substance)' : ''} {conflict ? `⚠️ ${conflict} Allergy` : ''}
                                     </option>
                                 );
                             })}
@@ -159,7 +163,11 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
                 <div className="p-4 border-t bg-white flex justify-end gap-3 rounded-b-3xl">
                     <button onClick={onClose} className="px-6 py-2 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2">
+                    <button 
+                        onClick={handlePrint} 
+                        disabled={!selectedMedId || !!s2Violation || !!allergyConflict} 
+                        className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:grayscale flex items-center gap-2"
+                    >
                         <Printer size={18}/> {selectedMed?.isS2Controlled ? 'Print Controlled Rx' : 'Print Prescription'}
                     </button>
                 </div>

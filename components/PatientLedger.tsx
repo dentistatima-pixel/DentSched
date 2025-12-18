@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, DiscountType } from '../types';
-import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard, Heart, Ban, AlertCircle, Shield, Tag, Hash } from 'lucide-react';
+import { DollarSign, Plus, ArrowUpRight, ArrowDownLeft, Receipt, Calendar, CreditCard, Heart, Ban, AlertCircle, Shield, Tag, Hash, Zap } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -23,17 +23,15 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [discountType, setDiscountType] = useState<DiscountType>('None');
     const [idNumber, setIdNumber] = useState('');
-    const [orNumber, setOrNumber] = useState(''); // NEW: Sequenced OR
+    const [orNumber, setOrNumber] = useState(''); 
 
     const ledger = useMemo(() => patient.ledger || [], [patient.ledger]);
     const currentBalance = useMemo(() => ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter, [ledger]);
 
-    // NEW: Deterministic OR Sequencing Logic
     useEffect(() => {
         if (mode === 'add_payment') {
             const booklet = fieldSettings?.receiptBooklets?.find(b => b.isActive);
             if (booklet) {
-                // Find highest existing OR in this patient or system mock (using prefix)
                 const lastOr = ledger.filter(e => e.orNumber?.startsWith(booklet.prefix || '')).map(e => parseInt(e.orNumber?.replace(/\D/g, '') || '0')).sort((a,b) => b-a)[0];
                 const nextVal = (lastOr || booklet.seriesStart - 1) + 1;
                 setOrNumber(`${booklet.prefix || ''}${nextVal.toString().padStart(4, '0')}`);
@@ -66,6 +64,18 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
         toast.success(`${type} recorded`);
     };
 
+    const applyStatutoryMath = () => {
+        const gross = parseFloat(amount);
+        if (isNaN(gross) || gross <= 0) {
+            toast.error("Please enter the gross amount first.");
+            return;
+        }
+        // Formula: (Gross / 1.12) * 0.8
+        const net = (gross / 1.12) * 0.8;
+        setAmount(net.toFixed(2));
+        toast.success("Statutory Senior/PWD calculation applied: VAT Exempt + 20% Disc.");
+    };
+
     return (
         <div className="h-full flex flex-col bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative">
             <div className="bg-white p-6 border-b flex justify-between items-center shadow-sm z-10">
@@ -84,18 +94,28 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
             {mode !== 'view' && (
                 <div className="p-4 bg-slate-100 border-b animate-in slide-in-from-top-2">
                     <form onSubmit={handleTransaction} className="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-xl border border-slate-200 space-y-4">
-                        <h4 className="font-bold text-slate-800 flex items-center gap-2">{mode === 'add_charge' ? 'New Charge' : 'New Payment'}</h4>
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-slate-800 flex items-center gap-2">{mode === 'add_charge' ? 'New Charge' : 'New Payment'}</h4>
+                            {(discountType === 'Senior Citizen' || discountType === 'PWD') && (
+                                <button 
+                                    type="button" 
+                                    onClick={applyStatutoryMath}
+                                    className="px-3 py-1.5 bg-lilac-100 text-lilac-700 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-lilac-200 transition-colors"
+                                >
+                                    <Zap size={12}/> Run Stat Math
+                                </button>
+                            )}
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2"><input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." className="w-full p-3 bg-slate-50 border rounded-xl" autoFocus required/></div>
                             <div><label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm" /></div>
-                            <div><label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Amount (₱)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-bold text-right" required/></div>
+                            <div><label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Amount (₱)</label><input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-bold text-right" required/></div>
                         </div>
 
                         {mode === 'add_payment' && (
                             <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
                                 <label className="text-[10px] font-bold text-teal-800 uppercase ml-1 flex items-center gap-1"><Hash size={12}/> Suggested Next BIR Official Receipt (OR) #</label>
                                 <input type="text" value={orNumber} onChange={e => setOrNumber(e.target.value)} className="w-full p-3 border border-teal-300 rounded-xl bg-white font-mono font-bold text-teal-900" placeholder="OR-0000" />
-                                <p className="text-[10px] text-teal-600 mt-1 italic">Sequential numbering is mandatory for BIR compliance.</p>
                             </div>
                         )}
 

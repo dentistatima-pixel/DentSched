@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Appointment, Patient, User } from '../types';
-import { Video, Mic, PhoneOff, Send, Plus, StickyNote, X, ShieldCheck } from 'lucide-react';
+import { Video, Mic, PhoneOff, Send, Plus, StickyNote, X, ShieldCheck, FileSignature, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface TelehealthModalProps {
     appointment: Appointment;
@@ -11,6 +11,8 @@ interface TelehealthModalProps {
 }
 
 const TelehealthModal: React.FC<TelehealthModalProps> = ({ appointment, patient, doctor, onClose }) => {
+    const [consentAccepted, setConsentAccepted] = useState(false);
+    const [sessionStarted, setSessionStarted] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [notes, setNotes] = useState('');
@@ -18,6 +20,8 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ appointment, patient,
     const doctorVideoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
+        if (!sessionStarted) return;
+
         // Access camera and microphone
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
@@ -39,7 +43,56 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ appointment, patient,
                 (patientVideoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
             }
         };
-    }, []);
+    }, [sessionStarted]);
+
+    if (!sessionStarted) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/90 z-[100] flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95">
+                    <div className="bg-teal-900 p-8 text-white text-center">
+                        <div className="w-16 h-16 bg-teal-800 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <Video size={32}/>
+                        </div>
+                        <h2 className="text-2xl font-bold">Tele-dentistry Linkage</h2>
+                        <p className="text-teal-200 mt-2">DOH-AO-2020-0041 Regulatory Protocol</p>
+                    </div>
+                    
+                    <div className="p-8 space-y-6">
+                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3 text-amber-900">
+                            <AlertTriangle size={24} className="shrink-0 text-amber-600"/>
+                            <div className="text-xs leading-relaxed">
+                                <p className="font-bold mb-1">Electronic Health Linkage Disclaimer:</p>
+                                <p>This virtual visit is for <strong>triage, screening, and discussion of existing records only</strong>. It does not replace a face-to-face physical examination or diagnostic procedure (e.g. X-rays). Emergency clinical care cannot be delivered through this platform.</p>
+                            </div>
+                        </div>
+
+                        <label className="flex items-start gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+                            <input 
+                                type="checkbox" 
+                                checked={consentAccepted} 
+                                onChange={e => setConsentAccepted(e.target.checked)}
+                                className="w-5 h-5 accent-teal-600 rounded mt-0.5"
+                            />
+                            <div className="text-sm font-medium text-slate-700">
+                                I confirm my identity as <strong>{patient.name}</strong> and expressly consent to this tele-dentistry session and the electronic processing of my health information as per the DPA 2012.
+                            </div>
+                        </label>
+
+                        <div className="flex gap-3">
+                            <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
+                            <button 
+                                disabled={!consentAccepted}
+                                onClick={() => setSessionStarted(true)}
+                                className="flex-[2] py-4 bg-teal-600 text-white font-bold rounded-2xl shadow-lg disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle size={20}/> Start Secure Session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
 
     return (
@@ -95,10 +148,10 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ appointment, patient,
                     </div>
 
                     <div className="bg-slate-800 p-4 flex justify-around items-center">
-                        <button onClick={() => setIsMuted(!isMuted)} className={`p-3 rounded-full transition-colors ${isMuted ? 'bg-red-500 text-white' : 'bg-slate-600 text-white'}`}>
+                        <button onClick={() => setIsMuted(!isMuted)} className={`p-3 rounded-full transition-colors ${isMuted ? 'bg-red-50 text-white' : 'bg-slate-600 text-white'}`}>
                             <Mic size={24} />
                         </button>
-                         <button onClick={() => setIsVideoOff(!isVideoOff)} className={`p-3 rounded-full transition-colors ${isVideoOff ? 'bg-red-500 text-white' : 'bg-slate-600 text-white'}`}>
+                         <button onClick={() => setIsVideoOff(!isVideoOff)} className={`p-3 rounded-full transition-colors ${isVideoOff ? 'bg-red-50 text-white' : 'bg-slate-600 text-white'}`}>
                             <Video size={24} />
                         </button>
                         <button onClick={onClose} className="p-4 bg-red-600 text-white rounded-full hover:bg-red-700">

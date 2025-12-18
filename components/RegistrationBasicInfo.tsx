@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
-import { Hash, AlertCircle, Phone, Mail, MapPin, Briefcase, Users, CreditCard } from 'lucide-react';
+import { Hash, AlertCircle, Phone, Mail, MapPin, Briefcase, Users, CreditCard, ShieldAlert, CheckCircle } from 'lucide-react';
 
 interface RegistrationBasicInfoProps {
   formData: Partial<Patient>;
@@ -14,6 +14,35 @@ interface RegistrationBasicInfoProps {
 const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData, handleChange, readOnly, fieldSettings, isQuickReg = false }) => {
   return (
     <div className="space-y-6">
+        {/* --- DPA PROCESSING STATUS --- */}
+        <div className={`p-4 rounded-2xl border flex justify-between items-center transition-colors ${formData.processingStatus === 'Suspended' ? 'bg-red-50 border-red-200' : 'bg-teal-50 border-teal-100'}`}>
+            <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${formData.processingStatus === 'Suspended' ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-600'}`}>
+                    {formData.processingStatus === 'Suspended' ? <ShieldAlert size={20}/> : <CheckCircle size={20}/>}
+                </div>
+                <div>
+                    <h4 className={`text-sm font-bold ${formData.processingStatus === 'Suspended' ? 'text-red-900' : 'text-teal-900'}`}>
+                        Processing Status: {formData.processingStatus || 'Active'}
+                    </h4>
+                    <p className="text-[10px] font-medium text-slate-500 max-w-xs leading-tight">
+                        {formData.processingStatus === 'Suspended' 
+                            ? 'Record is locked for editing due to active Data Subject inquiry or dispute.' 
+                            : 'Record is available for clinical and administrative processing.'}
+                    </p>
+                </div>
+            </div>
+            <select 
+                disabled={readOnly}
+                name="processingStatus" 
+                value={formData.processingStatus || 'Active'} 
+                onChange={handleChange}
+                className={`text-xs font-bold px-3 py-2 rounded-xl border outline-none cursor-pointer ${formData.processingStatus === 'Suspended' ? 'border-red-300 text-red-700 bg-white' : 'border-teal-200 text-teal-700 bg-white'}`}
+            >
+                <option value="Active">Processing: Active</option>
+                <option value="Suspended">Processing: Suspended</option>
+            </select>
+        </div>
+
         {/* --- 1. BASIC INFO --- */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* ID & Suffix */}
