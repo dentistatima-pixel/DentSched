@@ -118,7 +118,7 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
                             <p className="text-[8px] opacity-70 font-mono">{formatDate(file.uploadedAt)}</p>
                         </div>
                         {compareMode && (
-                             <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selection.includes(file.id) ? 'bg-lilac-500 border-lilac-500 text-white' : 'bg-white/80 backdrop-blur-sm border-white'}`}>
+                             <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selection.includes(file.id) ? 'bg-lilac-50 border-lilac-500 text-white' : 'bg-white/80 backdrop-blur-sm border-white'}`}>
                                 {selection.includes(file.id) && <CheckCircle size={14} strokeWidth={3} />}
                              </div>
                         )}
