@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast } from 'lucide-react';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
@@ -57,13 +57,30 @@ const generatePatientPDF = (patient: Patient, currentUser: User, logAction: any)
     logAction('EXPORT_RECORD', 'Patient', patient.id, 'User exported full clinical record to PDF.');
 };
 
-const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
+interface ImagingGalleryProps {
+    files: PatientFile[];
+    patient: Patient;
+    currentUser: User;
+    onUpdatePatient: (patient: Patient) => void;
+    logAction: any;
+}
+
+const ImagingGallery: React.FC<ImagingGalleryProps> = ({ files, patient, currentUser, onUpdatePatient, logAction }) => {
+    const toast = useToast();
     const [compareMode, setCompareMode] = useState<'side-by-side' | 'overlay' | null>(null);
     const [selection, setSelection] = useState<string[]>([]);
     const [brightness, setBrightness] = useState(100);
     const [contrast, setContrast] = useState(100);
     const [overlayPos, setOverlayPos] = useState(50);
     
+    // Upload State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [pendingFile, setPendingFile] = useState<{ data: string, name: string, type: string } | null>(null);
+    const [uploadTitle, setUploadTitle] = useState('');
+    const [exposureDate, setExposureDate] = useState(new Date().toISOString().split('T')[0]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
     const xrays = files.filter(f => f.category === 'X-Ray');
 
     const toggleSelect = (id: string) => {
@@ -78,10 +95,93 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
         filter: `brightness(${brightness}%) contrast(${contrast}%)`
     };
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) processFile(file);
+    };
+
+    const processFile = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            toast.error("Invalid file type. Please upload an image (JPG/PNG).");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setPendingFile({
+                data: e.target?.result as string,
+                name: file.name,
+                type: file.type
+            });
+            setUploadTitle(file.name.split('.')[0]);
+            setIsUploadModalOpen(true);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveUpload = async () => {
+        if (!pendingFile || !uploadTitle.trim()) {
+            toast.error("Please provide a title for the image.");
+            return;
+        }
+
+        const newFile: PatientFile = {
+            id: `file_${Date.now()}`,
+            patientId: patient.id,
+            title: uploadTitle,
+            category: 'X-Ray',
+            fileType: 'data_url',
+            url: pendingFile.data,
+            uploadedBy: currentUser.name,
+            uploadedAt: new Date().toISOString(),
+            exposureDate: exposureDate
+        };
+
+        const updatedFiles = [...(patient.files || []), newFile];
+        onUpdatePatient({ ...patient, files: updatedFiles });
+        
+        logAction('UPDATE', 'Patient', patient.id, `User uploaded clinical image: ${uploadTitle} (Exposed: ${exposureDate})`);
+        
+        toast.success("X-Ray uploaded successfully.");
+        setIsUploadModalOpen(false);
+        setPendingFile(null);
+        setUploadTitle('');
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) processFile(file);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
-                <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider"><FileImage className="text-teal-600"/> Radiology & Imaging Gallery</h4>
+                <div className="flex items-center gap-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider"><FileImage className="text-teal-600"/> Radiology & Imaging Gallery</h4>
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-teal-600/20 transition-all"
+                    >
+                        <FileUp size={16}/> Upload X-Ray
+                    </button>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleFileSelect} 
+                    />
+                </div>
                 
                 <div className="flex items-center gap-6">
                     {/* Visual Filters */}
@@ -171,7 +271,22 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div 
+                className={`grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 p-4 rounded-3xl border-4 border-dashed transition-all
+                    ${isDragging ? 'border-teal-500 bg-teal-50 scale-[1.01]' : 'border-transparent bg-slate-50/50'}
+                `}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                {xrays.length === 0 && !isDragging && (
+                    <div className="col-span-full py-20 text-center flex flex-col items-center text-slate-400">
+                        <FileImage size={48} className="mb-4 opacity-20" />
+                        <p className="font-bold">No imaging records found.</p>
+                        <p className="text-xs">Drag and drop X-ray files here or use the upload button.</p>
+                    </div>
+                )}
+
                 {xrays.map(file => (
                     <div 
                         key={file.id} 
@@ -183,7 +298,7 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
                         <img src={file.url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" style={imageStyle} />
                         <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm p-3 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                             <p className="text-[10px] font-bold truncate uppercase">{file.title}</p>
-                            <p className="text-[8px] opacity-70 font-mono">{formatDate(file.uploadedAt)}</p>
+                            <p className="text-[8px] opacity-70 font-mono">Exposed: {formatDate(file.exposureDate)}</p>
                         </div>
                         {compareMode && (
                              <div className={`absolute top-2 right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${selection.includes(file.id) ? 'bg-lilac-500 border-white text-white shadow-lg' : 'bg-white/80 backdrop-blur-sm border-white text-slate-400'}`}>
@@ -193,6 +308,55 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
                     </div>
                 ))}
             </div>
+
+            {/* UPLOAD METADATA MODAL */}
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-6 bg-teal-900 text-white flex justify-between items-center">
+                            <h3 className="font-bold text-lg flex items-center gap-2"><FileUp size={20}/> Clinical Image Details</h3>
+                            <button onClick={() => setIsUploadModalOpen(false)}><X size={20}/></button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden border border-slate-200">
+                                <img src={pendingFile?.data} className="w-full h-full object-contain" />
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Image Title / Description</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="e.g., Panorex Baseline" 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:border-teal-500 outline-none mt-1" 
+                                        value={uploadTitle}
+                                        onChange={e => setUploadTitle(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Exposure Date (Clinical Date)</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:border-teal-500 outline-none mt-1" 
+                                        value={exposureDate}
+                                        onChange={e => setExposureDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
+                            <button onClick={() => setIsUploadModalOpen(false)} className="flex-1 py-3 font-bold text-slate-500 bg-white border border-slate-200 rounded-xl">Cancel</button>
+                            <button 
+                                onClick={handleSaveUpload}
+                                className="flex-1 py-3 font-bold text-white bg-teal-600 rounded-xl shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center justify-center gap-2"
+                            >
+                                <Save size={18}/> Save to Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -375,7 +539,15 @@ const PatientList: React.FC<PatientListProps> = ({
            </div>
 
            <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
-                {activeTab === 'imaging' && <ImagingGallery files={selectedPatient.files || []}/>}
+                {activeTab === 'imaging' && (
+                    <ImagingGallery 
+                        files={selectedPatient.files || []} 
+                        patient={selectedPatient} 
+                        currentUser={currentUser} 
+                        onUpdatePatient={onQuickUpdatePatient}
+                        logAction={logAction}
+                    />
+                )}
                 
                 {activeTab === 'chart' && (
                      <div className="space-y-6">

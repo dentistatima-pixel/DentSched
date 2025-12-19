@@ -19,10 +19,11 @@ interface FieldManagementProps {
   assetLogs?: AssetMaintenanceEntry[]; // NEW
 }
 
+// Added missing 'canOverrideMandatoryMedical' property to DEFAULT_PERMISSIONS for all roles
 const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
-    [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canManageInventory: true },
-    [UserRole.DENTIST]: { canVoidNotes: true, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: true, canManageInventory: false },
-    [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canManageInventory: true }
+    [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
+    [UserRole.DENTIST]: { canVoidNotes: true, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: false },
+    [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true }
 };
 
 const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [], wasteLogs = [], assetLogs = [] }) => {
@@ -309,11 +310,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
 
     function renderPermissions() {
         const perms = settings.permissions || DEFAULT_PERMISSIONS;
+        // Added missing 'canOverrideMandatoryMedical' label to fix TypeScript error
         const permissionLabels: Record<keyof RolePermissions, string> = {
             canVoidNotes: "Can Void/Amend Clinical Notes",
             canEditFinancials: "Can Manage Billing & Prices",
             canDeletePatients: "Can Delete/Archive Patient Files",
             canOverrideProtocols: "Can Force-Proceed on Protocol Alerts",
+            canOverrideMandatoryMedical: "Can Override Mandatory Medical Data",
             canManageInventory: "Can Add/Edit Stock Items"
         };
 

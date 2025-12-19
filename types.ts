@@ -208,6 +208,7 @@ export interface RolePermissions {
     canEditFinancials: boolean;
     canDeletePatients: boolean;
     canOverrideProtocols: boolean;
+    canOverrideMandatoryMedical: boolean;
     canManageInventory: boolean;
 }
 
@@ -514,6 +515,16 @@ export interface Patient {
   lastHospitalizationDetails?: string;
   takingMedications?: boolean;
   medicationDetails?: string;
+  
+  // Clinical Safety Extensions
+  takingBloodThinners?: boolean;
+  takingBisphosphonates?: boolean;
+  heartValveIssues?: boolean;
+  tookBpMedicationToday?: boolean;
+  lastBloodSugarReading?: string;
+  anesthesiaReaction?: boolean;
+  respiratoryIssues?: boolean;
+  
   tobaccoUse?: boolean;
   alcoholDrugsUse?: boolean;
   medicalHistoryReviewedBy?: string;

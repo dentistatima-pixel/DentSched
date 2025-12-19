@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight } from 'lucide-react';
+import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight, AlertCircle } from 'lucide-react';
 import { Patient, FieldSettings } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -23,7 +22,8 @@ interface PatientRegistrationModalProps {
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false, patients = [] }) => {
   const toast = useToast();
   const [activeSection, setActiveSection] = useState<string>('basic');
-  const [isQuickReg, setIsQuickReg] = useState(true);
+  // RULE 1: Mandatory Full Enrollment (isQuickReg defaulted to false)
+  const [isQuickReg, setIsQuickReg] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
   // Family Linkage State
@@ -36,7 +36,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const containerRef = useRef<HTMLDivElement>(null);
 
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], treatments: [], firstName: '', middleName: '', surname: '', suffix: '', treatmentDetails: {}, dob: '', age: undefined, homeAddress: '', barangay: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false
+    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], treatments: [], firstName: '', middleName: '', surname: '', suffix: '', treatmentDetails: {}, dob: '', age: undefined, homeAddress: '', barangay: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false,
+    takingBloodThinners: false, takingBisphosphonates: false, heartValveIssues: false, tookBpMedicationToday: true, anesthesiaReaction: false, respiratoryIssues: false
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -49,12 +50,18 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   useEffect(() => {
     if (isOpen) {
-        if (initialData) { setFormData({ ...initialData }); setIsQuickReg(false); } 
-        else { const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); setFormData({ ...initialFormState, id: generatedId }); setIsQuickReg(true); }
-        if (isKiosk) { setIsQuickReg(false); }
+        if (initialData) { 
+            setFormData({ ...initialData }); 
+            setIsQuickReg(false); 
+        } 
+        else { 
+            const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
+            setFormData({ ...initialFormState, id: generatedId }); 
+            setIsQuickReg(false); // Force full registration for safety
+        }
         setActiveSection('basic');
     }
-  }, [isOpen, initialData, isKiosk]);
+  }, [isOpen, initialData]);
 
   const handleLinkFamily = (relative: Patient) => {
       setFormData(prev => ({
@@ -105,8 +112,36 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
-    if (!formData.dpaConsent) { toast.error("Compliance Error: Data Privacy Consent is required."); return; }
-    if (!formData.firstName || !formData.surname || !formData.phone) { toast.error("First Name, Surname, and Mobile Number are required."); return; }
+    
+    // RULE 2: Explicit SPI Consent Check
+    if (!formData.dpaConsent) { 
+        toast.error("Privacy Compliance: You must accept the Data Privacy Consent before continuing."); 
+        setActiveSection('basic');
+        basicRef.current?.scrollIntoView({ behavior: 'smooth' });
+        return; 
+    }
+    
+    // Hard-Stop Validation for Clinical Fields
+    if (!isQuickReg) {
+        if (!formData.allergies?.length) {
+            toast.error("Clinical Safety: Please explicitly record 'None' if the patient has no allergies.");
+            setActiveSection('medical');
+            medicalRef.current?.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+        if (!formData.medicalConditions?.length) {
+            toast.error("Clinical Safety: Please explicitly record 'None' if the patient has no medical conditions.");
+            setActiveSection('medical');
+            medicalRef.current?.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+    }
+
+    if (!formData.firstName || !formData.surname || !formData.phone) { 
+        toast.error("First Name, Surname, and Mobile Number are required."); 
+        return; 
+    }
+
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
     onSave({ ...formData, name: fullName, provisional: isQuickReg });
     onClose();
@@ -131,14 +166,24 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className={`flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
           <div className="flex items-center gap-3">
             <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20"><User size={24} className="text-white" /></div>
-            <div><h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient' : 'New Patient')}</h2><p className="text-teal-200 text-xs hidden md:block">{isKiosk ? 'Please review your details.' : (isQuickReg ? 'Quick Registration Mode' : 'Full Clinical Registration')}</p></div>
+            <div>
+                <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient' : 'New Patient')}</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${isQuickReg ? 'bg-amber-400 text-amber-950' : 'bg-teal-700 text-teal-100'}`}>
+                        {isQuickReg ? 'Provisional Entry' : 'Full Clinical Enrollment'}
+                    </span>
+                </div>
+            </div>
           </div>
           <div className="flex items-center gap-4">
               {!initialData && !isKiosk && (
                   <button onClick={() => setShowFamilySearch(!showFamilySearch)} className="flex items-center gap-2 bg-lilac-600 hover:bg-lilac-700 px-4 py-1.5 rounded-full transition-all border border-lilac-400 shadow-lg text-xs font-bold uppercase"><Users size={16}/> Link Family</button>
               )}
               {!initialData && !isKiosk && (
-                  <button onClick={() => setIsQuickReg(!isQuickReg)} className="flex items-center gap-2 bg-teal-800 hover:bg-teal-700 px-3 py-1.5 rounded-full transition-colors border border-teal-600">{isQuickReg ? <Zap size={16} className="text-yellow-300"/> : <FileText size={16} className="text-teal-300"/><span className="text-xs font-bold uppercase">{isQuickReg ? 'Quick' : 'Full'}</span>}</button>
+                  <button onClick={() => setIsQuickReg(!isQuickReg)} className="flex items-center gap-2 bg-teal-800 hover:bg-teal-700 px-3 py-1.5 rounded-full transition-colors border border-teal-600">
+                    {isQuickReg ? <Zap size={16} className="text-yellow-300"/> : <Shield size={16} className="text-teal-300"/>}
+                    <span className="text-xs font-bold uppercase">{isQuickReg ? 'Enable Clinical Mode' : 'Enable Fast Mode'}</span>
+                  </button>
               )}
               {!isKiosk && <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>}
           </div>
@@ -166,32 +211,67 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             </div>
         )}
 
-        <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth">
-            <form id="patientForm" onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
-                <div ref={basicRef}><RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
-                {!isQuickReg && (
-                    <>
-                        <div ref={medicalRef}><RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
-                        <div ref={dentalRef}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} handleTreatmentSelect={(v) => setFormData(prev => ({ ...prev, treatments: v ? [v] : [] }))} handleTreatmentDetailChange={(proc, value) => setFormData(prev => ({ ...prev, treatmentDetails: { ...prev.treatmentDetails, [proc]: value } }))} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
-                    </>
-                )}
-                <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
-                    <div className="flex items-center gap-3 mb-4"><Lock size={20} /><h3 className="font-bold text-lg">Data Privacy & Consent (DPA 2012)</h3></div>
+        <div ref={containerRef} className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth no-scrollbar">
+            <div className="max-w-3xl mx-auto space-y-8">
+                {/* RULE 2: Data Privacy Consent at the TOP for prominence */}
+                <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div>
+                        <h3 className="font-bold text-lg text-slate-800">PDA Compliance & Privacy Notice</h3>
+                    </div>
                     <div className="space-y-4">
-                        <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all"><input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" /><div><div className="flex items-center gap-2"><span className="font-bold text-teal-300">Mandatory Data Processing *</span><button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }} className="text-xs bg-slate-600 px-2 py-0.5 rounded hover:bg-slate-500 flex items-center gap-1"><BookOpen size={10} /> Policy</button></div><p className="text-xs text-slate-300 mt-1">I expressly consent to the processing of my Sensitive Personal Information for clinical and regulatory purposes.</p></div></label>
-                        <label className="flex items-start gap-3 p-4 bg-slate-700 rounded-lg cursor-pointer border border-slate-600 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-900/50 transition-all"><input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-teal-500 rounded mt-1 shrink-0" /><div><span className="font-bold">Optional Communications</span><p className="text-xs text-slate-300 mt-1">I agree to receive SMS reminders and clinic promotions.</p></div></label>
+                        <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md ring-2 ring-teal-500/10' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
+                            <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-extrabold text-teal-900 uppercase text-xs">Primary Clinical Consent *</span>
+                                    <button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }} className="text-[10px] font-bold bg-white text-teal-600 border border-teal-200 px-2 py-0.5 rounded-full hover:bg-teal-500 hover:text-white transition-colors">Review Policy</button>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed">I expressly consent to the processing of my Sensitive Personal Information (Medical & Dental History) in compliance with the Philippines Data Privacy Act of 2012.</p>
+                            </div>
+                        </label>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl cursor-pointer border transition-all ${formData.marketingConsent ? 'bg-lilac-50 border-lilac-300' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                            <input type="checkbox" name="marketingConsent" checked={formData.marketingConsent} onChange={handleChange} className="w-5 h-5 accent-lilac-500 rounded mt-1 shrink-0" />
+                            <div>
+                                <span className="font-bold text-lilac-900 text-xs uppercase tracking-wider">Communication Preferences</span>
+                                <p className="text-[11px] text-slate-500">I agree to receive SMS appointment reminders and follow-up care instructions.</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
-            </form>
+
+                <form id="patientForm" onSubmit={handleSubmit} className="space-y-8">
+                    <div ref={basicRef}><RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
+                    {!isQuickReg && (
+                        <>
+                            <div ref={medicalRef}><RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
+                            <div ref={dentalRef}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} handleTreatmentSelect={(v) => setFormData(prev => ({ ...prev, treatments: v ? [v] : [] }))} handleTreatmentDetailChange={(proc, value) => setFormData(prev => ({ ...prev, treatmentDetails: { ...prev.treatmentDetails, [proc]: value } }))} readOnly={readOnly} fieldSettings={fieldSettings} /></div>
+                        </>
+                    )}
+                </form>
+            </div>
         </div>
 
         <div className={`p-4 border-t border-slate-200 bg-white shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ${!isKiosk && 'md:rounded-b-3xl'}`}>
-             {!isQuickReg ? (<div className="hidden md:flex gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide"><button onClick={() => scrollToSection('basic')} className={`hover:text-teal-600 ${activeSection === 'basic' ? 'text-teal-600' : ''}`}>Profile</button><span>•</span><button onClick={() => scrollToSection('medical')} className={`hover:text-teal-600 ${activeSection === 'medical' ? 'text-teal-600' : ''}`}>Medical</button><span>•</span><button onClick={() => scrollToSection('dental')} className={`hover:text-teal-600 ${activeSection === 'dental' ? 'text-teal-600' : ''}`}>Dental</button></div>) : <div />}
-            <div className="flex gap-2">{(readOnly || isKiosk) && (<button onClick={onClose} className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">{isKiosk ? 'Cancel' : 'Close'}</button>)} {!readOnly && (<button onClick={handleSubmit} className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 hover:scale-105 transition-all"><Save size={20} /> {isKiosk ? 'Save Changes' : (isQuickReg ? 'Quick Register' : 'Save Full Record')}</button>)}</div>
+             {!isQuickReg ? (
+                <div className="hidden md:flex gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <button onClick={() => scrollToSection('basic')} className={`hover:text-teal-600 pb-1 border-b-2 transition-all ${activeSection === 'basic' ? 'text-teal-600 border-teal-600' : 'border-transparent'}`}>I. Profile</button>
+                    <button onClick={() => scrollToSection('medical')} className={`hover:text-teal-600 pb-1 border-b-2 transition-all ${activeSection === 'medical' ? 'text-teal-600 border-teal-600' : 'border-transparent'}`}>II. Medical History</button>
+                    <button onClick={() => scrollToSection('dental')} className={`hover:text-teal-600 pb-1 border-b-2 transition-all ${activeSection === 'dental' ? 'text-teal-600 border-teal-600' : 'border-transparent'}`}>III. Dental History</button>
+                </div>
+             ) : <div />}
+            <div className="flex gap-2">
+                {(readOnly || isKiosk) && (<button onClick={onClose} className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">{isKiosk ? 'Cancel' : 'Close'}</button>)} 
+                {!readOnly && (
+                    <button onClick={handleSubmit} className="flex items-center gap-3 px-10 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:bg-teal-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                        <Save size={20} /> 
+                        {isKiosk ? 'Submit Records' : (isQuickReg ? 'Process Intake' : 'Save Full Clinical Record')}
+                    </button>
+                )}
+            </div>
         </div>
       </div>
       <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
-      <style>{`.input { width: 100%; padding: 0.75rem 1rem; background-color: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; } .input:focus { border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1); } .label { display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 0.375rem; }`}</style>
     </div>
   );
 };
