@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck } from 'lucide-react';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -11,7 +11,7 @@ interface ConsentCaptureModalProps {
     appointment: Appointment;
     provider?: User;
     template: ConsentFormTemplate;
-    procedure?: ProcedureItem; // NEW
+    procedure?: ProcedureItem;
 }
 
 const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
@@ -19,6 +19,9 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 }) => {
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
     const [isSigning, setIsSigning] = useState(false);
+
+    const isMinor = (patient.age || 0) < 18;
+    const requiresGuardian = isMinor || patient.isPwd;
 
     const getProcessedContent = () => {
         let content = template.content;
@@ -81,7 +84,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         ctx.font = '12px sans-serif';
         ctx.fillStyle = '#64748b';
         ctx.fillText(`Patient: ${patient.name} | Proc: ${appointment.type}`, 30, 80);
-        ctx.fillText(`Date: ${new Date().toLocaleString()}`, 30, 100);
+        if (requiresGuardian) ctx.fillText(`Guardian: ${patient.guardian} (${patient.relationshipToPatient})`, 30, 95);
+        ctx.fillText(`Date: ${new Date().toLocaleString()}`, 30, 110);
         
         ctx.beginPath(); ctx.moveTo(30, 120); ctx.lineTo(570, 120); ctx.strokeStyle = '#e2e8f0'; ctx.stroke();
 
@@ -101,21 +105,11 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
         ctx.fillText(line, 30, y); y += 40;
 
-        if (procedure?.riskDisclosures && procedure.riskDisclosures.length > 0) {
-            ctx.font = 'bold 13px sans-serif';
-            ctx.fillText('MANDATORY RISK DISCLOSURES:', 30, y); y += 20;
-            ctx.font = '12px serif';
-            procedure.riskDisclosures.forEach(risk => {
-                ctx.fillText(`• ${risk}`, 40, y); y += 18;
-            });
-            y += 20;
-        }
-
         ctx.drawImage(signatureCanvas, 30, y, signatureCanvas.width, signatureCanvas.height);
         y += signatureCanvas.height + 5;
         ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(30 + signatureCanvas.width, y); ctx.strokeStyle = '#94a3b8'; ctx.stroke();
         ctx.fillStyle = '#64748b';
-        ctx.fillText('Patient/Guardian Signature (Digitally Verified)', 30, y + 15);
+        ctx.fillText(requiresGuardian ? `Guardian Signature: ${patient.guardian} (${patient.relationshipToPatient})` : `Patient Signature: ${patient.name}`, 30, y + 15);
         
         onSave(finalCanvas.toDataURL('image/png'));
     };
@@ -134,19 +128,16 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 space-y-6">
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
-
-                    {procedure?.riskDisclosures && procedure.riskDisclosures.length > 0 && (
-                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-xl">
-                            <h4 className="font-bold text-amber-900 flex items-center gap-2 mb-3 text-sm"><AlertTriangle size={16}/> Specific Risk Disclosures</h4>
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-                                {procedure.riskDisclosures.map((risk, i) => (<li key={i} className="text-xs text-amber-800 flex items-start gap-2"><span className="mt-1 w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0"/>{risk}</li>))}
-                            </ul>
+                    {requiresGuardian && (
+                        <div className="bg-lilac-50 border border-lilac-200 p-4 rounded-xl flex items-center gap-3 text-lilac-800">
+                            <Baby size={20} className="text-lilac-600"/>
+                            <div><p className="text-xs font-bold uppercase">Pediatric/PWD Case Detected</p><p className="text-[11px]">Guardian <strong>{patient.guardian}</strong> is authorized to sign for the patient.</p></div>
                         </div>
                     )}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
 
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                         <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">Patient Signature</h4><button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button></div>
+                         <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">{requiresGuardian ? 'Authorized Guardian Signature' : 'Patient Signature'}</h4><button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button></div>
                          <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
                     </div>
                 </div>

@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
+import { jsPDF } from 'jspdf';
 
 interface FieldManagementProps {
   settings: FieldSettings;
@@ -17,234 +18,191 @@ interface FieldManagementProps {
   incidents?: ClinicalIncident[];
 }
 
-const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
-    [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
-    [UserRole.DENTIST]: { canVoidNotes: true, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: false },
-    [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true }
-};
-
 const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [] }) => {
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
-    // FIX for Error #310: Move nested useState hooks to the top level of the component.
     const [activeSmsCat, setActiveSmsCat] = useState<SmsCategory>('Onboarding');
+
+    const securityAlerts = useMemo(() => {
+        return auditLog.filter(log => log.action === 'SECURITY_ALERT').slice(0, 20);
+    }, [auditLog]);
 
     const menuStructure = [
         { group: 'System Settings', icon: Sliders, items: [
             { key: 'features', label: 'System Features', icon: ToggleLeft },
+            { key: 'reputation', label: 'Reputation & Growth', icon: Star },
             { key: 'sms', label: 'SMS Automation Engine', icon: Smartphone },
             { key: 'permissions', label: 'Role Permissions', icon: Lock },
-            { key: 'roster', label: 'Staff Roster & Shifts', icon: CalendarDays },
-            { key: 'leaves', label: 'Leave Management', icon: Plane },
             { key: 'branches', label: 'Clinic Branches', icon: MapPin },
         ]},
         { group: 'Clinical Content', icon: BookOpen, items: [
             { key: 'procedures', label: 'Procedures & Prices', icon: DollarSign },
-            { key: 'medications', label: 'Medication Formulary', icon: Pill },
             { key: 'protocolRules', label: 'Protocol Alert Rules', icon: Shield },
         ]},
         { group: 'Legal & Compliance', icon: Shield, items: [
             { key: 'auditLog', label: 'Audit Log', icon: Key },
-            { key: 'credentials', label: 'Credentials Monitor', icon: CheckCircle }, 
-            { key: 'vendors', label: 'Vendor Compliance', icon: Briefcase },
+            { key: 'npc', label: 'NPC Breach Protocol', icon: ShieldAlert },
             { key: 'retention', label: 'Data Retention', icon: Archive },
         ]},
     ];
 
-    const handleTogglePermission = (role: UserRole, permission: keyof RolePermissions) => {
-        const perms = settings.permissions || DEFAULT_PERMISSIONS;
-        const updatedPerms = {
-            ...perms,
-            [role]: {
-                ...perms[role],
-                [permission]: !perms[role][permission]
-            }
-        };
-        onUpdateSettings({ ...settings, permissions: updatedPerms });
+    const generateNpcReport = (incidentId: string) => {
+        const incident = auditLog.find(l => l.id === incidentId);
+        if (!incident) return;
+
+        const doc = new jsPDF();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text("NATIONAL PRIVACY COMMISSION (PH)", 105, 15, { align: 'center' });
+        doc.text("SECURITY INCIDENT & DATA BREACH REPORT", 105, 22, { align: 'center' });
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Report Date: ${new Date().toLocaleString()}`, 15, 35);
+        doc.text(`Discovery Date: ${formatDate(incident.timestamp)}`, 15, 40);
+        doc.text(`Case ID: ${incident.id}`, 15, 45);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("I. PERSONAL INFORMATION CONTROLLER", 15, 55);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Organization: Dentsched Dental Practice", 20, 60);
+        doc.text("Data Protection Officer (DPO): System Administrator", 20, 65);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("II. DESCRIPTION OF INCIDENT", 15, 75);
+        doc.setFont('helvetica', 'normal');
+        const desc = `The following security alert was triggered by the system for user account "${incident.userName}": ${incident.details}. Affected records ID(s) associated: ${incident.entityId}`;
+        const splitLines = doc.splitTextToSize(desc, 180);
+        doc.text(splitLines, 20, 82);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("III. PRELIMINARY IMPACT ASSESSMENT", 15, 110);
+        doc.setFont('helvetica', 'normal');
+        doc.text("• Category: Confidentiality / Integrity Violation", 20, 118);
+        doc.text("• Nature of Data: Sensitive Personal Information (Medical Records)", 20, 124);
+        doc.text("• Affected Parties: 1 patient(s) confirmed.", 20, 130);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("IV. CONTAINMENT MEASURES", 15, 145);
+        doc.setFont('helvetica', 'normal');
+        doc.text("• Session immediately terminated upon system alert.", 20, 152);
+        doc.text("• Multi-factor challenge triggered for associated account.", 20, 158);
+        doc.text("• Cryptographic seal verification initiated for related clinical notes.", 20, 164);
+
+        doc.line(15, 200, 100, 200);
+        doc.text("Digitally Certified by DPO", 15, 205);
+        
+        doc.save(`NPC_Breach_Report_${incident.id}.pdf`);
+        toast.success("NPC Incident Documentation generated.");
     };
 
-    const handleUpdateRoster = (newShift: StaffShift) => {
-        const updatedShifts = [...(settings.shifts || []), newShift];
-        onUpdateSettings({ ...settings, shifts: updatedShifts });
-        toast.success(`Shift assigned to ${staff.find(s => s.id === newShift.staffId)?.name}`);
-    };
+    const renderNPCProtocol = () => (
+        <div className="p-6 h-full flex flex-col gap-6 bg-slate-50">
+            <div className="bg-red-600 p-8 rounded-3xl text-white shadow-xl shadow-red-600/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-20 rotate-12"><ShieldAlert size={140}/></div>
+                <h3 className="text-2xl font-bold mb-2">NPC 72-Hour Breach Response</h3>
+                <p className="text-red-100 max-w-xl text-sm leading-relaxed">R.A. 10173 mandates reporting of security incidents involving Sensitive Personal Information within 72 hours of discovery. Use this tool to generate compliant NPC templates pre-filled from your audit logs.</p>
+            </div>
 
-    const handleUpdateLeave = (requestId: string, status: 'Approved' | 'Rejected') => {
-        const updatedLeaves = (settings.leaveRequests || []).map(l => l.id === requestId ? { ...l, status } : l);
-        onUpdateSettings({ ...settings, leaveRequests: updatedLeaves });
-        toast.success(`Leave request ${status.toLowerCase()}.`);
-    };
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
+                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Terminal size={18} className="text-red-600"/> Security Alert Feed</h4>
+                    <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">Live Monitor</span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {securityAlerts.length > 0 ? securityAlerts.map(alert => {
+                        const ageHrs = Math.floor((Date.now() - new Date(alert.timestamp).getTime()) / (1000 * 3600));
+                        const isOverdue = ageHrs > 72;
+                        return (
+                        <div key={alert.id} className={`p-4 rounded-2xl border flex items-start justify-between group transition-all ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100'}`}>
+                            <div className="flex gap-4">
+                                <div className={`p-3 rounded-xl shadow-sm ${isOverdue ? 'bg-red-600 text-white' : 'bg-orange-100 text-orange-600'}`}><ShieldAlert size={24}/></div>
+                                <div>
+                                    <div className="font-bold text-slate-800">{alert.details}</div>
+                                    <div className="flex gap-3 text-[10px] font-bold uppercase text-slate-400 mt-1">
+                                        <span className="flex items-center gap-1"><Clock size={10}/> {ageHrs}h Ago</span>
+                                        <span className={`px-1.5 rounded ${isOverdue ? 'text-red-700 bg-red-100' : 'text-orange-700 bg-orange-100'}`}>{isOverdue ? 'CRITICAL: OVER 72H' : 'RESPONSE WINDOW OPEN'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => generateNpcReport(alert.id)} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 hover:scale-105">
+                                <FileText size={14}/> Generate NPC Form
+                            </button>
+                        </div>
+                    )}) : (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-300 opacity-60">
+                            <CheckCircle size={64} strokeWidth={1} />
+                            <p className="mt-4 font-bold">No data security breaches detected in logs.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 
     const renderCurrentCategory = () => {
         switch(activeCategory) {
             case 'features': return renderFeatures();
             case 'sms': return renderSmsEngine();
-            case 'permissions': return renderPermissions();
-            case 'roster': return renderRoster();
-            case 'leaves': return renderLeaves();
+            case 'reputation': return renderReputation();
+            case 'retention': return renderRetention();
             case 'auditLog': return renderAuditLog();
-            default: return <div className="p-10 text-center text-slate-400"><HardHat size={32} className="mx-auto mb-2" /> Interface for this section is under construction.</div>;
+            case 'npc': return renderNPCProtocol();
+            default: return <div className="p-10 text-center text-slate-400"><HardHat size={32} className="mx-auto mb-2" /> Section interface is under construction.</div>;
         }
     };
 
+    function renderReputation() {
+        return (
+            <div className="p-6 bg-slate-50 h-full space-y-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2"><Star className="text-amber-500" size={20}/> Reputation Automation</h4>
+                    <p className="text-sm text-slate-500 mb-6">Drive clinic growth by automatically requesting reviews from satisfied patients.</p>
+                    <div className="space-y-4">
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Maps Review Link</label><input type="text" className="w-full mt-1 p-3 bg-slate-50 border rounded-xl" placeholder="e.g. https://g.page/r/YOUR_ID/review" value={settings.reputationSettings?.googleReviewLink || ''} onChange={e => onUpdateSettings({...settings, reputationSettings: {...settings.reputationSettings, googleReviewLink: e.target.value, npsThreshold: 5}})} /></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function renderRetention() {
+        const policy = settings.retentionPolicy || { archivalYears: 10, purgeYears: 15 };
+        return (
+            <div className="p-6 bg-slate-50 h-full space-y-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5"><Archive size={120}/></div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">DPA Data Retention Lifecycle</h3>
+                    <p className="text-sm text-slate-500 mb-8 max-w-xl">Automate compliance with the "Right to be Forgotten" while maintaining DOH-mandated clinical record retention.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-6 rounded-2xl bg-teal-50 border border-teal-100"><h4 className="font-bold text-teal-900 mb-1">Automated Archival</h4><p className="text-[10px] text-teal-700 mb-4">Records inactive for {policy.archivalYears} years will be moved to cold storage.</p><input type="range" min="5" max="20" value={policy.archivalYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, archivalYears: parseInt(e.target.value)}})} className="w-full accent-teal-600" /></div>
+                        <div className="p-6 rounded-2xl bg-red-50 border border-red-100"><h4 className="font-bold text-red-900 mb-1">Permanent Purge</h4><p className="text-[10px] text-red-700 mb-4">Records inactive for {policy.purgeYears} years will be permanently deleted.</p><input type="range" min="10" max="30" value={policy.purgeYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, purgeYears: parseInt(e.target.value)}})} className="w-full accent-red-600" /></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     function renderSmsEngine() {
-        const templates = settings.smsTemplates;
-        const categories: SmsCategory[] = ['Onboarding', 'Safety', 'Logistics', 'Recovery', 'Financial', 'Security', 'Efficiency'];
-
-        const handleUpdateTemplate = (id: string, updates: Partial<SmsTemplateConfig>) => {
-            const updated = { ...templates, [id]: { ...templates[id], ...updates } };
-            onUpdateSettings({ ...settings, smsTemplates: updated });
-        };
-
-        const currentItems = (Object.values(templates) as SmsTemplateConfig[]).filter((t: SmsTemplateConfig) => t.category === activeSmsCat);
-
+        const categories: SmsCategory[] = ['Onboarding', 'Safety', 'Logistics', 'Recovery', 'Financial', 'Security', 'Efficiency', 'Reputation'];
+        const currentItems = (Object.values(settings.smsTemplates) as SmsTemplateConfig[]).filter(t => t.category === activeSmsCat);
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
                 <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center shrink-0">
-                    <div>
-                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><Smartphone size={20} className="text-teal-600"/> SMS Automation Logic</h4>
-                        <p className="text-xs text-slate-500 mt-1">Configure professional automated messaging for all 32 clinical and practice triggers.</p>
-                    </div>
-                    <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                        {categories.map(cat => (
-                            <button 
-                                key={cat}
-                                onClick={() => setActiveSmsCat(cat)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${activeSmsCat === cat ? 'bg-teal-600 text-white shadow-md' : 'text-slate-500 hover:bg-white hover:text-teal-600'}`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Smartphone size={20} className="text-teal-600"/> SMS Automation Logic</h4>
+                    <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100 overflow-x-auto no-scrollbar max-w-[500px]">
+                        {categories.map(cat => (<button key={cat} onClick={() => setActiveSmsCat(cat)} className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all whitespace-nowrap ${activeSmsCat === cat ? 'bg-teal-600 text-white shadow-md' : 'text-slate-500 hover:bg-white'}`}>{cat}</button>))}
                     </div>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="grid grid-cols-1 gap-6">
-                        {currentItems.map((tmpl: SmsTemplateConfig) => (
-                            <div key={tmpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group">
-                                <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${tmpl.enabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'}`}>
-                                            <Zap size={16}/>
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-slate-800 text-sm">{tmpl.label}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium italic">{tmpl.triggerDescription}</div>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleUpdateTemplate(tmpl.id, { enabled: !tmpl.enabled })}
-                                        className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border transition-all ${tmpl.enabled ? 'bg-teal-600 text-white border-teal-500' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
-                                    >
-                                        {tmpl.enabled ? 'Automation Active' : 'Off'}
-                                    </button>
-                                </div>
-                                <div className="p-4 flex flex-col md:flex-row gap-4">
-                                    <div className="flex-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Template Content</label>
-                                        <textarea 
-                                            value={tmpl.text}
-                                            onChange={e => handleUpdateTemplate(tmpl.id, { text: e.target.value })}
-                                            className="w-full mt-1 p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:bg-white focus:border-teal-500 outline-none transition-all resize-none h-24"
-                                            placeholder="Enter message text..."
-                                        />
-                                        <div className="mt-2 flex flex-wrap gap-1">
-                                            {['{PatientName}', '{Doctor}', '{Date}', '{Time}', '{Branch}', '{Procedure}', '{Amount}'].map(tag => (
-                                                <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] font-mono border border-slate-200">{tag}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="w-full md:w-64 bg-lilac-50 p-4 rounded-xl border border-lilac-100 flex flex-col">
-                                        <span className="text-[9px] font-bold text-lilac-600 uppercase mb-2 block tracking-widest">Mobile Preview</span>
-                                        <div className="flex-1 bg-white rounded-lg p-3 shadow-inner text-[11px] text-slate-600 leading-tight">
-                                            {tmpl.text.replace(/{PatientName}/g, 'Michael Scott').replace(/{Date}/g, '12/25').replace(/{Time}/g, '2:00 PM').replace(/{Doctor}/g, 'Dr. Crentist')}
-                                        </div>
-                                        <span className="text-[9px] text-lilac-400 mt-2 italic">Standard carrier rates apply.</span>
-                                    </div>
-                                </div>
+                    {currentItems.map(tmpl => (
+                        <div key={tmpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 flex flex-col md:flex-row gap-4">
+                            <div className="flex-1"><div className="font-bold text-slate-800 text-sm mb-1">{tmpl.label}</div><p className="text-[10px] text-slate-400 italic mb-3">{tmpl.triggerDescription}</p><textarea value={tmpl.text} onChange={e => onUpdateSettings({...settings, smsTemplates: {...settings.smsTemplates, [tmpl.id]: {...tmpl, text: e.target.value}}})} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm h-24" /></div>
+                            <div className="w-32 flex flex-col justify-center items-center">
+                                <button onClick={() => onUpdateSettings({...settings, smsTemplates: {...settings.smsTemplates, [tmpl.id]: { ...(tmpl as SmsTemplateConfig), enabled: !tmpl.enabled}}})} className={`w-full py-2 rounded-xl text-[10px] font-bold uppercase border transition-all ${tmpl.enabled ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-100 text-slate-400'}`}>{tmpl.enabled ? 'Enabled' : 'Off'}</button>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    function renderRoster() {
-        const shifts = settings.shifts || [];
-        return (
-            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center">
-                    <div>
-                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><CalendarDays size={20} className="text-teal-600"/> Advanced Staff Roster</h4>
-                        <p className="text-xs text-slate-500 mt-1">Multi-branch shift rotation and On-Call tracking for optimized coverage.</p>
-                    </div>
-                    <button className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-teal-700 transition-all flex items-center gap-2"><Plus size={14}/> Assign Shift</button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-1 gap-4">
-                        {staff.map(member => {
-                            const memberShifts = shifts.filter(s => s.staffId === member.id);
-                            return (
-                                <div key={member.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group">
-                                    <div className="flex items-center gap-4">
-                                        <img src={member.avatar} className="w-10 h-10 rounded-full border-2 border-slate-100" />
-                                        <div>
-                                            <div className="font-bold text-slate-800">{member.name}</div>
-                                            <div className="text-[10px] text-slate-400 font-bold uppercase">{member.role}</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {memberShifts.length > 0 ? memberShifts.map(s => (
-                                            <div key={s.id} className={`px-3 py-1 rounded-lg border text-[10px] font-bold flex flex-col items-center ${s.isOnCall ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                                                <span>{s.branch}</span>
-                                                {s.isOnCall && <span className="text-[8px] animate-pulse">ON-CALL</span>}
-                                            </div>
-                                        )) : <span className="text-xs text-slate-300 italic">No shifts assigned.</span>}
-                                    </div>
-                                    <button className="opacity-0 group-hover:opacity-100 p-2 text-teal-600 transition-all"><Edit2 size={16}/></button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    function renderLeaves() {
-        const leaves = settings.leaveRequests || [];
-        return (
-            <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                <div className="p-6 border-b border-slate-100 bg-white">
-                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Plane size={20} className="text-lilac-600"/> Leave Management Registry</h4>
-                    <p className="text-xs text-slate-500 mt-1">Review and manage vacation, sick, and emergency leave requests.</p>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    {leaves.length > 0 ? leaves.map(req => (
-                        <div key={req.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between gap-4">
-                            <div className="flex gap-4">
-                                <div className={`p-3 rounded-xl shrink-0 ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    <Clock size={24}/>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-slate-800">{req.staffName} <span className="text-xs font-normal text-slate-400">• {req.type} Leave</span></div>
-                                    <div className="text-xs text-slate-500 font-mono mt-1">{formatDate(req.startDate)} → {formatDate(req.endDate)}</div>
-                                    {req.reason && <p className="text-[10px] text-slate-400 italic mt-2">"{req.reason}"</p>}
-                                </div>
-                            </div>
-                            {req.status === 'Pending' ? (
-                                <div className="flex gap-2 items-center">
-                                    <button onClick={() => handleUpdateLeave(req.id, 'Rejected')} className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg text-xs hover:bg-red-100 transition-colors">Reject</button>
-                                    <button onClick={() => handleUpdateLeave(req.id, 'Approved')} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg text-xs shadow-md hover:bg-green-700 transition-all">Approve</button>
-                                </div>
-                            ) : (
-                                <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase border self-center ${req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                                    {req.status}
-                                </div>
-                            )}
                         </div>
-                    )) : <div className="text-center py-20 text-slate-400 italic">No active leave requests. Full attendance confirmed.</div>}
+                    ))}
                 </div>
             </div>
         );
@@ -256,61 +214,10 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Store size={20} className="text-teal-600"/> Practice Environment Profile</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button onClick={() => onUpdateSettings({ ...settings, clinicProfile: 'boutique' })} className={`p-4 rounded-xl border-2 text-left transition-all ${settings.clinicProfile === 'boutique' ? 'border-teal-500 bg-teal-50 shadow-md' : 'border-slate-200 hover:border-teal-300'}`}>
-                            <div className="font-bold text-teal-800 text-lg">Solo / Boutique</div>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Lean operations. Disables administrative oversight locks and multi-provider review queues.</p>
-                        </button>
-                        <button onClick={() => onUpdateSettings({ ...settings, clinicProfile: 'corporate' })} className={`p-4 rounded-xl border-2 text-left transition-all ${settings.clinicProfile === 'corporate' ? 'border-lilac-500 bg-lilac-50 shadow-md' : 'border-slate-200 hover:border-teal-300'}`}>
-                            <div className="font-bold text-lilac-800 text-lg">Multi-Doctor / Corporate</div>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Enables maximum compliance: amendment workflows, plan approvals, and detailed audit logging.</p>
-                        </button>
+                        <button onClick={() => onUpdateSettings({ ...settings, clinicProfile: 'boutique' })} className={`p-4 rounded-xl border-2 text-left transition-all ${settings.clinicProfile === 'boutique' ? 'border-teal-500 bg-teal-50 shadow-md' : 'border-slate-200 hover:border-teal-300'}`}><div className="font-bold text-teal-800 text-lg">Solo / Boutique</div><p className="text-xs text-slate-500 mt-1 leading-relaxed">Lean operations. Focus on patient care over multi-provider logic.</p></button>
+                        <button onClick={() => onUpdateSettings({ ...settings, clinicProfile: 'corporate' })} className={`p-4 rounded-xl border-2 text-left transition-all ${settings.clinicProfile === 'corporate' ? 'border-lilac-500 bg-lilac-50 shadow-md' : 'border-slate-200 hover:border-teal-300'}`}><div className="font-bold text-lilac-800 text-lg">Multi-Doctor / Corporate</div><p className="text-xs text-slate-500 mt-1 leading-relaxed">Enables maximum compliance, treatment approval queues, and oversight.</p></button>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <ToggleItem label="Multi-Branch Support" featureKey="enableMultiBranch" icon={MapPin} />
-                    <ToggleItem label="Treatment Plan Approvals" featureKey="enableTreatmentPlanApprovals" icon={Shield} />
-                    <ToggleItem label="SMS Automation Engine" featureKey="enableSmsAutomation" icon={Smartphone} />
-                    <ToggleItem label="Automated Supply Reordering" featureKey="enableInventory" icon={Box} />
-                </div>
-            </div>
-        );
-    }
-
-    function renderPermissions() {
-        const perms = settings.permissions || DEFAULT_PERMISSIONS;
-        const permissionLabels: Record<keyof RolePermissions, string> = {
-            canVoidNotes: "Can Void/Amend Clinical Notes",
-            canEditFinancials: "Can Manage Billing & Prices",
-            canDeletePatients: "Can Delete/Archive Patient Files",
-            canOverrideProtocols: "Can Force-Proceed on Protocol Alerts",
-            canOverrideMandatoryMedical: "Can Override Mandatory Medical Data",
-            canOverrideClinicalSafety: "Can Override Clinical Safety Blocks",
-            canManageInventory: "Can Add/Edit Stock Items"
-        };
-
-        return (
-            <div className="p-6 bg-slate-50 h-full overflow-y-auto space-y-8">
-                {Object.values(UserRole).map(role => (
-                    <div key={role} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-slate-400"><UserIcon size={16}/></div>
-                            <h4 className="font-bold text-slate-800">{role}</h4>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            {Object.entries(permissionLabels).map(([key, label]) => (
-                                <div key={key} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                    <span className="text-sm font-medium text-slate-700">{label}</span>
-                                    <button 
-                                        onClick={() => handleTogglePermission(role, key as keyof RolePermissions)}
-                                        className={`w-12 h-6 rounded-full transition-all relative ${perms[role][key as keyof RolePermissions] ? 'bg-teal-600' : 'bg-slate-200'}`}
-                                    >
-                                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${perms[role][key as keyof RolePermissions] ? 'translate-x-6' : ''}`} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
             </div>
         );
     }
@@ -318,61 +225,18 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     function renderAuditLog() {
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                <div className="p-4 bg-white border-b flex justify-between items-center shrink-0">
-                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {auditLog.length > 0 ? auditLog.map(log => (
-                        <div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-                            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0"><Activity size={16}/></div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-start">
-                                    <span className="text-sm font-bold text-slate-800">{log.userName} <span className="text-slate-400 font-normal">executed</span> {log.action}</span>
-                                    <span className="block text-[10px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleString()}</span>
-                                </div>
-                                <p className="text-xs mt-1 italic text-slate-500">{log.details}</p>
-                            </div>
-                        </div>
-                    )) : <div className="text-center py-20 text-slate-400 italic">No events recorded.</div>}
-                </div>
+                <div className="p-4 bg-white border-b flex justify-between items-center shrink-0"><h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4></div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">{auditLog.length > 0 ? auditLog.map(log => (<div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4"><div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0"><Activity size={16}/></div><div className="flex-1"><div className="flex justify-between items-start"><span className="text-sm font-bold text-slate-800">{log.userName} <span className="text-slate-400 font-normal">executed</span> {log.action}</span><span className="block text-[10px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleString()}</span></div><p className="text-xs mt-1 italic text-slate-500">{log.details}</p></div></div>)) : <div className="text-center py-20 text-slate-400 italic">No events recorded.</div>}</div>
             </div>
         );
     }
 
     return (
         <div className="flex flex-col md:flex-row h-full gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-full md:w-72 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col shrink-0">
-                <div className="p-4 border-b border-slate-100 bg-teal-900 text-white"><h2 className="text-lg font-bold flex items-center gap-2"><Sliders size={20} /> Settings</h2></div>
-                <nav className="flex-1 overflow-y-auto p-2">
-                    {menuStructure.map(group => (
-                        <div key={group.group} className="py-2">
-                            <h3 className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><group.icon size={12}/> {group.group}</h3>
-                            <div className="space-y-1">
-                                {group.items.map(item => (
-                                    <button key={item.key} onClick={() => setActiveCategory(item.key)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center justify-between transition-colors text-sm ${activeCategory === item.key ? 'bg-teal-50 text-teal-800 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                        <div className="flex items-center gap-3"><item.icon size={16} className={`${activeCategory === item.key ? 'text-teal-600' : 'text-slate-400'}`} /><span>{item.label}</span></div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </nav>
-            </div>
+            <div className="w-full md:w-72 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col shrink-0"><nav className="flex-1 overflow-y-auto p-2">{menuStructure.map(group => (<div key={group.group} className="py-2"><h3 className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><group.icon size={12}/> {group.group}</h3><div className="space-y-1">{group.items.map(item => (<button key={item.key} onClick={() => setActiveCategory(item.key)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center justify-between transition-colors text-sm ${activeCategory === item.key ? 'bg-teal-50 text-teal-800 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><item.icon size={16} className={`${activeCategory === item.key ? 'text-teal-600' : 'text-slate-400'}`} /><span>{item.label}</span></div></button>))}</div></div>))}</nav></div>
             <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">{renderCurrentCategory()}</div>
         </div>
     );
-
-    function ToggleItem({ label, featureKey, icon: Icon }: { label: string, featureKey: keyof FeatureToggles, icon: React.ElementType }) {
-        return (
-          <div className="flex justify-between items-center p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-teal-300 transition-colors">
-              <div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-teal-50 text-teal-600"><Icon size={18} /></div><span className="font-bold text-slate-700 text-sm">{label}</span></div>
-              <button onClick={() => onUpdateSettings({ ...settings, features: { ...settings.features, [featureKey]: !settings.features[featureKey] }})} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${ settings.features[featureKey] ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200' }`}>
-                  {settings.features[featureKey] ? <ToggleRight size={24}/> : <ToggleLeft size={24}/>}
-                  {settings.features[featureKey] ? 'Active' : 'Off'}
-              </button>
-          </div>
-        )
-    }
 };
 
 export default FieldManagement;

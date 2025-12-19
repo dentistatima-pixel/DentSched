@@ -1,5 +1,5 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -69,7 +69,9 @@ export const STAFF: User[] = [
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
       specialization: 'General Dentistry',
       prcLicense: '0123456',
+      prcExpiry: getFutureDateStr(15), // Expiring soon for alert
       s2License: 'PDEA-S2-8888',
+      s2Expiry: getFutureDateStr(200),
       defaultBranch: 'Makati Branch',
       allowedBranches: ['Makati Branch', 'Quezon City Branch'], 
       colorPreference: '#14b8a6', 
@@ -83,15 +85,16 @@ export const STAFF: User[] = [
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ben',
       specialization: 'Orthodontics',
       prcLicense: '0987654',
+      prcExpiry: getFutureDateStr(365),
       defaultBranch: 'Quezon City Branch',
       allowedBranches: ['Quezon City Branch'],
       colorPreference: '#8b5cf6', 
       defaultConsultationFee: 800.00,
       roster: { 'Tue': 'Quezon City Branch', 'Thu': 'Quezon City Branch', 'Sat': 'Quezon City Branch' }
   },
-  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
-  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
-  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
+  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', prcExpiry: getFutureDateStr(400), colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
+  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', prcExpiry: getFutureDateStr(50), colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
+  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', prcExpiry: getFutureDateStr(600), colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
   
   { 
       id: 'asst1', 
@@ -125,6 +128,7 @@ export const PATIENTS: Patient[] = [
         chiefComplaint: 'Checkup on my bridges.',
         notes: 'Very talkative. Loves jokes. Gag reflex.',
         currentBalance: 5000,
+        recallStatus: 'Booked',
         treatmentPlans: [
             { id: 'tp1', patientId: 'p_heavy_01', name: 'Phase 1 - Urgent Care', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: 'Please check #16 for fracture lines before proceeding.' },
             { id: 'tp2', patientId: 'p_heavy_01', name: 'Phase 2 - Prostho', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.DRAFT }
@@ -147,7 +151,7 @@ export const PATIENTS: Patient[] = [
              { id: 'dc_heavy_15', toothNumber: 16, procedure: 'Crown', status: 'Planned', notes: 'Crack lines visible', price: 15000, date: getTomorrowStr(), planId: 'tp1' }
         ],
         ledger: [
-            { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46, 47', type: 'Charge', amount: 5000, balanceAfter: 5000 },
+            { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46, 47', type: 'Charge', amount: 5000, balanceAfter: 5000, materialAmount: 1000, pfAmount: 4000 },
             { id: 'l2', date: getPastDateStr(2), description: 'Partial Payment', type: 'Payment', amount: 2500, balanceAfter: 2500 },
             { id: 'l3', date: getPastDateStr(35), description: 'Crowns 11, 21', type: 'Charge', amount: 24000, balanceAfter: 26500 },
             { id: 'l4', date: getPastDateStr(35), description: 'Full Payment', type: 'Payment', amount: 24000, balanceAfter: 2500 }
@@ -169,6 +173,7 @@ export const PATIENTS: Patient[] = [
         nextVisit: null,
         chiefComplaint: 'Bleeding gums.',
         notes: 'Generalized Stage III Periodontitis.',
+        recallStatus: 'Due',
         perioChart: [
             { toothNumber: 18, pocketDepths: [5,6,5, 6,7,6], recession: [1,1,1, 2,2,2], bleeding: [true,true,true,true,true,true], mobility: 1 },
             { toothNumber: 17, pocketDepths: [4,5,4, 5,5,5], recession: [0,0,0, 1,1,1], bleeding: [true,false,true,true,false,true], mobility: 0 },
@@ -198,11 +203,11 @@ export const PATIENTS: Patient[] = [
     { id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1980-12-30', age: 43, sex: 'Male', phone: '0919-987-6543', email: 'jdc@email.com', lastVisit: getPastDateStr(5), nextVisit: null, notes: 'Patient requires surgical extraction. Pre-medication needed due to High BP.', medicalConditions: ['High BP'], allergies: ['Penicillin'], files: [
         { id: 'f1', patientId: 'p_surg_04', title: 'Panoramic X-Ray', category: 'X-Ray', fileType: 'image/jpeg', url: '#', uploadedBy: 'doc1', uploadedAt: getPastDateStr(5) }
     ]},
-    { id: 'p_pedia_05', name: 'Timothy Santos', firstName: 'Timothy', surname: 'Santos', dob: '2016-05-15', age: 8, sex: 'Male', phone: '0917-555-0101', email: 'parent@email.com', guardian: 'Mrs. Santos', lastVisit: getPastDateStr(180), nextVisit: null, notes: 'Pediatric patient, requires gentle approach.' },
+    { id: 'p_pedia_05', name: 'Timothy Santos', firstName: 'Timothy', surname: 'Santos', dob: '2016-05-15', age: 8, sex: 'Male', phone: '0917-555-0101', email: 'parent@email.com', lastVisit: getPastDateStr(180), nextVisit: null, notes: 'Pediatric patient, requires gentle approach.', recallStatus: 'Due' },
     { id: 'p_prostho_06', name: 'Lola Nidora Zobel', firstName: 'Nidora', surname: 'Zobel', dob: '1950-08-20', age: 73, sex: 'Female', phone: '0918-999-8888', email: 'lola@email.com', lastVisit: '2010-05-15', nextVisit: null, notes: 'For denture fitting.', isArchived: true },
     { id: 'p_vip_07', name: 'Bella Hadid (Demo)', firstName: 'Bella', surname: 'Hadid', dob: '1996-10-09', age: 27, sex: 'Female', phone: '0917-VIP-0001', email: 'bella@email.com', lastVisit: getPastDateStr(90), nextVisit: getFutureDateStr(90), notes: 'VIP patient. Handle with care.' },
     { id: 'p_emerg_08', name: 'Mark Techy', firstName: 'Mark', surname: 'Techy', dob: '1990-01-01', age: 34, sex: 'Male', phone: '0922-333-4444', email: 'mark@email.com', lastVisit: getTodayStr(), nextVisit: null, notes: 'Emergency visit for toothache.' },
-    { id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1999-09-09', age: 24, sex: 'Male', phone: '0999-000-0000', email: 'ron@email.com', lastVisit: getPastDateStr(30), nextVisit: null, notes: 'Patient has a significant outstanding balance. Please collect payment before new treatment.', currentBalance: 15000 },
+    { id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1999-09-09', age: 24, sex: 'Male', phone: '0999-000-0000', email: 'ron@email.com', lastVisit: getPastDateStr(30), nextVisit: null, notes: 'Patient has a significant outstanding balance. Please collect payment before new treatment.', currentBalance: 15000, ledger: [{ id: 'ldebt1', date: getPastDateStr(95), description: 'Root Canal Phase 1', type: 'Charge', amount: 15000, balanceAfter: 15000 }] },
     { id: 'p_complex_10', name: 'Gary Grinder', firstName: 'Gary', surname: 'Grinder', dob: '1982-03-15', age: 42, sex: 'Male', phone: '0917-888-1234', email: 'gary@email.com', lastVisit: getPastDateStr(10), nextVisit: getFutureDateStr(10), notes: 'Complex case involving bruxism. Needs night guard.' },
 ];
 
@@ -230,10 +235,10 @@ export const MOCK_CLAIMS: HMOClaim[] = [
 export const MOCK_STOCK: StockItem[] = [
     { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60) },
     { id: 'stk_2', name: 'Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(365) },
-    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getFutureDateStr(20) }, 
+    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getPastDateStr(5) }, // EXPIRED RED
     { id: 'stk_4', name: 'Mouth Mirror', category: StockCategory.INSTRUMENTS, quantity: 100, lowStockThreshold: 50 },
     { id: 'stk_5', name: 'Bond Paper (Ream)', category: StockCategory.OFFICE, quantity: 8, lowStockThreshold: 5 },
-    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getPastDateStr(5) },
+    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getFutureDateStr(15) }, // EXPIRE ALERT
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -265,28 +270,21 @@ export const MOCK_VENDORS: Vendor[] = [
 ];
 
 const DEFAULT_SMS: SmsTemplates = {
-    // Level 1: Onboarding
     welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to dentsched, {PatientName}! Your digital health record is now active. We look forward to seeing you.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on new patient registration.' },
     portal: { id: 'portal', label: 'Portal Activation', text: 'Access your x-rays, treatment plans, and privacy logs anytime via your secure Patient Portal: {PortalLink}.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on first portal access.' },
     provisional: { id: 'provisional', label: 'Full Enrollment Prompt', text: 'Hi! You’re currently in our Quick Register system. Please complete your full Medical History {HistoryLink} before arrival to save time.', enabled: true, category: 'Onboarding', triggerDescription: 'Manual or 48h before first visit.' },
     birthday: { id: 'birthday', label: 'Birthday Greeting', text: 'Happy Birthday, {PatientName}! Wishing you a healthy smile today. - From your team at dentsched.', enabled: true, category: 'Onboarding', triggerDescription: 'Automated on DOB matches current date.' },
     inactive: { id: 'inactive', label: 'Patient Re-engagement', text: 'Hi {PatientName}, we noticed it’s been over a year since your last visit. Routine checkups prevent major issues! Book here: {BookingLink}.', enabled: false, category: 'Onboarding', triggerDescription: 'Triggered if lastVisit > 12 months.' },
-
-    // Level 2: Safety
     sedation: { id: 'sedation', label: 'Sedation/NPO Protocol', text: 'IMPORTANT: For your {Procedure} tomorrow, do not eat or drink anything (including water) for 8 hours prior to your visit.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by Surgery/Extraction type.' },
     antibiotic: { id: 'antibiotic', label: 'Antibiotic Prophylaxis', text: 'Reminder: Please take your prescribed antibiotic 1 hour before your appointment for your heart valve safety protocol.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by specific Medical History flags.' },
     maintenance: { id: 'maintenance', label: 'Maintenance Meds Verification', text: 'Good morning {PatientName}! Please ensure you have taken your blood pressure maintenance medication before your visit today.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by High BP flag.' },
     thinners: { id: 'thinners', label: 'Blood Thinner Instruction', text: 'Reminder: For your dental procedure, please follow your physician’s instructions regarding your anticoagulant (blood thinner) schedule.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by Blood Thinner flag.' },
-
-    // Level 3: Logistics
     booking: { id: 'booking', label: 'Instant Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor} at {Branch}. Reply C to confirm.', enabled: true, category: 'Logistics', triggerDescription: 'Sent when appointment is scheduled.' },
     request: { id: 'request', label: 'Confirmation Request (48h)', text: 'Expecting you on {Date} @ {Time} for {Procedure}. Please reply C to confirm your attendance.', enabled: true, category: 'Logistics', triggerDescription: 'Sent 48 hours before slot.' },
     reminder: { id: 'reminder', label: 'Final Reminder (24h)', text: 'Reminder: Your visit is tomorrow {Date} @ {Time} at {Branch}. Maps: {MapLink}. See you!', enabled: true, category: 'Logistics', triggerDescription: 'Sent 24 hours before slot.' },
     reschedule: { id: 'reschedule', label: 'Reschedule Verification', text: 'Your appointment has been successfully moved to {Date} at {Time}. We have updated our records!', enabled: true, category: 'Logistics', triggerDescription: 'Sent on date/time change.' },
     cancel: { id: 'cancel', label: 'Cancellation Acknowledgment', text: 'Your appointment on {Date} has been cancelled. If this was an error, please call us immediately.', enabled: true, category: 'Logistics', triggerDescription: 'Sent on Cancel status.' },
     noshow: { id: 'noshow', label: 'No-Show Recovery', text: 'We missed you today, {PatientName}! We hope you are okay. You can easily reschedule your session here: {BookingLink}.', enabled: true, category: 'Logistics', triggerDescription: 'Sent 30m after missed slot.' },
-
-    // Level 4: Recovery
     hemostasis: { id: 'hemostasis', label: 'Surgical Hemostasis (1h)', text: 'Post-Op: Keep firm pressure on the gauze for 30 more minutes. Avoid spitting or using straws to protect the blood clot.', enabled: true, category: 'Recovery', triggerDescription: '1h after Extraction checkout.' },
     monitor: { id: 'monitor', label: 'Infection Monitor (24h)', text: 'Hi {PatientName}, how are you feeling after your surgery? Please call us if you experience abnormal swelling or fever.', enabled: true, category: 'Recovery', triggerDescription: '24h after Surgery checkout.' },
     bitecheck: { id: 'bitecheck', label: 'Restorative Bite Check', text: 'Your filling may feel sensitive for a few days. If your bite feels "high" once anesthesia wears off, please call for a 2-min adjustment.', enabled: true, category: 'Recovery', triggerDescription: '4h after Restoration.' },
@@ -296,19 +294,13 @@ const DEFAULT_SMS: SmsTemplates = {
     ortho: { id: 'ortho', label: 'Ortho Compliance', text: 'Evening Check-in: Some soreness is normal today. Remember to wear your elastics as instructed by Dr. {Doctor}!', enabled: true, category: 'Recovery', triggerDescription: 'Evening of Ortho adjustment.' },
     srp: { id: 'srp', label: 'SRP Comfort Protocol', text: 'After deep scaling, warm salt water rinses can help soothe gum tenderness. Avoid very spicy or acidic foods today.', enabled: true, category: 'Recovery', triggerDescription: '2h after Oral Prophylaxis.' },
     checkup: { id: 'checkup', label: 'Post-Op Standard Check', text: 'Hi {PatientName}, checking in after your procedure. Any concerns or questions for the doctor?', enabled: true, category: 'Recovery', triggerDescription: 'Standard 24h follow up.' },
-
-    // Level 5: Financial
     balance: { id: 'balance', label: 'Outstanding Balance', text: 'Friendly reminder of your outstanding balance of ₱{Amount}. Settling this before your next visit helps keep your care seamless.', enabled: true, category: 'Financial', triggerDescription: '3 days before visit if balance > 0.' },
     hmosubmit: { id: 'hmosubmit', label: 'HMO Claim Submission', text: 'We have submitted your claim for {Procedure} to {Provider}. We will notify you once they provide a resolution.', enabled: true, category: 'Financial', triggerDescription: 'On Claim Submission.' },
     hmoresolve: { id: 'hmoresolve', label: 'HMO Resolution Alert', text: 'Good news! {Provider} has processed your claim. Your remaining patient responsibility for this visit is ₱{Amount}.', enabled: true, category: 'Financial', triggerDescription: 'On Claim Paid/Rejected.' },
     philhealth: { id: 'philhealth', label: 'PhilHealth Case-Rate Update', text: 'Your PhilHealth benefit has been successfully applied to your treatment. View the updated ledger in your portal.', enabled: true, category: 'Financial', triggerDescription: 'On PhilHealth submission.' },
-
-    // Level 6: Security
     security: { id: 'security', label: 'Contact Change Alert', text: 'Security Alert: Your contact information was updated. If this was not you, please contact the clinic immediately.', enabled: true, category: 'Security', triggerDescription: 'On Phone/Email change.' },
     transparency: { id: 'transparency', label: 'Privacy Transparency Digest', text: 'Privacy Update: Your health record was accessed {Count} times this month for clinical review. View full logs in the portal.', enabled: false, category: 'Security', triggerDescription: 'Monthly automated digest.' },
     portability: { id: 'portability', label: 'Data Portability Fulfillment', text: 'Your request for a digital copy of your medical records has been processed. Access the secure file here: {Link}.', enabled: true, category: 'Security', triggerDescription: 'On Portal data request.' },
-
-    // Level 7: Efficiency
     waitlist: { id: 'waitlist', label: 'Waitlist Priority Opening', text: 'Hi {PatientName}! A slot just opened up today at {Time} for your {Procedure}. Tap here to grab it: {Link}.', enabled: true, category: 'Efficiency', triggerDescription: 'On Waitlist match + Cancellation.' },
     referral: { id: 'referral', label: 'Referral Follow-up', text: 'Hi {PatientName}, checking in to see if you’ve scheduled your consultation with the specialist we recommended last week.', enabled: false, category: 'Efficiency', triggerDescription: '7 days after Referral.' },
 };

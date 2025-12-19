@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus, CreditCard, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, Users, Plus, CreditCard, ArrowRightLeft, GripVertical } from 'lucide-react';
 import { Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, LabStatus, FieldSettings, WaitlistEntry } from '../types';
 
 interface CalendarViewProps {
@@ -26,8 +26,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
   
   // TOGGLES
-  const [showZones, setShowZones] = useState(false); // Perfect Day Template
-  const [showWaitlist, setShowWaitlist] = useState(false); // Short Call Sidebar
+  const [showZones, setShowZones] = useState(false); 
+  const [showWaitlist, setShowWaitlist] = useState(false); 
 
   // WEEK VIEW STATE
   const [activeProviderId, setActiveProviderId] = useState<string>(currentUser?.id || '');
@@ -43,26 +43,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const mouseDownPos = useRef<{ x: number, y: number } | null>(null);
 
   useEffect(() => {
-      // Default Admin to first Dentist if activeProviderId is empty
       if (!activeProviderId && staff.length > 0) {
           const firstDentist = staff.find(s => s.role === UserRole.DENTIST);
           if (firstDentist) setActiveProviderId(firstDentist.id);
       }
   }, [staff, activeProviderId]);
 
-  // Responsive Check
   useEffect(() => {
       const handleResize = () => {
           if (window.innerWidth < 768) {
-              setViewMode('agenda');
+              // We no longer auto-switch to agenda because we improved grid for mobile
           }
       };
       window.addEventListener('resize', handleResize);
-      if (window.innerWidth < 768) setViewMode('agenda');
       return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Date Navigation
   const next = () => {
     const nextDate = new Date(selectedDate);
     if (viewMode === 'week') {
@@ -87,13 +83,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   
   const displayDate = useMemo(() => {
       if (viewMode === 'week') {
-          // Calculate start and end of week (assuming Mon start)
           const day = selectedDate.getDay();
           const diff = selectedDate.getDate() - day + (day === 0 ? -6 : 1);
           const start = new Date(selectedDate);
           start.setDate(diff);
           const end = new Date(start);
-          end.setDate(start.getDate() + 5); // Show Mon-Sat
+          end.setDate(start.getDate() + 5); 
           return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       }
       return selectedDate.toLocaleDateString('en-US', { 
@@ -104,16 +99,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       });
   }, [selectedDate, viewMode]);
 
-  // WEEK DATES GENERATOR
   const weekDates = useMemo(() => {
       const dates = [];
       const day = selectedDate.getDay();
-      // Start Monday (1)
       const diff = selectedDate.getDate() - day + (day === 0 ? -6 : 1);
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(diff);
 
-      for (let i = 0; i < 6; i++) { // Mon-Sat
+      for (let i = 0; i < 6; i++) {
           const d = new Date(startOfWeek);
           d.setDate(startOfWeek.getDate() + i);
           dates.push({
@@ -126,12 +119,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       return dates;
   }, [selectedDate]);
 
-  // VISIBLE PROVIDERS LOGIC
   const getVisibleProviders = () => {
       if (!currentUser) return [];
       if (currentUser.role === UserRole.DENTIST) return [currentUser];
       
-      // Admin/Assistant sees branch providers
       let branchStaff = staff.filter(u => u.role === UserRole.DENTIST);
       if (currentBranch) {
           branchStaff = branchStaff.filter(u => u.allowedBranches?.includes(currentBranch));
@@ -141,7 +132,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const visibleProviders = getVisibleProviders();
 
-  // Filter Appointments
   const filteredAppointments = useMemo(() => {
       if (viewMode === 'week') {
           const weekIsos = weekDates.map(d => d.iso);
@@ -158,22 +148,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       }
   }, [appointments, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders]);
   
-  // --- FINANCIALS: PRODUCTION vs COLLECTIONS ---
   const dailyFinancials = useMemo(() => {
       if (!fieldSettings) return { production: 0, collections: 0 };
-      
-      // 1. Est. Production (Scheduled Procedures)
       const production = filteredAppointments.reduce((acc, apt) => {
           if (apt.isBlock || apt.status === AppointmentStatus.CANCELLED || apt.status === AppointmentStatus.NO_SHOW) return acc;
           const proc = fieldSettings.procedures.find(p => p.name === apt.type);
           return acc + (proc?.price || 0);
       }, 0);
 
-      // 2. Collections (Actual Payment Entries in Ledgers for displayed date(s))
-      // Note: This iterates all patients which might be slow in production, but fine for MVP
       let collections = 0;
       const targetDates = viewMode === 'week' ? weekDates.map(d => d.iso) : [formattedDate];
-      
       patients?.forEach(p => {
           p.ledger?.forEach(entry => {
               if (targetDates.includes(entry.date) && entry.type === 'Payment') {
@@ -181,7 +165,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
               }
           });
       });
-
       return { production, collections };
   }, [filteredAppointments, fieldSettings, patients, viewMode, formattedDate, weekDates]);
 
@@ -192,8 +175,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
   const isCritical = (p?: Patient) => p && (p.seriousIllness || (p.medicalConditions && p.medicalConditions.length > 0));
-  
-  // NEW: Check for outstanding balance
   const hasOutstandingBalance = (p?: Patient) => (p?.currentBalance || 0) > 0;
 
   const getAppointmentBaseStyle = (type: AppointmentType, status: AppointmentStatus) => {
@@ -214,7 +195,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
      }
   };
 
-  // DRAG HANDLERS ... (Preserved)
   const handleDragStart = (e: React.DragEvent, aptId: string) => {
       setDraggedAptId(aptId);
       e.dataTransfer.setData("text/plain", aptId);
@@ -263,13 +243,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const handleSlotClick = (providerId: string, hour: number, dateIso: string) => {
       const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      
-      // Tap-to-Move Logic
       if (movingAptId && onMoveAppointment) {
           onMoveAppointment(movingAptId, dateIso, timeStr, providerId);
-          setMovingAptId(null); // Clear move state
+          setMovingAptId(null); 
       } else {
-          // Normal Click -> Add Appointment
           onAddAppointment(dateIso, timeStr);
       }
   };
@@ -312,7 +289,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                          <Users size={14}/> Waitlist
                      </button>
 
-                    {/* Financial Pulse Badges */}
                     {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.DENTIST) && (
                         <div className="flex items-center gap-2 ml-2">
                              <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -337,7 +313,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             </div>
         </div>
 
-        {/* --- AVATAR SWITCHER (WEEK VIEW ONLY) --- */}
         {viewMode === 'week' && (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.DENTAL_ASSISTANT) && (
             <div className="bg-slate-50 border-b border-slate-100 p-2 flex justify-center gap-4 overflow-x-auto">
                 {visibleProviders.map(p => (
@@ -357,10 +332,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             </div>
         )}
 
-        {/* --- AGENDA VIEW --- */}
         {viewMode === 'agenda' ? (
             <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
-                 {/* Agenda Content */}
                  {sortedAppointments.length === 0 ? (
                      <div className="text-center py-20 text-slate-400">
                          <Clock size={48} className="mx-auto mb-4 opacity-20" />
@@ -408,9 +381,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
         ) : (
         /* --- GRID / WEEK VIEW --- */
         <div className="flex-1 overflow-x-auto overflow-y-auto bg-white relative">
-            <div className="min-w-max h-full flex flex-col">
-                {/* Header Row */}
-                <div className="flex border-b border-slate-100 sticky top-0 z-30 bg-white">
+            <div className="min-w-max md:min-w-full h-full flex flex-col">
+                
+                {/* Header Row: Columnar on Desktop, Stacked Sections on Mobile via vertical provider groups */}
+                <div className="hidden md:flex border-b border-slate-100 sticky top-0 z-30 bg-white">
                     <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-100 sticky left-0 z-40 shadow-sm"></div> 
                     {viewMode === 'week' ? (
                         weekDates.map(d => (
@@ -430,16 +404,68 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                     )}
                 </div>
 
-                {/* Time Slots Grid */}
-                <div className="flex-1 relative">
+                {/* --- VERTICAL PROVIDER STACK (MOBILE ONLY) --- */}
+                <div className="md:hidden flex flex-col divide-y divide-slate-100">
+                    {visibleProviders.map(p => (
+                        <div key={p.id} className="flex flex-col">
+                            <div className="bg-lilac-600 text-white p-4 sticky top-0 z-30 flex items-center gap-3 shadow-lg">
+                                <img src={p.avatar} className="w-10 h-10 rounded-full border-2 border-white bg-white/20" alt={p.name}/>
+                                <div><div className="font-black text-sm uppercase tracking-widest">{p.name}</div><div className="text-[10px] text-lilac-100 font-bold uppercase">{formattedDate}</div></div>
+                            </div>
+                            <div className="flex flex-col">
+                                {timeSlots.map(hour => {
+                                    const dateIso = formattedDate;
+                                    const slotAppointments = filteredAppointments.filter(a => 
+                                        a.providerId === p.id && 
+                                        a.date === dateIso &&
+                                        parseInt(a.time.split(':')[0]) === hour
+                                    );
+                                    return (
+                                        <div 
+                                            key={`${p.id}-${hour}`}
+                                            onClick={() => handleSlotClick(p.id, hour, dateIso)}
+                                            className={`flex min-h-[100px] border-b border-slate-50 transition-colors ${movingAptId ? 'bg-green-50' : 'bg-white'}`}
+                                        >
+                                            <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-100 bg-slate-50 text-[10px] font-black text-slate-400">
+                                                {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
+                                            </div>
+                                            <div className="flex-1 p-2 flex flex-col gap-1 overflow-hidden">
+                                                {slotAppointments.map(apt => {
+                                                    const patient = getPatient(apt.patientId);
+                                                    const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status);
+                                                    const isBeingMoved = movingAptId === apt.id;
+                                                    return (
+                                                        <div 
+                                                            key={apt.id} 
+                                                            onClick={(e) => { e.stopPropagation(); onAddAppointment(undefined, undefined, undefined, apt); }}
+                                                            className={`rounded-xl p-3 border shadow-sm flex flex-col relative ${styles.bg} ${styles.border} ${styles.text} ${isBeingMoved ? 'ring-4 ring-teal-400 opacity-50' : ''}`}
+                                                        >
+                                                            <div className="flex justify-between items-start">
+                                                                <span className="font-black text-[10px] flex items-center gap-1"><GripVertical size={10} className="opacity-40" /> {apt.time}</span>
+                                                                <button onClick={(e) => { e.stopPropagation(); setMovingAptId(apt.id); }} className="p-1 bg-white/40 rounded"><ArrowRightLeft size={12}/></button>
+                                                            </div>
+                                                            <div className="font-bold text-sm mt-1">{patient?.name || 'Block'}</div>
+                                                            <div className="text-[10px] font-bold uppercase opacity-60 mt-1">{apt.type}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* --- STANDARD GRID (DESKTOP) --- */}
+                <div className="hidden md:flex flex-1 relative">
                     {timeSlots.map(hour => (
                         <div key={hour} className="flex min-h-[140px] border-b border-slate-50">
-                            {/* Time Label */}
                             <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-100 bg-slate-50/90 backdrop-blur-sm text-xs font-bold text-slate-400 sticky left-0 z-20">
                                 {hour > 12 ? hour - 12 : hour} {hour >= 12 && hour < 24 ? 'PM' : 'AM'}
                             </div>
 
-                            {/* Cells */}
                             {(viewMode === 'week' ? weekDates : visibleProviders).map((col, idx) => {
                                 const providerId = viewMode === 'week' ? activeProviderId : (col as User).id;
                                 const dateIso = viewMode === 'week' ? (col as any).iso : formattedDate;
@@ -496,10 +522,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                             ) : (
                                                                 <>
                                                                     <div className="flex justify-between items-start mb-1">
-                                                                        <span className="font-bold opacity-75 flex items-center gap-1 cursor-grab"><GripHorizontal size={10} className="opacity-50" /> {apt.time}</span>
+                                                                        <span className="font-bold opacity-75 flex items-center gap-1 cursor-grab"><GripVertical size={12} className="text-slate-400 group-hover/card:text-teal-600 transition-colors" /> {apt.time}</span>
                                                                         {apt.labStatus && apt.labStatus !== LabStatus.NONE && <Beaker size={10} className="text-amber-600" />}
                                                                         
-                                                                        {/* TAP-TO-MOVE TRIGGER */}
                                                                         <button 
                                                                             onClick={(e) => { e.stopPropagation(); setMovingAptId(apt.id); }}
                                                                             className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1 bg-white/50 hover:bg-teal-500 hover:text-white rounded text-teal-600"
@@ -541,10 +566,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
         )}
       </div>
 
-      {/* --- WAITLIST SIDEBAR --- (Preserved) */}
       {showWaitlist && (
           <div className="w-64 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col animate-in slide-in-from-right-10 duration-300">
-               {/* ... (Existing Waitlist code) ... */}
               <div className="p-4 border-b border-slate-100 flex items-center gap-2 text-teal-800">
                   <Users size={18} />
                   <h3 className="font-bold">Short Call List</h3>
@@ -570,9 +593,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                           </div>
                       </div>
                   ))}
-                  <div className="p-4 text-center text-xs text-slate-400 italic">
-                      Drag cards to the calendar to fill empty slots.
-                  </div>
               </div>
           </div>
       )}

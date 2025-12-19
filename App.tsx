@@ -12,7 +12,7 @@ import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import PatientPortal from './components/PatientPortal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -66,6 +66,8 @@ function App() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [incidents, setIncidents] = useState<ClinicalIncident[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
+  const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
@@ -100,8 +102,7 @@ function App() {
       const config = fieldSettings.smsTemplates[templateId];
       if (!config || !config.enabled) return;
 
-      // Check for Marketing Opt-out (Level 1, 7)
-      const marketingCategories = ['Onboarding', 'Efficiency'];
+      const marketingCategories = ['Onboarding', 'Efficiency', 'Reputation'];
       if (marketingCategories.includes(config.category) && !patient.marketingConsent) {
           console.debug(`[SMS Engine] Marketing opt-out for ${patient.name} prevents sending ${templateId}`);
           return;
@@ -128,7 +129,6 @@ function App() {
           .replace(/{PortalLink}/g, 'portal.dentsched.ph/login')
           .replace(/{BookingLink}/g, 'dentsched.ph/book');
 
-      // LOG TO AUDIT TRAIL (Simulate Queue)
       logAction('SEND_SMS', 'SmsQueue', patient.id, `Queued "${config.label}" for ${patient.phone}: ${message}`);
       toast.info(`[SMS Engine] Queued: ${config.label}`);
   }, [fieldSettings, currentBranch]);
@@ -203,6 +203,8 @@ function App() {
       setPhilHealthClaims(load('dentsched_philhealth_claims', []));
       setIncidents(load('dentsched_incidents', []));
       setReferrals(load('dentsched_referrals', []));
+      setReconciliations(load('dentsched_reconciliations', []));
+      setTransfers(load('dentsched_transfers', []));
       
       const savedSettings = load('dentsched_fields', null);
       if (savedSettings) {
@@ -234,9 +236,10 @@ function App() {
       save('dentsched_philhealth_claims', philHealthClaims);
       save('dentsched_incidents', incidents);
       save('dentsched_referrals', referrals);
+      save('dentsched_reconciliations', reconciliations);
+      save('dentsched_transfers', transfers);
 
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, isAuthenticated, encryptionKey]);
-
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, transfers, isAuthenticated, encryptionKey]);
 
   const resetIdleTimer = () => {
       if (isSessionLocked || !isAuthenticated) return;
@@ -283,6 +286,11 @@ function App() {
       setAuditLog(prev => [newLog, ...prev]);
   };
 
+  const handleUpdatePatientRecall = (patientId: string, status: RecallStatus) => {
+      setPatients(prev => prev.map(p => p.id === patientId ? { ...p, recallStatus: status } : p));
+      logAction('UPDATE', 'Patient', patientId, `Updated recall pipeline status to ${status}.`);
+  };
+
   const handleSaveAppointment = (newAppointment: Appointment) => {
     const appointmentWithBranch = { ...newAppointment, branch: newAppointment.branch || currentBranch };
     const patient = patients.find(p => p.id === newAppointment.patientId);
@@ -292,17 +300,12 @@ function App() {
         if (existingIndex >= 0) {
             const updated = [...prev]; updated[existingIndex] = appointmentWithBranch; return updated;
         } else { 
-            // New Booking SMS
             if (patient) {
                 const doctor = staff.find(s => s.id === newAppointment.providerId)?.name || 'Dr. Alexander';
                 triggerSms('booking', patient, { date: newAppointment.date, time: newAppointment.time, procedure: newAppointment.type, doctor, branch: newAppointment.branch });
-                
-                // Safety SMS: Sedation
                 if (['Surgery', 'Extraction'].includes(newAppointment.type)) {
                     triggerSms('sedation', patient, { procedure: newAppointment.type });
                 }
-                
-                // Safety SMS: Heart Health
                 if (patient.heartValveIssues) {
                     triggerSms('antibiotic', patient);
                 }
@@ -326,12 +329,10 @@ function App() {
           }
       }
 
-      // NO SHOW SMS
       if (status === AppointmentStatus.NO_SHOW && patient) {
           triggerSms('noshow', patient);
       }
 
-      // RECOVERY SMS
       if (status === AppointmentStatus.COMPLETED && patient) {
           if (apt.type === AppointmentType.EXTRACTION) triggerSms('hemostasis', patient);
           if (apt.type === AppointmentType.SURGERY) triggerSms('monitor', patient);
@@ -340,7 +341,6 @@ function App() {
           if (apt.type === AppointmentType.WHITENING) triggerSms('white', patient);
           if (apt.type === AppointmentType.DENTURE_ADJUSTMENTS) triggerSms('prostho', patient);
           if (apt.type === AppointmentType.ORTHODONTICS) triggerSms('ortho', patient);
-          
           triggerSms('checkup', patient);
       }
 
@@ -351,26 +351,20 @@ function App() {
     const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
     if (editingPatient) {
         const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
-        
-        // Security Alert: Contact Change
         if (editingPatient.phone !== updatedPatient.phone || editingPatient.email !== updatedPatient.email) {
             triggerSms('security', updatedPatient);
         }
-
         logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
         setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
         setEditingPatient(null);
     } else {
-        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '' };
+        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '', recallStatus: 'Due' };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
         setPatients(prev => [...prev, newPatient]);
-        
-        // Welcome SMS
         triggerSms('welcome', newPatient);
         if (newPatient.provisional) {
             triggerSms('provisional', newPatient);
         }
-
         if (!newPatient.provisional) { setSelectedPatientId(newPatient.id); setActiveTab('patients'); }
     }
   };
@@ -386,13 +380,49 @@ function App() {
       }));
   };
 
+  const handlePerformTransfer = (transfer: StockTransfer) => {
+      const fromItem = stock.find(s => s.name === transfer.itemName && s.branch === transfer.fromBranch);
+      const toItem = stock.find(s => s.name === transfer.itemName && s.branch === transfer.toBranch);
+
+      if (!fromItem || fromItem.quantity < transfer.quantity) {
+          toast.error("Insufficient stock at source branch.");
+          return;
+      }
+
+      const updatedStock = stock.map(s => {
+          if (s.id === fromItem.id) return { ...s, quantity: s.quantity - transfer.quantity };
+          if (toItem && s.id === toItem.id) return { ...s, quantity: s.quantity + transfer.quantity };
+          return s;
+      });
+
+      if (!toItem) {
+          updatedStock.push({
+              ...fromItem,
+              id: `stk_${Date.now()}`,
+              branch: transfer.toBranch,
+              quantity: transfer.quantity
+          });
+      }
+
+      setStock(updatedStock);
+      setTransfers(prev => [transfer, ...prev]);
+      logAction('STOCK_TRANSFER', 'Inventory', transfer.id, `Transferred ${transfer.quantity} of ${transfer.itemName} from ${transfer.fromBranch} to ${transfer.toBranch}`);
+      toast.success("Stock transfer processed.");
+  };
+
+  const handleSaveReconciliation = (record: ReconciliationRecord) => {
+      setReconciliations(prev => [record, ...prev]);
+      logAction('DAILY_RECONCILE', 'CashBox', record.id, `Daily reconciliation finalized for ${record.branch}. Discrepancy: ₱${record.discrepancy}`);
+      toast.success("Daily reconciliation finalized.");
+  };
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setBookingDate(undefined); setBookingTime(undefined); setInitialBookingPatientId(id); setEditingAppointment(null); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={(txt, urg, ass) => setTasks(prev => [...prev, { id: Date.now().toString(), text: txt, isCompleted: false, isUrgent: urg, assignedTo: ass || undefined, createdAt: Date.now() }])} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onDeleteTask={(id) => setTasks(prev => prev.filter(t => t.id !== id))} onChangeBranch={setCurrentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} onPatientPortalToggle={() => { if(isPatientPortalActive) { setIsPatientPortalActive(false); setCurrentPatientUser(null); } else { setCurrentPatientUser(patients[0]); setIsPatientPortalActive(true); }}} />;
+      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setBookingDate(undefined); setBookingTime(undefined); setInitialBookingPatientId(id); setEditingAppointment(null); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={(txt, urg, ass) => setTasks(prev => [...prev, { id: Date.now().toString(), text: txt, isCompleted: false, isUrgent: urg, assignedTo: ass || undefined, createdAt: Date.now() }])} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onDeleteTask={(id) => setTasks(prev => prev.filter(t => t.id !== id))} onChangeBranch={setCurrentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} onPatientPortalToggle={() => { if(isPatientPortalActive) { setIsPatientPortalActive(false); setCurrentPatientUser(null); } else { setCurrentPatientUser(patients[0]); setIsPatientPortalActive(true); }}} />;
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onBulkUpdatePatients={handleBulkUpdatePatients} onDeletePatient={(id) => { if(window.confirm('Archive patient?')) setPatients(prev => prev.map(p => p.id === id ? { ...p, isArchived: true } : p)); }} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} />;
-      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={currentUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} />;
+      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} onPerformTransfer={handlePerformTransfer} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={currentUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} currentBranch={currentBranch} />;
       case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} onUpdateStaff={setStaff} auditLog={auditLog} patients={patients} incidents={incidents} />;
       default: return null;
     }

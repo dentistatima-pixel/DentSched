@@ -16,6 +16,20 @@ export enum AppointmentStatus {
   NO_SHOW = 'No Show'
 }
 
+export enum HMOClaimStatus {
+    SUBMITTED = 'Submitted',
+    PAID = 'Paid',
+    REJECTED = 'Rejected',
+    PENDING = 'Pending'
+}
+
+export enum PhilHealthClaimStatus {
+    SUBMITTED = 'Submitted',
+    PAID = 'Paid',
+    REJECTED = 'Rejected',
+    PENDING = 'Pending'
+}
+
 export enum LabStatus {
   NONE = 'None',
   PENDING = 'Pending',
@@ -38,20 +52,68 @@ export enum AppointmentType {
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
 
-export enum HMOClaimStatus {
-  PREPARED = 'Prepared',
-  SUBMITTED = 'Submitted',
-  PENDING = 'Pending',
-  PAID = 'Paid',
-  REJECTED = 'Rejected'
+export interface CpdEntry {
+    id: string;
+    date: string;
+    title: string;
+    units: number;
+    certificateUrl?: string;
 }
 
-export enum PhilHealthClaimStatus {
-    PREPARED = 'Prepared',
-    SUBMITTED = 'Submitted',
-    IN_PROCESS = 'In Process',
-    RETURNED = 'Returned',
-    PAID = 'Paid'
+export interface InstallmentPlan {
+    id: string;
+    description: string;
+    totalAmount: number;
+    paidAmount: number;
+    startDate: string;
+    monthlyDue: number;
+    status: 'Active' | 'Settled' | 'Default';
+}
+
+export interface MaintenanceAsset {
+    id: string;
+    name: string;
+    brand?: string;
+    lastService: string;
+    frequencyMonths: number;
+    status: 'Ready' | 'Service Due' | 'Down';
+}
+
+export interface ReconciliationRecord {
+    id: string;
+    date: string;
+    branch: string;
+    expectedTotal: number;
+    actualCash: number;
+    actualCard: number;
+    actualEWallet: number;
+    discrepancy: number;
+    notes?: string;
+    verifiedBy: string;
+    timestamp: string;
+}
+
+export interface StockTransfer {
+    id: string;
+    date: string;
+    itemId: string;
+    itemName: string;
+    fromBranch: string;
+    toBranch: string;
+    quantity: number;
+    initiatedBy: string;
+    status: 'Completed';
+}
+
+export interface ClearanceRequest {
+    id: string;
+    patientId: string;
+    doctorName: string;
+    specialty: string;
+    requestedAt: string;
+    status: 'Pending' | 'Approved' | 'Rejected';
+    approvedAt?: string;
+    remarks?: string;
 }
 
 export interface TelehealthRequest {
@@ -75,11 +137,13 @@ export interface WaitlistEntry {
 export interface ClinicalIncident {
     id: string;
     date: string;
-    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Other';
+    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Data Breach' | 'Other';
     patientId?: string;
     description: string;
     actionTaken: string;
     reportedBy: string;
+    npcNotified?: boolean;
+    npcRefNumber?: string;
 }
 
 export interface Referral {
@@ -98,16 +162,6 @@ export interface WasteLogEntry {
     quantity: string;
     disposalMethod: string;
     operator: string;
-}
-
-export interface AssetMaintenanceEntry {
-    id: string;
-    assetName: string;
-    date: string;
-    type: 'Routine' | 'Repair';
-    description: string;
-    performedBy: string;
-    nextDueDate?: string;
 }
 
 export enum StockCategory {
@@ -146,39 +200,6 @@ export interface PhilHealthClaim {
     trackingNumber?: string;
 }
 
-export interface PurchaseOrderItem {
-  itemId: string;
-  name: string;
-  quantity: number;
-  unitPrice?: number;
-}
-
-export interface PurchaseOrder {
-  id: string;
-  date: string;
-  supplier: string;
-  items: PurchaseOrderItem[];
-  status: 'Draft' | 'Sent' | 'Received' | 'Cancelled';
-  totalAmount?: number;
-}
-
-export interface OfficialReceiptBooklet {
-  id: string;
-  seriesStart: number;
-  seriesEnd: number;
-  prefix?: string;
-  isActive: boolean;
-}
-
-export interface IssuedReceipt {
-  orNumber: string;
-  bookletId: string;
-  patientId: string;
-  amount: number;
-  dateIssued: string;
-  isVoid: boolean;
-}
-
 export interface StockItem {
   id: string;
   name: string;
@@ -189,6 +210,7 @@ export interface StockItem {
   lastRestockDate?: string;
   expiryDate?: string;
   batchNumber?: string;
+  branch?: string;
 }
 
 export interface SterilizationCycle {
@@ -227,6 +249,7 @@ export interface Expense {
   description: string;
   amount: number;
   branch: string;
+  staffId?: string;
 }
 
 export interface AuditLogEntry {
@@ -235,8 +258,8 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential';
   entityId: string;
   details: string;
 }
@@ -301,8 +324,7 @@ export interface FeatureToggles {
   enableSmsAutomation: boolean;
 }
 
-// Expanded SMS Configuration
-export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency';
+export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency' | 'Reputation';
 
 export interface SmsTemplateConfig {
   id: string;
@@ -324,21 +346,6 @@ export interface ClinicalProtocolRule {
     alertMessage: string;
 }
 
-export interface Medication {
-    id: string;
-    name: string;
-    dosage: string;
-    instructions: string;
-    contraindicatedAllergies?: string[];
-    isS2Controlled?: boolean;
-}
-
-export interface ConsentFormTemplate {
-    id: string;
-    name: string;
-    content: string;
-}
-
 export interface Vendor {
     id: string;
     name: string;
@@ -354,6 +361,45 @@ export interface Vendor {
 
 export type ClinicProfile = 'boutique' | 'corporate';
 
+export interface ReceiptBooklet {
+    id: string;
+    seriesStart: number;
+    seriesEnd: number;
+    prefix: string;
+    isActive: boolean;
+}
+
+export interface Medication {
+    id: string;
+    name: string;
+    dosage: string;
+    instructions: string;
+    contraindicatedAllergies?: string[];
+    isS2Controlled?: boolean;
+}
+
+export interface ConsentFormTemplate {
+    id: string;
+    name: string;
+    content: string;
+}
+
+export interface PurchaseOrderItem {
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+}
+
+export interface PurchaseOrder {
+    id: string;
+    vendorId: string;
+    date: string;
+    items: PurchaseOrderItem[];
+    status: 'Pending' | 'Ordered' | 'Received';
+    totalAmount: number;
+}
+
 export interface FieldSettings {
   clinicProfile: ClinicProfile;
   suffixes: string[];
@@ -367,20 +413,29 @@ export interface FieldSettings {
   features: FeatureToggles;
   smsTemplates: SmsTemplates;
   permissions?: Record<UserRole, RolePermissions>;
-  receiptBooklets?: OfficialReceiptBooklet[];
-  stockCategories?: string[];
   stockItems?: StockItem[];
-  expenseCategories?: string[];
-  documentCategories?: string[];
-  clinicalProtocolRules?: ClinicalProtocolRule[];
   medications?: Medication[];
   consentFormTemplates?: ConsentFormTemplate[];
-  postOpTemplates?: Record<string, string>;
   vendors?: Vendor[]; 
   leaveRequests?: LeaveRequest[];
   shifts?: StaffShift[];
+  reputationSettings?: {
+      googleReviewLink?: string;
+      npsThreshold: number;
+  };
+  retentionPolicy?: {
+      archivalYears: number;
+      purgeYears: number;
+  };
+  assets?: MaintenanceAsset[];
+  receiptBooklets?: ReceiptBooklet[];
+  stockCategories?: StockCategory[];
+  expenseCategories?: string[];
+  documentCategories?: string[];
+  clinicalProtocolRules?: ClinicalProtocolRule[];
+  postOpTemplates?: Record<string, string>;
+  clinicalNoteTemplates?: any[];
   mediaConsentTemplate?: ConsentFormTemplate;
-  clinicalNoteTemplates?: ConsentFormTemplate[];
 }
 
 export enum TreatmentPlanStatus {
@@ -400,8 +455,6 @@ export interface TreatmentPlan {
     reviewNotes?: string;
     reviewedBy?: string;
     reviewedAt?: string;
-    signedQuoteUrl?: string;
-    quoteSignedAt?: string;
 }
 
 export interface DentalChartEntry {
@@ -413,33 +466,21 @@ export interface DentalChartEntry {
   surfaces?: string;
   price?: number;
   payment?: number;
-  receiptNumber?: string;
-  balance?: number;
-  signature?: string;
-  drawing?: string;
   date?: string; 
-  timestamp?: string; 
-  isVerifiedTimestamp?: boolean; 
-  notes?: string;
-  subjective?: string; 
-  objective?: string;  
-  assessment?: string; 
-  plan?: string;       
-  author?: string;
   planId?: string;
+  author?: string;
+  notes?: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  isLocked?: boolean;
+  materialBatchId?: string;
   isVoid?: boolean;
-  isLocked?: boolean; 
-  isBilled?: boolean;
-  materialBatchId?: string; 
-  lockedInfo?: {
-      by: string;
-      at: string;
-  };
-  voidedInfo?: {
-      by: string;
-      at: string;
-      reason: string;
-  };
+  // NEW: Non-Repudiation fields
+  sealedHash?: string;
+  sealedAt?: string;
+  originalNoteId?: string;
 }
 
 export interface PerioMeasurement {
@@ -452,8 +493,6 @@ export interface PerioMeasurement {
   mobility: 0 | 1 | 2 | 3 | null;
 }
 
-export type DiscountType = 'None' | 'Senior Citizen' | 'PWD' | 'PhilHealth' | 'HMO' | 'Employee' | 'Promotional';
-
 export interface LedgerEntry {
   id: string;
   date: string;
@@ -461,28 +500,21 @@ export interface LedgerEntry {
   type: 'Charge' | 'Payment' | 'Adjustment';
   amount: number;
   balanceAfter: number;
-  procedureId?: string;
-  notes?: string;
-  hmoClaimId?: string;
-  philHealthClaimId?: string;
   orNumber?: string;
-  discountType?: DiscountType; 
+  discountType?: string; 
   idNumber?: string;          
+  branch?: string;
+  procedureId?: string;
+  pfAmount?: number;
+  materialAmount?: number;
+  isVatExempt?: boolean;
 }
 
 export interface UserPreferences {
-  showTraySetup?: boolean;
-  showPatientFlow?: boolean;
-  showFinancials?: boolean;
-  showLabAlerts?: boolean;
-  autoOpenMedicalHistory?: boolean;
-  defaultDentition?: 'Adult' | 'Child';
-}
-
-export interface ImmunizationRecord {
-    type: string;
-    date: string;
-    remarks?: string;
+    showFinancials: boolean;
+    showTraySetup: boolean;
+    showPatientFlow: boolean;
+    showLabAlerts: boolean;
 }
 
 export interface User {
@@ -494,26 +526,24 @@ export interface User {
   prcLicense?: string;
   prcExpiry?: string;    
   ptrNumber?: string;
-  ptrExpiry?: string;    
   tin?: string;
   s2License?: string;
-  s2Expiry?: string;     
-  pdaId?: string;
-  pdaChapter?: string;
+  s2Expiry?: string; 
   specialization?: string;
-  clinicHours?: string;
-  employeeId?: string;
-  certifications?: string[]; 
-  assignedDoctors?: string[]; 
-  canViewFinancials?: boolean;
-  allowedBranches?: string[]; 
   defaultBranch?: string; 
+  allowedBranches?: string[]; 
   colorPreference?: string; 
   defaultConsultationFee?: number; 
-  isReadOnly?: boolean; 
+  commissionRate?: number;
+  immunizations?: any[];
   preferences?: UserPreferences;
+  cpdEntries?: CpdEntry[]; 
+  requiredCpdUnits?: number;
+  clinicHours?: string;
   roster?: Record<string, string>;
-  immunizations?: ImmunizationRecord[]; 
+  employeeId?: string;
+  assignedDoctors?: string[];
+  isReadOnly?: boolean;
 }
 
 export interface PatientFile {
@@ -521,88 +551,91 @@ export interface PatientFile {
     patientId: string;
     title: string;
     category: string;
-    fileType: 'image/jpeg' | 'image/png' | 'application/pdf' | 'data_url';
+    fileType: string;
     url: string;
     uploadedBy: string;
     uploadedAt: string;
-    exposureDate?: string;
 }
+
+export type RecallStatus = 'Due' | 'Contacted' | 'No Response' | 'Booked';
 
 export interface Patient {
   id: string;
   provisional?: boolean; 
   isArchived?: boolean;
-  suffix?: string;
   name: string; 
   firstName: string;
-  middleName?: string;
   surname: string;
   homeAddress?: string;
-  occupation?: string;
-  responsibleParty?: string;
+  barangay?: string;
   dob: string;
   age?: number;
-  guardian?: string;
-  guardianMobile?: string;
-  sex?: 'Male' | 'Female';
-  barangay?: string;
-  insuranceProvider?: string;
-  insuranceNumber?: string;
-  email: string;
   phone: string;
-  mobile2?: string;
-  previousDentist?: string;
+  email: string;
   lastVisit: string;
   nextVisit: string | null;
   notes: string;
-  chiefComplaint?: string;
-  treatments?: string[]; 
-  treatmentDetails?: Record<string, string>; 
+  referredById?: string; 
   dentalChart?: DentalChartEntry[];
   perioChart?: PerioMeasurement[];
   ledger?: LedgerEntry[];
+  installmentPlans?: InstallmentPlan[]; 
   currentBalance?: number;
-  goodHealth?: boolean;
-  underMedicalTreatment?: boolean;
-  medicalTreatmentDetails?: string;
+  allergies?: string[];
+  medicalConditions?: string[];
+  treatmentPlans?: TreatmentPlan[];
+  dpaConsent?: boolean;
+  marketingConsent?: boolean;
+  thirdPartyDisclosureConsent?: boolean;
+  orthoHistory?: OrthoAdjustment[];
+  clearanceRequests?: ClearanceRequest[];
+  insuranceProvider?: string;
+  sex?: 'Male' | 'Female';
   seriousIllness?: boolean;
+  underMedicalTreatment?: boolean;
+  chiefComplaint?: string;
+  occupation?: string;
+  insuranceNumber?: string;
   seriousIllnessDetails?: string;
+  medicalTreatmentDetails?: string;
   lastHospitalizationDetails?: string;
-  takingMedications?: boolean;
   medicationDetails?: string;
-  
-  takingBloodThinners?: boolean;
-  takingBisphosphonates?: boolean;
-  heartValveIssues?: boolean;
-  tookBpMedicationToday?: boolean;
-  lastBloodSugarReading?: string;
-  anesthesiaReaction?: boolean;
-  respiratoryIssues?: boolean;
-  
+  takingMedications?: boolean;
   tobaccoUse?: boolean;
   alcoholDrugsUse?: boolean;
   pregnant?: boolean;
   nursing?: boolean;
   birthControl?: boolean;
-  allergies?: string[];
-  otherAllergies?: string;
-  medicalConditions?: string[];
-  otherConditions?: string;
-  bloodGroup?: string;
-  lastDigitalUpdate?: string;
-  lastPrintedDate?: string | null; 
-  files?: PatientFile[];
-  receipts?: IssuedReceipt[]; 
-  treatmentPlans?: TreatmentPlan[];
-  dpaConsent?: boolean;
-  marketingConsent?: boolean;
-  orthoHistory?: OrthoAdjustment[];
-  hmoBenefitCap?: number;
-  hmoBenefitUsed?: number;
+  takingBloodThinners?: boolean;
+  takingBisphosphonates?: boolean;
+  heartValveIssues?: boolean;
+  tookBpMedicationToday?: boolean;
+  anesthesiaReaction?: boolean;
+  respiratoryIssues?: boolean;
+  middleName?: string;
+  suffix?: string;
+  treatmentDetails?: Record<string, string>;
+  responsibleParty?: string;
   fatherName?: string;
   fatherOccupation?: string;
   motherName?: string;
   motherOccupation?: string;
+  guardian?: string;
+  guardianMobile?: string;
+  previousDentist?: string;
+  otherAllergies?: string;
+  otherConditions?: string;
+  bloodGroup?: string;
+  files?: PatientFile[];
+  recallStatus?: RecallStatus; 
+  goodHealth?: boolean;
+  treatments?: string[];
+  mobile2?: string;
+  // NEW: Pediatric & PWD Consent Workflows
+  isPwd?: boolean;
+  guardianIdType?: string;
+  guardianIdNumber?: string;
+  relationshipToPatient?: string;
 }
 
 export interface Appointment {
@@ -619,7 +652,6 @@ export interface Appointment {
   labDetails?: {
       shade?: string;
       material?: string;
-      notes?: string;
       vendorId?: string; 
   };
   notes?: string;
@@ -627,13 +659,6 @@ export interface Appointment {
   sterilizationVerified?: boolean; 
   isBlock?: boolean; 
   title?: string; 
-  rescheduleHistory?: {
-      previousDate: string;
-      previousTime: string;
-      previousProviderId?: string; 
-      reason: 'Reschedule' | 'Correction' | 'Provider Change';
-      timestamp: string;
-  }[];
   signedConsentUrl?: string;
 }
 
