@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Patient, Medication, FieldSettings, User } from '../types';
 import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff } from 'lucide-react';
@@ -23,10 +22,13 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const medications = fieldSettings.medications || [];
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
-    // NEW: Contraindication Check
+    // Enhanced Interaction Engine logic
     const allergyConflict = useMemo(() => {
         if (!selectedMed || !patient.allergies) return null;
-        return selectedMed.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
+        // Interaction Engine: cross-reference current selection against patient SPI
+        return selectedMed.contraindicatedAllergies?.find(a => 
+            patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
+        );
     }, [selectedMed, patient.allergies]);
 
     const handleMedicationSelect = (medId: string) => {
@@ -35,10 +37,12 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         if (med) { 
             setDosage(med.dosage); 
             setInstructions(med.instructions); 
-            // Alert user immediately if conflict
-            const conflict = med.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
+            // Interaction Engine Logic Layer: High-tier clinical safety check
+            const conflict = med.contraindicatedAllergies?.find(a => 
+                patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
+            );
             if (conflict) {
-                toast.error(`HARD-STOP: Patient is allergic to ${conflict}. ${med.name} cannot be prescribed.`);
+                toast.error(`HARD-STOP INTERACTION: Patient allergic to ${conflict}. ${med.name} contraindicated.`);
             }
         } else { 
             setDosage(''); 
@@ -123,7 +127,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {allergyConflict && (
                         <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white animate-bounce shadow-lg">
                             <ShieldOff size={32} className="shrink-0"/>
-                            <div><p className="font-bold text-lg">ALLERGY HARD-STOP</p><p className="text-xs opacity-90">Patient is allergic to <strong>{allergyConflict}</strong>. Prescription of this medication is blocked for clinical safety.</p></div>
+                            <div><p className="font-bold text-lg">CONTRAINDICATION BLOCKED</p><p className="text-xs opacity-90">Patient allergic to <strong>{allergyConflict}</strong>. Interaction engine prevents prescribing <strong>{selectedMed?.name}</strong> to ensure clinical safety.</p></div>
                         </div>
                     )}
 
@@ -135,14 +139,16 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     )}
 
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Medication</label>
-                        <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className={`w-full p-3 border rounded-xl bg-white outline-none focus:border-teal-500 ${allergyConflict ? 'border-red-500 bg-red-50' : ''}`}>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Medication Selection</label>
+                        <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className={`w-full p-3 border rounded-xl bg-white outline-none focus:border-teal-500 ${allergyConflict ? 'border-red-500 bg-red-50 ring-4 ring-red-500/10' : ''}`}>
                             <option value="">- Select Medication -</option>
                             {medications.map(m => {
-                                const conflict = m.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
+                                const conflict = m.contraindicatedAllergies?.find(a => 
+                                    patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
+                                );
                                 return (
                                     <option key={m.id} value={m.id} className={conflict ? 'text-red-500 font-bold' : ''}>
-                                        {m.name} {m.isS2Controlled ? '(Controlled)' : ''} {conflict ? `⚠️ ${conflict} Allergy` : ''}
+                                        {m.name} {m.isS2Controlled ? '(Controlled)' : ''} {conflict ? `⚠️ Contraindicated (${conflict})` : ''}
                                     </option>
                                 );
                             })}
@@ -159,7 +165,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
                 <div className="p-4 border-t bg-white flex justify-end gap-3 rounded-b-3xl">
                     <button onClick={onClose} className="px-6 py-2 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2">
+                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all">
                         <Printer size={18}/> {selectedMed?.isS2Controlled ? 'Print Controlled Rx' : 'Print Prescription'}
                     </button>
                 </div>

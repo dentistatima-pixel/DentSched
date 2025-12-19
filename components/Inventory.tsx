@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, PurchaseOrder, PurchaseOrderItem } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -20,7 +19,8 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
         category: StockCategory.CONSUMABLES,
         quantity: 0,
         lowStockThreshold: 5,
-        expiryDate: '', // NEW: Default empty
+        expiryDate: '',
+        supplier: '',
         ...item
     });
 
@@ -55,7 +55,11 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
                     </div>
                 </div>
 
-                {/* NEW: Expiry Date Field */}
+                <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Preferred Supplier</label>
+                    <input type="text" value={formData.supplier || ''} onChange={e => setFormData({...formData, supplier: e.target.value})} className="w-full p-3 border rounded-xl mt-1" placeholder="e.g. DentalDepot PH" />
+                </div>
+
                 <div>
                     <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
                         <Calendar size={12}/> Expiry Date (Optional)
@@ -66,7 +70,6 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
                         onChange={e => setFormData({...formData, expiryDate: e.target.value})} 
                         className="w-full p-3 border rounded-xl mt-1" 
                     />
-                    <p className="text-[10px] text-slate-400 mt-1 italic">Leave blank for non-perishables (e.g. instruments)</p>
                 </div>
 
                 <div className="flex gap-2 mt-6">
@@ -78,98 +81,83 @@ const StockItemModal = ({ item, onSave, onClose }: { item: Partial<StockItem>, o
     );
 };
 
-const ReceiveStockModal = ({ items, onReceive, onClose }: { items: StockItem[], onReceive: (updates: Record<string, number>) => void, onClose: () => void }) => {
-    const [counts, setCounts] = useState<Record<string, string>>({});
+const PurchaseOrderList: React.FC<{ pos: PurchaseOrder[] }> = ({ pos }) => {
     return (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 flex flex-col max-h-[80vh]">
-                <h3 className="font-bold text-xl mb-2 flex items-center gap-2 text-teal-700"><RefreshCcw size={20}/> Receive Stock Shipment</h3>
-                <p className="text-sm text-slate-500 mb-6">Select items and enter quantities received to update inventory.</p>
-                <div className="flex-1 overflow-y-auto space-y-3">
-                    {items.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <div>
-                                <div className="font-bold text-slate-800">{item.name}</div>
-                                <div className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Current: {item.quantity}</div>
-                            </div>
-                            <input 
-                                type="number" 
-                                placeholder="+ Qty"
-                                className="w-24 p-2 text-right border border-slate-200 rounded-lg text-sm font-bold focus:border-teal-500 outline-none"
-                                value={counts[item.id] || ''}
-                                onChange={e => setCounts({...counts, [item.id]: e.target.value})}
-                            />
+        <div className="space-y-4">
+            {pos.length === 0 ? (
+                <div className="p-10 text-center text-slate-400 italic bg-white rounded-2xl border-2 border-dashed border-slate-200">No active purchase orders.</div>
+            ) : pos.map(po => (
+                <div key={po.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-lilac-100 p-3 rounded-xl text-lilac-700"><FileText size={24}/></div>
+                        <div>
+                            <div className="font-bold text-slate-800">PO #{po.id.slice(-6).toUpperCase()}</div>
+                            <div className="text-xs text-slate-500">{po.supplier} • {formatDate(po.date)}</div>
                         </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="text-right">
+                            <div className="text-xs font-bold text-slate-400 uppercase">Items</div>
+                            <div className="text-sm font-bold text-slate-700">{po.items.length} units requested</div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                            po.status === 'Received' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                            {po.status}
+                        </span>
+                        <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400"><ArrowRight size={18}/></button>
+                    </div>
                 </div>
-                <div className="flex gap-2 mt-6 pt-4 border-t border-slate-100">
-                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button 
-                        onClick={() => {
-                            const final: Record<string, number> = {};
-                            (Object.entries(counts) as [string, string][]).forEach(([id, val]) => { 
-                                if (val) {
-                                    final[id] = parseInt(val, 10); 
-                                }
-                            });
-                            onReceive(final);
-                        }} 
-                        className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl"
-                    >Update Inventory</button>
-                </div>
-            </div>
+            ))}
         </div>
     );
 };
 
 const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser }) => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'stock' | 'sterilization'>('stock');
+  const [activeTab, setActiveTab] = useState<'stock' | 'sterilization' | 'procurement'>('stock');
   const [searchTerm, setSearchTerm] = useState('');
   const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
-  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
 
   const filteredStock = stock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  
-  // Calculate Statuses
   const lowItems = stock.filter(s => s.quantity <= s.lowStockThreshold);
   const expiredItems = stock.filter(s => s.expiryDate && new Date(s.expiryDate) < new Date());
-  
-  // Helper: Get Expiry Status
+
+  const handleGeneratePOs = () => {
+      if (lowItems.length === 0) {
+          toast.info("No items below threshold.");
+          return;
+      }
+
+      const groupedBySupplier: Record<string, StockItem[]> = {};
+      lowItems.forEach(item => {
+          const s = item.supplier || 'Unassigned Supplier';
+          if (!groupedBySupplier[s]) groupedBySupplier[s] = [];
+          groupedBySupplier[s].push(item);
+      });
+
+      const newPOs: PurchaseOrder[] = Object.entries(groupedBySupplier).map(([supplier, items]) => ({
+          id: `PO-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          date: new Date().toISOString().split('T')[0],
+          supplier,
+          status: 'Sent',
+          items: items.map(i => ({ itemId: i.id, name: i.name, quantity: i.lowStockThreshold * 2 })) // Restock to 2x threshold
+      }));
+
+      setPurchaseOrders(prev => [...newPOs, ...prev]);
+      setActiveTab('procurement');
+      toast.success(`Generated ${newPOs.length} Purchase Orders automatically.`);
+  };
+
   const getExpiryStatus = (dateStr?: string) => {
       if (!dateStr) return null;
       const today = new Date();
       const exp = new Date(dateStr);
-      const diffTime = exp.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+      const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays < 0) return { label: 'EXPIRED', color: 'bg-red-100 text-red-700 border-red-200' };
       if (diffDays <= 90) return { label: `Expiring: ${diffDays}d`, color: 'bg-orange-100 text-orange-700 border-orange-200' };
       return { label: 'Good', color: 'bg-green-50 text-green-700 border-green-200' };
-  };
-
-  const handleSaveItem = (item: StockItem) => {
-      const exists = stock.find(s => s.id === item.id);
-      if (exists) {
-          onUpdateStock(stock.map(s => s.id === item.id ? item : s));
-          toast.success(`Updated ${item.name}`);
-      } else {
-          onUpdateStock([...stock, item]);
-          toast.success(`Added ${item.name} to inventory`);
-      }
-      setEditItem(null);
-  };
-
-  const handleReceiveBatch = (updates: Record<string, number>) => {
-      const newStock = stock.map(s => {
-          if (updates[s.id]) {
-              return { ...s, quantity: s.quantity + updates[s.id], lastRestockDate: new Date().toISOString().split('T')[0] };
-          }
-          return s;
-      });
-      onUpdateStock(newStock);
-      toast.success("Inventory updated from shipment");
-      setIsReceiveOpen(false);
   };
 
   return (
@@ -180,190 +168,96 @@ const Inventory: React.FC<InventoryProps> = ({ stock, onUpdateStock, sterilizati
                 <div><h1 className="text-3xl font-bold text-slate-800">Operational Inventory</h1><p className="text-slate-500">Stock control and clinical sterilization records.</p></div>
             </div>
             <div className="flex gap-2">
-                {expiredItems.length > 0 && (
-                    <div className="bg-red-100 text-red-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-red-200 shadow-sm">
-                        <AlertCircle size={18} />
-                        <span className="font-bold text-sm">{expiredItems.length} Expired</span>
-                    </div>
-                )}
                 {lowItems.length > 0 && (
-                    <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-xl flex items-center gap-2 border border-orange-200 animate-pulse shadow-sm">
-                        <AlertTriangle size={18} />
-                        <span className="font-bold text-sm">{lowItems.length} Low Stock</span>
-                    </div>
+                    <button onClick={handleGeneratePOs} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-orange-600/20 animate-pulse transition-all">
+                        <ShoppingCart size={18} />
+                        <span className="font-bold text-sm">Automate Reorder ({lowItems.length})</span>
+                    </button>
                 )}
             </div>
         </header>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50">
-                <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock Management</button>
-                <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization Log</button>
+            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
+                <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock Management</button>
+                <button onClick={() => setActiveTab('procurement')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'procurement' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><ShoppingCart size={18}/> Procurement & POs</button>
+                <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization Log</button>
             </div>
             
-            {activeTab === 'stock' ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
-                        <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input type="text" placeholder="Search stock..." className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                {activeTab === 'stock' && (
+                    <div className="space-y-4">
+                        <div className="flex flex-col md:flex-row justify-between gap-4">
+                            <div className="relative w-full md:w-80">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input type="text" placeholder="Search stock..." className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+                            </div>
+                            <button onClick={() => setEditItem({})} className="bg-teal-600 text-white rounded-xl font-bold px-4 py-2 flex items-center gap-2 hover:bg-teal-700 shadow-md"><Plus size={18}/> Add Stock Item</button>
                         </div>
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <button onClick={() => setIsReceiveOpen(true)} className="flex-1 md:flex-none px-4 py-2 bg-lilac-100 text-lilac-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-lilac-200 transition-colors"><RefreshCcw size={18}/> Receive Shipment</button>
-                            <button onClick={() => setEditItem({})} className="flex-1 md:flex-none px-4 py-2 bg-teal-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-teal-700 transition-colors shadow-sm"><Plus size={18}/> Add Item</button>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
+                                    <tr><th className="p-4">Item Name</th><th className="p-4">Supplier</th><th className="p-4 text-center">Available</th><th className="p-4">Status</th><th className="p-4"></th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredStock.map(item => {
+                                        const isLow = item.quantity <= item.lowStockThreshold;
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-50 group transition-colors">
+                                                <td className="p-4">
+                                                    <div className="font-bold text-slate-800">{item.name}</div>
+                                                    <div className="text-[10px] text-slate-400 uppercase font-bold">{item.category}</div>
+                                                </td>
+                                                <td className="p-4 text-slate-600 font-medium">{item.supplier || '-'}</td>
+                                                <td className="p-4 text-center font-mono font-bold text-lg text-slate-700">{item.quantity}</td>
+                                                <td className="p-4">
+                                                    {isLow ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-red-100">LOW STOCK</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-green-100">STABLE</span>}
+                                                </td>
+                                                <td className="p-4 text-right"><button onClick={() => setEditItem(item)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-teal-600"><Edit2 size={16}/></button></td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto">
-                         <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-widest sticky top-0 z-10">
-                                <tr>
-                                    <th className="p-4">Item Name</th>
-                                    <th className="p-4">Category</th>
-                                    <th className="p-4 text-center">Available</th>
-                                    <th className="p-4">Expiry</th>
-                                    <th className="p-4">Status</th>
-                                    <th className="p-4"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {filteredStock.map(item => {
-                                    const isLow = item.quantity <= item.lowStockThreshold;
-                                    const expStatus = getExpiryStatus(item.expiryDate);
+                )}
 
-                                    return (
-                                        <tr key={item.id} className="group hover:bg-slate-50/80 transition-colors">
-                                            <td className="p-4"><div className="font-bold text-slate-800">{item.name}</div><div className="text-[10px] text-slate-400 font-mono">{item.id}</div></td>
-                                            <td className="p-4"><span className="flex items-center gap-1.5 text-slate-600"><Tag size={12} className="text-slate-300"/> {item.category}</span></td>
-                                            <td className="p-4 text-center font-mono font-bold text-lg text-slate-700">{item.quantity}</td>
-                                            
-                                            {/* NEW: Expiry Column */}
-                                            <td className="p-4">
-                                                {item.expiryDate ? (
-                                                    <div>
-                                                        <div className="text-slate-600 font-medium">{formatDate(item.expiryDate)}</div>
-                                                        {expStatus && expStatus.label !== 'Good' && (
-                                                            <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded mt-1 w-fit border ${expStatus.color}`}>
-                                                                {expStatus.label}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : <span className="text-slate-300">-</span>}
-                                            </td>
-
-                                            <td className="p-4">
-                                                {isLow ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-red-100"><TrendingDown size={10}/> REORDER</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 w-fit border border-green-100"><CheckCircle size={10}/> STABLE</span>}
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <button onClick={() => setEditItem(item)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-teal-600 transition-all"><Edit2 size={16}/></button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                         </table>
-                    </div>
-                </div>
-            ) : (
-                <SterilizationLogTab cycles={sterilizationCycles} onAddCycle={onAddCycle} currentUser={currentUser} />
-            )}
+                {activeTab === 'procurement' && <PurchaseOrderList pos={purchaseOrders} />}
+                
+                {activeTab === 'sterilization' && <SterilizationLogTab cycles={sterilizationCycles} onAddCycle={onAddCycle} currentUser={currentUser} />}
+            </div>
         </div>
-        {editItem && <StockItemModal item={editItem} onSave={handleSaveItem} onClose={() => setEditItem(null)} />}
-        {isReceiveOpen && <ReceiveStockModal items={stock} onReceive={handleReceiveBatch} onClose={() => setIsReceiveOpen(false)} />}
+        {editItem && <StockItemModal item={editItem} onSave={(i) => { onUpdateStock(stock.find(s => s.id === i.id) ? stock.map(s => s.id === i.id ? i : s) : [...stock, i]); setEditItem(null); }} onClose={() => setEditItem(null)} />}
     </div>
   );
 };
 
-// ... SterilizationLogTab and SterilizationLogModal remain unchanged ...
 const SterilizationLogTab: React.FC<{cycles: SterilizationCycle[], onAddCycle?: any, currentUser: User}> = ({ cycles, onAddCycle, currentUser }) => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-white shrink-0">
-                <div>
-                    <h3 className="font-bold text-slate-800">Clinical Sterilization Log</h3>
-                    <p className="text-sm text-slate-500">Mandatory records for autoclave efficacy and patient safety compliance.</p>
-                </div>
-                <button onClick={() => setIsModalOpen(true)} className="w-full md:w-auto bg-teal-600 text-white font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-teal-700 shadow-sm">
-                    <Plus size={18}/> Log New Cycle
-                </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-                 <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest sticky top-0">
-                        <tr>
-                            <th className="p-4">Cycle ID</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Autoclave</th>
-                            <th className="p-4">Cycle #</th>
-                            <th className="p-4">Operator</th>
-                            <th className="p-4">Result</th>
-                        </tr>
+        <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
+                        <tr><th className="p-4">Date</th><th className="p-4">Autoclave</th><th className="p-4">Cycle #</th><th className="p-4">Operator</th><th className="p-4">Result</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {[...cycles].reverse().map(cycle => (
                             <tr key={cycle.id} className="hover:bg-slate-50/50">
-                                <td className="p-4 font-mono text-xs bg-slate-50/50 text-slate-600">{cycle.id}</td>
                                 <td className="p-4 font-medium text-slate-800">{formatDate(cycle.date)}</td>
                                 <td className="p-4 text-slate-600">{cycle.autoclaveName}</td>
                                 <td className="p-4 text-slate-600 font-mono">{cycle.cycleNumber}</td>
                                 <td className="p-4 text-slate-600">{cycle.operator}</td>
                                 <td className="p-4">
-                                    {cycle.passed ? 
-                                        <span className="bg-green-100 text-green-700 font-bold text-[10px] px-2 py-1 rounded-full border border-green-200">PASS</span> :
-                                        <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2 py-1 rounded-full border border-red-200">FAIL</span>
-                                    }
+                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${cycle.passed ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{cycle.passed ? 'PASS' : 'FAIL'}</span>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
-                 </table>
+                </table>
             </div>
-            {isModalOpen && <SterilizationLogModal onSave={(d) => { onAddCycle(d); setIsModalOpen(false); }} onClose={() => setIsModalOpen(false)} />}
         </div>
     );
-}
-
-const SterilizationLogModal: React.FC<{onSave: (d: any) => void, onClose: () => void}> = ({onSave, onClose}) => {
-    const [autoclaveName, setAutoclaveName] = useState('Autoclave 1');
-    const [cycleNumber, setCycleNumber] = useState('');
-    const [passed, setPassed] = useState<boolean | null>(null);
-
-    const handleSave = () => {
-        if(!cycleNumber.trim() || passed === null) { alert("Please fill all fields."); return; }
-        onSave({ autoclaveName, cycleNumber, passed });
-    }
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 animate-in zoom-in-95">
-                <h3 className="font-bold text-lg text-slate-800">Log New Sterilization Cycle</h3>
-                <div className="space-y-4 mt-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Autoclave</label>
-                        <select value={autoclaveName} onChange={e => setAutoclaveName(e.target.value)} className="w-full p-3 border rounded-xl mt-1 outline-none bg-slate-50">
-                            <option>Autoclave 1 (Surgery Room)</option>
-                            <option>Autoclave 2 (Main Prep)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Cycle Number / Batch ID</label>
-                        <input type="text" value={cycleNumber} onChange={e => setCycleNumber(e.target.value)} className="w-full p-3 border rounded-xl mt-1 focus:ring-2 focus:ring-teal-500 outline-none" placeholder="e.g. 2024-05-15-01" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Biological Indicator Result</label>
-                        <div className="flex gap-2 mt-2">
-                            <button onClick={() => setPassed(true)} className={`flex-1 p-4 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${passed === true ? 'bg-green-100 border-green-400 text-green-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400'}`}><CheckCircle size={20}/> PASS</button>
-                            <button onClick={() => setPassed(false)} className={`flex-1 p-4 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${passed === false ? 'bg-red-100 border-red-400 text-red-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400'}`}><X size={20}/> FAIL</button>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex gap-2 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">Cancel</button>
-                    <button onClick={handleSave} className="flex-[2] py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20">Log Cycle Result</button>
-                </div>
-            </div>
-        </div>
-    )
 }
 
 export default Inventory;

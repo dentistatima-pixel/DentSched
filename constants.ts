@@ -1,4 +1,5 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor } from './types';
+
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -106,7 +107,6 @@ export const STAFF: User[] = [
   }
 ];
 
-// --- EXTENSIVE DUMMY PATIENTS ---
 export const PATIENTS: Patient[] = [
     {
         id: 'p_heavy_01',
@@ -230,10 +230,10 @@ export const MOCK_CLAIMS: HMOClaim[] = [
 export const MOCK_STOCK: StockItem[] = [
     { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60) },
     { id: 'stk_2', name: 'Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(365) },
-    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getFutureDateStr(20) }, // Expiring soon
+    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getFutureDateStr(20) }, 
     { id: 'stk_4', name: 'Mouth Mirror', category: StockCategory.INSTRUMENTS, quantity: 100, lowStockThreshold: 50 },
     { id: 'stk_5', name: 'Bond Paper (Ream)', category: StockCategory.OFFICE, quantity: 8, lowStockThreshold: 5 },
-    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getPastDateStr(5) }, // EXPIRED
+    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getPastDateStr(5) },
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -263,6 +263,55 @@ export const MOCK_VENDORS: Vendor[] = [
     { id: 'v2', name: 'Maxicare HMO', type: 'HMO', contactPerson: 'Claims Dept', contactNumber: '02-8888-1111', email: 'claims@maxicare.com.ph', status: 'Active', dsaSignedDate: '2023-06-01', dsaExpiryDate: '2024-06-01' },
     { id: 'v3', name: 'Dental Depot Inc.', type: 'Supplier', contactPerson: 'Jane Doe', contactNumber: '0918-999-0000', email: 'sales@dentaldepot.ph', status: 'Suspended', dsaSignedDate: '2022-01-01', dsaExpiryDate: '2023-01-01' }
 ];
+
+const DEFAULT_SMS: SmsTemplates = {
+    // Level 1: Onboarding
+    welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to dentsched, {PatientName}! Your digital health record is now active. We look forward to seeing you.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on new patient registration.' },
+    portal: { id: 'portal', label: 'Portal Activation', text: 'Access your x-rays, treatment plans, and privacy logs anytime via your secure Patient Portal: {PortalLink}.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on first portal access.' },
+    provisional: { id: 'provisional', label: 'Full Enrollment Prompt', text: 'Hi! You’re currently in our Quick Register system. Please complete your full Medical History {HistoryLink} before arrival to save time.', enabled: true, category: 'Onboarding', triggerDescription: 'Manual or 48h before first visit.' },
+    birthday: { id: 'birthday', label: 'Birthday Greeting', text: 'Happy Birthday, {PatientName}! Wishing you a healthy smile today. - From your team at dentsched.', enabled: true, category: 'Onboarding', triggerDescription: 'Automated on DOB matches current date.' },
+    inactive: { id: 'inactive', label: 'Patient Re-engagement', text: 'Hi {PatientName}, we noticed it’s been over a year since your last visit. Routine checkups prevent major issues! Book here: {BookingLink}.', enabled: false, category: 'Onboarding', triggerDescription: 'Triggered if lastVisit > 12 months.' },
+
+    // Level 2: Safety
+    sedation: { id: 'sedation', label: 'Sedation/NPO Protocol', text: 'IMPORTANT: For your {Procedure} tomorrow, do not eat or drink anything (including water) for 8 hours prior to your visit.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by Surgery/Extraction type.' },
+    antibiotic: { id: 'antibiotic', label: 'Antibiotic Prophylaxis', text: 'Reminder: Please take your prescribed antibiotic 1 hour before your appointment for your heart valve safety protocol.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by specific Medical History flags.' },
+    maintenance: { id: 'maintenance', label: 'Maintenance Meds Verification', text: 'Good morning {PatientName}! Please ensure you have taken your blood pressure maintenance medication before your visit today.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by High BP flag.' },
+    thinners: { id: 'thinners', label: 'Blood Thinner Instruction', text: 'Reminder: For your dental procedure, please follow your physician’s instructions regarding your anticoagulant (blood thinner) schedule.', enabled: true, category: 'Safety', triggerDescription: 'Triggered by Blood Thinner flag.' },
+
+    // Level 3: Logistics
+    booking: { id: 'booking', label: 'Instant Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor} at {Branch}. Reply C to confirm.', enabled: true, category: 'Logistics', triggerDescription: 'Sent when appointment is scheduled.' },
+    request: { id: 'request', label: 'Confirmation Request (48h)', text: 'Expecting you on {Date} @ {Time} for {Procedure}. Please reply C to confirm your attendance.', enabled: true, category: 'Logistics', triggerDescription: 'Sent 48 hours before slot.' },
+    reminder: { id: 'reminder', label: 'Final Reminder (24h)', text: 'Reminder: Your visit is tomorrow {Date} @ {Time} at {Branch}. Maps: {MapLink}. See you!', enabled: true, category: 'Logistics', triggerDescription: 'Sent 24 hours before slot.' },
+    reschedule: { id: 'reschedule', label: 'Reschedule Verification', text: 'Your appointment has been successfully moved to {Date} at {Time}. We have updated our records!', enabled: true, category: 'Logistics', triggerDescription: 'Sent on date/time change.' },
+    cancel: { id: 'cancel', label: 'Cancellation Acknowledgment', text: 'Your appointment on {Date} has been cancelled. If this was an error, please call us immediately.', enabled: true, category: 'Logistics', triggerDescription: 'Sent on Cancel status.' },
+    noshow: { id: 'noshow', label: 'No-Show Recovery', text: 'We missed you today, {PatientName}! We hope you are okay. You can easily reschedule your session here: {BookingLink}.', enabled: true, category: 'Logistics', triggerDescription: 'Sent 30m after missed slot.' },
+
+    // Level 4: Recovery
+    hemostasis: { id: 'hemostasis', label: 'Surgical Hemostasis (1h)', text: 'Post-Op: Keep firm pressure on the gauze for 30 more minutes. Avoid spitting or using straws to protect the blood clot.', enabled: true, category: 'Recovery', triggerDescription: '1h after Extraction checkout.' },
+    monitor: { id: 'monitor', label: 'Infection Monitor (24h)', text: 'Hi {PatientName}, how are you feeling after your surgery? Please call us if you experience abnormal swelling or fever.', enabled: true, category: 'Recovery', triggerDescription: '24h after Surgery checkout.' },
+    bitecheck: { id: 'bitecheck', label: 'Restorative Bite Check', text: 'Your filling may feel sensitive for a few days. If your bite feels "high" once anesthesia wears off, please call for a 2-min adjustment.', enabled: true, category: 'Recovery', triggerDescription: '4h after Restoration.' },
+    endo: { id: 'endo', label: 'Endodontic Temporary Care', text: 'Important: Avoid chewing on the treated side until your temporary seal is replaced with a permanent crown to prevent fracture.', enabled: true, category: 'Recovery', triggerDescription: '2h after Root Canal.' },
+    white: { id: 'white', label: 'Whitening White Diet', text: 'To maintain your results, please avoid "staining" foods (coffee, tea, soy sauce, red wine) for the next 48 hours.', enabled: true, category: 'Recovery', triggerDescription: '1h after Whitening.' },
+    prostho: { id: 'prostho', label: 'Prosthodontic Adaptation', text: 'Sore spots are common with new dentures. If you notice persistent discomfort, please call us for a minor adjustment.', enabled: true, category: 'Recovery', triggerDescription: '48h after Denture Adjust.' },
+    ortho: { id: 'ortho', label: 'Ortho Compliance', text: 'Evening Check-in: Some soreness is normal today. Remember to wear your elastics as instructed by Dr. {Doctor}!', enabled: true, category: 'Recovery', triggerDescription: 'Evening of Ortho adjustment.' },
+    srp: { id: 'srp', label: 'SRP Comfort Protocol', text: 'After deep scaling, warm salt water rinses can help soothe gum tenderness. Avoid very spicy or acidic foods today.', enabled: true, category: 'Recovery', triggerDescription: '2h after Oral Prophylaxis.' },
+    checkup: { id: 'checkup', label: 'Post-Op Standard Check', text: 'Hi {PatientName}, checking in after your procedure. Any concerns or questions for the doctor?', enabled: true, category: 'Recovery', triggerDescription: 'Standard 24h follow up.' },
+
+    // Level 5: Financial
+    balance: { id: 'balance', label: 'Outstanding Balance', text: 'Friendly reminder of your outstanding balance of ₱{Amount}. Settling this before your next visit helps keep your care seamless.', enabled: true, category: 'Financial', triggerDescription: '3 days before visit if balance > 0.' },
+    hmosubmit: { id: 'hmosubmit', label: 'HMO Claim Submission', text: 'We have submitted your claim for {Procedure} to {Provider}. We will notify you once they provide a resolution.', enabled: true, category: 'Financial', triggerDescription: 'On Claim Submission.' },
+    hmoresolve: { id: 'hmoresolve', label: 'HMO Resolution Alert', text: 'Good news! {Provider} has processed your claim. Your remaining patient responsibility for this visit is ₱{Amount}.', enabled: true, category: 'Financial', triggerDescription: 'On Claim Paid/Rejected.' },
+    philhealth: { id: 'philhealth', label: 'PhilHealth Case-Rate Update', text: 'Your PhilHealth benefit has been successfully applied to your treatment. View the updated ledger in your portal.', enabled: true, category: 'Financial', triggerDescription: 'On PhilHealth submission.' },
+
+    // Level 6: Security
+    security: { id: 'security', label: 'Contact Change Alert', text: 'Security Alert: Your contact information was updated. If this was not you, please contact the clinic immediately.', enabled: true, category: 'Security', triggerDescription: 'On Phone/Email change.' },
+    transparency: { id: 'transparency', label: 'Privacy Transparency Digest', text: 'Privacy Update: Your health record was accessed {Count} times this month for clinical review. View full logs in the portal.', enabled: false, category: 'Security', triggerDescription: 'Monthly automated digest.' },
+    portability: { id: 'portability', label: 'Data Portability Fulfillment', text: 'Your request for a digital copy of your medical records has been processed. Access the secure file here: {Link}.', enabled: true, category: 'Security', triggerDescription: 'On Portal data request.' },
+
+    // Level 7: Efficiency
+    waitlist: { id: 'waitlist', label: 'Waitlist Priority Opening', text: 'Hi {PatientName}! A slot just opened up today at {Time} for your {Procedure}. Tap here to grab it: {Link}.', enabled: true, category: 'Efficiency', triggerDescription: 'On Waitlist match + Cancellation.' },
+    referral: { id: 'referral', label: 'Referral Follow-up', text: 'Hi {PatientName}, checking in to see if you’ve scheduled your consultation with the specialist we recommended last week.', enabled: false, category: 'Efficiency', triggerDescription: '7 days after Referral.' },
+};
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicProfile: 'boutique',
@@ -297,32 +346,27 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableComplianceAudit: true,
       enableDentalAssistantFlow: true,
       enableMultiBranch: true,
-      enableHMOClaims: false,
-      enableInventory: false,
-      enableAnalytics: false,
-      enableBIRCompliance: false,
-      enablePatientPortal: false,
-      enableDigitalConsent: false,
-      enableAutomatedRecall: false,
-      enableOnlineForms: false,
-      enableEPrescription: false,
-      enableAdvancedPermissions: false,
-      enablePhilHealthClaims: false,
-      enableLabPortal: false,
-      enableReferralTracking: false,
-      enablePromotions: false,
-      enableDocumentManagement: false,
-      enableClinicalProtocolAlerts: false,
-      enableTreatmentPlanApprovals: false,
-      enableAccountabilityLog: false,
+      enableHMOClaims: true,
+      enableInventory: true,
+      enableAnalytics: true,
+      enableBIRCompliance: true,
+      enablePatientPortal: true,
+      enableDigitalConsent: true,
+      enableAutomatedRecall: true,
+      enableOnlineForms: true,
+      enableEPrescription: true,
+      enableAdvancedPermissions: true,
+      enablePhilHealthClaims: true,
+      enableLabPortal: true,
+      enableDocumentManagement: true,
+      enableClinicalProtocolAlerts: true,
+      enableTreatmentPlanApprovals: true,
+      enableAccountabilityLog: true,
+      enableReferralTracking: true,
+      enablePromotions: true,
+      enableSmsAutomation: true
   },
-  smsTemplates: {
-      bookingConfirmation: "Hi {PatientName}, confirmed: {Date} @ {Time} w/ {ProviderName} at {Branch}. Reply C to confirm.",
-      confirmationRequest: "Hi {PatientName}, expecting you on {Date} @ {Time}. Reply C to Confirm.",
-      reminder24h: "Reminder: Appt tomorrow {Date} @ {Time} at {Branch}. See you!",
-      postOpCheckup: "Hi {PatientName}, checking in after your procedure. Any concerns?",
-      registrationWelcome: "Welcome to dentsched, {PatientName}! Your record is ready."
-  },
+  smsTemplates: DEFAULT_SMS,
   receiptBooklets: [{ id: 'rb1', seriesStart: 1, seriesEnd: 1000, prefix: 'A', isActive: true }],
   stockCategories: Object.values(StockCategory),
   stockItems: MOCK_STOCK,

@@ -4,7 +4,8 @@ import { Check, AlertTriangle, AlertOctagon, Droplet, Heart, ShieldAlert, Pill, 
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  // Fix: Added HTMLTextAreaElement to allowed event target types
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleArrayChange: (category: 'allergies' | 'medicalConditions', value: string) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings; 

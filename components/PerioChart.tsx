@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PerioMeasurement } from '../types';
-import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward } from 'lucide-react';
+import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface PerioChartProps {
@@ -132,10 +132,67 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
     );
 });
 
+const PerioProgressionGraph: React.FC<{ data: PerioMeasurement[] }> = ({ data }) => {
+    const historicalDates = useMemo(() => {
+        return Array.from(new Set(data.map(m => m.date).filter(Boolean)))
+            .sort((a: any, b: any) => new Date(a).getTime() - new Date(b).getTime());
+    }, [data]);
+
+    const stats = useMemo(() => {
+        return historicalDates.map(date => {
+            const dateMeasurements = data.filter(m => m.date === date);
+            const allDepths = dateMeasurements.flatMap(m => m.pocketDepths).filter(d => d !== null) as number[];
+            const avg = allDepths.length > 0 ? allDepths.reduce((a, b) => a + b, 0) / allDepths.length : 0;
+            return { date, avg };
+        });
+    }, [historicalDates, data]);
+
+    if (stats.length < 2) return null;
+
+    const maxAvg = Math.max(...stats.map(s => s.avg), 5);
+
+    return (
+        <div className="bg-white p-6 rounded-2xl border border-teal-100 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-6">
+            <div className="flex items-center gap-2 text-teal-800 font-bold mb-6">
+                <LineChart size={20} className="text-teal-600"/>
+                Healing Progression: Average Pocket Depth Trend
+            </div>
+            <div className="h-40 flex items-end gap-2 relative border-b border-l border-slate-200 ml-8 mb-8 px-4 pt-4">
+                {/* Y-Axis Labels */}
+                <div className="absolute -left-8 top-0 bottom-0 flex flex-col justify-between text-[10px] font-bold text-slate-400 py-1">
+                    <span>{maxAvg.toFixed(1)}mm</span>
+                    <span>{(maxAvg/2).toFixed(1)}mm</span>
+                    <span>0mm</span>
+                </div>
+                
+                {stats.map((s, i) => {
+                    const height = (s.avg / maxAvg) * 100;
+                    return (
+                        <div key={i} className="flex-1 flex flex-col items-center group relative">
+                            <div 
+                                className="w-full bg-teal-500/20 rounded-t-lg transition-all duration-1000 border-t-4 border-teal-600 hover:bg-teal-500/40 relative" 
+                                style={{ height: `${height}%` }}
+                            >
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-teal-800 bg-white px-1 rounded border border-teal-100 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {s.avg.toFixed(1)}mm
+                                </div>
+                            </div>
+                            <div className="absolute -bottom-6 text-[9px] font-bold text-slate-500 whitespace-nowrap rotate-45 origin-left">
+                                {s.date}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
     const toast = useToast();
     const [measurements, setMeasurements] = useState<Record<number, PerioMeasurement>>({});
     const [compareMode, setCompareMode] = useState(false);
+    const [showGraph, setShowGraph] = useState(true);
     const [isVoiceActive, setIsVoiceActive] = useState(false);
     const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
     
@@ -302,6 +359,14 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setShowGraph(!showGraph)}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs border transition-all flex items-center gap-1
+                            ${showGraph ? 'bg-teal-50 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-500 hover:border-teal-300'}
+                        `}
+                    >
+                        <LineChart size={14}/> {showGraph ? 'Hide Trends' : 'Show Trends'}
+                    </button>
                     {!readOnly && (
                         <button 
                             onClick={toggleVoice}
@@ -335,6 +400,8 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
             </div>
 
             <div className="flex-1 overflow-x-auto overflow-y-auto p-4 space-y-8 no-scrollbar scroll-smooth">
+                {showGraph && <PerioProgressionGraph data={data} />}
+
                 {!readOnly && (
                     <div className="bg-teal-50 border border-teal-100 p-3 rounded-2xl flex items-center justify-between mb-4 shadow-sm animate-in slide-in-from-top-1">
                         <div className="flex items-center gap-3">

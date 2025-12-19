@@ -454,6 +454,13 @@ const PatientList: React.FC<PatientListProps> = ({
       toast.success("Entry saved.");
   };
 
+  // FIX: Added handler to bridge DentalChartEntry updates from SOAP notes to the onQuickUpdatePatient handler.
+  const handleUpdateClinicalNote = (updatedEntry: DentalChartEntry) => {
+      if (!selectedPatient) return;
+      const updatedChart = (selectedPatient.dentalChart || []).map(e => e.id === updatedEntry.id ? updatedEntry : e);
+      onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
+  };
+
   const toggleMarketingConsent = async () => {
       if (!selectedPatient) return;
       const newVal = !selectedPatient.marketingConsent;
@@ -555,7 +562,7 @@ const PatientList: React.FC<PatientListProps> = ({
                             <div><h4 className="font-bold text-slate-800">Clinical Record</h4><p className="text-xs text-slate-400 uppercase tracking-widest mt-1">FDI Notation</p></div>
                             <div className="flex gap-2">
                                 {(currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.ADMIN) && (
-                                    <button onClick={handleSignOffToday} className="px-4 py-2 bg-lilac-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 transition-all"><ShieldCheck size={16}/> Sign Record</button>
+                                    <button onClick={handleSignOffToday} className="px-4 py-2 bg-lilac-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-lilac-500/20 hover:bg-lilac-700 transition-all"><ShieldCheck size={16}/> Sign Record</button>
                                 )}
                                 <div className="bg-slate-100 p-1 rounded-xl flex gap-1 shadow-sm">
                                     <button onClick={() => setChartViewMode('visual')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${chartViewMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}><Grid size={16} /> <span>Visual</span></button>
@@ -563,7 +570,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                 </div>
                             </div>
                          </div>
-                         {chartViewMode === 'visual' ? (<div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><Odontogram chart={selectedPatient.dentalChart || []} readOnly={isClinicalReadOnly} onToothClick={setEditingTooth} onChartUpdate={commitChartEntry}/></div>) : (<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"><Odontonotes entries={selectedPatient.dentalChart || []} onAddEntry={commitChartEntry} onUpdateEntry={onQuickUpdatePatient} currentUser={currentUser.name} readOnly={isClinicalReadOnly} procedures={fieldSettings?.procedures || []} prefill={stagedSoapPrefill} onClearPrefill={() => setStagedSoapPrefill(null)}/></div>)}
+                         {chartViewMode === 'visual' ? (<div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><Odontogram chart={selectedPatient.dentalChart || []} readOnly={isClinicalReadOnly} onToothClick={setEditingTooth} onChartUpdate={commitChartEntry}/></div>) : (<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"><Odontonotes entries={selectedPatient.dentalChart || []} onAddEntry={commitChartEntry} onUpdateEntry={handleUpdateClinicalNote} currentUser={currentUser.name} readOnly={isClinicalReadOnly} procedures={fieldSettings?.procedures || []} prefill={stagedSoapPrefill} onClearPrefill={() => setStagedSoapPrefill(null)}/></div>)}
                      </div>
                 )}
                 {activeTab === 'info' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-2"><InfoRow icon={UserIcon} label="Full Legal Name" value={selectedPatient.name} subValue={`${selectedPatient.firstName} ${selectedPatient.middleName || ''} ${selectedPatient.surname}`} /><InfoRow icon={Baby} label="Age Profile" value={`${selectedPatient.age} Yrs`} subValue={`Born ${formatDate(selectedPatient.dob)}`} /><InfoRow icon={Mail} label="Primary Contact" value={selectedPatient.email} /><InfoRow icon={MapPin} label="Home Address" value={selectedPatient.homeAddress} subValue={selectedPatient.barangay} /></div>)}

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -50,7 +50,6 @@ const generateDiff = (oldObj: any, newObj: any): string => {
 function App() {
   const toast = useToast();
   
-  // HOOKS MUST ALL BE AT THE TOP (FIX FOR ERROR 310)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -94,7 +93,46 @@ function App() {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
-  // --- LOGIC FUNCTIONS ---
+  // --- SMS AUTOMATION ENGINE ---
+  const triggerSms = useCallback((templateId: string, patient: Patient, extras: Record<string, string> = {}) => {
+      if (!fieldSettings.features.enableSmsAutomation) return;
+      
+      const config = fieldSettings.smsTemplates[templateId];
+      if (!config || !config.enabled) return;
+
+      // Check for Marketing Opt-out (Level 1, 7)
+      const marketingCategories = ['Onboarding', 'Efficiency'];
+      if (marketingCategories.includes(config.category) && !patient.marketingConsent) {
+          console.debug(`[SMS Engine] Marketing opt-out for ${patient.name} prevents sending ${templateId}`);
+          return;
+      }
+
+      let message = config.text;
+      const doctor = extras.doctor || 'your dentist';
+      const procedure = extras.procedure || 'your appointment';
+      const date = extras.date || 'your scheduled date';
+      const time = extras.time || 'your scheduled time';
+      const branch = extras.branch || currentBranch;
+      const amount = extras.amount || '0.00';
+      const provider = extras.provider || 'your insurer';
+
+      message = message
+          .replace(/{PatientName}/g, patient.firstName)
+          .replace(/{Doctor}/g, doctor)
+          .replace(/{Procedure}/g, procedure)
+          .replace(/{Date}/g, date)
+          .replace(/{Time}/g, time)
+          .replace(/{Branch}/g, branch)
+          .replace(/{Amount}/g, amount)
+          .replace(/{Provider}/g, provider)
+          .replace(/{PortalLink}/g, 'portal.dentsched.ph/login')
+          .replace(/{BookingLink}/g, 'dentsched.ph/book');
+
+      // LOG TO AUDIT TRAIL (Simulate Queue)
+      logAction('SEND_SMS', 'SmsQueue', patient.id, `Queued "${config.label}" for ${patient.phone}: ${message}`);
+      toast.info(`[SMS Engine] Queued: ${config.label}`);
+  }, [fieldSettings, currentBranch]);
+
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
@@ -245,227 +283,40 @@ function App() {
       setAuditLog(prev => [newLog, ...prev]);
   };
 
-  const handleExportSecureAuditLog = () => {
-      if (!auditLog.length) {
-          toast.info("Audit log is empty.");
-          return;
-      }
-      
-      const exportData = {
-          metadata: {
-              exportedAt: new Date().toISOString(),
-              exportedBy: currentUser.name,
-              recordCount: auditLog.length,
-              integrityCheck: 'SHA-256'
-          },
-          logs: auditLog
-      };
-
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const hash = CryptoJS.SHA256(dataStr).toString();
-      const finalPayload = JSON.stringify({ ...exportData, signature: hash }, null, 2);
-
-      const blob = new Blob([finalPayload], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `SECURE_AUDIT_LOG_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      logAction('EXPORT_RECORD', 'System', 'AuditLog', `Exported secure audit trail with SHA-256 integrity check.`);
-      toast.success("Secure Audit Log exported.");
-  };
-
-  const handleDatabaseBackup = () => {
-      if (!isAuthenticated || !encryptionKey) return;
-      
-      const backupData = {
-          metadata: { version: '1.0', timestamp: new Date().toISOString(), exportedBy: currentUser.name, type: 'FULL_BACKUP' },
-          data: { appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals }
-      };
-
-      const encryptedBackup = CryptoJS.AES.encrypt(JSON.stringify(backupData), encryptionKey).toString();
-      const blob = new Blob([encryptedBackup], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `dentsched_backup_${new Date().toISOString().split('T')[0]}.db`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      logAction('EXPORT_RECORD', 'System', 'Database', 'Executed full encrypted database backup.');
-      toast.success("Encrypted database backup downloaded.");
-  };
-
-  const handleDatabaseRestore = (file: File) => {
-      if (!isAuthenticated || !encryptionKey) return;
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-          try {
-              const encryptedContent = e.target?.result as string;
-              const bytes = CryptoJS.AES.decrypt(encryptedContent, encryptionKey);
-              const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-              
-              if (!decryptedString) throw new Error("Decryption failed. Invalid key or file.");
-
-              const backupData = JSON.parse(decryptedString);
-              if (!backupData.data) throw new Error("Invalid backup format.");
-
-              const { data } = backupData;
-              if (data.appointments) setAppointments(data.appointments);
-              if (data.patients) setPatients(data.patients);
-              if (data.staff) setStaff(data.staff);
-              if (data.stock) setStock(data.stock);
-              if (data.sterilizationCycles) setSterilizationCycles(data.sterilizationCycles);
-              if (data.auditLog) setAuditLog(data.auditLog);
-              if (data.tasks) setTasks(data.tasks);
-              if (data.fieldSettings) setFieldSettings(data.fieldSettings);
-              if (data.hmoClaims) setHmoClaims(data.hmoClaims);
-              if (data.philHealthClaims) setPhilHealthClaims(data.philHealthClaims);
-              if (data.incidents) setIncidents(data.incidents);
-              if (data.referrals) setReferrals(data.referrals);
-
-              logAction('UPDATE', 'System', 'Database', 'Restored database from backup file.');
-              toast.success("Database restored successfully.");
-          } catch (err) {
-              console.error(err);
-              toast.error("Failed to restore database. Ensure you are using the correct account password.");
-          }
-      };
-      reader.readAsText(file);
-  };
-
-  const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
-      const newTask: PinboardTask = { id: Date.now().toString(), text, isCompleted: false, isUrgent, assignedTo: assignedTo || undefined, createdAt: Date.now() };
-      setTasks(prev => [newTask, ...prev]);
-  };
-
-  const handleToggleTask = (id: string) => {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t));
-  };
-
-  const handleDeleteTask = (id: string) => {
-      setTasks(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleAddCycle = (cycleData: any) => {
-      const newCycle: SterilizationCycle = { id: `cycle_${Date.now()}`, date: new Date().toISOString(), operator: currentUser.name, ...cycleData };
-      setSterilizationCycles(prev => [newCycle, ...prev]);
-      logAction('CREATE', 'Inventory', newCycle.id, `Logged Sterilization Cycle ${newCycle.cycleNumber}`);
-  };
-
-  useEffect(() => {
-      if (staff.length > 0 && !currentUser.id) {
-          setCurrentUser(staff[0]);
-      } else if (staff.length > 0) {
-          const updated = staff.find(s => s.id === currentUser.id);
-          if (updated) setCurrentUser(updated);
-      }
-  }, [staff]);
-
-  const branchAppointments = appointments.filter(a => a.branch === currentBranch);
-
-  const handleOpenBooking = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => {
-    setBookingDate(date); setBookingTime(time); setInitialBookingPatientId(patientId); setEditingAppointment(appointmentToEdit || null); setIsAppointmentModalOpen(true);
-  };
-
   const handleSaveAppointment = (newAppointment: Appointment) => {
     const appointmentWithBranch = { ...newAppointment, branch: newAppointment.branch || currentBranch };
+    const patient = patients.find(p => p.id === newAppointment.patientId);
+    
     setAppointments(prev => {
         const existingIndex = prev.findIndex(a => a.id === appointmentWithBranch.id);
         if (existingIndex >= 0) {
             const updated = [...prev]; updated[existingIndex] = appointmentWithBranch; return updated;
-        } else { return [...prev, appointmentWithBranch]; }
+        } else { 
+            // New Booking SMS
+            if (patient) {
+                const doctor = staff.find(s => s.id === newAppointment.providerId)?.name || 'Dr. Alexander';
+                triggerSms('booking', patient, { date: newAppointment.date, time: newAppointment.time, procedure: newAppointment.type, doctor, branch: newAppointment.branch });
+                
+                // Safety SMS: Sedation
+                if (['Surgery', 'Extraction'].includes(newAppointment.type)) {
+                    triggerSms('sedation', patient, { procedure: newAppointment.type });
+                }
+                
+                // Safety SMS: Heart Health
+                if (patient.heartValveIssues) {
+                    triggerSms('antibiotic', patient);
+                }
+            }
+            return [...prev, appointmentWithBranch]; 
+        }
     });
   };
 
-  const handleMoveAppointment = (appointmentId: string, newDate: string, newTime: string, newProviderId: string) => {
-      setAppointments(prev => {
-          const apt = prev.find(a => a.id === appointmentId);
-          if (!apt) return prev;
-          const updatedApt: Appointment = {
-              ...apt, date: newDate, time: newTime, providerId: newProviderId,
-              rescheduleHistory: [...(apt.rescheduleHistory || []), { previousDate: apt.date, previousTime: apt.time, previousProviderId: apt.providerId, reason: 'Reschedule', timestamp: new Date().toISOString() }]
-          };
-          return prev.map(a => a.id === appointmentId ? updatedApt : a);
-      });
-  };
-
-  const handleSavePatient = (newPatientData: Partial<Patient>) => {
-    const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
-    if (editingPatient) {
-        const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
-        logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
-        setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
-        setEditingPatient(null);
-    } else {
-        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '' };
-        logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
-        setPatients(prev => [...prev, newPatient]);
-        if (!newPatient.provisional) { setSelectedPatientId(newPatient.id); setActiveTab('patients'); }
-    }
-  };
-
-  const handleSwitchUser = (userOrUpdatedUser: User) => {
-      const existingIndex = staff.findIndex(s => s.id === userOrUpdatedUser.id);
-      if (existingIndex >= 0) { const newStaff = [...staff]; newStaff[existingIndex] = userOrUpdatedUser; setStaff(newStaff); }
-      setCurrentUser(userOrUpdatedUser);
-      if (userOrUpdatedUser.defaultBranch && (!userOrUpdatedUser.allowedBranches || userOrUpdatedUser.allowedBranches.includes(userOrUpdatedUser.defaultBranch))) { setCurrentBranch(userOrUpdatedUser.defaultBranch); }
-      if (userOrUpdatedUser.role !== UserRole.ADMIN && activeTab === 'field-mgmt') { setActiveTab('dashboard'); }
-  };
-
-  const handleEditPatientClick = (patient: Patient) => { setEditingPatient(patient); setIsPatientModalOpen(true); };
-
-  const handleQuickUpdatePatient = (updatedPatient: Patient) => {
-      setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
-  };
-  
-  const handleBulkUpdatePatients = (updatedPatients: Patient[]) => {
-      setPatients(prev => {
-          const newPatients = [...prev];
-          updatedPatients.forEach(updated => {
-              const idx = newPatients.findIndex(p => p.id === updated.id);
-              if (idx !== -1) { newPatients[idx] = updated; }
-          });
-          return newPatients;
-      });
-  };
-
-  const handleDeletePatient = (patientId: string) => {
-      const p = patients.find(pt => pt.id === patientId);
-      if (!p) return;
-      if (!window.confirm(`Are you sure you want to archive ${p.name}? This will hide the record from standard views but retain it for compliance.`)) return;
-      logAction('DELETE', 'Patient', patientId, `Archived patient record: ${p?.name} (Compliance Retention)`);
-      setPatients(prev => prev.map(pt => pt.id === patientId ? { ...pt, isArchived: true } : pt));
-      setSelectedPatientId(null);
-      toast.success("Patient archived successfully.");
-  };
-
-  const handlePurgePatient = (patientId: string) => {
-      const p = patients.find(pt => pt.id === patientId);
-      if (!p) return;
-      if (!window.confirm(`SECURE PURGE PROTOCOL\n\nAre you sure you want to permanently delete the record for ${p.name}? This action complies with the Right to Erasure but is IRREVERSIBLE.`)) return;
-      if (!window.confirm(`FINAL SAFETY CHECK\n\nThis will also remove all associated appointments, claims, and clinical history for ${p.name}.\n\nClick OK to confirm PERMANENT DESTRUCTION.`)) return;
-      setPatients(prev => prev.filter(pt => pt.id !== patientId));
-      setAppointments(prev => prev.filter(a => a.patientId !== patientId));
-      setHmoClaims(prev => prev.filter(c => c.patientId !== patientId));
-      setPhilHealthClaims(prev => prev.filter(c => c.patientId !== patientId));
-      logAction('DESTRUCTION_CERTIFICATE', 'DataArchive', patientId, `Securely purged patient record and associated data: ${p.name} (Retention Period Expired/Right to Erasure)`);
-      toast.success("Record and all associated data securely purged.");
-  };
-
-  const handlePatientSelectFromDashboard = (patientId: string) => { setSelectedPatientId(patientId); setActiveTab('patients'); };
-  const openNewPatientModal = () => { setEditingPatient(null); setIsPatientModalOpen(true); };
-  const handleUpdateFieldSettings = (newSettings: FieldSettings) => { setFieldSettings(newSettings); if (!newSettings.branches.includes(currentBranch)) { setCurrentBranch(newSettings.branches[0] || 'Main Office'); } };
-  const handleUpdateStaffList = (updatedStaff: User[]) => { setStaff(updatedStaff); };
-  
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       const apt = appointments.find(a => a.id === appointmentId);
       if (!apt) return;
+      const patient = patients.find(p => p.id === apt.patientId);
+
       if (status === AppointmentStatus.TREATING) {
           const procedure = fieldSettings.procedures.find(p => p.name === apt.type);
           if (procedure?.requiresConsent && !apt.signedConsentUrl) { 
@@ -474,54 +325,79 @@ function App() {
               return; 
           }
       }
+
+      // NO SHOW SMS
+      if (status === AppointmentStatus.NO_SHOW && patient) {
+          triggerSms('noshow', patient);
+      }
+
+      // RECOVERY SMS
+      if (status === AppointmentStatus.COMPLETED && patient) {
+          if (apt.type === AppointmentType.EXTRACTION) triggerSms('hemostasis', patient);
+          if (apt.type === AppointmentType.SURGERY) triggerSms('monitor', patient);
+          if (apt.type === AppointmentType.RESTORATION) triggerSms('bitecheck', patient);
+          if (apt.type === AppointmentType.ROOT_CANAL) triggerSms('endo', patient);
+          if (apt.type === AppointmentType.WHITENING) triggerSms('white', patient);
+          if (apt.type === AppointmentType.DENTURE_ADJUSTMENTS) triggerSms('prostho', patient);
+          if (apt.type === AppointmentType.ORTHODONTICS) triggerSms('ortho', patient);
+          
+          triggerSms('checkup', patient);
+      }
+
       setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
   };
 
-  const handleCompleteRegistration = (patientId: string) => {
-      const patient = patients.find(p => p.id === patientId);
-      if (patient) { setEditingPatient(patient); setIsPatientModalOpen(true); }
-  };
-  
-  const handleSaveConsent = (appointmentId: string, consentUrl: string) => {
-      setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...apt, signedConsentUrl: consentUrl } : apt));
-      toast.success("Consent form saved successfully!");
-  };
+  const handleSavePatient = (newPatientData: Partial<Patient>) => {
+    const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
+    if (editingPatient) {
+        const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
+        
+        // Security Alert: Contact Change
+        if (editingPatient.phone !== updatedPatient.phone || editingPatient.email !== updatedPatient.email) {
+            triggerSms('security', updatedPatient);
+        }
 
-  const handlePatientPortalToggle = () => {
-      if(isPatientPortalActive) { setIsPatientPortalActive(false); setCurrentPatientUser(null); } 
-      else {
-          const patientWithApt = patients.find(p => appointments.some(a => a.patientId === p.id));
-          setCurrentPatientUser(patientWithApt || patients[0]);
-          setIsPatientPortalActive(true);
-      }
-  };
+        logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
+        setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
+        setEditingPatient(null);
+    } else {
+        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '' };
+        logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
+        setPatients(prev => [...prev, newPatient]);
+        
+        // Welcome SMS
+        triggerSms('welcome', newPatient);
+        if (newPatient.provisional) {
+            triggerSms('provisional', newPatient);
+        }
 
-  const handleGenerateReport = () => {
-    const doc = new jsPDF();
-    doc.text("Report Placeholder", 10, 10);
-    doc.save("report.pdf");
-  };
-
-  const handleCreateClaim = (patientId: string, ledgerEntryId: string, provider: string, amount: number, type: 'HMO' | 'PhilHealth') => {
-      if (type === 'HMO') {
-          const newHmoClaim: HMOClaim = { id: `hmo_${Date.now()}`, patientId, ledgerEntryId, hmoProvider: provider, procedureName: 'Dental Service', amountClaimed: amount, status: HMOClaimStatus.SUBMITTED, dateSubmitted: new Date().toISOString() };
-          setHmoClaims(prev => [...prev, newHmoClaim]);
-          logAction('CREATE', 'Claim', newHmoClaim.id, `Generated HMO Claim for ${provider}`);
-      } else {
-          const newPhClaim: PhilHealthClaim = { id: `ph_${Date.now()}`, patientId, ledgerEntryId, procedureName: 'Dental Service', amountClaimed: amount, status: PhilHealthClaimStatus.SUBMITTED, dateSubmitted: new Date().toISOString() };
-          setPhilHealthClaims(prev => [...prev, newPhClaim]);
-          logAction('CREATE', 'Claim', newPhClaim.id, `Generated PhilHealth Claim`);
-      }
+        if (!newPatient.provisional) { setSelectedPatientId(newPatient.id); setActiveTab('patients'); }
+    }
   };
 
-  useEffect(() => {
-      if (!isAuthenticated) return;
-      const handleTrigger = () => handleDatabaseBackup();
-      window.addEventListener('trigger-backup', handleTrigger);
-      return () => window.removeEventListener('trigger-backup', handleTrigger);
-  }, [isAuthenticated, encryptionKey, appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals]);
+  const handleQuickUpdatePatient = (updatedPatient: Patient) => {
+      setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
+  };
 
-  // --- EARLY RENDER PATHS ---
+  const handleBulkUpdatePatients = (updatedPatients: Patient[]) => {
+      setPatients(prev => prev.map(p => {
+          const updated = updatedPatients.find(up => up.id === p.id);
+          return updated || p;
+      }));
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setBookingDate(undefined); setBookingTime(undefined); setInitialBookingPatientId(id); setEditingAppointment(null); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={(txt, urg, ass) => setTasks(prev => [...prev, { id: Date.now().toString(), text: txt, isCompleted: false, isUrgent: urg, assignedTo: ass || undefined, createdAt: Date.now() }])} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onDeleteTask={(id) => setTasks(prev => prev.filter(t => t.id !== id))} onChangeBranch={setCurrentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} onPatientPortalToggle={() => { if(isPatientPortalActive) { setIsPatientPortalActive(false); setCurrentPatientUser(null); } else { setCurrentPatientUser(patients[0]); setIsPatientPortalActive(true); }}} />;
+      case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
+      case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onBulkUpdatePatients={handleBulkUpdatePatients} onDeletePatient={(id) => { if(window.confirm('Archive patient?')) setPatients(prev => prev.map(p => p.id === id ? { ...p, isArchived: true } : p)); }} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} />;
+      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={currentUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} onUpdateStaff={setStaff} auditLog={auditLog} patients={patients} incidents={incidents} />;
+      default: return null;
+    }
+  };
+
   if (!isAuthenticated) {
       return (
           <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
@@ -535,66 +411,16 @@ function App() {
                       <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-lg font-bold" placeholder="••••••••" /></div>
                       <button type="submit" disabled={isInitializing || !passwordInput} className="w-full py-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xl shadow-teal-600/20 transition-all flex items-center justify-center gap-2">{isInitializing ? 'Verifying...' : 'Unlock System'}</button>
                   </form>
-                  <p className="text-[10px] text-center text-slate-400 mt-6">Security Protocol: PBKDF2 Key Derivation • AES-256 Encryption</p>
               </div>
           </div>
       )
   }
 
-  if (!isTermsAccepted) {
-      return (
-          <div className="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center p-4">
-              <div className="bg-white max-w-lg w-full rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
-                  <div className="flex items-center gap-3 mb-6"><div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl">D</div><h1 className="text-2xl font-bold text-slate-900">Terms of Use Update</h1></div>
-                  <div className="h-64 overflow-y-auto bg-slate-50 p-4 rounded-xl text-sm text-slate-600 border border-slate-200 mb-6 leading-relaxed">
-                      <p className="font-bold text-slate-800 mb-2">Version {TERMS_VERSION}</p>
-                      <p className="font-bold text-slate-800 mb-2">Liability Disclaimer</p>
-                      <p className="mb-4">By using dentsched ("the Software"), you acknowledge that this tool is designed to assist in practice management but does not replace professional judgment.</p>
-                      <p className="font-bold text-slate-800 mb-2">Data Privacy & Security</p>
-                      <p>You agree to handle data in accordance with DPA 2012. You acknowledge that data security depends on your password strength.</p>
-                  </div>
-                  <button onClick={() => { localStorage.setItem('dentsched_terms_version', TERMS_VERSION); setIsTermsAccepted(true); }} className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"><CheckCircle size={20}/> I Accept New Terms & Enter System</button>
-              </div>
-          </div>
-      );
-  }
-
-  if (isSessionLocked) {
-      return (
-          <div className="fixed inset-0 bg-teal-900/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white"><Lock size={64} className="mb-6 opacity-80" /><h2 className="text-3xl font-bold mb-2">Session Locked</h2><p className="opacity-70 mb-8">Your session timed out due to inactivity (15m).</p><button onClick={() => { setIsSessionLocked(false); resetIdleTimer(); }} className="px-8 py-3 bg-white text-teal-900 font-bold rounded-xl hover:scale-105 transition-transform shadow-xl">Resume Session</button></div>
-      );
-  }
-
-  if (isInKioskMode) {
-      return <KioskView patients={patients} appointments={appointments} onCheckIn={(id) => handleUpdateAppointmentStatus(id, AppointmentStatus.ARRIVED)} onUpdatePatient={handleQuickUpdatePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} />;
-  }
-
-  if (isPatientPortalActive && currentPatientUser) {
-      return <PatientPortal patient={currentPatientUser} appointments={appointments.filter(a => a.patientId === currentPatientUser.id)} staff={staff} auditLog={auditLog} onExit={handlePatientPortalToggle} />;
-  }
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={branchAppointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={openNewPatientModal} onPatientSelect={handlePatientSelectFromDashboard} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={handleCompleteRegistration} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onDeleteTask={handleDeleteTask} onChangeBranch={setCurrentBranch} onSaveConsent={handleSaveConsent} onPatientPortalToggle={handlePatientPortalToggle} />;
-      case 'schedule': return <CalendarView appointments={branchAppointments} staff={staff} onAddAppointment={handleOpenBooking} onMoveAppointment={handleMoveAppointment} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
-      case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={openNewPatientModal} onEditPatient={handleEditPatientClick} onQuickUpdatePatient={handleQuickUpdatePatient} onBulkUpdatePatients={handleBulkUpdatePatients} onDeletePatient={handleDeletePatient} onBookAppointment={(id) => handleOpenBooking(undefined, undefined, id)} fieldSettings={fieldSettings} logAction={logAction} onCreateClaim={handleCreateClaim} />;
-      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={currentUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} />;
-      case 'field-mgmt': 
-        if (currentUser.role !== UserRole.ADMIN) { setActiveTab('dashboard'); return null; }
-        return (
-            <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateFieldSettings} staff={staff} onUpdateStaff={handleUpdateStaffList} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} onExportAuditLog={handleExportSecureAuditLog} incidents={incidents} />
-        );
-      default: return null;
-    }
-  };
-
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => handleOpenBooking()} currentUser={currentUser} onSwitchUser={handleSwitchUser} staff={staff} currentBranch={currentBranch} availableBranches={fieldSettings.branches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={handleGenerateReport} tasks={tasks} onToggleTask={handleToggleTask} onEnterKioskMode={() => setIsInKioskMode(true)}>
-      {renderContent()}
-      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} onSavePatient={handleSavePatient} patients={patients} staff={staff} appointments={branchAppointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} />
-      <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => { setIsPatientModalOpen(false); setEditingPatient(null); }} onSave={handleSavePatient} readOnly={currentUser.role === 'Dental Assistant' && currentUser.isReadOnly} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
-      <input id="restore-db-input" type="file" accept=".db" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) { handleDatabaseRestore(e.target.files[0]); } e.target.value = ''; }} />
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={currentUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={fieldSettings.branches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onEnterKioskMode={() => setIsInKioskMode(true)}>
+      {isInKioskMode ? <KioskView patients={patients} appointments={appointments} onCheckIn={(id) => handleUpdateAppointmentStatus(id, AppointmentStatus.ARRIVED)} onUpdatePatient={handleQuickUpdatePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} /> : renderContent()}
+      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} />
+      <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
     </Layout>
   );
 }

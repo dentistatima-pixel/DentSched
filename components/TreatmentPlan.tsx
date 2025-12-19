@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry } from '../types';
-import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X } from 'lucide-react';
+import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus } from '../types';
+import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { formatDate } from '../constants';
 
 interface TreatmentPlanProps {
   patient: Patient;
@@ -23,6 +23,17 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
     const [rejectionModal, setRejectionModal] = useState<{ planId: string, planName: string } | null>(null);
     const [rejectionNotes, setRejectionNotes] = useState('');
     
+    // Ortho Tracking State
+    const [showOrtho, setShowOrtho] = useState(false);
+    const [isAddingOrtho, setIsAddingOrtho] = useState(false);
+    const [orthoForm, setOrthoForm] = useState<Partial<OrthoAdjustment>>({
+        bracketType: 'MBT 0.022',
+        archWireUpper: '',
+        archWireLower: '',
+        elastics: '',
+        notes: ''
+    });
+
     // --- DATA DERIVATION ---
     const allPlans = useMemo(() => patient.treatmentPlans || [], [patient.treatmentPlans]);
     const unassignedPlannedItems = useMemo(() => {
@@ -31,6 +42,26 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
 
     // --- HANDLERS ---
     
+    const handleAddOrthoAdjustment = () => {
+        if (!orthoForm.bracketType) {
+            toast.error("Bracket type is required.");
+            return;
+        }
+        const newAdjustment: OrthoAdjustment = {
+            id: `ortho_${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            dentist: currentUser.name,
+            ...orthoForm
+        } as OrthoAdjustment;
+
+        const updatedHistory = [newAdjustment, ...(patient.orthoHistory || [])];
+        onUpdatePatient({ ...patient, orthoHistory: updatedHistory });
+        logAction('ORTHO_ADJUSTMENT', 'OrthoRecord', patient.id, `Logged ortho adjustment: ${newAdjustment.archWireUpper}/${newAdjustment.archWireLower}`);
+        setIsAddingOrtho(false);
+        setOrthoForm({ bracketType: 'MBT 0.022', archWireUpper: '', archWireLower: '', elastics: '', notes: '' });
+        toast.success("Ortho adjustment logged.");
+    };
+
     // Plan Creation
     const handleCreatePlan = () => {
         if (!newPlanName.trim()) {
@@ -146,7 +177,9 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
         // Update chart item status
         const updatedChart = patient.dentalChart?.map(item => {
             if (item === itemToComplete) {
-                return { ...item, status: 'Completed', date: new Date().toISOString().split('T')[0] };
+                // Fix: Cast explicitly to DentalChartEntry to ensure Literal 'Completed' is accepted as TreatmentStatus
+                const updated: DentalChartEntry = { ...item, status: 'Completed' as TreatmentStatus, date: new Date().toISOString().split('T')[0] };
+                return updated;
             }
             return item;
         });
@@ -169,6 +202,79 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
     return (
         <div className="h-full flex flex-col space-y-6">
             
+            {/* --- ORTHODONTIC TRACKING --- */}
+            <div className="bg-white rounded-2xl border border-teal-200 shadow-sm overflow-hidden">
+                <button 
+                    onClick={() => setShowOrtho(!showOrtho)}
+                    className="w-full p-4 flex justify-between items-center bg-teal-50/50 hover:bg-teal-50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="bg-teal-600 text-white p-2 rounded-xl"><Activity size={18}/></div>
+                        <div>
+                            <h4 className="font-black text-teal-900 uppercase tracking-widest text-sm">Orthodontic Specialty Tracking</h4>
+                            <p className="text-[10px] text-teal-600 font-bold uppercase mt-0.5">Wire Sequences & Elastic Protocols</p>
+                        </div>
+                    </div>
+                    {showOrtho ? <ChevronUp size={20} className="text-teal-400"/> : <ChevronDown size={20} className="text-teal-400"/>}
+                </button>
+
+                {showOrtho && (
+                    <div className="p-6 space-y-6 animate-in slide-in-from-top-2 duration-300">
+                        {isAddingOrtho ? (
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <h5 className="font-bold text-slate-700 text-sm">New Adjustment Record</h5>
+                                    <button onClick={() => setIsAddingOrtho(false)} className="text-slate-400"><X size={16}/></button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Bracket Type</label>
+                                        <select value={orthoForm.bracketType} onChange={e => setOrthoForm({...orthoForm, bracketType: e.target.value})} className="w-full p-2 border rounded-lg text-sm bg-white">
+                                            <option>MBT 0.022</option><option>Roth 0.018</option><option>Damon Q2</option><option>Damon Clear</option><option>Ceramic</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Upper Archwire</label>
+                                        <input type="text" placeholder="e.g. 0.014 Niti" value={orthoForm.archWireUpper} onChange={e => setOrthoForm({...orthoForm, archWireUpper: e.target.value})} className="w-full p-2 border rounded-lg text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Lower Archwire</label>
+                                        <input type="text" placeholder="e.g. 0.012 Niti" value={orthoForm.archWireLower} onChange={e => setOrthoForm({...orthoForm, archWireLower: e.target.value})} className="w-full p-2 border rounded-lg text-sm" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Elastics / Auxiliaries</label>
+                                    <input type="text" placeholder="e.g. 1/8 4.5oz Class II" value={orthoForm.elastics} onChange={e => setOrthoForm({...orthoForm, elastics: e.target.value})} className="w-full p-2 border rounded-lg text-sm" />
+                                </div>
+                                <button onClick={handleAddOrthoAdjustment} className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-teal-600/20">Commit Adjustment</button>
+                            </div>
+                        ) : !readOnly && (
+                            <button onClick={() => setIsAddingOrtho(true)} className="w-full py-3 border-2 border-dashed border-teal-200 rounded-xl text-teal-600 font-bold text-xs uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center justify-center gap-2">
+                                <Plus size={14}/> Log Monthly Adjustment
+                            </button>
+                        )}
+
+                        <div className="space-y-3">
+                            {(patient.orthoHistory || []).length > 0 ? (patient.orthoHistory || []).map(adj => (
+                                <div key={adj.id} className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex items-start gap-4">
+                                    <div className="bg-slate-50 p-2 rounded-lg text-center shrink-0 border border-slate-100">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase">{new Date(adj.date).toLocaleDateString('en-US', { month: 'short' })}</div>
+                                        <div className="text-lg font-black text-slate-800 leading-none">{new Date(adj.date).getDate()}</div>
+                                    </div>
+                                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div><div className="text-[9px] font-bold text-slate-400 uppercase">Brackets</div><div className="text-xs font-bold text-slate-800">{adj.bracketType}</div></div>
+                                        <div><div className="text-[9px] font-bold text-slate-400 uppercase">Upper Wire</div><div className="text-xs font-bold text-teal-700">{adj.archWireUpper || '-'}</div></div>
+                                        <div><div className="text-[9px] font-bold text-slate-400 uppercase">Lower Wire</div><div className="text-xs font-bold text-teal-700">{adj.archWireLower || '-'}</div></div>
+                                        <div><div className="text-[9px] font-bold text-slate-400 uppercase">Elastics</div><div className="text-xs font-bold text-lilac-700">{adj.elastics || '-'}</div></div>
+                                    </div>
+                                    <div className="text-[9px] font-bold text-slate-300 uppercase shrink-0">Dr. {adj.dentist.split(' ')[1]}</div>
+                                </div>
+                            )) : <div className="text-center py-6 text-slate-400 text-xs italic">No orthodontic history on record.</div>}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* --- UNASSIGNED ITEMS --- */}
             {unassignedPlannedItems.length > 0 && (
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

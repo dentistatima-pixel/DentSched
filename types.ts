@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -53,11 +54,67 @@ export enum PhilHealthClaimStatus {
     PAID = 'Paid'
 }
 
+export interface TelehealthRequest {
+    id: string;
+    patientId: string;
+    patientName: string;
+    chiefComplaint: string;
+    dateRequested: string;
+    status: 'Pending' | 'Scheduled' | 'Completed';
+}
+
+export interface WaitlistEntry {
+    id: string;
+    patientName: string;
+    procedure: string;
+    durationMinutes: number;
+    priority: 'High' | 'Normal' | 'Low';
+    notes?: string;
+}
+
+export interface ClinicalIncident {
+    id: string;
+    date: string;
+    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Other';
+    patientId?: string;
+    description: string;
+    actionTaken: string;
+    reportedBy: string;
+}
+
+export interface Referral {
+    id: string;
+    date: string;
+    patientId: string;
+    referredTo: string;
+    reason: string;
+    status: 'Pending' | 'Sent' | 'Completed';
+}
+
+export interface WasteLogEntry {
+    id: string;
+    date: string;
+    type: 'Sharps' | 'Infectious' | 'Chemical' | 'General';
+    quantity: string;
+    disposalMethod: string;
+    operator: string;
+}
+
+export interface AssetMaintenanceEntry {
+    id: string;
+    assetName: string;
+    date: string;
+    type: 'Routine' | 'Repair';
+    description: string;
+    performedBy: string;
+    nextDueDate?: string;
+}
+
 export enum StockCategory {
   CONSUMABLES = 'Consumables',
   INSTRUMENTS = 'Instruments',
   RESTORATIVE = 'Restorative',
-  PROSTHODONTIC = 'Prosthodontic',
+  PROSTHODONTIC = 'ProsthodONTIC',
   OFFICE = 'Office Supplies'
 }
 
@@ -87,6 +144,22 @@ export interface PhilHealthClaim {
     dateSubmitted?: string;
     dateReceived?: string;
     trackingNumber?: string;
+}
+
+export interface PurchaseOrderItem {
+  itemId: string;
+  name: string;
+  quantity: number;
+  unitPrice?: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  date: string;
+  supplier: string;
+  items: PurchaseOrderItem[];
+  status: 'Draft' | 'Sent' | 'Received' | 'Cancelled';
+  totalAmount?: number;
 }
 
 export interface OfficialReceiptBooklet {
@@ -127,25 +200,24 @@ export interface SterilizationCycle {
     passed: boolean;
 }
 
-export interface WasteLogEntry {
-    id: string;
-    date: string;
-    type: 'Sharps' | 'Bio-hazard (Yellow)' | 'Amalgam' | 'General Medical';
-    manifestNumber: string;
-    transporterName: string;
-    weightKg: number;
-    collectedBy: string;
+export interface LeaveRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  type: 'Sick' | 'Vacation' | 'Conference' | 'Emergency';
+  startDate: string;
+  endDate: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  reason?: string;
 }
 
-export interface AssetMaintenanceEntry {
-    id: string;
-    assetName: string;
-    serialNumber: string;
-    date: string;
-    type: 'Preventive' | 'Repair' | 'Calibration';
-    technician: string;
-    notes: string;
-    nextDueDate?: string;
+export interface StaffShift {
+  id: string;
+  staffId: string;
+  date: string;
+  branch: string;
+  isOnCall: boolean;
+  notes?: string;
 }
 
 export interface Expense {
@@ -163,31 +235,21 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue';
   entityId: string;
   details: string;
 }
 
-export interface ClinicalIncident {
+export interface OrthoAdjustment {
     id: string;
-    patientId: string;
     date: string;
-    severity: 'Minor' | 'Moderate' | 'Major';
-    category: 'Anesthetic Reaction' | 'Instrument Breakage' | 'Unexpected Bleeding' | 'Post-op Infection' | 'Other';
-    description: string;
-    managementTaken: string;
-    reportedBy: string;
-}
-
-export interface Referral {
-    id: string;
-    patientId: string;
-    date: string;
-    referredTo: string;
-    reason: string;
-    status: 'Pending' | 'Completed' | 'Declined';
+    bracketType: string;
+    archWireUpper?: string;
+    archWireLower?: string;
+    elastics?: string;
     notes?: string;
+    dentist: string;
 }
 
 export interface ProcedureItem {
@@ -209,6 +271,7 @@ export interface RolePermissions {
     canDeletePatients: boolean;
     canOverrideProtocols: boolean;
     canOverrideMandatoryMedical: boolean;
+    canOverrideClinicalSafety?: boolean;
     canManageInventory: boolean;
 }
 
@@ -235,15 +298,22 @@ export interface FeatureToggles {
   enableAccountabilityLog: boolean;
   enableReferralTracking: boolean;
   enablePromotions: boolean;
+  enableSmsAutomation: boolean;
 }
 
-export interface SmsTemplates {
-  bookingConfirmation: string;
-  confirmationRequest: string;
-  reminder24h: string;
-  postOpCheckup: string;
-  registrationWelcome: string;
+// Expanded SMS Configuration
+export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency';
+
+export interface SmsTemplateConfig {
+  id: string;
+  label: string;
+  text: string;
+  enabled: boolean;
+  category: SmsCategory;
+  triggerDescription: string;
 }
+
+export type SmsTemplates = Record<string, SmsTemplateConfig>;
 
 export interface ClinicalProtocolRule {
     id: string;
@@ -264,12 +334,6 @@ export interface Medication {
 }
 
 export interface ConsentFormTemplate {
-    id: string;
-    name: string;
-    content: string;
-}
-
-export interface ClinicalNoteTemplate {
     id: string;
     name: string;
     content: string;
@@ -311,10 +375,12 @@ export interface FieldSettings {
   clinicalProtocolRules?: ClinicalProtocolRule[];
   medications?: Medication[];
   consentFormTemplates?: ConsentFormTemplate[];
-  clinicalNoteTemplates?: ClinicalNoteTemplate[];
   postOpTemplates?: Record<string, string>;
-  mediaConsentTemplate?: ConsentFormTemplate;
   vendors?: Vendor[]; 
+  leaveRequests?: LeaveRequest[];
+  shifts?: StaffShift[];
+  mediaConsentTemplate?: ConsentFormTemplate;
+  clinicalNoteTemplates?: ConsentFormTemplate[];
 }
 
 export enum TreatmentPlanStatus {
@@ -373,12 +439,6 @@ export interface DentalChartEntry {
       by: string;
       at: string;
       reason: string;
-  };
-  amendmentInfo?: {
-      amends: string;
-      by: string;
-      at: string;
-      previousNote: string; 
   };
 }
 
@@ -480,10 +540,6 @@ export interface Patient {
   homeAddress?: string;
   occupation?: string;
   responsibleParty?: string;
-  fatherName?: string;
-  fatherOccupation?: string;
-  motherName?: string;
-  motherOccupation?: string;
   dob: string;
   age?: number;
   guardian?: string;
@@ -511,12 +567,10 @@ export interface Patient {
   medicalTreatmentDetails?: string;
   seriousIllness?: boolean;
   seriousIllnessDetails?: string;
-  lastHospitalization?: string; 
   lastHospitalizationDetails?: string;
   takingMedications?: boolean;
   medicationDetails?: string;
   
-  // Clinical Safety Extensions
   takingBloodThinners?: boolean;
   takingBisphosphonates?: boolean;
   heartValveIssues?: boolean;
@@ -527,8 +581,6 @@ export interface Patient {
   
   tobaccoUse?: boolean;
   alcoholDrugsUse?: boolean;
-  medicalHistoryReviewedBy?: string;
-  medicalHistoryReviewedDate?: string;
   pregnant?: boolean;
   nursing?: boolean;
   birthControl?: boolean;
@@ -544,6 +596,13 @@ export interface Patient {
   treatmentPlans?: TreatmentPlan[];
   dpaConsent?: boolean;
   marketingConsent?: boolean;
+  orthoHistory?: OrthoAdjustment[];
+  hmoBenefitCap?: number;
+  hmoBenefitUsed?: number;
+  fatherName?: string;
+  fatherOccupation?: string;
+  motherName?: string;
+  motherOccupation?: string;
 }
 
 export interface Appointment {
@@ -585,22 +644,4 @@ export interface PinboardTask {
     isUrgent: boolean;
     assignedTo?: string;
     createdAt: number;
-}
-
-export interface WaitlistEntry {
-    id: string;
-    patientName: string;
-    procedure: string;
-    durationMinutes: number;
-    priority: 'High' | 'Normal' | 'Low';
-    notes?: string;
-}
-
-export interface TelehealthRequest {
-    id: string;
-    patientId: string;
-    patientName: string;
-    chiefComplaint: string;
-    dateRequested: string;
-    status: 'Pending' | 'Scheduled' | 'Completed';
 }
