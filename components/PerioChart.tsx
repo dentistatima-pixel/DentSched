@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PerioMeasurement } from '../types';
-import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History } from 'lucide-react';
+import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward } from 'lucide-react';
+import { useToast } from './ToastSystem';
 
 interface PerioChartProps {
     data: PerioMeasurement[];
@@ -10,19 +11,22 @@ interface PerioChartProps {
 
 const TEETH_UPPER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const TEETH_LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+const ALL_TEETH = [...TEETH_UPPER, ...TEETH_LOWER];
 
 interface PerioRowProps {
     tooth: number;
     measurement?: PerioMeasurement;
     previousMeasurement?: PerioMeasurement;
+    focusedSite: { tooth: number, index: number } | null;
     onValueChange: (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => void;
     onMobilityChange: (tooth: number, value: string) => void;
     onBleedingToggle: (tooth: number, index: number) => void;
+    onFocusSite: (tooth: number, index: number) => void;
     readOnly?: boolean;
     compareMode?: boolean;
 }
 
-const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, onValueChange, onBleedingToggle, onMobilityChange, readOnly, compareMode }) => {
+const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, focusedSite, onValueChange, onBleedingToggle, onMobilityChange, onFocusSite, readOnly, compareMode }) => {
     const m = measurement;
     if (!m) return null;
 
@@ -38,6 +42,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
 
             <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
                 {[0, 1, 2].map(i => {
+                    const isFocused = focusedSite?.tooth === tooth && focusedSite?.index === i;
                     const diff = previousMeasurement && compareMode ? (m.pocketDepths[i] || 0) - (previousMeasurement.pocketDepths[i] || 0) : 0;
                     return (
                         <div key={`F-${i}`} className="flex flex-col items-center gap-1">
@@ -46,9 +51,11 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                     type="text" 
                                     maxLength={2}
                                     value={m.pocketDepths[i] ?? ''}
+                                    onFocus={() => onFocusSite(tooth, i)}
                                     onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                    className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
-                                        ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
+                                    className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold transition-all
+                                        ${isFocused ? 'scale-110 border-teal-500 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
+                                        ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700'}
                                     `}
                                     placeholder="-"
                                     disabled={readOnly}
@@ -87,6 +94,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
 
             <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
                 {[3, 4, 5].map(i => {
+                    const isFocused = focusedSite?.tooth === tooth && focusedSite?.index === i;
                     const diff = previousMeasurement && compareMode ? (m.pocketDepths[i] || 0) - (previousMeasurement.pocketDepths[i] || 0) : 0;
                     return (
                         <div key={`L-${i}`} className="flex flex-col items-center gap-1">
@@ -101,9 +109,11 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                 type="text" 
                                 maxLength={2}
                                 value={m.pocketDepths[i] ?? ''}
+                                onFocus={() => onFocusSite(tooth, i)}
                                 onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-1 focus:ring-teal-500 font-bold
-                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700 border-slate-200'}
+                                className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold transition-all
+                                    ${isFocused ? 'scale-110 border-teal-500 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
+                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700'}
                                 `}
                                 placeholder="-"
                                 disabled={readOnly}
@@ -123,8 +133,13 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
 });
 
 const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
+    const toast = useToast();
     const [measurements, setMeasurements] = useState<Record<number, PerioMeasurement>>({});
     const [compareMode, setCompareMode] = useState(false);
+    const [isVoiceActive, setIsVoiceActive] = useState(false);
+    const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
+    
+    const recognitionRef = useRef<any>(null);
 
     const historicalDates = useMemo(() => {
         const dates = Array.from(new Set(data.map(m => m.date))).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime());
@@ -136,7 +151,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
 
     useEffect(() => {
         const map: Record<number, PerioMeasurement> = {};
-        [...TEETH_UPPER, ...TEETH_LOWER].forEach(t => {
+        ALL_TEETH.forEach(t => {
             const current = data.filter(d => d.toothNumber === t).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
             if (current) {
                 map[t] = { ...current };
@@ -151,10 +166,42 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
             }
         });
         setMeasurements(map);
-    }, [data]);
+        // Default focus
+        if (!readOnly) setFocusedSite({ tooth: 18, index: 0 });
+    }, [data, readOnly]);
+
+    const advanceFocus = (current: { tooth: number, index: number }) => {
+        let { tooth, index } = current;
+        if (index < 5) {
+            setFocusedSite({ tooth, index: index + 1 });
+        } else {
+            const currentIdx = ALL_TEETH.indexOf(tooth);
+            if (currentIdx < ALL_TEETH.length - 1) {
+                setFocusedSite({ tooth: ALL_TEETH[currentIdx + 1], index: 0 });
+            } else {
+                setFocusedSite(null);
+                toast.info("Perio chart complete.");
+            }
+        }
+    };
 
     const handleValueChange = (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => {
         if (readOnly) return;
+        
+        // Auto-advance logic: if single digit 0-9 is entered
+        if (value.length === 1 && /^\d$/.test(value)) {
+            const numVal = parseInt(value);
+            setMeasurements(prev => {
+                const toothData = { ...prev[tooth] };
+                const newValues = [...toothData[field]];
+                newValues[index] = numVal;
+                toothData[field] = newValues;
+                return { ...prev, [tooth]: toothData };
+            });
+            advanceFocus({ tooth, index });
+            return;
+        }
+
         const numVal = value === '' ? null : parseInt(value);
         if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
 
@@ -187,9 +234,61 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         });
     };
 
+    const handleVoiceCommand = (command: string) => {
+        if (!focusedSite) return;
+        const clean = command.toLowerCase().trim();
+        
+        if (clean.includes('bleeding') || clean.includes('blood')) {
+            toggleBleeding(focusedSite.tooth, focusedSite.index);
+            toast.info(`Logged bleeding at #${focusedSite.tooth} site ${focusedSite.index + 1}`);
+            return;
+        }
+
+        const number = parseInt(clean.match(/\d+/)?.[0] || '');
+        if (!isNaN(number) && number >= 0 && number <= 15) {
+            handleValueChange(focusedSite.tooth, 'pocketDepths', focusedSite.index, number.toString());
+        }
+    };
+
+    const toggleVoice = () => {
+        if (isVoiceActive) {
+            recognitionRef.current?.stop();
+            setIsVoiceActive(false);
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            toast.error("Speech API not supported.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            setIsVoiceActive(true);
+            toast.success("Voice recording active. Speak depths (e.g. '3') or 'bleeding'.");
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[event.results.length - 1][0].transcript;
+            handleVoiceCommand(transcript);
+        };
+
+        recognition.onerror = () => setIsVoiceActive(false);
+        recognition.onend = () => setIsVoiceActive(false);
+
+        recognitionRef.current = recognition;
+        recognition.start();
+    };
+
     const saveAll = () => {
         const arrayData = Object.values(measurements);
         onSave(arrayData);
+        toast.success("Perio exam saved.");
     };
 
     return (
@@ -203,6 +302,17 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {!readOnly && (
+                        <button 
+                            onClick={toggleVoice}
+                            className={`px-3 py-1.5 rounded-xl font-bold text-xs border transition-all flex items-center gap-2
+                                ${isVoiceActive ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-white text-slate-500 border-slate-200 hover:border-teal-300'}
+                            `}
+                        >
+                            {isVoiceActive ? <MicOff size={16}/> : <Mic size={16}/>}
+                            {isVoiceActive ? 'Stop Voice' : 'Voice Entry'}
+                        </button>
+                    )}
                     {previousDate && (
                         <button 
                             onClick={() => setCompareMode(!compareMode)}
@@ -224,7 +334,24 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-x-auto overflow-y-auto p-4 space-y-8 no-scrollbar">
+            <div className="flex-1 overflow-x-auto overflow-y-auto p-4 space-y-8 no-scrollbar scroll-smooth">
+                {!readOnly && (
+                    <div className="bg-teal-50 border border-teal-100 p-3 rounded-2xl flex items-center justify-between mb-4 shadow-sm animate-in slide-in-from-top-1">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-teal-500 text-white p-2 rounded-xl"><FastForward size={18}/></div>
+                            <div>
+                                <div className="text-sm font-bold text-teal-900">Auto-Advance Active</div>
+                                <div className="text-xs text-teal-600">Enter a single digit to automatically jump to the next site.</div>
+                            </div>
+                        </div>
+                        {focusedSite && (
+                            <div className="bg-white border border-teal-200 px-4 py-2 rounded-xl font-mono font-bold text-teal-700 shadow-sm">
+                                TOOTH: #{focusedSite.tooth} | SITE: {focusedSite.index + 1}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {compareMode && previousDate && (
                     <div className="bg-white p-4 rounded-xl border border-lilac-100 shadow-sm animate-in slide-in-from-top-2 duration-500">
                         <div className="flex items-center gap-2 text-lilac-700 font-bold text-xs uppercase mb-3"><History size={14}/> Progress Summary</div>
@@ -252,9 +379,11 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                             <PerioRow 
                                 key={t} 
                                 tooth={t} 
+                                focusedSite={focusedSite}
                                 measurement={measurements[t]} 
                                 previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
                                 onValueChange={handleValueChange}
+                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
                                 onMobilityChange={handleMobilityChange}
                                 onBleedingToggle={toggleBleeding}
                                 readOnly={readOnly}
@@ -273,9 +402,11 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                             <PerioRow 
                                 key={t} 
                                 tooth={t} 
+                                focusedSite={focusedSite}
                                 measurement={measurements[t]} 
                                 previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
                                 onValueChange={handleValueChange}
+                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
                                 onMobilityChange={handleMobilityChange}
                                 onBleedingToggle={toggleBleeding}
                                 readOnly={readOnly}

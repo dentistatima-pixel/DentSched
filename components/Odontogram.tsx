@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -58,6 +58,7 @@ const GeometricTooth: React.FC<{
         }, 500);
     };
 
+    // Fix: In functional components, 'this' is undefined. Reference timerRef directly to clear the timer.
     const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
         if (readOnly) return;
         if (timerRef.current) {
@@ -74,8 +75,8 @@ const GeometricTooth: React.FC<{
     };
 
     const colorMap: Record<string, string> = {
-        'Planned': '#d946ef', // LILAC
-        'Completed': '#14b8a6', // TEAL
+        'Planned': '#d946ef', 
+        'Completed': '#14b8a6', 
         'Existing': '#3b82f6',
         'Condition': '#f59e0b',
         'None': '#f8fafc'
@@ -153,7 +154,7 @@ const GeometricTooth: React.FC<{
     return (
         <div 
             className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
-            style={{ width: isZoomed ? '240px' : isDeciduous ? '48px' : '64px', height: isZoomed ? '300px' : isDeciduous ? '60px' : '80px', minWidth: isZoomed ? '240px' : isDeciduous ? '48px' : '64px' }} 
+            style={{ width: isZoomed ? '240px' : isDeciduous ? '48px' : '64px', height: isZoomed ? '300px' : isDeciduous ? '60px' : '80px', minWidth: isZoomed ? '48px' : '48px' }} 
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
             <span className={`font-bold font-mono absolute ${isUpper ? '-top-1' : '-bottom-1'} transition-colors ${isSelected ? 'text-teal-600 bg-teal-50 px-1 rounded' : 'text-slate-500'} ${isZoomed ? 'text-xl' : 'text-[11px]'}`}>
@@ -198,6 +199,8 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null); 
   const [showBaseline, setShowBaseline] = useState(false); 
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
+  const [isPatientPerspective, setIsPatientPerspective] = useState(false);
+  const [activeQuadrant, setActiveQuadrant] = useState<number | null>(null);
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];
 
@@ -240,9 +243,40 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
 
   const handleLongPress = (tooth: number) => { setZoomedTooth(tooth); setSelectedTooth(null); };
 
+  // Fix: Explicitly defining Props interface and using React.FC to resolve TypeScript 
+  // errors about missing 'children' property when used as a JSX component.
+  interface QuadrantWrapperProps {
+      children: React.ReactNode;
+      quadrant: number;
+  }
+
+  const QuadrantWrapper: React.FC<QuadrantWrapperProps> = ({ children, quadrant }) => {
+      const isSelected = activeQuadrant === quadrant;
+      return (
+          <div 
+            onClick={() => !activeQuadrant && setActiveQuadrant(quadrant)}
+            className={`
+                relative p-4 transition-all rounded-3xl
+                ${!activeQuadrant ? 'hover:bg-slate-100/50 cursor-zoom-in border-2 border-transparent hover:border-teal-200' : ''}
+                ${isSelected ? 'scale-125 z-40 bg-white shadow-2xl ring-4 ring-teal-500/20' : activeQuadrant ? 'opacity-20 scale-90 blur-[2px]' : ''}
+            `}
+          >
+              {isSelected && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setActiveQuadrant(null); }}
+                    className="absolute -top-4 -right-4 bg-red-500 text-white p-2 rounded-full shadow-lg z-50 hover:bg-red-600 transition-colors"
+                  >
+                      <Minimize2 size={20}/>
+                  </button>
+              )}
+              {children}
+          </div>
+      );
+  };
+
   return (
     <div className="flex flex-col gap-4 relative">
-        <div className="flex justify-between items-center bg-slate-100 p-2 rounded-xl">
+        <div className="flex flex-wrap justify-between items-center bg-slate-100 p-2 rounded-xl gap-2">
              {!readOnly && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar">
                     {TOOLS.map(tool => (
@@ -254,11 +288,20 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 </div>
              )}
              
-             <div className="flex gap-2 ml-auto">
+             <div className="flex gap-2 ml-auto items-center">
+                 <button 
+                    onClick={() => setIsPatientPerspective(!isPatientPerspective)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isPatientPerspective ? 'bg-teal-100 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                    title="Toggle Orientation"
+                 >
+                     <FlipHorizontal size={14}/> {isPatientPerspective ? 'PATIENT VIEW' : 'DENTIST VIEW'}
+                 </button>
+
                  <div className="bg-white rounded-lg p-1 border flex">
                     <button onClick={() => setDentitionMode('Permanent')} className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${dentitionMode === 'Permanent' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}>PERMANENT</button>
                     <button onClick={() => setDentitionMode('Mixed')} className={`px-2 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${dentitionMode === 'Mixed' ? 'bg-lilac-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}><Baby size={10}/> MIXED</button>
                  </div>
+                 
                  <button 
                     onClick={() => setShowBaseline(!showBaseline)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${showBaseline ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
@@ -268,54 +311,82 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
              </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 overflow-x-auto shadow-inner bg-slate-50/50 relative min-h-[400px] flex flex-col justify-center">
-            <div className="min-w-[850px] flex flex-col gap-6 items-center py-4">
-                
-                {/* Upper Arch */}
-                <div className="flex flex-col items-center w-full">
-                    <div className="flex gap-8 pb-4 border-b-2 border-slate-200 w-full justify-center">
-                        <div className="flex flex-col items-center">
-                             <div className="flex gap-1 mb-2">{q1.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full">{dq5.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
-                        </div>
-                        <div className="w-0.5 bg-slate-300 h-28 self-end mb-2"></div>
-                        <div className="flex flex-col items-center">
-                             <div className="flex gap-1 mb-2">{q2.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full">{dq6.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
-                        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 overflow-hidden shadow-inner bg-slate-50/50 relative min-h-[400px] flex flex-col justify-center">
+            {activeQuadrant && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 animate-in fade-in duration-300" onClick={() => setActiveQuadrant(null)} />
+            )}
+
+            <div className={`
+                flex flex-col gap-0 items-center py-4 transition-transform duration-500
+                ${isPatientPerspective ? 'scale-x-[-1]' : ''}
+            `}>
+                <div className="flex flex-col items-center">
+                    <div className="flex border-b-2 border-slate-200 w-full justify-center">
+                        <QuadrantWrapper quadrant={1}>
+                            <div className="flex flex-col items-center">
+                                <div className="flex gap-1 mb-2">{q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full">{dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                            </div>
+                        </QuadrantWrapper>
+                        <div className="w-0.5 bg-slate-300 h-32 self-end mb-4"></div>
+                        <QuadrantWrapper quadrant={2}>
+                            <div className="flex flex-col items-center">
+                                <div className="flex gap-1 mb-2">{q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full">{dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                            </div>
+                        </QuadrantWrapper>
                     </div>
                 </div>
 
-                {/* Lower Arch */}
-                <div className="flex flex-col items-center w-full">
-                    <div className="flex gap-8 pt-2 border-t-2 border-slate-200 w-full justify-center">
-                        <div className="flex flex-col items-center">
-                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full mb-2">{dq8.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
-                             <div className="flex gap-1">{q4.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                        </div>
-                        <div className="w-0.5 bg-slate-300 h-28 self-start mt-2"></div>
-                        <div className="flex flex-col items-center">
-                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full mb-2">{dq7.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
-                             <div className="flex gap-1">{q3.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                        </div>
+                <div className="flex flex-col items-center">
+                    <div className="flex pt-0 border-t-2 border-slate-200 w-full justify-center">
+                        <QuadrantWrapper quadrant={4}>
+                            <div className="flex flex-col items-center">
+                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full mb-2">{dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                                <div className="flex gap-1">{q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                            </div>
+                        </QuadrantWrapper>
+                        <div className="w-0.5 bg-slate-300 h-32 self-start mt-4"></div>
+                        <QuadrantWrapper quadrant={3}>
+                            <div className="flex flex-col items-center">
+                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full mb-2">{dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                                <div className="flex gap-1">{q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                            </div>
+                        </QuadrantWrapper>
                     </div>
                 </div>
             </div>
 
             {selectedTooth && (
-                <div className="tooth-popover absolute z-30 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                    <div className="bg-teal-900 text-white px-4 py-3 flex justify-between items-center"><h4 className="font-bold">Tooth #{selectedTooth}</h4><button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-1 rounded-full"><X size={14}/></button></div>
-                    <div className="max-h-48 overflow-y-auto p-1">
+                <div className={`tooth-popover absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}>
+                    <div className="bg-teal-900 text-white px-4 py-3 flex justify-between items-center">
+                        <h4 className="font-bold flex items-center gap-2">Tooth #{selectedTooth}</h4>
+                        <button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-1 rounded-full"><X size={14}/></button>
+                    </div>
+                    <div className={`max-h-48 overflow-y-auto p-1 ${isPatientPerspective ? 'text-right' : 'text-left'}`}>
                         {getToothData(selectedTooth).length > 0 ? getToothData(selectedTooth).slice(0, 3).map((entry, i) => (
                             <div key={i} className="p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex justify-between items-start group">
-                                <div><div className="text-xs font-bold text-slate-800">{entry.procedure}</div><div className="flex items-center gap-2 mt-1"><span className={`w-2 h-2 rounded-full ${entry.status === 'Completed' ? 'bg-teal-500' : entry.status === 'Planned' ? 'bg-lilac-500' : 'bg-blue-500'}`} /><span className="text-[10px] text-slate-500 uppercase font-bold">{entry.status}</span></div></div>
+                                <div className={isPatientPerspective ? 'flex-1' : ''}>
+                                    <div className="text-xs font-bold text-slate-800">{entry.procedure}</div>
+                                    <div className={`flex items-center gap-2 mt-1 ${isPatientPerspective ? 'justify-end' : ''}`}>
+                                        <span className={`w-2 h-2 rounded-full ${entry.status === 'Completed' ? 'bg-teal-500' : entry.status === 'Planned' ? 'bg-lilac-500' : 'bg-blue-500'}`} />
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold">{entry.status}</span>
+                                    </div>
+                                </div>
                             </div>
                         )) : <div className="p-4 text-center text-xs text-slate-400 italic">No records found.</div>}
                     </div>
-                    <div className="bg-slate-50 p-2 border-t border-slate-100"><button onClick={() => onToothClick(selectedTooth)} className="w-full py-2 text-xs font-bold text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg flex items-center justify-center gap-2 transition-colors"><FileText size={14} /> Full History</button></div>
+                    <div className="bg-slate-50 p-2 border-t border-slate-100">
+                        <button onClick={() => onToothClick(selectedTooth)} className="w-full py-2 text-xs font-bold text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg flex items-center justify-center gap-2 transition-colors"><FileText size={14} /> Full History</button>
+                    </div>
                 </div>
             )}
         </div>
+        {!activeQuadrant && !readOnly && (
+            <div className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">
+                Tap a quadrant to zoom in for precise surfaces
+            </div>
+        )}
     </div>
   );
 };

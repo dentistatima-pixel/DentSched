@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule } from '../types';
 import Fuse from 'fuse.js';
 import Odontogram from './Odontogram';
@@ -58,8 +58,12 @@ const generatePatientPDF = (patient: Patient, currentUser: User, logAction: any)
 };
 
 const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
-    const [compareMode, setCompareMode] = useState(false);
+    const [compareMode, setCompareMode] = useState<'side-by-side' | 'overlay' | null>(null);
     const [selection, setSelection] = useState<string[]>([]);
+    const [brightness, setBrightness] = useState(100);
+    const [contrast, setContrast] = useState(100);
+    const [overlayPos, setOverlayPos] = useState(50);
+    
     const xrays = files.filter(f => f.category === 'X-Ray');
 
     const toggleSelect = (id: string) => {
@@ -70,34 +74,98 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
         }
     };
 
+    const imageStyle = {
+        filter: `brightness(${brightness}%) contrast(${contrast}%)`
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
                 <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider"><FileImage className="text-teal-600"/> Radiology & Imaging Gallery</h4>
-                <button 
-                    onClick={() => { setCompareMode(!compareMode); setSelection([]); }}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border shadow-sm
-                        ${compareMode ? 'bg-lilac-600 text-white border-lilac-400' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}
-                    `}
-                >
-                    <ArrowRightLeft size={16}/> {compareMode ? 'Exit Comparison' : 'Compare Side-by-Side'}
-                </button>
+                
+                <div className="flex items-center gap-6">
+                    {/* Visual Filters */}
+                    <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <Sun size={14} className="text-amber-500" />
+                            <input type="range" min="50" max="200" value={brightness} onChange={e => setBrightness(parseInt(e.target.value))} className="w-20 accent-teal-600" />
+                        </div>
+                        <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+                            <Contrast size={14} className="text-blue-500" />
+                            <input type="range" min="50" max="200" value={contrast} onChange={e => setContrast(parseInt(e.target.value))} className="w-20 accent-teal-600" />
+                        </div>
+                        <button onClick={() => { setBrightness(100); setContrast(100); }} className="text-[10px] font-bold text-slate-400 hover:text-teal-600 uppercase ml-2">Reset</button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => { setCompareMode(compareMode === 'side-by-side' ? null : 'side-by-side'); setSelection([]); }}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border shadow-sm
+                                ${compareMode === 'side-by-side' ? 'bg-teal-600 text-white border-teal-400' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}
+                            `}
+                        >
+                            <Grid size={16}/> Side-by-Side
+                        </button>
+                        <button 
+                            onClick={() => { setCompareMode(compareMode === 'overlay' ? null : 'overlay'); setSelection([]); }}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border shadow-sm
+                                ${compareMode === 'overlay' ? 'bg-lilac-600 text-white border-lilac-400' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}
+                            `}
+                        >
+                            <ArrowRightLeft size={16}/> Swipe Reveal
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {compareMode && selection.length > 0 && (
-                <div className="grid grid-cols-2 gap-4 h-[400px] animate-in slide-in-from-top-4 duration-500">
-                    {selection.map(id => (
-                        <div key={id} className="bg-black rounded-3xl overflow-hidden relative border-4 border-lilac-400 shadow-2xl">
-                            <img src={xrays.find(x => x.id === id)?.url} className="w-full h-full object-contain" />
-                            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-white/20">
-                                {xrays.find(x => x.id === id)?.title}
+            {/* COMPARISON VIEWPORTS */}
+            {compareMode && (
+                <div className="bg-slate-900 p-4 rounded-3xl animate-in slide-in-from-top-4 duration-500">
+                    {selection.length === 2 ? (
+                        compareMode === 'side-by-side' ? (
+                            <div className="grid grid-cols-2 gap-4 h-[500px]">
+                                {selection.map(id => (
+                                    <div key={id} className="rounded-2xl overflow-hidden relative border-2 border-white/20 bg-black flex items-center justify-center">
+                                        <img src={xrays.find(x => x.id === id)?.url} className="max-w-full max-h-full object-contain" style={imageStyle} />
+                                        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-white/20">
+                                            {xrays.find(x => x.id === id)?.title}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
-                    ))}
-                    {selection.length < 2 && (
-                        <div className="border-4 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center text-slate-400 text-sm font-bold bg-slate-50/50">
-                            <Plus size={32} className="mb-2 opacity-30"/>
-                            Select 2nd Image to Monitor Progression
+                        ) : (
+                            <div className="relative h-[500px] w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border-2 border-white/20 bg-black">
+                                {/* Before Image (Bottom) */}
+                                <img src={xrays.find(x => x.id === selection[0])?.url} className="absolute inset-0 w-full h-full object-contain" style={imageStyle} />
+                                {/* After Image (Top with Clip) */}
+                                <div 
+                                    className="absolute inset-0 w-full h-full"
+                                    style={{ clipPath: `inset(0 ${100 - overlayPos}% 0 0)` }}
+                                >
+                                    <img src={xrays.find(x => x.id === selection[1])?.url} className="w-full h-full object-contain" style={imageStyle} />
+                                </div>
+                                {/* Slider Handle */}
+                                <div className="absolute inset-0 z-20 pointer-events-none">
+                                    <div className="absolute top-0 bottom-0 w-1 bg-white shadow-xl" style={{ left: `${overlayPos}%` }}>
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-2xl pointer-events-auto cursor-ew-resize border-4 border-lilac-500">
+                                            <ArrowRightLeft size={20} className="text-lilac-600" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    className="absolute inset-0 w-full h-full opacity-0 z-30 cursor-ew-resize"
+                                    value={overlayPos}
+                                    onChange={e => setOverlayPos(parseInt(e.target.value))}
+                                />
+                                <div className="absolute top-4 left-4 bg-black/60 text-white px-2 py-1 rounded text-[8px] uppercase font-bold tracking-widest border border-white/20">BEFORE: {xrays.find(x => x.id === selection[0])?.title}</div>
+                                <div className="absolute top-4 right-4 bg-teal-600/80 text-white px-2 py-1 rounded text-[8px] uppercase font-bold tracking-widest border border-teal-400/20 text-right">AFTER: {xrays.find(x => x.id === selection[1])?.title}</div>
+                            </div>
+                        )
+                    ) : (
+                        <div className="h-[400px] border-4 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center text-slate-500 text-sm font-bold">
+                            <FileUp size={48} className="mb-4 opacity-20 text-white"/>
+                            Select {2 - selection.length} more {selection.length === 0 ? 'images' : 'image'} to begin comparison
                         </div>
                     )}
                 </div>
@@ -112,14 +180,14 @@ const ImagingGallery = ({ files }: { files: PatientFile[] }) => {
                             ${selection.includes(file.id) ? 'border-lilac-500 ring-4 ring-lilac-500/20 scale-[0.98]' : 'border-slate-100 hover:border-teal-300 hover:shadow-lg'}
                         `}
                     >
-                        <img src={file.url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                        <img src={file.url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" style={imageStyle} />
                         <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm p-3 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                             <p className="text-[10px] font-bold truncate uppercase">{file.title}</p>
                             <p className="text-[8px] opacity-70 font-mono">{formatDate(file.uploadedAt)}</p>
                         </div>
                         {compareMode && (
-                             <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selection.includes(file.id) ? 'bg-lilac-50 border-lilac-500 text-white' : 'bg-white/80 backdrop-blur-sm border-white'}`}>
-                                {selection.includes(file.id) && <CheckCircle size={14} strokeWidth={3} />}
+                             <div className={`absolute top-2 right-2 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${selection.includes(file.id) ? 'bg-lilac-500 border-white text-white shadow-lg' : 'bg-white/80 backdrop-blur-sm border-white text-slate-400'}`}>
+                                {selection.includes(file.id) ? <CheckCircle size={16} strokeWidth={3} /> : <div className="text-[10px] font-bold">{selection.length + 1}</div>}
                              </div>
                         )}
                     </div>
@@ -311,7 +379,7 @@ const PatientList: React.FC<PatientListProps> = ({
                 
                 {activeTab === 'chart' && (
                      <div className="space-y-6">
-                         <div className="flex items-center justify-between">
+                         <div className="flex flex-wrap items-center justify-between gap-4">
                             <div><h4 className="font-bold text-slate-800">Clinical Record</h4><p className="text-xs text-slate-400 uppercase tracking-widest mt-1">FDI Notation</p></div>
                             <div className="flex gap-2">
                                 {(currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.ADMIN) && (
