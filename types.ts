@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -201,7 +200,7 @@ export interface ProcedureItem {
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
-  riskAllergies?: string[]; // NEW: For CDS Drug-Allergy Interaction
+  riskAllergies?: string[]; 
 }
 
 export interface RolePermissions {
@@ -378,11 +377,13 @@ export interface DentalChartEntry {
       amends: string;
       by: string;
       at: string;
-      previousNote: string; // NEW: Strikethrough transparency
+      previousNote: string; 
   };
 }
 
 export interface PerioMeasurement {
+  id?: string;
+  date?: string;
   toothNumber: number;
   pocketDepths: (number | null)[]; 
   recession: (number | null)[];    
@@ -451,7 +452,7 @@ export interface User {
   isReadOnly?: boolean; 
   preferences?: UserPreferences;
   roster?: Record<string, string>;
-  immunizations?: ImmunizationRecord[]; // NEW: DOH Compliance
+  immunizations?: ImmunizationRecord[]; 
 }
 
 export interface PatientFile {
@@ -463,6 +464,7 @@ export interface PatientFile {
     url: string;
     uploadedBy: string;
     uploadedAt: string;
+    exposureDate?: string;
 }
 
 export interface Patient {

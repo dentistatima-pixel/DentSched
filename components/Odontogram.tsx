@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -23,8 +22,8 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
     { id: 'cursor', label: 'Select', icon: MousePointer2, procedure: '', status: 'Existing', color: 'text-slate-600' },
-    { id: 'exam', label: 'Condition', icon: Search, procedure: 'Caries', status: 'Planned', color: 'text-red-500' },
-    { id: 'restoration', label: 'Filling', icon: Hammer, procedure: 'Composite Restoration', status: 'Completed', color: 'text-blue-500' },
+    { id: 'exam', label: 'Condition', icon: Search, procedure: 'Caries', status: 'Planned', color: 'text-lilac-500' },
+    { id: 'restoration', label: 'Filling', icon: Hammer, procedure: 'Composite Restoration', status: 'Completed', color: 'text-teal-500' },
     { id: 'endo', label: 'Endo', icon: Activity, procedure: 'Root Canal', status: 'Planned', color: 'text-purple-500' },
     { id: 'crown', label: 'Crown', icon: Crown, procedure: 'Crown', status: 'Planned', color: 'text-amber-500' },
     { id: 'extraction', label: 'Extract', icon: Scissors, procedure: 'Extraction', status: 'Planned', color: 'text-red-600' },
@@ -39,10 +38,11 @@ const GeometricTooth: React.FC<{
     readOnly?: boolean;
     isZoomed?: boolean;
     isSelected?: boolean;
-}> = ({ number, entries, onSurfaceClick, onLongPress, readOnly, isZoomed, isSelected }) => {
+    isDeciduous?: boolean;
+}> = ({ number, entries, onSurfaceClick, onLongPress, readOnly, isZoomed, isSelected, isDeciduous }) => {
     const quadrant = Math.floor(number / 10);
-    const isUpper = quadrant === 1 || quadrant === 2;
-    const isPatientRight = quadrant === 1 || quadrant === 4; 
+    const isUpper = quadrant === 1 || quadrant === 2 || quadrant === 5 || quadrant === 6;
+    const isPatientRight = quadrant === 1 || quadrant === 4 || quadrant === 5 || quadrant === 8; 
     
     const toothEntries = entries || [];
 
@@ -74,8 +74,8 @@ const GeometricTooth: React.FC<{
     };
 
     const colorMap: Record<string, string> = {
-        'Planned': '#ef4444',
-        'Completed': '#10b981',
+        'Planned': '#d946ef', // LILAC
+        'Completed': '#14b8a6', // TEAL
         'Existing': '#3b82f6',
         'Condition': '#f59e0b',
         'None': '#f8fafc'
@@ -119,7 +119,7 @@ const GeometricTooth: React.FC<{
         e.procedure.toLowerCase().includes('missing')
     );
     const isMissingOrExtracted = !!extractionEntry;
-    const extractionColor = extractionEntry ? (extractionEntry.status === 'Existing' ? '#3b82f6' : '#ef4444') : '#ef4444';
+    const extractionColor = extractionEntry ? (extractionEntry.status === 'Existing' ? '#3b82f6' : '#d946ef') : '#d946ef';
 
     const hasRootCanal = toothEntries.some(e => e.procedure.toLowerCase().includes('root canal'));
 
@@ -153,7 +153,7 @@ const GeometricTooth: React.FC<{
     return (
         <div 
             className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
-            style={{ width: isZoomed ? '240px' : '64px', height: isZoomed ? '300px' : '80px', minWidth: isZoomed ? '240px' : '64px' }} 
+            style={{ width: isZoomed ? '240px' : isDeciduous ? '48px' : '64px', height: isZoomed ? '300px' : isDeciduous ? '60px' : '80px', minWidth: isZoomed ? '240px' : isDeciduous ? '48px' : '64px' }} 
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
             <span className={`font-bold font-mono absolute ${isUpper ? '-top-1' : '-bottom-1'} transition-colors ${isSelected ? 'text-teal-600 bg-teal-50 px-1 rounded' : 'text-slate-500'} ${isZoomed ? 'text-xl' : 'text-[11px]'}`}>
@@ -196,12 +196,11 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
   const [activeToolId, setActiveToolId] = useState<ToolType>('cursor');
   const [zoomedTooth, setZoomedTooth] = useState<number | null>(null);
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null); 
-  const [showBaseline, setShowBaseline] = useState(false); // NEW: Time-travel
-  const [stagedSurfaces, setStagedSurfaces] = useState<string[]>([]);
+  const [showBaseline, setShowBaseline] = useState(false); 
+  const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];
 
-  // Filtering for Time-Travel logic
   const filteredChart = useMemo(() => {
       if (!showBaseline) return chart;
       return chart.filter(e => e.isBaseline || e.status === 'Existing');
@@ -212,17 +211,12 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
   const q4 = [48, 47, 46, 45, 44, 43, 42, 41];
   const q3 = [31, 32, 33, 34, 35, 36, 37, 38];
 
-  const getToothData = (number: number) => filteredChart.filter(e => e.toothNumber === number);
+  const dq5 = [55, 54, 53, 52, 51];
+  const dq6 = [61, 62, 63, 64, 65];
+  const dq8 = [85, 84, 83, 82, 81];
+  const dq7 = [71, 72, 73, 74, 75];
 
-  useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-          if (selectedTooth && !(e.target as HTMLElement).closest('.tooth-popover') && !(e.target as HTMLElement).closest('.tooth-component')) {
-              setSelectedTooth(null);
-          }
-      };
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-  }, [selectedTooth]);
+  const getToothData = (number: number) => filteredChart.filter(e => e.toothNumber === number);
 
   const handleSurfaceClick = (tooth: number, surface: string) => {
       if (activeToolId === 'cursor') {
@@ -244,21 +238,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
       }
   };
 
-  const handleLongPress = (tooth: number) => { setZoomedTooth(tooth); setSelectedTooth(null); setStagedSurfaces([]); };
-  const handleZoomClick = (tooth: number, surface: string) => { setStagedSurfaces(prev => prev.includes(surface) ? prev.filter(s => s !== surface) : [...prev, surface]); };
-
-  const handleZoomSave = () => {
-      if (zoomedTooth && onChartUpdate && stagedSurfaces.length > 0) {
-          const order = ['M', 'O', 'D', 'B', 'L', 'R'];
-          const sorted = stagedSurfaces.sort((a,b) => order.indexOf(a) - order.indexOf(b)).join('');
-          const newEntry: DentalChartEntry = {
-              id: `dc_${Date.now()}`, toothNumber: zoomedTooth, procedure: activeToolId === 'cursor' ? 'Restoration' : activeTool.procedure,
-              status: activeToolId === 'cursor' ? 'Planned' : activeTool.status, surfaces: sorted, date: new Date().toISOString().split('T')[0], price: 0
-          };
-          onChartUpdate(newEntry);
-      }
-      setZoomedTooth(null); setStagedSurfaces([]);
-  };
+  const handleLongPress = (tooth: number) => { setZoomedTooth(tooth); setSelectedTooth(null); };
 
   return (
     <div className="flex flex-col gap-4 relative">
@@ -274,29 +254,50 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 </div>
              )}
              
-             {/* TIME TRAVEL TOGGLE */}
-             <button 
-                onClick={() => setShowBaseline(!showBaseline)}
-                className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${showBaseline ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
-             >
-                 <Clock size={14}/> {showBaseline ? 'VIEWING ADMISSION STATE' : 'VIEWING CURRENT STATE'}
-             </button>
+             <div className="flex gap-2 ml-auto">
+                 <div className="bg-white rounded-lg p-1 border flex">
+                    <button onClick={() => setDentitionMode('Permanent')} className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${dentitionMode === 'Permanent' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}>PERMANENT</button>
+                    <button onClick={() => setDentitionMode('Mixed')} className={`px-2 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${dentitionMode === 'Mixed' ? 'bg-lilac-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}><Baby size={10}/> MIXED</button>
+                 </div>
+                 <button 
+                    onClick={() => setShowBaseline(!showBaseline)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${showBaseline ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                 >
+                     <Clock size={14}/> {showBaseline ? 'ADMISSION' : 'CURRENT'}
+                 </button>
+             </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 overflow-x-auto shadow-inner bg-slate-50/50 relative min-h-[300px] flex flex-col justify-center">
-            <div className="min-w-[700px] flex flex-col gap-6 items-center py-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 overflow-x-auto shadow-inner bg-slate-50/50 relative min-h-[400px] flex flex-col justify-center">
+            <div className="min-w-[850px] flex flex-col gap-6 items-center py-4">
+                
+                {/* Upper Arch */}
                 <div className="flex flex-col items-center w-full">
                     <div className="flex gap-8 pb-4 border-b-2 border-slate-200 w-full justify-center">
-                        <div className="flex gap-1">{q1.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                        <div className="w-0.5 bg-slate-300 h-20 self-end"></div>
-                        <div className="flex gap-1">{q2.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                        <div className="flex flex-col items-center">
+                             <div className="flex gap-1 mb-2">{q1.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full">{dq5.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
+                        </div>
+                        <div className="w-0.5 bg-slate-300 h-28 self-end mb-2"></div>
+                        <div className="flex flex-col items-center">
+                             <div className="flex gap-1 mb-2">{q2.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full">{dq6.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
+                        </div>
                     </div>
                 </div>
+
+                {/* Lower Arch */}
                 <div className="flex flex-col items-center w-full">
                     <div className="flex gap-8 pt-2 border-t-2 border-slate-200 w-full justify-center">
-                        <div className="flex gap-1">{q4.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
-                        <div className="w-0.5 bg-slate-300 h-20 self-start"></div>
-                        <div className="flex gap-1">{q3.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                        <div className="flex flex-col items-center">
+                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full mb-2">{dq8.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
+                             <div className="flex gap-1">{q4.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                        </div>
+                        <div className="w-0.5 bg-slate-300 h-28 self-start mt-2"></div>
+                        <div className="flex flex-col items-center">
+                             {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full mb-2">{dq7.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/></div>)}</div>}
+                             <div className="flex gap-1">{q3.map(t => <div key={t} className="tooth-component"><GeometricTooth number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} /></div>)}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -307,9 +308,9 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                     <div className="max-h-48 overflow-y-auto p-1">
                         {getToothData(selectedTooth).length > 0 ? getToothData(selectedTooth).slice(0, 3).map((entry, i) => (
                             <div key={i} className="p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex justify-between items-start group">
-                                <div><div className="text-xs font-bold text-slate-800">{entry.procedure}</div><div className="flex items-center gap-2 mt-1"><span className={`w-2 h-2 rounded-full ${entry.status === 'Completed' ? 'bg-green-500' : entry.status === 'Planned' ? 'bg-red-500' : 'bg-blue-500'}`} /><span className="text-[10px] text-slate-500 uppercase">{entry.status}</span></div></div>
+                                <div><div className="text-xs font-bold text-slate-800">{entry.procedure}</div><div className="flex items-center gap-2 mt-1"><span className={`w-2 h-2 rounded-full ${entry.status === 'Completed' ? 'bg-teal-500' : entry.status === 'Planned' ? 'bg-lilac-500' : 'bg-blue-500'}`} /><span className="text-[10px] text-slate-500 uppercase font-bold">{entry.status}</span></div></div>
                             </div>
-                        )) : <div className="p-4 text-center text-xs text-slate-400 italic">No records.</div>}
+                        )) : <div className="p-4 text-center text-xs text-slate-400 italic">No records found.</div>}
                     </div>
                     <div className="bg-slate-50 p-2 border-t border-slate-100"><button onClick={() => onToothClick(selectedTooth)} className="w-full py-2 text-xs font-bold text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg flex items-center justify-center gap-2 transition-colors"><FileText size={14} /> Full History</button></div>
                 </div>
