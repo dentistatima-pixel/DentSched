@@ -182,7 +182,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
           ...entry,
           sealedHash: hash,
           sealedAt: timestamp,
-          isLocked: true
+          isLocked: true,
+          isVerifiedTime: isVerified
       });
 
       if (logAction) {
@@ -334,7 +335,16 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                               </div>
                               <div className="text-[9px] text-slate-400 mt-2 uppercase font-bold flex justify-between items-center px-1">
                                   <span className="flex items-center gap-1">
-                                      {entry.sealedHash ? <div className="flex items-center gap-1 text-lilac-600"><Key size={10}/> DIGITALLY SEALED</div> : <ShieldCheck size={10} className="text-teal-500"/>}
+                                      {entry.sealedHash ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1 text-lilac-600"><Key size={10}/> DIGITALLY SEALED</div>
+                                            {entry.isVerifiedTime === false && (
+                                                <div className="flex items-center gap-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title="Signed with Unverified System Time">
+                                                    <Clock size={10}/> UNVERIFIED TIME
+                                                </div>
+                                            )}
+                                        </div>
+                                      ) : <ShieldCheck size={10} className="text-teal-500"/>}
                                       Verified by Dr. {entry.author}
                                   </span>
                                   {!readOnly && (

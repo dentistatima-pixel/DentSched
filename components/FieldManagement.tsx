@@ -226,7 +226,27 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
                 <div className="p-4 bg-white border-b flex justify-between items-center shrink-0"><h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4></div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">{auditLog.length > 0 ? auditLog.map(log => (<div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4"><div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0"><Activity size={16}/></div><div className="flex-1"><div className="flex justify-between items-start"><span className="text-sm font-bold text-slate-800">{log.userName} <span className="text-slate-400 font-normal">executed</span> {log.action}</span><span className="block text-[10px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleString()}</span></div><p className="text-xs mt-1 italic text-slate-500">{log.details}</p></div></div>)) : <div className="text-center py-20 text-slate-400 italic">No events recorded.</div>}</div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {auditLog.length > 0 ? auditLog.map(log => (
+                        <div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
+                            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0"><Activity size={16}/></div>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-start">
+                                    <span className="text-sm font-bold text-slate-800">{log.userName} <span className="text-slate-400 font-normal">executed</span> {log.action}</span>
+                                    <div className="flex items-center gap-2">
+                                        {!log.isVerifiedTimestamp && (
+                                            <span className="flex items-center gap-1 text-[9px] font-black text-orange-600 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded animate-pulse" title="System Time - Unverified (Possible clock tampering)">
+                                                <Clock size={10}/> UNVERIFIED
+                                            </span>
+                                        )}
+                                        <span className="block text-[10px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <p className="text-xs mt-1 italic text-slate-500">{log.details}</p>
+                            </div>
+                        </div>
+                    )) : <div className="text-center py-20 text-slate-400 italic">No events recorded.</div>}
+                </div>
             </div>
         );
     }

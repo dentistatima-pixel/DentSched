@@ -127,6 +127,7 @@ export const PATIENTS: Patient[] = [
         nextVisit: getTomorrowStr(),
         chiefComplaint: 'Checkup on my bridges.',
         notes: 'Very talkative. Loves jokes. Gag reflex.',
+        medicationDetails: 'Warfarin, Lipitor',
         currentBalance: 5000,
         recallStatus: 'Booked',
         treatmentPlans: [
@@ -383,9 +384,31 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     }
   ],
   medications: [
-      { id: 'med1', name: 'Amoxicillin', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'] },
-      { id: 'med2', name: 'Mefenamic Acid', dosage: '500mg', instructions: 'Take 1 tablet every 6 hours as needed for pain.', contraindicatedAllergies: ['Aspirin', 'Ibuprofen'] },
-      { id: 'med3', name: 'Tramadol', dosage: '50mg', instructions: 'Take 1 capsule every 6 hours for severe pain.', isS2Controlled: true },
+      { 
+          id: 'med1', 
+          name: 'Amoxicillin', 
+          dosage: '500mg', 
+          instructions: 'Take 1 capsule every 8 hours for 7 days.', 
+          contraindicatedAllergies: ['Penicillin'],
+          interactions: ['Warfarin'],
+          pediatricDosage: '20-40 mg/kg/day in divided doses every 8 hours.'
+      },
+      { 
+          id: 'med2', 
+          name: 'Mefenamic Acid', 
+          dosage: '500mg', 
+          instructions: 'Take 1 tablet every 6 hours as needed for pain.', 
+          contraindicatedAllergies: ['Aspirin', 'Ibuprofen'],
+          pediatricDosage: '6.5 mg/kg/dose. Not recommended for children under 14.'
+      },
+      { 
+          id: 'med3', 
+          name: 'Tramadol', 
+          dosage: '50mg', 
+          instructions: 'Take 1 capsule every 6 hours for severe pain.', 
+          isS2Controlled: true,
+          pediatricDosage: 'Not recommended for children under 12 years of age.'
+      },
   ],
   consentFormTemplates: [
       { id: 'cft1', name: 'General Consent', content: 'I, {PatientName}, consent to the dental treatment as discussed with {DoctorName} on {Date}.' },

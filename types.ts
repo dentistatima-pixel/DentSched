@@ -375,6 +375,8 @@ export interface Medication {
     dosage: string;
     instructions: string;
     contraindicatedAllergies?: string[];
+    interactions?: string[]; // Medication names it conflicts with
+    pediatricDosage?: string; // age-based guidelines
     isS2Controlled?: boolean;
 }
 
@@ -405,6 +407,7 @@ export interface FieldSettings {
   suffixes: string[];
   civilStatus: string[];
   insuranceProviders: string[];
+  boundaryAlerts?: boolean;
   bloodGroups: string[];
   allergies: string[];
   medicalConditions: string[];
@@ -445,6 +448,7 @@ export enum TreatmentPlanStatus {
     REJECTED = 'Rejected'
 }
 
+// Added TreatmentPlan interface to fix undefined type errors in patient and components.
 export interface TreatmentPlan {
     id: string;
     patientId: string;
@@ -452,9 +456,9 @@ export interface TreatmentPlan {
     createdAt: string;
     createdBy: string;
     status: TreatmentPlanStatus;
-    reviewNotes?: string;
     reviewedBy?: string;
     reviewedAt?: string;
+    reviewNotes?: string;
 }
 
 export interface DentalChartEntry {
@@ -475,6 +479,7 @@ export interface DentalChartEntry {
   assessment?: string;
   plan?: string;
   isLocked?: boolean;
+  isVerifiedTime?: boolean; // Trust flag for non-repudiation
   materialBatchId?: string;
   isVoid?: boolean;
   // NEW: Non-Repudiation fields

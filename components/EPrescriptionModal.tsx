@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Medication, FieldSettings, User } from '../types';
-import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff } from 'lucide-react';
+import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 
@@ -22,14 +23,27 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const medications = fieldSettings.medications || [];
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
-    // Enhanced Interaction Engine logic
+    const isPediatric = (patient.age || 0) < 18;
+
+    // --- CLINICAL INTERACTION ENGINE ---
+    
+    // 1. Allergy Cross-Reference
     const allergyConflict = useMemo(() => {
         if (!selectedMed || !patient.allergies) return null;
-        // Interaction Engine: cross-reference current selection against patient SPI
         return selectedMed.contraindicatedAllergies?.find(a => 
             patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
         );
     }, [selectedMed, patient.allergies]);
+
+    // 2. Drug-Drug Interaction Check
+    const drugInteraction = useMemo(() => {
+        if (!selectedMed || !patient.medicationDetails) return null;
+        const currentMedsStr = patient.medicationDetails.toLowerCase();
+        // Check if current selection has known conflicts with text in patient history
+        return selectedMed.interactions?.find(conflictDrug => 
+            currentMedsStr.includes(conflictDrug.toLowerCase())
+        );
+    }, [selectedMed, patient.medicationDetails]);
 
     const handleMedicationSelect = (medId: string) => {
         setSelectedMedId(medId);
@@ -37,12 +51,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         if (med) { 
             setDosage(med.dosage); 
             setInstructions(med.instructions); 
-            // Interaction Engine Logic Layer: High-tier clinical safety check
-            const conflict = med.contraindicatedAllergies?.find(a => 
-                patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
-            );
-            if (conflict) {
-                toast.error(`HARD-STOP INTERACTION: Patient allergic to ${conflict}. ${med.name} contraindicated.`);
+            
+            // Critical Safety Notifications
+            if (med.contraindicatedAllergies?.some(a => patient.allergies?.includes(a))) {
+                toast.error("ALLERGY BLOCK: Selection contraindicated.");
             }
         } else { 
             setDosage(''); 
@@ -55,21 +67,18 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     }, [selectedMed, currentUser.s2License]);
 
     const handlePrint = () => {
-        if (!selectedMed || s2Violation || allergyConflict) return;
+        if (!selectedMed || s2Violation || allergyConflict || drugInteraction) return;
 
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
 
-        // S2 Branding / Watermark logic
         if (selectedMed.isS2Controlled) {
             doc.setTextColor(240, 240, 240); 
             doc.setFontSize(28);
             doc.setFont('helvetica', 'bold');
             doc.text("CONTROLLED SUBSTANCE", 74, 100, { align: 'center', angle: 45 });
-            doc.text("S2 LICENSE REQUIRED", 74, 130, { align: 'center', angle: 45 });
             doc.setTextColor(0, 0, 0);
         }
 
-        // Header
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.text(currentUser.name.toUpperCase(), 74, 15, { align: 'center' });
@@ -81,13 +90,11 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
         doc.line(10, 32, 138, 32);
 
-        // Patient
         doc.setFontSize(10);
         doc.text(`PATIENT: ${patient.name}`, 15, 40);
         doc.text(`AGE: ${patient.age || '-'}   SEX: ${patient.sex || '-'}`, 15, 45);
         doc.text(`DATE: ${new Date().toLocaleDateString()}`, 100, 40);
 
-        // Rx
         doc.setFontSize(30);
         doc.setFont('times', 'italic');
         doc.text("Rx", 15, 60);
@@ -100,17 +107,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         doc.setFont('helvetica', 'italic');
         doc.text(`Sig: ${instructions}`, 25, 85);
 
-        // Footer
         doc.line(80, 160, 130, 160);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.text("Prescriber's Signature", 105, 164, { align: 'center' });
-
-        if (selectedMed.isS2Controlled) {
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(150, 0, 0);
-            doc.text("YELLOW PAD REQUIRED FOR DISPENSING", 74, 185, { align: 'center' });
-        }
 
         doc.save(`Prescription_${patient.surname}_${selectedMed.name}.pdf`);
     };
@@ -119,36 +119,49 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
             <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-teal-900 text-white rounded-t-3xl">
-                    <div className="flex items-center gap-3"><Pill size={24}/><div><h2 className="text-xl font-bold">Clinical Prescription</h2><p className="text-xs text-teal-200">Patient: {patient.name}</p></div></div>
+                    <div className="flex items-center gap-3"><Pill size={24}/><div><h2 className="text-xl font-bold">Clinical Prescription</h2><p className="text-xs text-teal-200">Patient: {patient.name} {isPediatric && '(Pediatric)'}</p></div></div>
                     <button onClick={onClose}><X size={24}/></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
                     {allergyConflict && (
-                        <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white animate-bounce shadow-lg">
+                        <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white animate-in slide-in-from-top-4 shadow-lg">
                             <ShieldOff size={32} className="shrink-0"/>
-                            <div><p className="font-bold text-lg">CONTRAINDICATION BLOCKED</p><p className="text-xs opacity-90">Patient allergic to <strong>{allergyConflict}</strong>. Interaction engine prevents prescribing <strong>{selectedMed?.name}</strong> to ensure clinical safety.</p></div>
+                            <div><p className="font-bold text-lg">ALLERGY CONTRAINDICATION</p><p className="text-xs opacity-90">Patient allergic to <strong>{allergyConflict}</strong>. Prescription blocked for safety.</p></div>
                         </div>
                     )}
 
-                    {s2Violation && !allergyConflict && (
+                    {drugInteraction && (
+                        <div className="bg-orange-500 p-4 rounded-xl flex gap-3 text-white animate-in slide-in-from-left-4 shadow-lg">
+                            <Activity size={32} className="shrink-0"/>
+                            <div><p className="font-bold text-lg">DRUG-DRUG INTERACTION</p><p className="text-xs opacity-90">Potential conflict with current medication: <strong>{drugInteraction}</strong>. Review clinical compatibility before proceeding.</p></div>
+                        </div>
+                    )}
+
+                    {isPediatric && selectedMed && selectedMed.pediatricDosage && (
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3 text-blue-800">
+                            <Baby size={24} className="shrink-0 text-blue-600"/>
+                            <div><p className="text-xs font-black uppercase tracking-widest">Pediatric Dose-Range Check</p><p className="text-sm font-medium mt-1">Recommended: <span className="underline decoration-blue-300 font-bold">{selectedMed.pediatricDosage}</span></p></div>
+                        </div>
+                    )}
+
+                    {s2Violation && !allergyConflict && !drugInteraction && (
                         <div className="bg-amber-100 border border-amber-300 p-4 rounded-xl flex gap-3 text-amber-900 animate-pulse">
                             <ShieldAlert size={24} className="shrink-0"/>
-                            <div><p className="font-bold">S2 License Verification Failed</p><p className="text-xs">You must add your PDEA S2 license to your profile to prescribe controlled substances.</p></div>
+                            <div><p className="font-bold">S2 License Verification Failed</p><p className="text-xs">S2 license missing from profile.</p></div>
                         </div>
                     )}
 
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1">Medication Selection</label>
-                        <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className={`w-full p-3 border rounded-xl bg-white outline-none focus:border-teal-500 ${allergyConflict ? 'border-red-500 bg-red-50 ring-4 ring-red-500/10' : ''}`}>
+                        <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className={`w-full p-3 border rounded-xl bg-white outline-none focus:border-teal-500 ${(allergyConflict || drugInteraction) ? 'border-red-500 bg-red-50 ring-4 ring-red-500/10' : ''}`}>
                             <option value="">- Select Medication -</option>
                             {medications.map(m => {
-                                const conflict = m.contraindicatedAllergies?.find(a => 
-                                    patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
-                                );
+                                const conflict = m.contraindicatedAllergies?.find(a => patient.allergies?.includes(a));
+                                const int = m.interactions?.find(i => patient.medicationDetails?.toLowerCase().includes(i.toLowerCase()));
                                 return (
-                                    <option key={m.id} value={m.id} className={conflict ? 'text-red-500 font-bold' : ''}>
-                                        {m.name} {m.isS2Controlled ? '(Controlled)' : ''} {conflict ? `⚠️ Contraindicated (${conflict})` : ''}
+                                    <option key={m.id} value={m.id}>
+                                        {m.name} {conflict ? '⚠️ Allergy' : ''} {int ? '⚠️ Interaction' : ''}
                                     </option>
                                 );
                             })}
@@ -165,8 +178,8 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
                 <div className="p-4 border-t bg-white flex justify-end gap-3 rounded-b-3xl">
                     <button onClick={onClose} className="px-6 py-2 bg-slate-100 font-bold rounded-xl">Cancel</button>
-                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all">
-                        <Printer size={18}/> {selectedMed?.isS2Controlled ? 'Print Controlled Rx' : 'Print Prescription'}
+                    <button onClick={handlePrint} disabled={!selectedMedId || !!s2Violation || !!allergyConflict || !!drugInteraction} className="px-8 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all">
+                        <Printer size={18}/> Print
                     </button>
                 </div>
             </div>
