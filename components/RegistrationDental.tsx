@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle } from 'lucide-react';
@@ -5,89 +6,51 @@ import { FileText, AlertCircle } from 'lucide-react';
 interface RegistrationDentalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  handleArrayChange: (category: 'treatments', value: string) => void;
-  handleTreatmentSelect: (value: string) => void;
-  handleTreatmentDetailChange: (proc: string, value: string) => void;
+  onUpdateChart: (entry: any) => void;
   readOnly?: boolean;
-  fieldSettings: FieldSettings; // Added
+  fieldSettings: FieldSettings;
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, handleArrayChange, handleTreatmentSelect, handleTreatmentDetailChange, readOnly, fieldSettings 
+    formData, handleChange, onUpdateChart, readOnly, fieldSettings 
 }) => {
-  const selectedTreatment = (formData.treatments && formData.treatments.length > 0) ? formData.treatments[0] : '';
-
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div>
-            <label className="label">Previous Dentist</label>
-            <input disabled={readOnly} type="text" name="previousDentist" value={formData.previousDentist || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
-        </div>
-        <div>
-            <label className="label">Last Visit Date</label>
-            <input disabled={readOnly} type="date" name="lastVisit" value={formData.lastVisit || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="label">Previous Dentist</label>
+                <input disabled={readOnly} type="text" name="previousDentist" value={formData.previousDentist || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+            </div>
+            <div>
+                <label className="label">Last Visit Date</label>
+                <input disabled={readOnly} type="date" name="lastVisit" value={formData.lastVisit || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+            </div>
         </div>
         
-        <div>
-            <h4 className="font-bold text-slate-800 mb-3">Past Treatments / Procedures</h4>
-            
-            <div className="mb-4">
-                <label className="label">Select Procedure (Single Selection)</label>
-                <select 
-                    value={selectedTreatment} 
-                    onChange={(e) => handleTreatmentSelect(e.target.value)}
-                    disabled={readOnly}
-                    className="input disabled:bg-slate-100"
-                >
-                    <option value="">- Select Treatment -</option>
-                    {fieldSettings.procedures.map(proc => (
-                        <option key={proc.id} value={proc.name}>{proc.name}</option>
-                    ))}
-                </select>
-            </div>
-
-            {selectedTreatment && (
-                <div className="animate-in slide-in-from-top-2 fade-in">
-                    <label className="label text-teal-800">Details for {selectedTreatment}</label>
-                    <input 
-                        type="text" 
-                        placeholder={`Details about ${selectedTreatment}...`}
-                        value={formData.treatmentDetails?.[selectedTreatment] || ''}
-                        onChange={(e) => handleTreatmentDetailChange(selectedTreatment, e.target.value)}
-                        disabled={readOnly}
-                        className="w-full text-sm bg-teal-50 border border-teal-200 rounded-lg p-3 focus:ring-2 focus:ring-teal-500/20 outline-none"
-                    />
-                </div>
-            )}
-        </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <label className="label flex items-center gap-2">
+        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+            <label className="label flex items-center gap-2">
                 <FileText size={16} className="text-slate-500" />
-                General Notes
-                </label>
-                <textarea 
+                Dental History & Clinical Notes
+            </label>
+            <textarea 
                 name="notes"
                 value={formData.notes || ''}
                 onChange={handleChange}
                 disabled={readOnly}
-                placeholder="Add general patient notes here..."
-                className="input h-32 resize-none disabled:bg-slate-100"
-                />
-            </div>
+                placeholder="Include any specific concerns, past treatments, orthodontic history, or dental fears..."
+                className="input h-48 resize-none disabled:bg-slate-100"
+            />
+        </div>
 
-            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 mt-6">
-                <div className="flex items-start gap-3">
-                <AlertCircle className="text-yellow-600 shrink-0 mt-1" size={20} />
-                <div className="text-sm text-yellow-800">
-                    <p className="font-bold mb-1">Patient Signature on File</p>
-                    <p>By saving this record, you confirm the patient has signed the physical intake form confirming the accuracy of this medical history.</p>
-                    <div className="mt-4 border-b border-yellow-700/20 w-64 h-8 relative">
-                        <span className="absolute bottom-1 text-xs text-yellow-700/50">Signature Placeholder</span>
-                    </div>
-                </div>
+        <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200 mt-6">
+            <div className="flex items-start gap-3">
+                <AlertCircle className="text-amber-600 shrink-0 mt-1" size={20} />
+                <div className="text-sm text-amber-900">
+                    <p className="font-black uppercase tracking-tight mb-1">Clinical Verification</p>
+                    <p className="text-xs opacity-80 leading-relaxed">By saving this record, you confirm the provided dental history is accurate for clinical documentation.</p>
                 </div>
             </div>
+        </div>
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -604,6 +603,7 @@ export interface Patient {
   seriousIllnessDetails?: string;
   medicalTreatmentDetails?: string;
   lastHospitalizationDetails?: string;
+  lastHospitalizationDate?: string;
   medicationDetails?: string;
   takingMedications?: boolean;
   tobaccoUse?: boolean;
