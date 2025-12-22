@@ -1,4 +1,4 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -129,6 +129,8 @@ export const PATIENTS: Patient[] = [
         medicationDetails: 'Warfarin, Lipitor',
         currentBalance: 5000,
         recallStatus: 'Booked',
+        attendanceStats: { totalBooked: 10, completedCount: 9, noShowCount: 1, lateCancelCount: 0 },
+        reliabilityScore: 90,
         treatmentPlans: [
             { id: 'tp1', patientId: 'p_heavy_01', name: 'Phase 1 - Urgent Care', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: 'Please check #16 for fracture lines before proceeding.' },
             { id: 'tp2', patientId: 'p_heavy_01', name: 'Phase 2 - Prostho', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.DRAFT }
@@ -139,9 +141,9 @@ export const PATIENTS: Patient[] = [
              { id: 'dc_heavy_03', toothNumber: 11, procedure: 'Crown', status: 'Completed', notes: 'PFM Crown', price: 12000, payment: 12000, date: getPastDateStr(35), author: 'Dr. Dave' },
              { id: 'dc_heavy_04', toothNumber: 21, procedure: 'Crown', status: 'Completed', notes: 'PFM Crown', price: 12000, payment: 12000, date: getPastDateStr(35), author: 'Dr. Dave' },
              { id: 'dc_heavy_05', toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Completed', price: 1500, payment: 1500, date: getPastDateStr(40), author: 'Asst. Sarah' },
-             { id: 'dc_heavy_06', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Obturation', price: 8000, payment: 8000, date: getPastDateStr(65), author: 'Dr. Elena' },
-             { id: 'dc_heavy_07', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Cleaning & Shaping', price: 0, date: getPastDateStr(72), author: 'Dr. Elena' },
-             { id: 'dc_heavy_08', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Access Opening', price: 0, date: getPastDateStr(79), author: 'Dr. Elena' },
+             { id: 'dc_heavy_06', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Cleaning & Shaping', price: 8000, payment: 8000, date: getPastDateStr(65), author: 'Dr. Elena' },
+             { id: 'dc_heavy_07', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Access Opening', price: 0, date: getPastDateStr(72), author: 'Dr. Elena' },
+             { id: 'dc_heavy_08', toothNumber: 36, procedure: 'Root Canal', status: 'Completed', notes: 'Obturation', price: 0, date: getPastDateStr(79), author: 'Dr. Elena' },
              { id: 'dc_heavy_09', toothNumber: 18, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
              { id: 'dc_heavy_10', toothNumber: 28, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
              { id: 'dc_heavy_11', toothNumber: 38, procedure: 'Missing', status: 'Existing', date: '2020-01-01' },
@@ -155,6 +157,9 @@ export const PATIENTS: Patient[] = [
             { id: 'l2', date: getPastDateStr(2), description: 'Partial Payment', type: 'Payment', amount: 2500, balanceAfter: 2500 },
             { id: 'l3', date: getPastDateStr(35), description: 'Crowns 11, 21', type: 'Charge', amount: 24000, balanceAfter: 26500 },
             { id: 'l4', date: getPastDateStr(35), description: 'Full Payment', type: 'Payment', amount: 24000, balanceAfter: 2500 }
+        ],
+        consentLogs: [
+            { id: 'cl_1', category: 'Clinical', status: 'Granted', version: 'v1.0-2024', timestamp: getPastDateStr(365), staffId: 'admin1', staffName: 'Sarah Connor' }
         ]
     },
     {
@@ -174,6 +179,8 @@ export const PATIENTS: Patient[] = [
         chiefComplaint: 'Bleeding gums.',
         notes: 'Generalized Stage III Periodontitis.',
         recallStatus: 'Due',
+        attendanceStats: { totalBooked: 5, completedCount: 5, noShowCount: 0, lateCancelCount: 0 },
+        reliabilityScore: 100,
         perioChart: [
             { toothNumber: 18, pocketDepths: [5,6,5, 6,7,6], recession: [1,1,1, 2,2,2], bleeding: [true,true,true,true,true,true], mobility: 1 },
             { toothNumber: 17, pocketDepths: [4,5,4, 5,5,5], recession: [0,0,0, 1,1,1], bleeding: [true,false,true,true,false,true], mobility: 0 },
@@ -197,33 +204,36 @@ export const PATIENTS: Patient[] = [
         ],
         dentalChart: [
             { id: 'dc_perio_01', toothNumber: 0, procedure: 'Oral Prophylaxis', status: 'Planned', notes: 'Deep Scaling / Root Planing needed', price: 3500 }
+        ],
+        consentLogs: [
+            { id: 'cl_2', category: 'Clinical', status: 'Granted', version: 'v1.0-2024', timestamp: getPastDateStr(200), staffId: 'admin1', staffName: 'Sarah Connor' }
         ]
     },
-    { id: 'p_credit_03', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', age: 29, sex: 'Female', phone: '0917-123-4567', email: 'mc@email.com', lastVisit: getPastDateStr(25), nextVisit: getTodayStr(), notes: 'Regular ortho adjustment.', currentBalance: -5000 },
-    { id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1980-12-30', age: 43, sex: 'Male', phone: '0919-987-6543', email: 'jdc@email.com', lastVisit: getPastDateStr(5), nextVisit: null, notes: 'Patient requires surgical extraction. Pre-medication needed due to High BP.', medicalConditions: ['High BP'], allergies: ['Penicillin'], files: [
+    { id: 'p_credit_03', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', age: 29, sex: 'Female', phone: '0917-123-4567', email: 'mc@email.com', lastVisit: getPastDateStr(25), nextVisit: getTodayStr(), notes: 'Regular ortho adjustment.', currentBalance: -5000, attendanceStats: { totalBooked: 24, completedCount: 24, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100 },
+    { id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1980-12-30', age: 43, sex: 'Male', phone: '0919-987-6543', email: 'jdc@email.com', lastVisit: getPastDateStr(5), nextVisit: null, notes: 'Patient requires surgical extraction. Pre-medication needed due to High BP.', medicalConditions: ['High BP'], allergies: ['Penicillin'], attendanceStats: { totalBooked: 3, completedCount: 1, noShowCount: 2, lateCancelCount: 0 }, reliabilityScore: 33, files: [
         { id: 'f1', patientId: 'p_surg_04', title: 'Panoramic X-Ray', category: 'X-Ray', fileType: 'image/jpeg', url: '#', uploadedBy: 'doc1', uploadedAt: getPastDateStr(5) }
     ]},
     { id: 'p_pedia_05', name: 'Timothy Santos', firstName: 'Timothy', surname: 'Santos', dob: '2016-05-15', age: 8, sex: 'Male', phone: '0917-555-0101', email: 'parent@email.com', lastVisit: getPastDateStr(180), nextVisit: null, notes: 'Pediatric patient, requires gentle approach.', recallStatus: 'Due' },
     { id: 'p_prostho_06', name: 'Lola Nidora Zobel', firstName: 'Nidora', surname: 'Zobel', dob: '1950-08-20', age: 73, sex: 'Female', phone: '0918-999-8888', email: 'lola@email.com', lastVisit: '2010-05-15', nextVisit: null, notes: 'For denture fitting.', isArchived: true },
-    { id: 'p_vip_07', name: 'Bella Hadid (Demo)', firstName: 'Bella', surname: 'Hadid', dob: '1996-10-09', age: 27, sex: 'Female', phone: '0917-VIP-0001', email: 'bella@email.com', lastVisit: getPastDateStr(90), nextVisit: getFutureDateStr(90), notes: 'VIP patient. Handle with care.' },
+    { id: 'p_vip_07', name: 'Bella Hadid (Demo)', firstName: 'Bella', surname: 'Hadid', dob: '1996-10-09', age: 27, sex: 'Female', phone: '0917-VIP-0001', email: 'bella@email.com', lastVisit: getPastDateStr(90), nextVisit: getFutureDateStr(90), notes: 'VIP patient. Handle with care.', attendanceStats: { totalBooked: 1, completedCount: 1, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100 },
     { id: 'p_emerg_08', name: 'Mark Techy', firstName: 'Mark', surname: 'Techy', dob: '1990-01-01', age: 34, sex: 'Male', phone: '0922-333-4444', email: 'mark@email.com', lastVisit: getTodayStr(), nextVisit: null, notes: 'Emergency visit for toothache.' },
-    { id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1999-09-09', age: 24, sex: 'Male', phone: '0999-000-0000', email: 'ron@email.com', lastVisit: getPastDateStr(30), nextVisit: null, notes: 'Patient has a significant outstanding balance. Please collect payment before new treatment.', currentBalance: 15000, ledger: [{ id: 'ldebt1', date: getPastDateStr(95), description: 'Root Canal Phase 1', type: 'Charge', amount: 15000, balanceAfter: 15000 }] },
+    { id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1999-09-09', age: 24, sex: 'Male', phone: '0999-000-0000', email: 'ron@email.com', lastVisit: getPastDateStr(30), nextVisit: null, notes: 'Patient has a significant outstanding balance. Please collect payment before new treatment.', currentBalance: 15000, ledger: [{ id: 'ldebt1', date: getPastDateStr(95), description: 'Root Canal Phase 1', type: 'Charge', amount: 15000, balanceAfter: 15000 }], attendanceStats: { totalBooked: 8, completedCount: 4, noShowCount: 4, lateCancelCount: 0 }, reliabilityScore: 50 },
     { id: 'p_complex_10', name: 'Gary Grinder', firstName: 'Gary', surname: 'Grinder', dob: '1982-03-15', age: 42, sex: 'Male', phone: '0917-888-1234', email: 'gary@email.com', lastVisit: getPastDateStr(10), nextVisit: getFutureDateStr(10), notes: 'Complex case involving bruxism. Needs night guard.' },
 ];
 
 export const APPOINTMENTS: Appointment[] = [
-    { id: 'apt_today_01', patientId: 'p_credit_03', providerId: 'doc2', branch: 'Quezon City Branch', date: getTodayStr(), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.COMPLETED },
-    { id: 'apt_today_02', patientId: 'p_surg_04', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '10:00', durationMinutes: 90, type: AppointmentType.SURGERY, status: AppointmentStatus.TREATING, sterilizationCycleId: 'cycle_002' },
-    { id: 'apt_today_03', patientId: 'p_pedia_05', providerId: 'doc3', branch: 'Makati Branch', date: getTodayStr(), time: '13:00', durationMinutes: 45, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SEATED },
-    { id: 'apt_today_04', patientId: 'p_emerg_08', providerId: 'doc5', branch: 'Makati Branch', date: getTodayStr(), time: '14:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.ARRIVED },
-    { id: 'apt_today_05', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED },
-    { id: 'apt_today_06', patientId: 'p_vip_07', providerId: 'doc1', branch: 'Makati Branch', date: getTodayStr(), time: '17:00', durationMinutes: 30, type: AppointmentType.TELE_DENTISTRY, status: AppointmentStatus.SCHEDULED },
-    { id: 'apt_tom_01', patientId: 'p_prostho_06', providerId: 'doc4', branch: 'Quezon City Branch', date: getTomorrowStr(), time: '11:00', durationMinutes: 60, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.SCHEDULED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A2', material: 'Zirconia' } },
-    { id: 'apt_tom_02', patientId: 'p_vip_07', providerId: 'doc1', branch: 'Makati Branch', date: getTomorrowStr(), time: '13:00', durationMinutes: 120, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.CONFIRMED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A1', material: 'PFM' } },
-    { id: 'apt_future_01', patientId: 'p_credit_03', providerId: 'doc2', branch: 'Quezon City Branch', date: getFutureDateStr(30), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.SCHEDULED },
-    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Branch', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.COMPLETED },
-    { id: 'apt_past_02', patientId: 'p_debt_09', providerId: 'doc5', branch: 'Makati Branch', date: getPastDateStr(30), time: '15:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.COMPLETED },
-    { id: 'apt_past_03', patientId: 'p_credit_03', providerId: 'doc2', branch: 'Quezon City Branch', date: getPastDateStr(60), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.COMPLETED }
+    { id: 'apt_today_01', patientId: 'p_credit_03', providerId: 'doc2', resourceId: 'res_chair_02', branch: 'Quezon City Branch', date: getTodayStr(), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.COMPLETED },
+    { id: 'apt_today_02', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTodayStr(), time: '10:00', durationMinutes: 90, type: AppointmentType.SURGERY, status: AppointmentStatus.TREATING, sterilizationCycleId: 'cycle_002' },
+    { id: 'apt_today_03', patientId: 'p_pedia_05', providerId: 'doc3', resourceId: 'res_chair_03', branch: 'Makati Branch', date: getTodayStr(), time: '13:00', durationMinutes: 45, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SEATED },
+    { id: 'apt_today_04', patientId: 'p_emerg_08', providerId: 'doc5', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTodayStr(), time: '14:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.ARRIVED },
+    { id: 'apt_today_05', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED },
+    { id: 'apt_today_06', patientId: 'p_vip_07', providerId: 'doc1', resourceId: 'res_xray_01', branch: 'Makati Branch', date: getTodayStr(), time: '17:00', durationMinutes: 30, type: AppointmentType.TELE_DENTISTRY, status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_tom_01', patientId: 'p_prostho_06', providerId: 'doc4', resourceId: 'res_chair_02', branch: 'Quezon City Branch', date: getTomorrowStr(), time: '11:00', durationMinutes: 60, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.SCHEDULED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A2', material: 'Zirconia' } },
+    { id: 'apt_tom_02', patientId: 'p_vip_07', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTomorrowStr(), time: '13:00', durationMinutes: 120, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.CONFIRMED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A1', material: 'PFM' } },
+    { id: 'apt_future_01', patientId: 'p_credit_03', providerId: 'doc2', resourceId: 'res_chair_02', branch: 'Quezon City Branch', date: getFutureDateStr(30), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.COMPLETED },
+    { id: 'apt_past_02', patientId: 'p_debt_09', providerId: 'doc5', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getPastDateStr(30), time: '15:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.COMPLETED },
+    { id: 'apt_past_03', patientId: 'p_credit_03', providerId: 'doc2', resourceId: 'res_chair_01', branch: 'Quezon City Branch', date: getPastDateStr(60), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.COMPLETED }
 ];
 
 export const MOCK_CLAIMS: HMOClaim[] = [
@@ -241,6 +251,15 @@ export const MOCK_STOCK: StockItem[] = [
     { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getFutureDateStr(15) }, // EXPIRE ALERT
     { id: 'stk_7', name: 'Endo Files Set', category: StockCategory.INSTRUMENTS, quantity: 4, lowStockThreshold: 5 }, // Pre-allocated shortage mock
     { id: 'stk_8', name: 'Gutta Percha Points', category: StockCategory.RESTORATIVE, quantity: 10, lowStockThreshold: 5 },
+];
+
+export const MOCK_RESOURCES: ClinicResource[] = [
+    { id: 'res_chair_01', name: 'Chair A', type: ResourceType.CHAIR, branch: 'Makati Branch' },
+    { id: 'res_chair_02', name: 'Chair B', type: ResourceType.CHAIR, branch: 'Makati Branch' },
+    { id: 'res_chair_03', name: 'Chair C (Pedia)', type: ResourceType.CHAIR, branch: 'Makati Branch' },
+    { id: 'res_xray_01', name: 'X-Ray Unit 1', type: ResourceType.XRAY, branch: 'Makati Branch' },
+    { id: 'res_chair_q1', name: 'QC Chair 1', type: ResourceType.CHAIR, branch: 'Quezon City Branch' },
+    { id: 'res_chair_q2', name: 'QC Chair 2', type: ResourceType.CHAIR, branch: 'Quezon City Branch' },
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -263,6 +282,10 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
 export const MOCK_TELEHEALTH_REQUESTS: TelehealthRequest[] = [
     { id: 'thr_1', patientId: 'p_credit_03', patientName: 'Maria Clara', chiefComplaint: 'My gums are swollen near my back molar.', dateRequested: getPastDateStr(1), status: 'Pending' },
     { id: 'thr_2', patientId: 'p_complex_10', patientName: 'Gary Grinder', chiefComplaint: 'Follow-up on my night guard fitting.', dateRequested: getPastDateStr(2), status: 'Pending' }
+];
+
+export const MOCK_TELEHEALTH_STAFF: User[] = [
+    { id: 'doc1', name: 'Dr. Alexander Crentist', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' }
 ];
 
 export const MOCK_VENDORS: Vendor[] = [
@@ -362,6 +385,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   smsTemplates: DEFAULT_SMS,
   stockCategories: Object.values(StockCategory),
   stockItems: MOCK_STOCK,
+  resources: MOCK_RESOURCES,
   expenseCategories: ['Lab Fee', 'Supplies', 'Utilities', 'Rent', 'Salary', 'Other'],
   documentCategories: ['X-Ray', 'Medical Clearance', 'Consent Form', 'Lab Result', 'Insurance Form', 'Media Consent', 'Other'],
   clinicalProtocolRules: [
@@ -426,5 +450,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicalNoteTemplates: [
       { id: 'cnt1', name: 'Prophy SOAP', content: 'S: Patient presents for routine cleaning.\nO: Generalized light plaque and calculus.\nA: Oral Prophylaxis.\nP: Performed scaling and polishing. OHI given.'}
   ],
-  vendors: MOCK_VENDORS
+  vendors: MOCK_VENDORS,
+  currentPrivacyVersion: 'v1.1-2025'
 };

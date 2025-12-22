@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2 } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -193,7 +192,6 @@ const GeometricTooth: React.FC<{
     )
 }
 
-// FIX: Moved QuadrantWrapper component outside the main component.
 interface QuadrantWrapperProps {
     children: React.ReactNode;
     quadrant: number;
@@ -317,6 +315,21 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 animate-in fade-in duration-300" onClick={() => setActiveQuadrant(null)} />
             )}
 
+            {/* PDA BLOCK OVERLAY */}
+            {readOnly && (
+                <div className="absolute inset-0 z-50 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl border border-red-100 max-w-sm">
+                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <LockKeyhole size={32} />
+                        </div>
+                        <h4 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-2">Clinical Lock Active</h4>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                            Clinical processing is suspended as the patient has revoked medical data consent. Processing is limited to non-clinical administrative functions.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className={`
                 flex flex-col gap-0 items-center py-4 transition-transform duration-500
                 ${isPatientPerspective ? 'scale-x-[-1]' : ''}
@@ -358,7 +371,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 </div>
             </div>
 
-            {selectedTooth && (
+            {selectedTooth && !readOnly && (
                 <div className={`tooth-popover absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}>
                     <div className="bg-teal-900 text-white px-4 py-3 flex justify-between items-center">
                         <h4 className="font-bold flex items-center gap-2">Tooth #{selectedTooth}</h4>

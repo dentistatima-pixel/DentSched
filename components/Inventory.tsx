@@ -1,7 +1,6 @@
-
-import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -19,24 +18,75 @@ interface InventoryProps {
   fieldSettings?: FieldSettings;
   onUpdateSettings?: (s: FieldSettings) => void;
   appointments?: Appointment[];
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
+
+const TOLERANCE_MAP: Record<StockCategory, number> = {
+    [StockCategory.CONSUMABLES]: 0.10,
+    [StockCategory.RESTORATIVE]: 0.05,
+    [StockCategory.INSTRUMENTS]: 0,
+    [StockCategory.PROSTHODONTIC]: 0,
+    [StockCategory.OFFICE]: 0.10
+};
 
 const Inventory: React.FC<InventoryProps> = ({ 
     stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser, 
     currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings,
-    appointments = []
+    appointments = [], logAction
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'maintenance' | 'sterilization'>('stock');
   const [searchTerm, setSearchTerm] = useState('');
   const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  
+  // RECONCILIATION STATE
+  const [auditMode, setAuditMode] = useState(false);
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
 
   const branchStock = useMemo(() => {
       return stock.filter(s => s.branch === currentBranch || !s.branch);
   }, [stock, currentBranch]);
 
   const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // QUICK TILES: Top 5 Consumables
+  const quickTiles = useMemo(() => {
+      return branchStock
+        .filter(s => s.category === StockCategory.CONSUMABLES)
+        .slice(0, 5);
+  }, [branchStock]);
+
+  const handleEmergencyDecrement = (item: StockItem) => {
+      const updatedStock = stock.map(s => s.id === item.id ? { ...s, quantity: Math.max(0, s.quantity - 1) } : s);
+      onUpdateStock(updatedStock);
+      if (logAction) logAction('EMERGENCY_CONSUMPTION_BYPASS', 'Stock', item.id, `Manual 1-unit decrement for ${item.name} via Chairside Quick-Log.`);
+      // Fix: toast.info only takes one argument. Removed the options object to fix Error on line 64
+      toast.info(`-1 Registered: ${item.name}`);
+  };
+
+  const handleAuditSync = (item: StockItem) => {
+      const physical = physicalCounts[item.id];
+      if (physical === undefined) return;
+
+      const variance = item.quantity - physical;
+      const updatedStock = stock.map(s => s.id === item.id ? { ...s, quantity: physical, physicalCount: physical, lastVerifiedAt: new Date().toISOString() } : s);
+      onUpdateStock(updatedStock);
+      
+      if (logAction) logAction('UPDATE', 'Stock', item.id, `Manual audit sync. Variance detected: ${variance}. Corrected system count to physical count (${physical}).`);
+      toast.success(`${item.name} synced to reality.`);
+  };
+
+  const realityScore = useMemo(() => {
+    if (branchStock.length === 0) return 100;
+    const withinTolerance = branchStock.filter(s => {
+        if (s.physicalCount === undefined) return true;
+        const diff = Math.abs(s.quantity - s.physicalCount);
+        const toleranceVal = s.quantity * (TOLERANCE_MAP[s.category] || 0);
+        return diff <= toleranceVal;
+    }).length;
+    return Math.round((withinTolerance / branchStock.length) * 100);
+  }, [branchStock]);
 
   // --- PREDICTIVE ANALYTICS ENGINE ---
   const forecastingData = useMemo(() => {
@@ -46,7 +96,6 @@ const Inventory: React.FC<InventoryProps> = ({
     const next7Days = new Date();
     next7Days.setDate(now.getDate() + 7);
 
-    // Filter appointments for next 7 days in this branch
     const upcoming = appointments.filter(a => {
         const aptDate = new Date(a.date);
         return a.branch === currentBranch && aptDate >= now && aptDate <= next7Days;
@@ -95,13 +144,6 @@ const Inventory: React.FC<InventoryProps> = ({
       return { label: 'OK', color: 'bg-green-50 text-green-700 border-green-100', isExpired: false, isUrgent: false };
   };
 
-  const handleUpdateAssetStatus = (assetId: string, status: MaintenanceAsset['status']) => {
-      if (!fieldSettings || !onUpdateSettings) return;
-      const updatedAssets = (fieldSettings.assets || []).map(a => a.id === assetId ? { ...a, status, lastService: status === 'Ready' ? new Date().toISOString().split('T')[0] : a.lastService } : a);
-      onUpdateSettings({ ...fieldSettings, assets: updatedAssets });
-      toast.success(`Asset status updated to ${status}.`);
-  };
-
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <header className="flex-shrink-0 flex justify-between items-start">
@@ -110,19 +152,67 @@ const Inventory: React.FC<InventoryProps> = ({
                 <div><h1 className="text-3xl font-bold text-slate-800">Clinic Logistics</h1><p className="text-slate-500">Stock control and machine maintenance.</p></div>
             </div>
             <div className="flex gap-2">
+                <div className="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div className="text-right">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inventory Reality Score</div>
+                        <div className={`text-xl font-black ${realityScore > 90 ? 'text-teal-600' : realityScore > 75 ? 'text-orange-500' : 'text-red-600'}`}>{realityScore}%</div>
+                    </div>
+                    <div className="w-10 h-10 rounded-full border-4 border-slate-100 flex items-center justify-center relative">
+                        <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
+                            <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={100} strokeDashoffset={100 - realityScore} className={realityScore > 90 ? 'text-teal-600' : 'text-orange-500'} />
+                        </svg>
+                    </div>
+                </div>
                 <button onClick={() => setIsTransferModalOpen(true)} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
                     <ArrowRightLeft size={18} /><span className="font-bold text-sm">Transfer Stock</span>
                 </button>
             </div>
         </header>
 
+        {/* CHAIRSIDE QUICK-LOG BAR */}
+        <div className="bg-teal-900 p-4 rounded-3xl shadow-xl flex items-center gap-6 animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 text-teal-400 shrink-0">
+                <Zap size={20} className="fill-teal-400"/>
+                <span className="text-[10px] font-black uppercase tracking-widest">Chairside Quick-Log</span>
+            </div>
+            <div className="flex-1 flex gap-3 overflow-x-auto no-scrollbar">
+                {quickTiles.map(item => (
+                    <button 
+                        key={item.id}
+                        onClick={() => handleEmergencyDecrement(item)}
+                        className="bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-3 transition-all shrink-0 group active:scale-95"
+                    >
+                        <div className="text-left">
+                            <div className="text-xs font-bold text-white leading-tight">{item.name}</div>
+                            <div className="text-[9px] font-bold text-teal-300 uppercase">Available: {item.quantity}</div>
+                        </div>
+                        <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center text-white font-black text-xs group-hover:scale-110 transition-transform">-1</div>
+                    </button>
+                ))}
+            </div>
+            <div className="text-[9px] font-medium text-teal-300/50 italic max-w-[150px] leading-tight">One-tap decrement for high-volume consumables. Bypasses BOM for unrecorded emergency use.</div>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock</button>
-                <button onClick={() => setActiveTab('forecasting')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><LineChart size={18}/> Demand Forecasting</button>
-                <button onClick={() => setActiveTab('maintenance')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Wrench size={18}/> Maintenance Log</button>
-                <button onClick={() => setActiveTab('transfers')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><ArrowRightLeft size={18}/> Transfers</button>
-                <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization</button>
+            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar justify-between items-center">
+                <div className="flex">
+                    <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock</button>
+                    <button onClick={() => setActiveTab('forecasting')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><LineChart size={18}/> Demand Forecasting</button>
+                    <button onClick={() => setActiveTab('maintenance')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Wrench size={18}/> Maintenance Log</button>
+                    <button onClick={() => setActiveTab('transfers')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><ArrowRightLeft size={18}/> Transfers</button>
+                    <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization</button>
+                </div>
+                
+                {activeTab === 'stock' && (
+                    <div className="pr-4 flex items-center gap-3">
+                        <label className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all cursor-pointer ${auditMode ? 'bg-lilac-600 border-lilac-500 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-500'}`}>
+                            <input type="checkbox" checked={auditMode} onChange={e => setAuditMode(e.target.checked)} className="hidden"/>
+                            <Scale size={16}/>
+                            <span className="text-[10px] font-black uppercase tracking-widest">{auditMode ? 'Audit Active' : 'Enter Audit Mode'}</span>
+                        </label>
+                    </div>
+                )}
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
@@ -134,19 +224,71 @@ const Inventory: React.FC<InventoryProps> = ({
                         </div>
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest"><tr><th className="p-4">Item Name</th><th className="p-4 text-center">Available</th><th className="p-4">Stock Level</th><th className="p-4">Clinical Expiry</th><th className="p-4"></th></tr></thead>
-                                <tbody className="divide-y divide-slate-100">{filteredStock.map(item => {
-                                    const expiry = getExpiryStatus(item.expiryDate);
-                                    return (
-                                        <tr key={item.id} className="hover:bg-slate-50 group transition-colors">
-                                            <td className="p-4"><div className="font-bold text-slate-800">{item.name}</div><div className="text-[10px] text-slate-400 uppercase font-bold">{item.category}</div></td>
-                                            <td className="p-4 text-center font-mono font-bold text-lg text-slate-700">{item.quantity}</td>
-                                            <td className="p-4">{item.quantity <= item.lowStockThreshold ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold border border-red-100">LOW STOCK</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold border border-green-100">STABLE</span>}</td>
-                                            <td className="p-4"><span className={`px-2 py-1 rounded text-[10px] font-black border flex items-center gap-1 w-fit ${expiry.color}`}>{expiry.isUrgent && <AlertTriangle size={10}/>} {expiry.label}</span></td>
-                                            <td className="p-4 text-right"><button onClick={() => setEditItem(item)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-teal-600"><Edit2 size={16}/></button></td>
-                                        </tr>
-                                    );
-                                })}</tbody>
+                                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
+                                    <tr>
+                                        <th className="p-4">Item Name</th>
+                                        <th className="p-4 text-center">{auditMode ? 'Reality Check' : 'System Quantity'}</th>
+                                        <th className="p-4">Compliance status</th>
+                                        <th className="p-4">Clinical Expiry</th>
+                                        <th className="p-4"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredStock.map(item => {
+                                        const expiry = getExpiryStatus(item.expiryDate);
+                                        const diff = item.physicalCount !== undefined ? Math.abs(item.quantity - item.physicalCount) : 0;
+                                        const tolerance = item.quantity * (TOLERANCE_MAP[item.category] || 0);
+                                        const isOutRange = item.physicalCount !== undefined && diff > tolerance;
+
+                                        return (
+                                            <tr key={item.id} className={`group transition-all ${isOutRange ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
+                                                <td className="p-4">
+                                                    <div className="font-bold text-slate-800">{item.name}</div>
+                                                    <div className="text-[10px] text-slate-400 uppercase font-bold flex items-center gap-2">
+                                                        {item.category}
+                                                        {item.lastVerifiedAt && <span className="text-teal-600 flex items-center gap-1"><History size={10}/> Last Audit: {formatDate(item.lastVerifiedAt.split('T')[0])}</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    {auditMode ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number" 
+                                                                className="w-20 p-2 bg-white border border-lilac-200 rounded-xl font-black text-center text-lilac-700 outline-none focus:ring-4 focus:ring-lilac-500/10"
+                                                                value={physicalCounts[item.id] ?? item.quantity}
+                                                                onChange={e => setPhysicalCounts({...physicalCounts, [item.id]: parseInt(e.target.value)})}
+                                                            />
+                                                            <button 
+                                                                onClick={() => handleAuditSync(item)}
+                                                                className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-md"
+                                                                title="Sync Physical Count"
+                                                            >
+                                                                <RefreshCcw size={14}/>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center">
+                                                            <div className="font-mono font-black text-lg text-slate-700">{item.quantity}</div>
+                                                            {item.physicalCount !== undefined && (
+                                                                <div className={`text-[10px] font-bold ${isOutRange ? 'text-red-600' : 'text-slate-400'}`}>
+                                                                    Reality: {item.physicalCount}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        {item.quantity <= item.lowStockThreshold ? <span className="bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold border border-red-100 w-fit">LOW STOCK</span> : <span className="bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold border border-green-100 w-fit">STABLE</span>}
+                                                        {isOutRange && <span className="text-[9px] font-black text-red-600 uppercase flex items-center gap-1 animate-pulse"><AlertTriangle size={10}/> PIC Variance</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4"><span className={`px-2 py-1 rounded text-[10px] font-black border flex items-center gap-1 w-fit ${expiry.color}`}>{expiry.isUrgent && <AlertTriangle size={10}/>} {expiry.label}</span></td>
+                                                <td className="p-4 text-right"><button onClick={() => setEditItem(item)} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-teal-600"><Edit2 size={16}/></button></td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
                             </table>
                         </div>
                     </div>

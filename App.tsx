@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -10,7 +10,7 @@ import KioskView from './components/KioskView';
 import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -23,12 +23,13 @@ const SALT_KEY = 'dentsched_security_salt';
 const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
 const TERMS_VERSION = '1.0-2024'; 
 const PBKDF2_ITERATIONS = 600000; 
+const EMERGENCY_STALE_THRESHOLD = 60 * 60 * 1000; // 60 minutes
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
     const changes: string[] = [];
     const keys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
-    const ignoredKeys = ['lastDigitalUpdate', 'lastPrintedDate', 'dentalChart', 'ledger', 'perioChart', 'treatmentPlans', 'files', 'timestamp', 'isVerifiedTimestamp']; 
+    const ignoredKeys = ['lastDigitalUpdate', 'lastPrintedDate', 'dentalChart', 'ledger', 'perioChart', 'treatmentPlans', 'files', 'timestamp', 'isVerifiedTimestamp', 'hash', 'previousHash']; 
 
     keys.forEach(key => {
         if (ignoredKeys.includes(key)) return;
@@ -51,6 +52,14 @@ function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
 
+  // --- SYSTEM STATUS & DOWNTIME ---
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
+
+  // --- CONNECTIVITY & OFFLINE STATE ---
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -60,10 +69,17 @@ function App() {
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
   const [tasks, setTasks] = useState<PinboardTask[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [isAuditLogVerified, setIsAuditLogVerified] = useState<boolean | null>(null);
   const [incidents, setIncidents] = useState<ClinicalIncident[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
+  const [cashSessions, setCashSessions] = useState<CashSession[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
+
+  // --- PAYROLL STATE ---
+  const [payrollPeriods, setPayrollPeriods] = useState<PayrollPeriod[]>([]);
+  const [payrollAdjustments, setPayrollAdjustments] = useState<PayrollAdjustment[]>([]);
+  const [commissionDisputes, setCommissionDisputes] = useState<CommissionDispute[]>([]);
   
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
@@ -85,6 +101,46 @@ function App() {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
+  // Connectivity Listeners
+  useEffect(() => {
+      const handleOnline = () => { 
+        setIsOnline(true); 
+        toast.success("Connection restored."); 
+        if (systemStatus === SystemStatus.DOWNTIME) setSystemStatus(SystemStatus.RECONCILIATION);
+      };
+      const handleOffline = () => { 
+        setIsOnline(false); 
+        toast.warning("Connection lost. Protocol Downtime suggested."); 
+      };
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+  }, [systemStatus]);
+
+  // Sync Processor
+  useEffect(() => {
+      if (isOnline && offlineQueue.length > 0) {
+          processOfflineQueue();
+      }
+  }, [isOnline, offlineQueue]);
+
+  const processOfflineQueue = async () => {
+      toast.info(`Processing ${offlineQueue.length} queued changes...`);
+      setOfflineQueue([]);
+      setAppointments(prev => prev.map(a => ({...a, isPendingSync: false})));
+      logAction('UPDATE', 'System', 'Sync', `Successfully reconciled ${offlineQueue.length} offline events.`);
+  };
+
+  const isLicenseExpired = useMemo(() => {
+    if (currentUser.role !== UserRole.DENTIST || !currentUser.prcExpiry) return false;
+    return new Date(currentUser.prcExpiry) < new Date();
+  }, [currentUser]);
+
+  const effectiveUser = useMemo(() => ({
+    ...currentUser,
+    isReadOnly: currentUser.isReadOnly || isLicenseExpired
+  }), [currentUser, isLicenseExpired]);
+
   const logAction = async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, previousState?: any, newState?: any) => {
       if (!fieldSettings.features.enableAccountabilityLog) return;
       
@@ -96,21 +152,81 @@ function App() {
 
       const { timestamp, isVerified } = await getTrustedTime();
 
-      const newLog: AuditLogEntry = {
-          id: `log_${Date.now()}`,
-          timestamp,
-          isVerifiedTimestamp: isVerified,
-          userId: currentUser?.id || 'system',
-          userName: currentUser?.name || 'System',
-          action,
-          entity,
-          entityId,
-          details: finalDetails
-      };
-      setAuditLog(prev => [newLog, ...prev]);
+      setAuditLog(prev => {
+          const lastEntry = prev[0];
+          const prevHash = lastEntry?.hash || "GENESIS_LINK_PDA_RA10173";
+          const payload = `${timestamp}|${currentUser?.id || 'system'}|${action}|${entityId}|${prevHash}`;
+          const currentHash = CryptoJS.SHA256(payload).toString();
+
+          const newLog: AuditLogEntry = {
+              id: `log_${Date.now()}`,
+              timestamp,
+              isVerifiedTimestamp: isVerified,
+              userId: currentUser?.id || 'system',
+              userName: currentUser?.name || 'System',
+              action,
+              entity,
+              entityId,
+              details: finalDetails,
+              hash: currentHash,
+              previousHash: prevHash
+          };
+          return [newLog, ...prev];
+      });
   };
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setAppointments(prev => prev.map(a => {
+        if (a.status === AppointmentStatus.ARRIVED && a.queuedAt && a.triageLevel) {
+          const queuedTime = new Date(a.queuedAt).getTime();
+          if (now - queuedTime > EMERGENCY_STALE_THRESHOLD && !a.isStale) {
+            logAction('SECURITY_ALERT', 'Appointment', a.id, `Emergency record ${a.id} exceeded 60m threshold without clinical seat.`);
+            return { ...a, isStale: true };
+          }
+        }
+        return a;
+      }));
+    }, 30000); 
+    return () => clearInterval(timer);
+  }, []);
+
+  const sanitizedPatients = useMemo(() => {
+      if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) return patients;
+      if (currentUser.role === UserRole.DENTAL_ASSISTANT) {
+          return patients.map(p => ({
+              ...p,
+              currentBalance: undefined,
+              ledger: [],
+              installmentPlans: []
+          })) as Patient[];
+      }
+      return []; 
+  }, [patients, currentUser.role]);
+
+  const handleManualOverride = (gateId: string, reason: string) => {
+      logAction('DOWNTIME_BYPASS', 'System', gateId, `Manual clinical override. Reason: ${reason}`);
+      toast.info("Validation bypassed. Logged for review.");
+  };
+
+  const verifyAuditTrail = useCallback((logs: AuditLogEntry[]) => {
+      if (logs.length <= 1) return true;
+      const sorted = [...logs].reverse();
+      for (let i = 1; i < sorted.length; i++) {
+          const current = sorted[i];
+          const prev = sorted[i-1];
+          const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
+          const expectedHash = CryptoJS.SHA256(payload).toString();
+          if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
+              return false;
+          }
+      }
+      return true;
+  }, []);
+
   const triggerSms = useCallback((templateId: string, patient: Patient, extras: Record<string, string> = {}) => {
+      if (!isOnline || systemStatus === SystemStatus.DOWNTIME) return; 
       if (!fieldSettings.features.enableSmsAutomation) return;
       
       const config = fieldSettings.smsTemplates[templateId];
@@ -143,7 +259,7 @@ function App() {
           .replace(/{BookingLink}/g, 'dentsched.ph/book');
 
       logAction('SEND_SMS', 'SmsQueue', patient.id, `Queued "${config.label}" for ${patient.phone}: ${message}`);
-  }, [fieldSettings, currentBranch]);
+  }, [fieldSettings, currentBranch, isOnline, systemStatus]);
 
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
@@ -175,7 +291,7 @@ function App() {
               await loadSecureData(derivedKey);
               setIsAuthenticated(true);
               setIsInitializing(false);
-              logAction('LOGIN', 'System', 'Session', `User logged in with verified encryption.`);
+              logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
           } catch (error) {
               setIsInitializing(false);
               toast.error("Login error.");
@@ -198,14 +314,25 @@ function App() {
       setStaff(load('dentsched_staff', STAFF));
       setStock(load('dentsched_stock', MOCK_STOCK));
       setSterilizationCycles(load('dentsched_sterilization', MOCK_STERILIZATION_CYCLES));
-      setAuditLog(load('dentsched_auditlog', MOCK_AUDIT_LOG));
+      
+      const loadedLogs = load('dentsched_auditlog', MOCK_AUDIT_LOG);
+      setAuditLog(loadedLogs);
+      setIsAuditLogVerified(verifyAuditTrail(loadedLogs));
+
       setTasks(load('dentsched_pinboard_tasks', []));
       setHmoClaims(load('dentsched_hmo_claims', MOCK_CLAIMS));
       setPhilHealthClaims(load('dentsched_philhealth_claims', []));
       setIncidents(load('dentsched_incidents', []));
       setReferrals(load('dentsched_referrals', []));
       setReconciliations(load('dentsched_reconciliations', []));
+      setCashSessions(load('dentsched_cash_sessions', []));
       setTransfers(load('dentsched_transfers', []));
+      setPayrollPeriods(load('dentsched_payroll_periods', []));
+      setPayrollAdjustments(load('dentsched_payroll_adjustments', []));
+      setCommissionDisputes(load('dentsched_commission_disputes', []));
+      setOfflineQueue(load('dentsched_offline_queue', []));
+      setSyncConflicts(load('dentsched_sync_conflicts', []));
+      setSystemStatus(load('dentsched_system_status', SystemStatus.OPERATIONAL));
       
       const savedSettings = load('dentsched_fields', null);
       if (savedSettings) {
@@ -233,8 +360,15 @@ function App() {
       save('dentsched_incidents', incidents);
       save('dentsched_referrals', referrals);
       save('dentsched_reconciliations', reconciliations);
+      save('dentsched_cash_sessions', cashSessions);
       save('dentsched_transfers', transfers);
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, transfers, isAuthenticated, encryptionKey]);
+      save('dentsched_payroll_periods', payrollPeriods);
+      save('dentsched_payroll_adjustments', payrollAdjustments);
+      save('dentsched_commission_disputes', commissionDisputes);
+      save('dentsched_offline_queue', offlineQueue);
+      save('dentsched_sync_conflicts', syncConflicts);
+      save('dentsched_system_status', systemStatus);
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, isAuthenticated, encryptionKey]);
 
   const resetIdleTimer = () => {
       if (isSessionLocked || !isAuthenticated) return;
@@ -259,21 +393,37 @@ function App() {
   };
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
-    const appointmentWithBranch = { ...newAppointment, branch: newAppointment.branch || currentBranch };
+    const isManual = systemStatus === SystemStatus.DOWNTIME;
+    const aptWithSync = { 
+        ...newAppointment, 
+        branch: newAppointment.branch || currentBranch, 
+        isPendingSync: !isOnline,
+        entryMode: isManual ? 'MANUAL' : 'AUTO',
+        reconciled: !isManual
+    } as Appointment;
     const patient = patients.find(p => p.id === newAppointment.patientId);
+
+    if (!isOnline) {
+        setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'CREATE_APPOINTMENT', payload: aptWithSync, timestamp: new Date().toISOString() }]);
+        toast.info("Appointment queued for offline sync.");
+    }
     
     setAppointments(prev => {
-        const existingIndex = prev.findIndex(a => a.id === appointmentWithBranch.id);
+        const existingIndex = prev.findIndex(a => a.id === aptWithSync.id);
         if (existingIndex >= 0) {
-            const updated = [...prev]; updated[existingIndex] = appointmentWithBranch; return updated;
+            const updated = [...prev]; updated[existingIndex] = aptWithSync; return updated;
         } else { 
             if (patient) {
+                const updatedStats = {
+                    ...(patient.attendanceStats || { totalBooked: 0, completedCount: 0, noShowCount: 0, lateCancelCount: 0 }),
+                    totalBooked: (patient.attendanceStats?.totalBooked || 0) + 1
+                };
+                setPatients(pts => pts.map(p => p.id === patient.id ? { ...p, attendanceStats: updatedStats } : p));
+
                 const doctor = staff.find(s => s.id === newAppointment.providerId)?.name || 'Dr. Alexander';
                 triggerSms('booking', patient, { date: newAppointment.date, time: newAppointment.time, procedure: newAppointment.type, doctor, branch: newAppointment.branch });
-                if (['Surgery', 'Extraction'].includes(newAppointment.type)) triggerSms('sedation', patient, { procedure: newAppointment.type });
-                if (patient.heartValveIssues) triggerSms('antibiotic', patient);
             }
-            return [...prev, appointmentWithBranch]; 
+            return [...prev, aptWithSync]; 
         }
     });
   };
@@ -281,27 +431,40 @@ function App() {
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       const apt = appointments.find(a => a.id === appointmentId);
       if (!apt) return;
-      const patient = patients.find(p => p.id === apt.patientId);
 
-      if (status === AppointmentStatus.TREATING) {
-          const procedure = fieldSettings.procedures.find(p => p.name === apt.type);
-          if (procedure?.requiresConsent && !apt.signedConsentUrl) { 
-              toast.error(`Consent Required.`);
-              return; 
-          }
+      if (!isOnline) {
+          setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'UPDATE_STATUS', payload: { id: appointmentId, status }, timestamp: new Date().toISOString() }]);
+          toast.info("Status update queued for offline sync.");
       }
 
-      if (status === AppointmentStatus.NO_SHOW && patient) triggerSms('noshow', patient);
-      if (status === AppointmentStatus.COMPLETED && patient) triggerSms('checkup', patient);
+      const patient = patients.find(p => p.id === apt.patientId);
 
-      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
+      if (patient && apt.status !== status) {
+          const stats = patient.attendanceStats || { totalBooked: 1, completedCount: 0, noShowCount: 0, lateCancelCount: 0 };
+          let newStats = { ...stats };
+          if (apt.status === AppointmentStatus.COMPLETED) newStats.completedCount--;
+          if (apt.status === AppointmentStatus.NO_SHOW) newStats.noShowCount--;
+          if (apt.status === AppointmentStatus.CANCELLED) newStats.lateCancelCount--;
+          if (status === AppointmentStatus.COMPLETED) newStats.completedCount++;
+          if (status === AppointmentStatus.NO_SHOW) newStats.noShowCount++;
+          if (status === AppointmentStatus.CANCELLED) newStats.lateCancelCount++;
+          const denominator = newStats.completedCount + newStats.noShowCount + newStats.lateCancelCount;
+          const score = denominator > 0 ? Math.round((newStats.completedCount / denominator) * 100) : 100;
+          setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, attendanceStats: newStats, reliabilityScore: score } : p));
+      }
+
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status, isPendingSync: !isOnline } : a));
   };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
     const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
+    if (!isOnline) {
+        setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'UPDATE_PATIENT', payload: dataWithTimestamp, timestamp: new Date().toISOString() }]);
+        toast.info("Patient update queued for offline sync.");
+    }
+
     if (editingPatient) {
         const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
-        if (editingPatient.phone !== updatedPatient.phone || editingPatient.email !== updatedPatient.email) triggerSms('security', updatedPatient);
         logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
         setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
         setEditingPatient(null);
@@ -309,38 +472,45 @@ function App() {
         const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '', recallStatus: 'Due' };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
         setPatients(prev => [...prev, newPatient]);
-        triggerSms('welcome', newPatient);
-        if (newPatient.provisional) triggerSms('provisional', newPatient);
-        if (!newPatient.provisional) { setSelectedPatientId(newPatient.id); setActiveTab('patients'); }
     }
   };
 
   const handleQuickUpdatePatient = (updatedPatient: Patient) => setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
 
-  const handlePerformTransfer = (transfer: StockTransfer) => {
-      const fromItem = stock.find(s => s.name === transfer.itemName && s.branch === transfer.fromBranch);
-      const toItem = stock.find(s => s.name === transfer.itemName && s.branch === transfer.toBranch);
-      if (!fromItem || fromItem.quantity < transfer.quantity) { toast.error("Insufficient stock."); return; }
-      const updatedStock = stock.map(s => s.id === fromItem.id ? { ...s, quantity: s.quantity - transfer.quantity } : (toItem && s.id === toItem.id ? { ...s, quantity: s.quantity + transfer.quantity } : s));
-      if (!toItem) updatedStock.push({ ...fromItem, id: `stk_${Date.now()}`, branch: transfer.toBranch, quantity: transfer.quantity });
-      setStock(updatedStock);
-      setTransfers(prev => [transfer, ...prev]);
-      logAction('STOCK_TRANSFER', 'Inventory', transfer.id, `Transferred ${transfer.quantity} of ${transfer.itemName}`);
-  };
-
   const handleSaveReconciliation = (record: ReconciliationRecord) => {
       setReconciliations(prev => [record, ...prev]);
-      logAction('DAILY_RECONCILE', 'CashBox', record.id, `Finalized reconciliation.`);
+      logAction('DAILY_RECONCILE', 'CashBox', currentBranch, `Finalized daily reconciliation. Discrepancy: ${record.discrepancy}`);
   };
 
-  const handleEmergencyQuickQueue = (name: string, phone: string, complaint: string) => {
-      const patientId = `p_emerg_${Date.now()}`;
-      const newPatient: Patient = { id: patientId, name, firstName: name.split(' ')[0], surname: name.split(' ').slice(1).join(' ') || 'Emergency', phone, email: '', dob: '1900-01-01', provisional: true, chiefComplaint: complaint, lastVisit: new Date().toISOString().split('T')[0], nextVisit: null, notes: 'EMERGENCY WALK-IN' };
-      const newApt: Appointment = { id: `apt_emerg_${Date.now()}`, patientId: patientId, providerId: staff.find(s => s.role === UserRole.DENTIST)?.id || 'doc1', branch: currentBranch, date: new Date().toISOString().split('T')[0], time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.ARRIVED, notes: complaint };
-      setPatients(prev => [...prev, newPatient]);
-      setAppointments(prev => [...prev, newApt]);
-      logAction('CREATE', 'Patient', patientId, 'Quick registered emergency.');
+  const handleSaveCashSession = (session: CashSession) => {
+      setCashSessions(prev => {
+          const idx = prev.findIndex(s => s.id === session.id);
+          if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = session;
+              return next;
+          }
+          return [session, ...prev];
+      });
+      if (session.status === 'Open') {
+          logAction('OPEN_CASH_DRAWER', 'CashBox', session.id, `Opened cash drawer for shift with float: ${session.openingBalance}`);
+      } else {
+          logAction('CLOSE_CASH_DRAWER', 'CashBox', session.id, `Closed cash drawer for shift.`);
+      }
   };
+
+  const handleUpdatePayrollPeriod = (period: PayrollPeriod) => {
+      setPayrollPeriods(prev => {
+          const existing = prev.find(p => p.id === period.id);
+          if (existing) return prev.map(p => p.id === period.id ? period : p);
+          return [period, ...prev];
+      });
+  };
+
+  const handleAddAdjustment = (adj: PayrollAdjustment) => setPayrollAdjustments(prev => [adj, ...prev]);
+  const handleApproveAdjustment = (adjId: string) => setPayrollAdjustments(prev => prev.map(a => a.id === adjId ? { ...a, status: 'Approved', verifiedBy: currentUser.id } : a));
+  const handleAddDispute = (dispute: CommissionDispute) => setCommissionDisputes(prev => [dispute, ...prev]);
+  const handleResolveDispute = (disputeId: string) => setCommissionDisputes(prev => prev.map(d => d.id === disputeId ? { ...d, status: 'Resolved' } : d));
 
   const handlePurgePatient = (patientId: string) => {
       setPatients(prev => prev.filter(p => p.id !== patientId));
@@ -348,14 +518,22 @@ function App() {
       logAction('DESTRUCTION_CERTIFICATE', 'DataArchive', patientId, `Purged records.`);
   };
 
+  const handleTabChange = (tab: string) => {
+      if (tab === 'field-mgmt' && currentUser.role !== UserRole.ADMIN) {
+          toast.error("Access Restricted.");
+          return;
+      }
+      setActiveTab(tab);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onAddTask={(txt, urg, ass) => setTasks(prev => [...prev, { id: Date.now().toString(), text: txt, isCompleted: false, isUrgent: urg, assignedTo: ass || undefined, createdAt: Date.now() }])} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onDeleteTask={(id) => setTasks(prev => prev.filter(t => t.id !== id))} onChangeBranch={setCurrentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} onPatientPortalToggle={() => {}} onQuickQueue={handleEmergencyQuickQueue} />;
-      case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={currentUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
-      case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={(id) => setPatients(prev => prev.map(p => p.id === id ? { ...p, isArchived: true } : p))} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} />;
-      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} onPerformTransfer={handlePerformTransfer} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={currentUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} currentBranch={currentBranch} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} onUpdateStaff={setStaff} auditLog={auditLog} patients={patients} incidents={incidents} onPurgePatient={handlePurgePatient} />;
+      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={sanitizedPatients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} onPatientPortalToggle={() => {}} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={setSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onVerifyDowntimeEntry={(id) => setAppointments(prev => prev.map(a => a.id === id ? {...a, entryMode: 'AUTO', reconciled: true} : a))} />;
+      case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={effectiveUser} patients={sanitizedPatients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
+      case 'patients': return <PatientList patients={sanitizedPatients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={(id) => setPatients(prev => prev.map(p => p.id === id ? { ...p, isArchived: true } : p))} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} />;
+      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} logAction={logAction} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={sanitizedPatients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={handleUpdatePayrollPeriod} onAddPayrollAdjustment={handleAddAdjustment} onApprovePayrollAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddDispute} onResolveCommissionDispute={handleResolveDispute} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} auditLogVerified={isAuditLogVerified} />;
       default: return null;
     }
   };
@@ -367,6 +545,7 @@ function App() {
                   <div className="flex flex-col items-center mb-8">
                       <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-lg mb-4"><ShieldCheck size={32} className="text-white"/></div>
                       <h1 className="text-2xl font-bold text-slate-800">Secure Access</h1>
+                      {!isOnline && <div className="mt-2 text-xs font-bold text-lilac-600 uppercase flex items-center gap-1"><Lock size={12}/> Emergency Offline Entry Active</div>}
                   </div>
                   <form onSubmit={handleLogin} className="space-y-4">
                       <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 outline-none text-lg font-bold" placeholder="••••••••" /></div>
@@ -378,10 +557,29 @@ function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={currentUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={fieldSettings.branches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onEnterKioskMode={() => setIsInKioskMode(true)}>
+    <Layout 
+      activeTab={activeTab} 
+      setActiveTab={handleTabChange} 
+      onAddAppointment={() => setIsAppointmentModalOpen(true)} 
+      currentUser={effectiveUser} 
+      onSwitchUser={setCurrentUser} 
+      staff={staff} 
+      currentBranch={currentBranch} 
+      availableBranches={fieldSettings.branches} 
+      onChangeBranch={setCurrentBranch} 
+      fieldSettings={fieldSettings} 
+      onGenerateReport={() => {}} 
+      tasks={tasks} 
+      onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} 
+      onEnterKioskMode={() => setIsInKioskMode(true)}
+      isOnline={isOnline}
+      pendingSyncCount={offlineQueue.length}
+      systemStatus={systemStatus}
+      onSwitchSystemStatus={setSystemStatus}
+    >
       {isInKioskMode ? <KioskView patients={patients} onUpdatePatient={handleSavePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} /> : renderContent()}
-      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} />
-      <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
+      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
+      <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
     </Layout>
   );
 }

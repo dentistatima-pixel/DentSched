@@ -4,6 +4,12 @@ export enum UserRole {
   DENTAL_ASSISTANT = 'Dental Assistant'
 }
 
+export enum SystemStatus {
+  OPERATIONAL = 'OPERATIONAL',
+  DOWNTIME = 'DOWNTIME',
+  RECONCILIATION = 'RECONCILIATION'
+}
+
 export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
@@ -13,6 +19,20 @@ export enum AppointmentStatus {
   COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
+}
+
+export enum ResourceType {
+  CHAIR = 'Dental Chair',
+  XRAY = 'Imaging Unit',
+  CONSULTATION = 'Consultation Room',
+  RECOVERY = 'Recovery Bay'
+}
+
+export interface ClinicResource {
+  id: string;
+  name: string;
+  type: ResourceType;
+  branch: string;
 }
 
 export enum HMOClaimStatus {
@@ -49,7 +69,25 @@ export enum AppointmentType {
   TELE_DENTISTRY = 'Tele-dentistry Consultation'
 }
 
+export type TriageLevel = 'Level 1: Trauma/Bleeding' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Appliance/Maintenance';
+
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
+
+export interface SyncIntent {
+    id: string;
+    action: 'CREATE_APPOINTMENT' | 'UPDATE_APPOINTMENT' | 'UPDATE_PATIENT' | 'REGISTER_PATIENT' | 'UPDATE_STATUS';
+    payload: any;
+    timestamp: string;
+}
+
+export interface SyncConflict {
+    id: string;
+    entityType: 'Appointment' | 'Patient';
+    localData: any;
+    serverData: any;
+    timestamp: string;
+    resolved: boolean;
+}
 
 export interface CpdEntry {
     id: string;
@@ -89,7 +127,55 @@ export interface ReconciliationRecord {
     discrepancy: number;
     notes?: string;
     verifiedBy: string;
+    verifiedByName?: string;
+    explanation?: string; // Mandatory for variances
     timestamp: string;
+}
+
+export interface CashSession {
+  id: string;
+  branch: string;
+  openedBy: string;
+  openedByName: string;
+  startTime: string;
+  openingBalance: number;
+  status: 'Open' | 'Closed';
+  endTime?: string;
+}
+
+export enum PayrollStatus {
+    OPEN = 'Open',
+    CLOSED = 'Closed',
+    LOCKED = 'Locked'
+}
+
+export interface PayrollAdjustment {
+    id: string;
+    periodId: string;
+    amount: number;
+    reason: string;
+    requestedBy: string;
+    status: 'Pending' | 'Approved';
+    verifiedBy?: string;
+    date: string;
+}
+
+export interface CommissionDispute {
+    id: string;
+    itemId: string; // appointmentId
+    note: string;
+    status: 'Open' | 'Resolved';
+    date: string;
+}
+
+export interface PayrollPeriod {
+    id: string;
+    providerId: string;
+    startDate: string;
+    endDate: string;
+    status: PayrollStatus;
+    closedAt?: string;
+    lockedAt?: string;
 }
 
 export interface StockTransfer {
@@ -207,6 +293,8 @@ export interface StockItem {
   category: StockCategory;
   supplier?: string;
   quantity: number;
+  physicalCount?: number; // PIC accountability field
+  lastVerifiedAt?: string; // PIC accountability field
   lowStockThreshold: number;
   lastRestockDate?: string;
   expiryDate?: string;
@@ -259,10 +347,12 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll';
   entityId: string;
   details: string;
+  hash?: string;          // Cryptographic seal for entry
+  previousHash?: string;  // Link to preceding entry
 }
 
 export interface OrthoAdjustment {
@@ -430,6 +520,10 @@ export interface FieldSettings {
   postOpTemplates?: Record<string, string>;
   clinicalNoteTemplates?: any[];
   mediaConsentTemplate?: ConsentFormTemplate;
+  complianceOfficerId?: string; // NEW: Designated owner
+  acknowledgedAlertIds?: string[]; // NEW: Read receipts
+  resources: ClinicResource[]; // NEW: Chairs and units
+  currentPrivacyVersion: string; // NEW: Versioning for DPA
 }
 
 export enum TreatmentPlanStatus {
@@ -475,6 +569,8 @@ export interface DentalChartEntry {
   sealedHash?: string;
   sealedAt?: string;
   originalNoteId?: string;
+  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
+  reconciled?: boolean; // Post-downtime verification
 }
 
 export interface PerioMeasurement {
@@ -498,6 +594,8 @@ export interface LedgerEntry {
   idNumber?: string;          
   branch?: string;
   procedureId?: string;
+  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
+  reconciled?: boolean; // Post-downtime verification
 }
 
 export interface UserPreferences {
@@ -549,10 +647,42 @@ export interface PatientFile {
 
 export type RecallStatus = 'Due' | 'Contacted' | 'No Response' | 'Booked';
 
+export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
+export type ConsentStatus = 'Granted' | 'Revoked';
+
+export interface ConsentLogEntry {
+    id: string;
+    category: ConsentCategory;
+    status: ConsentStatus;
+    version: string;
+    timestamp: string;
+    reason?: string;
+    staffId: string;
+    staffName: string;
+}
+
+export enum AuthorityLevel {
+    FULL = 'FULL',
+    FINANCIAL_ONLY = 'FINANCIAL_ONLY',
+    CLINICAL_ONLY = 'CLINICAL_ONLY'
+}
+
+export interface GuardianProfile {
+    legalName: string;
+    mobile: string;
+    email: string;
+    idType: string;
+    idNumber: string;
+    relationship: string;
+    authorityLevel: AuthorityLevel;
+    linkedPatientId?: string; // If guardian is an existing patient
+}
+
 export interface Patient {
   id: string;
   provisional?: boolean; 
   isArchived?: boolean;
+  isSeniorDependent?: boolean; // NEW: Senior status
   name: string; 
   firstName: string;
   surname: string;
@@ -577,6 +707,7 @@ export interface Patient {
   dpaConsent?: boolean;
   marketingConsent?: boolean;
   thirdPartyDisclosureConsent?: boolean;
+  /* Fix: Changed orthoAdjustment to OrthoAdjustment to match defined interface */
   orthoHistory?: OrthoAdjustment[];
   clearanceRequests?: ClearanceRequest[];
   insuranceProvider?: string;
@@ -630,12 +761,22 @@ export interface Patient {
   philHealthMemberStatus?: 'Member' | 'Dependent';
   philHealthPIN?: string;
   lastDigitalUpdate?: string;
+  attendanceStats?: {
+      totalBooked: number;
+      completedCount: number;
+      noShowCount: number;
+      lateCancelCount: number;
+  };
+  reliabilityScore?: number;
+  consentLogs?: ConsentLogEntry[]; // NEW: PDA Compliance
+  guardianProfile?: GuardianProfile; // NEW: PDA Authority Tracking
 }
 
 export interface Appointment {
   id: string;
   patientId: string; 
   providerId: string;
+  resourceId?: string; // NEW: Linked to Chair/Unit
   branch: string; 
   date: string; 
   time: string; 
@@ -654,6 +795,12 @@ export interface Appointment {
   isBlock?: boolean; 
   title?: string; 
   signedConsentUrl?: string;
+  queuedAt?: string; // NEW: Track for emergency expiry
+  triageLevel?: TriageLevel; // NEW: Mandatory reasoning
+  isStale?: boolean; // NEW: Expiry status
+  isPendingSync?: boolean; // NEW: Offline-first flag
+  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
+  reconciled?: boolean; // Post-downtime verification
 }
 
 export interface PinboardTask {

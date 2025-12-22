@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck } from 'lucide-react';
+import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel } from '../types';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale } from 'lucide-react';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -21,7 +20,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const [isSigning, setIsSigning] = useState(false);
 
     const isMinor = (patient.age || 0) < 18;
-    const requiresGuardian = isMinor || patient.isPwd;
+    const requiresGuardian = isMinor || patient.isPwd || patient.isSeniorDependent;
+    const guardian = patient.guardianProfile;
 
     const getProcessedContent = () => {
         let content = template.content;
@@ -84,7 +84,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         ctx.font = '12px sans-serif';
         ctx.fillStyle = '#64748b';
         ctx.fillText(`Patient: ${patient.name} | Proc: ${appointment.type}`, 30, 80);
-        if (requiresGuardian) ctx.fillText(`Guardian: ${patient.guardian} (${patient.relationshipToPatient})`, 30, 95);
+        if (requiresGuardian && guardian) ctx.fillText(`Guardian: ${guardian.legalName} (${guardian.relationship})`, 30, 95);
         ctx.fillText(`Date: ${new Date().toLocaleString()}`, 30, 110);
         
         ctx.beginPath(); ctx.moveTo(30, 120); ctx.lineTo(570, 120); ctx.strokeStyle = '#e2e8f0'; ctx.stroke();
@@ -109,12 +109,15 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         y += signatureCanvas.height + 5;
         ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(30 + signatureCanvas.width, y); ctx.strokeStyle = '#94a3b8'; ctx.stroke();
         ctx.fillStyle = '#64748b';
-        ctx.fillText(requiresGuardian ? `Guardian Signature: ${patient.guardian} (${patient.relationshipToPatient})` : `Patient Signature: ${patient.name}`, 30, y + 15);
+        const sigLabel = requiresGuardian && guardian ? `Signature of Legal Guardian: ${guardian.legalName} (ID: ${guardian.idType} ${guardian.idNumber})` : `Patient Signature: ${patient.name}`;
+        ctx.fillText(sigLabel, 30, y + 15);
         
         onSave(finalCanvas.toDataURL('image/png'));
     };
 
     if (!isOpen) return null;
+
+    const isAuthorityBlocked = requiresGuardian && guardian && guardian.authorityLevel === AuthorityLevel.FINANCIAL_ONLY;
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
@@ -128,23 +131,57 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 space-y-6">
-                    {requiresGuardian && (
-                        <div className="bg-lilac-50 border border-lilac-200 p-4 rounded-xl flex items-center gap-3 text-lilac-800">
-                            <Baby size={20} className="text-lilac-600"/>
-                            <div><p className="text-xs font-bold uppercase">Pediatric/PWD Case Detected</p><p className="text-[11px]">Guardian <strong>{patient.guardian}</strong> is authorized to sign for the patient.</p></div>
+                    {requiresGuardian && guardian ? (
+                        <div className={`p-4 rounded-xl border flex items-center gap-3 ${isAuthorityBlocked ? 'bg-red-50 border-red-200 text-red-800' : 'bg-lilac-50 border-lilac-200 text-lilac-800'}`}>
+                            {isAuthorityBlocked ? <AlertTriangle size={20} className="text-red-600"/> : <Scale size={20} className="text-lilac-600"/>}
+                            <div>
+                                <p className="text-xs font-black uppercase">Guardian Verification Active</p>
+                                <p className="text-[11px] font-medium leading-tight">
+                                    Legal Representative: <strong>{guardian.legalName}</strong> ({guardian.relationship})<br/>
+                                    Authority Level: <span className="font-black underline">{guardian.authorityLevel.replace('_', ' ')}</span>
+                                </p>
+                            </div>
+                        </div>
+                    ) : requiresGuardian && (
+                        <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white shadow-lg animate-pulse">
+                            <AlertTriangle size={32} />
+                            <div><p className="font-bold">GUARDIAN PROFILE MISSING</p><p className="text-xs opacity-90">A legal guardian must be added to the patient profile before clinical consent can be captured.</p></div>
                         </div>
                     )}
+
+                    {isAuthorityBlocked && (
+                        <div className="bg-red-100 text-red-800 p-4 rounded-xl text-xs font-bold border border-red-200">
+                            CRITICAL: This guardian is restricted to FINANCIAL decisions only. They are legally unauthorized to sign clinical consent forms.
+                        </div>
+                    )}
+
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
 
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                         <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">{requiresGuardian ? 'Authorized Guardian Signature' : 'Patient Signature'}</h4><button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button></div>
-                         <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
-                    </div>
+                    {!isAuthorityBlocked && (
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-slate-700">{requiresGuardian ? 'Signature of Legal Guardian (on behalf of minor/dependent)' : 'Patient Signature'}</h4>
+                                <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button>
+                            </div>
+                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
+                            {requiresGuardian && guardian && (
+                                <div className="mt-3 p-3 bg-slate-50 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200">
+                                    ID ATTACHED: {guardian.idType} ({guardian.idNumber})
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
-                    <button onClick={handleSave} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2"><CheckCircle size={20} /> Signed & Verified</button>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isAuthorityBlocked || (requiresGuardian && !guardian)} 
+                        className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50 disabled:grayscale transition-all"
+                    >
+                        <CheckCircle size={20} /> Signed & Verified
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 import { jsPDF } from 'jspdf';
@@ -16,9 +15,10 @@ interface FieldManagementProps {
   onPurgePatient?: (id: string) => void; 
   onExportAuditLog?: () => void; 
   incidents?: ClinicalIncident[];
+  auditLogVerified?: boolean | null;
 }
 
-const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [] }) => {
+const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSettings, staff = [], onUpdateStaff, auditLog, patients = [], onPurgePatient, onExportAuditLog, incidents = [], auditLogVerified }) => {
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
     const [activeSmsCat, setActiveSmsCat] = useState<SmsCategory>('Onboarding');
@@ -95,6 +95,44 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         doc.save(`${certId}.pdf`);
         toast.success("Certificate generated and downloaded.");
         return certId;
+    };
+
+    const generatePatientAccessReport = () => {
+        const patientId = prompt("Enter Patient UID for Access History Report:");
+        if (!patientId) return;
+        
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) { toast.error("Patient not found."); return; }
+
+        const history = auditLog.filter(log => log.entityId === patientId && (log.action === 'VIEW_RECORD' || log.action === 'UPDATE' || log.action === 'AMEND_RECORD'));
+        
+        const doc = new jsPDF();
+        doc.setFont('helvetica', 'bold');
+        doc.text("OFFICIAL ACCESS HISTORY REPORT", 105, 20, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text("Generated pursuant to R.A. 10173 - Right to be Informed", 105, 25, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.text(`Patient: ${patient.name}`, 20, 40);
+        doc.text(`Date Range: System Genesis to ${new Date().toLocaleDateString()}`, 20, 45);
+        
+        const tableData = history.map(log => [
+            new Date(log.timestamp).toLocaleString(),
+            log.userName,
+            log.action,
+            log.details
+        ]);
+
+        (doc as any).autoTable({
+            head: [['Timestamp', 'Staff User', 'Action', 'Purpose']],
+            body: tableData,
+            startY: 55,
+            theme: 'striped',
+            headStyles: { fillColor: [20, 184, 166] }
+        });
+
+        doc.save(`AccessHistory_${patient.surname}.pdf`);
+        toast.success("Transparency report generated.");
     };
 
     const handlePurge = () => {
@@ -316,11 +354,27 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     function renderAuditLog() {
         return (
             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                <div className="p-4 bg-white border-b flex justify-between items-center shrink-0"><h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4></div>
+                <div className="p-4 bg-white border-b flex justify-between items-center shrink-0">
+                    <h4 className="font-bold text-slate-700 flex items-center gap-2"><Eye size={18} className="text-teal-600"/> Accountability Timeline</h4>
+                    <div className="flex gap-2">
+                         <div className={`px-4 py-1.5 rounded-full border flex items-center gap-2 text-[10px] font-black uppercase transition-all ${auditLogVerified === false ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
+                            {auditLogVerified === false ? <ShieldAlert size={14}/> : <ShieldCheck size={14}/>}
+                            {auditLogVerified === false ? 'Integrity Breached' : 'Ledger Verified'}
+                        </div>
+                        <button 
+                            onClick={generatePatientAccessReport}
+                            className="px-4 py-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50"
+                        >
+                            <Printer size={14}/> Print Access Report
+                        </button>
+                    </div>
+                </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {auditLog.length > 0 ? auditLog.map(log => (
-                        <div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4">
-                            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0"><Activity size={16}/></div>
+                        <div key={log.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4 group">
+                            <div className="p-2 bg-slate-100 text-slate-400 group-hover:text-teal-600 rounded-lg shrink-0 transition-colors">
+                                <Link size={16}/>
+                            </div>
                             <div className="flex-1">
                                 <div className="flex justify-between items-start">
                                     <span className="text-sm font-bold text-slate-800">{log.userName} <span className="text-slate-400 font-normal">executed</span> {log.action}</span>
@@ -334,6 +388,11 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                                     </div>
                                 </div>
                                 <p className="text-xs mt-1 italic text-slate-500">{log.details}</p>
+                                {log.hash && (
+                                    <div className="mt-2 text-[8px] font-mono text-slate-300 truncate uppercase tracking-tighter">
+                                        SHA-256: {log.hash}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )) : <div className="text-center py-20 text-slate-400 italic">No events recorded.</div>}

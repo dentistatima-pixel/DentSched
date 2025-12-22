@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem } from '../types';
+import { DentalChartEntry, ProcedureItem, StockItem, User } from '../types';
 import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key } from 'lucide-react';
-import { formatDate } from '../constants';
+import { formatDate, STAFF } from '../constants';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
 import { getTrustedTime } from '../services/timeService';
@@ -319,6 +318,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
               <tbody className="text-sm divide-y divide-slate-100">
                   {[...entries].sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime()).map((entry, idx) => {
                       const locked = isLocked(entry);
+                      const clinician = STAFF.find(s => s.name.includes(entry.author || ''));
                       return (
                       <tr key={idx} className={`${entry.isVoid ? 'bg-red-50/30' : 'bg-white'} hover:bg-teal-50/20 transition-colors group relative`}>
                           <td className="p-4 font-mono text-[10px] text-slate-500">{formatDate(entry.date)}</td>
@@ -346,6 +346,9 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                                         </div>
                                       ) : <ShieldCheck size={10} className="text-teal-500"/>}
                                       Verified by Dr. {entry.author}
+                                      {clinician?.prcLicense && (
+                                          <span className="ml-1 text-slate-300 italic">(PRC: {clinician.prcLicense})</span>
+                                      )}
                                   </span>
                                   {!readOnly && (
                                       <div className="flex gap-2">

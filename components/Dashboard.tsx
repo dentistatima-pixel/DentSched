@@ -1,11 +1,21 @@
-
-import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, Mail, Zap, X, AlertTriangle } from 'lucide-react';
-import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus, TelehealthRequest, RecallStatus } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
+  Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, 
+  Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
+  Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
+  Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon
+} from 'lucide-react';
+import { 
+  Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
+  PinboardTask, TreatmentPlanStatus, TelehealthRequest, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
+} from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal';
 import { MOCK_TELEHEALTH_REQUESTS } from '../constants';
 import { formatDate } from '../constants';
+import { useToast } from './ToastSystem';
 
 interface DashboardProps {
   appointments: Appointment[];
@@ -22,399 +32,331 @@ interface DashboardProps {
   onCompleteRegistration: (patientId: string) => void;
   onUpdatePatientRecall?: (patientId: string, status: RecallStatus) => void; 
   fieldSettings?: FieldSettings;
+  onUpdateSettings?: (s: FieldSettings) => void;
   onViewAllSchedule?: () => void; 
   onChangeBranch?: (branch: string) => void;
+  currentBranch: string;
   onPatientPortalToggle: () => void;
   tasks?: PinboardTask[];
   onAddTask?: (text: string, isUrgent: boolean, assignedTo: string) => void;
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   onSaveConsent: (appointmentId: string, consentUrl: string) => void;
-  onQuickQueue?: (name: string, phone: string, complaint: string) => void;
+  onQuickQueue?: (name: string, phone: string, complaint: string, triageLevel: TriageLevel) => void;
+  auditLogVerified?: boolean | null;
+  sterilizationCycles?: SterilizationCycle[];
+  stock?: StockItem[];
+  auditLog?: AuditLogEntry[];
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  syncConflicts?: SyncConflict[];
+  setSyncConflicts?: (c: SyncConflict[]) => void;
+  systemStatus?: SystemStatus;
+  onSwitchSystemStatus?: (status: SystemStatus) => void;
+  onVerifyDowntimeEntry?: (id: string) => void;
 }
+
+interface ComplianceAlert {
+    id: string;
+    userId: string;
+    userName: string;
+    type: string;
+    daysLeft: number;
+    severity: 'low' | 'med' | 'high' | 'critical';
+    isAcknowledged: boolean;
+}
+
+const TOLERANCE_MAP: Record<StockCategory, number> = {
+    [StockCategory.CONSUMABLES]: 0.10,
+    [StockCategory.RESTORATIVE]: 0.05,
+    [StockCategory.INSTRUMENTS]: 0,
+    [StockCategory.PROSTHODONTIC]: 0,
+    [StockCategory.OFFICE]: 0.10
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onViewAllSchedule, onChangeBranch, onPatientPortalToggle,
-  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, onQuickQueue
+  onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onUpdateSettings, onViewAllSchedule, onChangeBranch, currentBranch, onPatientPortalToggle,
+  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, onQuickQueue, auditLogVerified, sterilizationCycles = [], stock = [], auditLog = [], logAction,
+  syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry
 }) => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [openTrayId, setOpenTrayId] = useState<string | null>(null);
+  const [privacyMode, setPrivacyMode] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
-  const [telehealthRequests] = useState<TelehealthRequest[]>(MOCK_TELEHEALTH_REQUESTS);
   const [activeRecallTab, setActiveRecallTab] = useState<RecallStatus>('Due');
-  
-  // Emergency Quick-Queue State
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
-  const [emergencyData, setEmergencyData] = useState({ name: '', phone: '', complaint: '' });
+  const [emergencyData, setEmergencyData] = useState({ name: '', phone: '', complaint: '', triageLevel: 'Level 2: Acute Pain/Swelling' as TriageLevel });
+  const [commitmentNote, setCommitmentNote] = useState('');
 
   const today = new Date().toLocaleDateString('en-CA');
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toLocaleDateString('en-CA');
 
-  const visibleAppointments = useMemo(() => appointments.filter(a => {
-      if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTAL_ASSISTANT) return true;
-      if (currentUser.role === UserRole.DENTIST) return a.providerId === currentUser.id;
-      return false;
-  }), [appointments, currentUser]);
-
-  const todaysAppointments = visibleAppointments.filter(a => a.date === today && !a.isBlock);
-
-  const licenseAlerts = useMemo(() => {
-      const alerts: { name: string, type: string, daysLeft: number, urgency: 'high' | 'med' }[] = [];
-      const now = new Date();
-      staff.forEach(s => {
-          if (s.role === UserRole.DENTIST) {
-              if (s.prcExpiry) {
-                  const expiry = new Date(s.prcExpiry);
-                  const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
-                  if (diff <= 60) alerts.push({ name: s.name, type: 'PRC License', daysLeft: diff, urgency: diff <= 15 ? 'high' : 'med' });
-              }
-              if (s.s2Expiry) {
-                  const expiry = new Date(s.s2Expiry);
-                  const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
-                  if (diff <= 60) alerts.push({ name: s.name, type: 'S2 License', daysLeft: diff, urgency: diff <= 15 ? 'high' : 'med' });
-              }
-          }
-      });
-      return alerts.sort((a,b) => a.daysLeft - b.daysLeft);
-  }, [staff]);
-
-  const needsAttention = useMemo(() => {
-      const issues = [];
-      const unsigned = todaysAppointments.filter(a => {
-          const proc = fieldSettings?.procedures.find(p => p.name === a.type);
-          return proc?.requiresConsent && !a.signedConsentUrl;
-      });
-      if (unsigned.length > 0) issues.push({ id: 'consents', label: `${unsigned.length} Unsigned Consents`, icon: FileSignature, color: 'text-orange-600', bg: 'bg-orange-50' });
-      const lowStock = fieldSettings?.stockItems?.filter(s => s.quantity <= s.lowStockThreshold) || [];
-      if (lowStock.length > 0) issues.push({ id: 'stock', label: `${lowStock.length} Items Low on Stock`, icon: Package, color: 'text-red-600', bg: 'bg-red-50' });
-      const threeDays = new Date(); threeDays.setDate(threeDays.getDate() + 3);
-      const pendingLabs = visibleAppointments.filter(a => a.labStatus === LabStatus.PENDING && new Date(a.date) <= threeDays);
-      if (pendingLabs.length > 0) issues.push({ id: 'labs', label: `${pendingLabs.length} Pending Lab Cases`, icon: Beaker, color: 'text-blue-600', bg: 'bg-blue-50' });
-      if (currentUser.role === UserRole.ADMIN) {
-          let count = 0;
-          patients.forEach(p => p.treatmentPlans?.forEach(tp => { if(tp.status === TreatmentPlanStatus.PENDING_REVIEW) count++; }));
-          if (count > 0) issues.push({ id: 'plans', label: `${count} Plans for Review`, icon: ShieldAlert, color: 'text-lilac-600', bg: 'bg-lilac-50' });
-      }
-      return issues;
-  }, [todaysAppointments, fieldSettings, visibleAppointments, currentUser.role, patients]);
-
-  const recallPatients = useMemo(() => {
-      return patients.filter(p => (p.recallStatus || 'Due') === activeRecallTab && p.marketingConsent);
-  }, [patients, activeRecallTab]);
-
-  const handleAddTaskSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!newTaskText.trim() || !onAddTask) return;
-      onAddTask(newTaskText, newTaskUrgent, newTaskAssignee);
-      setNewTaskText(''); setNewTaskUrgent(false); setNewTaskAssignee('');
+  const maskName = (name: string) => {
+    if (!privacyMode) return name;
+    const parts = name.split(' ');
+    return parts.map(p => p[0] + '.').join(' ');
   };
-
-  const sortedTasks = useMemo(() => {
-      return [...tasks].sort((a, b) => {
-          if (a.isCompleted === b.isCompleted) {
-              if (!a.isCompleted) return (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0);
-              return parseInt(b.id) - parseInt(a.id);
-          }
-          return a.isCompleted ? 1 : -1;
-      });
-  }, [tasks]);
 
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
-  const getTrayItems = (type: string) => {
-      const trays: Record<string, string[]> = {
-          'Consultation': ['Mirror', 'Explorer', 'Probe', 'Bib', 'Mask'],
-          'Restoration': ['High Speed', 'Bur Block', 'Etch', 'Bond', 'Composite', 'Curing Light'],
-          'Extraction': ['Topical', 'Lidocaine', 'Elevators', 'Forceps', 'Gauze'],
-          'Root Canal': ['Rubber Dam', 'Files', 'Motor', 'Apex Locator', 'Irrigation'],
-          'Oral Prophylaxis': ['Scaler', 'Polishing Cup', 'Paste', 'Floss'],
-      };
-      return trays[type] || trays['Consultation'];
+
+  const todaysAppointments = useMemo(() => appointments.filter(a => a.date === today && !a.isBlock), [appointments, today]);
+
+  const unreconciledManualEntries = useMemo(() => {
+    return appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
+  }, [appointments]);
+
+  const bayStatus = useMemo(() => {
+    if (!fieldSettings?.resources) return [];
+    return fieldSettings.resources.filter(r => r.branch === currentBranch).map(res => {
+      const activeApt = todaysAppointments.find(a => a.resourceId === res.id && [AppointmentStatus.ARRIVED, AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
+      const patient = activeApt ? getPatient(activeApt.patientId) : null;
+      const initials = patient ? `${patient.firstName[0]}${patient.surname[0]}` : null;
+      return { ...res, currentInitials: initials, status: activeApt ? 'Occupied' : 'Ready' };
+    });
+  }, [fieldSettings, todaysAppointments, patients, currentBranch]);
+
+  const realityScore = useMemo(() => {
+    if (!stock || stock.length === 0) return 100;
+    const branchStock = stock.filter(s => s.branch === currentBranch || !s.branch);
+    if (branchStock.length === 0) return 100;
+    const withinTolerance = branchStock.filter(s => {
+        if (s.physicalCount === undefined) return true;
+        const diff = Math.abs(s.quantity - s.physicalCount);
+        const toleranceVal = s.quantity * (TOLERANCE_MAP[s.category] || 0);
+        return diff <= toleranceVal;
+    }).length;
+    return Math.round((withinTolerance / branchStock.length) * 100);
+  }, [stock, currentBranch]);
+
+  const complianceAlerts = useMemo(() => {
+    const alerts: ComplianceAlert[] = [];
+    const now = new Date();
+    staff.forEach(s => {
+      if (s.role === UserRole.DENTIST && s.prcExpiry) {
+        const expiry = new Date(s.prcExpiry);
+        const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
+        if (diff <= 60) {
+          const alertId = `prc-${s.id}-${s.prcExpiry}`;
+          const isAck = fieldSettings?.acknowledgedAlertIds?.includes(alertId) || false;
+          let severity: ComplianceAlert['severity'] = diff <= 0 ? 'critical' : diff <= 15 ? 'high' : diff <= 30 ? 'med' : 'low';
+          if (currentUser.id === s.id || currentUser.role === UserRole.ADMIN) {
+            alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'PRC License', daysLeft: diff, severity, isAcknowledged: isAck });
+          }
+        }
+      }
+    });
+    return alerts;
+  }, [staff, fieldSettings, currentUser]);
+
+  const activeGateAlert = complianceAlerts.find(a => a.severity === 'high' && !a.isAcknowledged);
+
+  const handleAcknowledgeAlert = (alertId: string) => {
+    if (!onUpdateSettings || !fieldSettings) return;
+    const newAcks = [...(fieldSettings.acknowledgedAlertIds || []), alertId];
+    onUpdateSettings({ ...fieldSettings, acknowledgedAlertIds: newAcks });
   };
 
-  const isCritical = (p?: Patient) => p && (p.seriousIllness || p.underMedicalTreatment || (p.allergies?.length && !p.allergies.includes('None')) || (p.medicalConditions?.length && !p.medicalConditions.includes('None')));
+  const receptionPatientFlow = useMemo(() => {
+    const arriving = todaysAppointments.filter(a => [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED].includes(a.status));
+    const inTreatment = todaysAppointments.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
+    const readyForBilling = todaysAppointments.filter(a => [AppointmentStatus.COMPLETED].includes(a.status));
+    return { arriving, inTreatment, readyForBilling };
+  }, [todaysAppointments]);
 
-  const searchResults = useMemo(() => {
-    if (!searchTerm) return [];
-    const fuse = new Fuse(patients, { keys: ['name', 'phone'], threshold: 0.3 });
-    return fuse.search(searchTerm).map(result => result.item).slice(0, 5);
-  }, [patients, searchTerm]);
-
-  const handleEmergencySubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!emergencyData.name || !emergencyData.phone) return;
-      if (onQuickQueue) onQuickQueue(emergencyData.name, emergencyData.phone, emergencyData.complaint);
-      setEmergencyData({ name: '', phone: '', complaint: '' });
-      setIsEmergencyModalOpen(false);
+  const handleResolveConflict = (conflictId: string, pick: 'local' | 'server') => {
+      if (!setSyncConflicts) return;
+      setSyncConflicts(syncConflicts.filter(c => c.id !== conflictId));
+      toast.success("Conflict resolved manually.");
   };
 
-  const hasInstallmentDue = (p?: Patient) => {
-      if (!p?.installmentPlans) return false;
-      return p.installmentPlans.some(plan => plan.status === 'Active' && plan.totalAmount > plan.paidAmount);
-  };
-
-  return (
-    <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-      
-      <header className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-            <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                <input 
-                    type="text" 
-                    placeholder="Search patients, treatments, or notes..." 
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm font-medium transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50">
-                        {searchResults.length > 0 ? (
-                            searchResults.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => { onPatientSelect(p.id); setSearchTerm(''); }}
-                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 flex justify-between"
-                                >
-                                    <div className="font-bold text-slate-800 text-sm">{p.name}</div>
-                                    <ChevronRight size={16} className="text-slate-300" />
-                                </button>
-                            ))
-                        ) : <div className="p-4 text-center text-sm text-slate-400">No patients found.</div>}
-                    </div>
-                )}
-            </div>
-            <div className="flex gap-2 shrink-0">
-                 <button onClick={() => setIsEmergencyModalOpen(true)} className="h-11 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-500/20" title="Emergency Quick-Queue">
-                    <Zap size={20} /> <span className="hidden md:inline font-bold text-sm">Emergency Queue</span>
-                </button>
-                 <button onClick={() => onBookAppointment()} className="h-11 px-4 bg-lilac-100 hover:bg-lilac-200 text-lilac-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Book Appointment">
-                    <CalendarPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Book</span>
-                </button>
-                <button onClick={onAddPatient} className="h-11 px-4 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Add Patient">
-                    <UserPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Add Patient</span>
-                </button>
-            </div>
-      </header>
-
-      {/* --- NEW: COMPLIANCE PULSE WIDGET --- */}
-      {licenseAlerts.length > 0 && (
-          <div className="bg-red-50 rounded-2xl shadow-sm border border-red-200 overflow-hidden animate-pulse">
-              <div className="bg-red-600 px-6 py-2 flex justify-between items-center text-white">
-                  <div className="flex items-center gap-2"><ShieldCheck size={18}/><h3 className="font-bold text-xs uppercase tracking-widest">Clinic Compliance Alert: Expiring Credentials</h3></div>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {licenseAlerts.map((alert, i) => (
-                      <div key={i} className="bg-white p-3 rounded-xl border border-red-100 flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${alert.urgency === 'high' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}><Award size={20}/></div>
-                          <div><div className="font-bold text-slate-800 text-xs">{alert.name}</div><div className="text-[10px] text-slate-500 font-bold uppercase">{alert.type}: <span className="text-red-600">{alert.daysLeft} Days Left</span></div></div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      )}
-
-      {needsAttention.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Activity size={18} className="text-teal-600" />
-                  <h3 className="font-bold text-sm text-slate-700 uppercase tracking-wider">Operational Awareness</h3>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {needsAttention.map(issue => (
-                      <div key={issue.id} className={`${issue.bg} p-4 rounded-xl border border-black/5 flex items-center gap-4 animate-in fade-in zoom-in-95`}>
-                          <div className={`p-3 rounded-full bg-white shadow-sm ${issue.color}`}>
-                              <issue.icon size={24} />
-                          </div>
+  const renderAdminView = () => (
+    <div className="space-y-6">
+      {/* RECONCILIATION HUB OVERLAY */}
+      {systemStatus === SystemStatus.RECONCILIATION && unreconciledManualEntries.length > 0 && (
+          <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-8 overflow-hidden">
+              <div className="bg-white w-full max-w-6xl h-full rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 border-8 border-teal-500/20">
+                  <div className="bg-teal-900 p-8 flex justify-between items-center text-white shrink-0">
+                      <div className="flex items-center gap-4">
+                          <div className="p-3 bg-teal-700 rounded-2xl"><Database size={32}/></div>
                           <div>
-                              <div className={`text-sm font-bold ${issue.color}`}>{issue.label}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Attention Required</div>
+                              <h2 className="text-3xl font-black uppercase tracking-tight">Post-Downtime Reconciliation</h2>
+                              <p className="text-teal-300 font-bold uppercase text-xs tracking-widest mt-1">Registry Cleanup: {unreconciledManualEntries.length} items requiring verification</p>
                           </div>
                       </div>
-                  ))}
-              </div>
-          </div>
-      )}
-      
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <div className="xl:col-span-8 space-y-6">
-              {telehealthRequests.length > 0 && (
-                  <div className="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
-                      <div className="flex justify-between items-center px-6 py-3 border-b border-blue-100 bg-blue-50">
-                          <h2 className="font-bold text-blue-800 text-sm flex items-center gap-2">
-                              <Video className="text-blue-600" size={16}/> Tele-dentistry Inbox
-                          </h2>
-                          <span className="text-[10px] font-bold text-blue-600 uppercase bg-white border border-blue-200 px-2 py-0.5 rounded-full">{telehealthRequests.length} Pending</span>
-                      </div>
-                      <div className="divide-y divide-blue-50">
-                          {telehealthRequests.map(req => (
-                              <div key={req.id} className="p-3 flex justify-between items-center">
-                                  <div>
-                                      <div className="font-bold text-sm text-slate-800">{req.patientName}</div>
-                                      <div className="text-xs text-slate-500 italic">"{req.chiefComplaint}"</div>
+                      <button onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)} className="bg-white text-teal-900 px-6 py-3 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all">Exit Review</button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-10 grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50">
+                      <div className="space-y-4">
+                          <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs flex items-center gap-2 mb-6"><FileText size={18}/> Manual Entry Log (Verification Required)</h3>
+                          {unreconciledManualEntries.map(apt => (
+                              <div key={apt.id} className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-sm flex flex-col gap-4 group hover:border-teal-500 transition-all">
+                                  <div className="flex justify-between items-start">
+                                      <div>
+                                          <div className="text-[10px] font-black text-lilac-600 uppercase tracking-tighter mb-1">Downtime Record</div>
+                                          <div className="text-lg font-black text-slate-800 uppercase">{getPatient(apt.patientId)?.name || 'Unknown Patient'}</div>
+                                      </div>
+                                      <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black uppercase">{apt.type}</span>
                                   </div>
-                                  <button onClick={() => onBookAppointment(req.patientId)} className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200">Schedule Call</button>
+                                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl text-xs">
+                                      <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Provider</span><span className="font-bold">{staff.find(s => s.id === apt.providerId)?.name}</span></div>
+                                      <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Slot</span><span className="font-bold">{apt.time} ({formatDate(apt.date)})</span></div>
+                                  </div>
+                                  <div className="flex gap-2 mt-2">
+                                      <button onClick={() => onVerifyDowntimeEntry?.(apt.id)} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
+                                          <CheckCircle size={14}/> Accept & Sync
+                                      </button>
+                                      <button className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Edit Details</button>
+                                  </div>
                               </div>
                           ))}
                       </div>
+                      <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-inner flex flex-col items-center justify-center text-center">
+                          <VerifiedIcon size={120} className="text-teal-100 mb-6"/>
+                          <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Audit Guidance</h4>
+                          <p className="text-slate-500 text-sm mt-2 max-w-xs">Verify that manual entries do not conflict with existing server records. Once verified, the 'Yellow Hazard' downtime stamp will be permanently removed.</p>
+                      </div>
                   </div>
-              )}
-
-              {/* TODAY'S SCHEDULE */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
-                  <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
-                      <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Calendar className="text-teal-600" size={20}/> Today's Schedule</h2>
-                      <button onClick={onViewAllSchedule} className="text-teal-600 text-xs font-bold uppercase tracking-wide hover:underline">View Calendar</button>
-                  </div>
-                  <div className="divide-y divide-slate-50">
-                      {todaysAppointments.length === 0 ? (
-                          <div className="p-10 text-center text-slate-400 italic">No appointments for today.</div>
-                      ) : (
-                          todaysAppointments.map(apt => {
-                              const patient = getPatient(apt.patientId);
-                              const hasMedicalAlert = isCritical(patient);
-                              const installmentDue = hasInstallmentDue(patient);
-                              const procDef = fieldSettings?.procedures.find(p => p.name === apt.type);
-                              const rowClass = apt.status === AppointmentStatus.ARRIVED ? 'bg-orange-50/60 border-l-4 border-l-orange-400' : apt.status === AppointmentStatus.SEATED ? 'bg-blue-50/60 border-l-4 border-l-blue-400' : apt.status === AppointmentStatus.TREATING ? 'bg-lilac-50/60 border-l-4 border-l-lilac-400' : apt.status === AppointmentStatus.COMPLETED ? 'bg-emerald-50/40 opacity-70' : 'bg-white border-l-4 border-l-transparent';
-
-                              return (
-                                  <div key={apt.id} className={`p-3 transition-colors group flex flex-col md:flex-row items-start gap-3 ${rowClass}`}>
-                                      <div className="flex-1 flex items-start gap-3">
-                                          <div className="bg-white/80 text-slate-600 px-2 py-0.5 rounded text-xs font-bold font-mono mt-0.5 shrink-0 shadow-sm border border-slate-100">{apt.time}</div>
-                                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                                              <div className="flex items-center gap-2">
-                                                  <button onClick={() => onPatientSelect(apt.patientId)} className={`font-bold text-sm leading-none flex items-center gap-2 hover:underline text-left ${hasMedicalAlert ? 'text-red-600' : 'text-slate-800'}`}>{patient?.name || 'Unknown'}{hasMedicalAlert && <HeartPulse size={14} className="text-red-500 animate-pulse" />}</button>
-                                                  {patient?.provisional && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 rounded uppercase">New</span>}
-                                                  {installmentDue && <span className="bg-yellow-400 text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-sm"><DollarSign size={8}/> ₱ DUE</span>}
-                                              </div>
-                                              <div className="flex items-center gap-2 text-xs text-slate-500 leading-none">
-                                                  <span className="truncate max-w-[200px] font-medium">{apt.type}</span>
-                                                  <div className="relative ml-1">
-                                                      <button onClick={(e) => { e.stopPropagation(); setOpenTrayId(openTrayId === apt.id ? null : apt.id); }} className={`p-0.5 rounded transition-colors ${openTrayId === apt.id ? 'text-teal-600 bg-teal-50' : 'text-slate-400 hover:text-teal-600'}`}><ClipboardList size={12} /></button>
-                                                      {openTrayId === apt.id && (
-                                                          <>
-                                                            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setOpenTrayId(null); }} />
-                                                            <div className="absolute left-0 top-full mt-1 bg-white shadow-xl border border-slate-100 p-3 rounded-xl z-20 text-xs w-48 text-left animate-in fade-in zoom-in-95">
-                                                                <h4 className="font-bold mb-1 border-b pb-1 text-slate-800">Setup: {apt.type}</h4>
-                                                                <ul className="list-disc pl-4 text-slate-600">{getTrayItems(apt.type).map(i => <li key={i}>{i}</li>)}</ul>
-                                                            </div>
-                                                          </>
-                                                      )}
-                                                  </div>
-                                              </div>
-                                          </div>
-                                          <select value={apt.status} onChange={(e) => onUpdateAppointmentStatus(apt.id, e.target.value as AppointmentStatus)} className={`appearance-none text-[10px] font-bold px-3 py-1 rounded-full uppercase border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-teal-500 bg-white`}>{Object.values(AppointmentStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
-                                      </div>
-                                      {procDef?.requiresConsent && !apt.signedConsentUrl && apt.status !== AppointmentStatus.COMPLETED && (
-                                          <div className="w-full md:w-auto mt-2 md:mt-0 flex justify-end md:ml-auto">
-                                              <button onClick={() => setConsentModalApt(apt)} className="px-3 py-1.5 text-xs font-bold text-lilac-700 bg-lilac-100 border border-lilac-200 rounded-lg flex items-center gap-1 hover:bg-lilac-200 transition-colors shadow-sm"><FileSignature size={14}/> Sign Consent</button>
-                                          </div>
-                                      )}
-                                  </div>
-                              );
-                          })
-                      )}
-                  </div>
-              </div>
-          </div>
-
-          <div className="xl:col-span-4 space-y-6">
-              {/* RECALL PIPELINE MANAGER */}
-              <div className="bg-white rounded-2xl shadow-sm border border-lilac-200 overflow-hidden flex flex-col h-[450px]">
-                    <div className="px-6 py-4 border-b border-lilac-50 bg-lilac-50/30 flex flex-col gap-3">
-                        <h3 className="font-black text-lilac-900 flex items-center gap-2 text-sm uppercase tracking-widest"><Repeat className="text-lilac-600" size={18} /> Recall Pipeline</h3>
-                        <div className="flex bg-white p-1 rounded-xl border border-lilac-100 shadow-inner">
-                            {(['Due', 'Contacted', 'No Response', 'Booked'] as RecallStatus[]).map(tab => (
-                                <button key={tab} onClick={() => setActiveRecallTab(tab)} className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${activeRecallTab === tab ? 'bg-lilac-600 text-white shadow-md' : 'text-slate-400 hover:bg-lilac-50'}`}>{tab}</button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="p-2 space-y-1 flex-1 overflow-y-auto bg-slate-50/50">
-                        {recallPatients.length > 0 ? recallPatients.map(p => (
-                            <div key={p.id} className="bg-white border border-slate-100 p-3 rounded-xl shadow-sm flex justify-between items-center group hover:border-lilac-300 transition-all">
-                                <div>
-                                    <div className="font-bold text-slate-800 text-sm">{p.name}</div>
-                                    <div className="text-[10px] text-slate-400 font-bold uppercase">Last: {formatDate(p.lastVisit)}</div>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {activeRecallTab === 'Due' && (
-                                        <button onClick={() => onUpdatePatientRecall && onUpdatePatientRecall(p.id, 'Contacted')} className="p-2 bg-lilac-50 text-lilac-600 rounded-lg hover:bg-lilac-600 hover:text-white" title="Mark Contacted"><Phone size={14}/></button>
-                                    )}
-                                    {activeRecallTab === 'Contacted' && (
-                                        <>
-                                            <button onClick={() => onUpdatePatientRecall && onUpdatePatientRecall(p.id, 'No Response')} className="p-2 bg-red-50 text-red-600 rounded-lg" title="No Response"><Repeat size={14}/></button>
-                                            <button onClick={() => onBookAppointment(p.id)} className="p-2 bg-green-50 text-green-600 rounded-lg" title="Booked"><CalendarPlus size={14}/></button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )) : <div className="p-10 text-center text-xs text-slate-400 italic">Queue is clear for this stage.</div>}
-                    </div>
-              </div>
-
-              {/* TASK PINBOARD */}
-              <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 overflow-hidden flex flex-col h-[400px]">
-                    <div className="px-4 py-3 border-b border-yellow-100 bg-yellow-100/50 flex justify-between items-center"><h3 className="font-bold text-yellow-800 flex items-center gap-2 text-sm uppercase tracking-widest"><StickyNote size={16} /> Clinic Tasks</h3><span className="text-[10px] text-yellow-600 font-bold uppercase">{sortedTasks.filter(t => !t.isCompleted).length} Active</span></div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">{sortedTasks.map(task => (
-                        <div key={task.id} className={`group flex items-center gap-2 p-2 rounded-lg border transition-all ${task.isCompleted ? 'bg-yellow-100/30 border-transparent opacity-60' : 'bg-white border-yellow-100 shadow-sm hover:border-yellow-300'}`}>
-                            <button onClick={() => onToggleTask && onToggleTask(task.id)} className={`p-1 rounded-full transition-colors ${task.isCompleted ? 'text-yellow-600' : 'text-slate-300 hover:text-yellow-600'}`}>{task.isCompleted ? <CheckCircle size={18} /> : <Circle size={18} />}</button>
-                            <div className="flex-1 min-w-0"><div className={`text-sm leading-tight ${task.isCompleted ? 'line-through text-yellow-800/50' : 'text-yellow-900 font-medium'}`}>{task.text}</div></div>
-                            <button onClick={() => onDeleteTask && onDeleteTask(task.id)} className="p-1.5 text-yellow-300 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
-                        </div>
-                    ))}</div>
-                    <div className="p-3 bg-yellow-100/50 border-t border-yellow-200"><form onSubmit={handleAddTaskSubmit} className="flex gap-2 items-center"><input type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="New task..." className="flex-1 px-3 py-2 bg-white border border-yellow-200 rounded-lg text-sm"/><button type="submit" disabled={!newTaskText.trim()} className="p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg"><Plus size={18} /></button></form></div>
-              </div>
-          </div>
-      </div>
-
-      {/* Emergency Quick-Queue Modal */}
-      {isEmergencyModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                  <div className="bg-amber-500 p-6 text-white flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                          <Zap size={24} fill="currentColor" />
-                          <h3 className="text-xl font-bold">Emergency Quick-Queue</h3>
-                      </div>
-                      <button onClick={() => setIsEmergencyModalOpen(false)}><X size={24}/></button>
-                  </div>
-                  <form onSubmit={handleEmergencySubmit} className="p-6 space-y-4">
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed">Instantly add an emergency patient to today's arrived queue. Full registration can be completed later.</p>
-                      <div>
-                          <label className="label text-amber-700">Patient Full Name</label>
-                          <input required type="text" value={emergencyData.name} onChange={e => setEmergencyData({...emergencyData, name: e.target.value})} className="input border-amber-100 focus:border-amber-500" placeholder="e.g. John Doe" />
-                      </div>
-                      <div>
-                          <label className="label text-amber-700">Mobile Number</label>
-                          <input required type="tel" value={emergencyData.phone} onChange={e => setEmergencyData({...emergencyData, phone: e.target.value})} className="input border-amber-100 focus:border-amber-500" placeholder="09XX-XXX-XXXX" />
-                      </div>
-                      <div>
-                          <label className="label text-amber-700">Chief Complaint</label>
-                          <textarea value={emergencyData.complaint} onChange={e => setEmergencyData({...emergencyData, complaint: e.target.value})} className="input border-amber-100 focus:border-amber-500 h-24 resize-none" placeholder="Reason for emergency visit..." />
-                      </div>
-                      <div className="pt-2 flex gap-3">
-                          <button type="button" onClick={() => setIsEmergencyModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
-                          <button type="submit" className="flex-[2] py-4 bg-amber-500 text-white font-black uppercase tracking-widest text-sm rounded-2xl shadow-xl shadow-amber-500/20 hover:bg-amber-600 transition-all">Add to Queue</button>
-                      </div>
-                  </form>
               </div>
           </div>
       )}
 
-      {consentModalApt && (
-          <ConsentCaptureModal
-              isOpen={!!consentModalApt}
-              onClose={() => setConsentModalApt(null)}
-              onSave={(url) => { onSaveConsent(consentModalApt.id, url); setConsentModalApt(null); }}
-              patient={getPatient(consentModalApt.patientId)!}
-              appointment={consentModalApt}
-              provider={staff?.find(s => s.id === consentModalApt.providerId)}
-              template={fieldSettings?.consentFormTemplates?.[0]!}
-          />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className="p-3 rounded-2xl bg-teal-50 text-teal-600"><Activity size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Production</div><div className="text-2xl font-black text-slate-800">₱{todaysAppointments.length * 500}</div></div></div>
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className="p-3 rounded-2xl bg-blue-50 text-blue-600"><Users size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Cases</div><div className="text-2xl font-black text-slate-800">{patientsCount}</div></div></div>
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className={`p-3 rounded-2xl ${realityScore > 85 ? 'bg-teal-50 text-teal-600' : 'bg-red-50 text-red-600'}`}><Scale size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Integrity</div><div className={`text-2xl font-black ${realityScore > 85 ? 'text-slate-800' : 'text-red-600'}`}>{realityScore}%</div></div></div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-8">
+          
+          {/* OFFLINE OUTAGE RECONCILIATION WIDGET */}
+          {syncConflicts.length > 0 && (
+              <div className="animate-in slide-in-from-top-4 duration-500">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-black text-red-600 uppercase tracking-widest text-xs flex items-center gap-2">
+                          <CloudOff size={16}/> Outage Reconciliation Queue
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Administrative Review Required</span>
+                  </div>
+                  <div className="space-y-4">
+                      {syncConflicts.map(conflict => (
+                          <div key={conflict.id} className="bg-red-50 border-2 border-red-200 p-6 rounded-[2rem] shadow-xl shadow-red-600/5">
+                              <div className="flex justify-between items-start mb-6">
+                                  <div>
+                                      <div className="text-xs font-black text-red-800 uppercase tracking-tighter">Sync Collision Detected</div>
+                                      <p className="text-[10px] text-red-600 font-bold uppercase mt-1">Entity: {conflict.entityType} | Slot: {conflict.serverData?.time || 'N/A'}</p>
+                                  </div>
+                                  <div className="text-right">
+                                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outage Context</div>
+                                      <div className="text-xs font-bold text-slate-600">{formatDate(conflict.timestamp.split('T')[0])}</div>
+                                  </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                  <div className="bg-white p-4 rounded-2xl border border-red-100">
+                                      <div className="text-[9px] font-black text-lilac-600 uppercase mb-2">Local (Offline) Input</div>
+                                      <div className="font-bold text-slate-800 text-sm">{conflict.localData?.patientName || conflict.localData?.type}</div>
+                                      <div className="text-[10px] text-slate-500 mt-1">Reason: Manually queued during ISP outage.</div>
+                                  </div>
+                                  <div className="bg-teal-50 p-4 rounded-2xl border border-teal-100">
+                                      <div className="text-[9px] font-black text-teal-600 uppercase mb-2">Server (Online) Record</div>
+                                      <div className="font-bold text-slate-800 text-sm">{conflict.serverData?.patientName || conflict.serverData?.type}</div>
+                                      <div className="text-[10px] text-teal-600 mt-1">Reason: Confirmed by Branch B while Branch A was offline.</div>
+                                  </div>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button onClick={() => handleResolveConflict(conflict.id, 'local')} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Overrule Server</button>
+                                  <button onClick={() => handleResolveConflict(conflict.id, 'server')} className="flex-1 py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all">Accept Server</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+                <h4 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2 mb-4"><ShieldAlert size={16}/> Shortcut Anomaly Monitor</h4>
+                <div className="space-y-4">
+                    {auditLog.filter(l => l.action === 'WORKFLOW_ANOMALY').length > 0 ? auditLog.filter(l => l.action === 'WORKFLOW_ANOMALY').map(anomaly => (
+                        <div key={anomaly.id} className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-start gap-4">
+                            <div className="p-2 bg-white rounded-xl text-red-600 shadow-sm"><AlertTriangle size={20}/></div>
+                            <div><div className="font-bold text-slate-800 text-sm">{anomaly.userName}</div><p className="text-[10px] text-red-700 font-medium leading-tight mt-1">{anomaly.details}</p></div>
+                        </div>
+                    )) : <div className="p-10 text-center text-slate-400 italic bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">No anomalies detected.</div>}
+                </div>
+            </div>
+            <div className="space-y-4">
+                <h4 className="text-xs font-black text-lilac-600 uppercase tracking-widest flex items-center gap-2 mb-4"><Target size={16}/> Inventory Pulse</h4>
+                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
+                    <ShieldCheck size={48} className="text-teal-500 mx-auto mb-4" />
+                    <p className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Inventory Reality Validated</p>
+                </div>
+            </div>
+          </div>
+        </div>
+        <div className="xl:col-span-4 bg-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl flex flex-col">
+           <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg flex items-center gap-2 text-teal-400"><ShieldCheck size={20}/> Compliance Pulse</h3></div>
+           <div className="flex-1 space-y-4 overflow-y-auto no-scrollbar pr-1">
+              {complianceAlerts.map((alert) => (
+                  <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.severity === 'critical' ? 'border-red-600 bg-red-600/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-white/10 shrink-0"><Award size={20}/></div>
+                      <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}</div></div>
+                    </div>
+                    {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-lilac-500 transition-all shadow-lg">Acknowledge Responsibility</button>}
+                  </div>
+              ))}
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+        <div><h2 className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">{currentUser.role} Control Center</h2><h1 className="text-3xl font-black text-slate-800 tracking-tight">Practice Dashboard</h1></div>
+        <div className="flex gap-2">
+          {currentUser.role === UserRole.DENTAL_ASSISTANT && <button onClick={() => setPrivacyMode(!privacyMode)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${privacyMode ? 'bg-lilac-600 text-white border-lilac-500' : 'bg-white text-slate-500 border-slate-200'}`}>{privacyMode ? 'Privacy Mask: ON' : 'Privacy Mask: OFF'}</button>}
+          <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 flex items-center gap-2"><MapPin size={16} className="text-teal-500"/><span className="text-xs font-black text-slate-700 uppercase">{currentBranch}</span></div>
+        </div>
+      </div>
+      {currentUser.role === UserRole.ADMIN && renderAdminView()}
+      {currentUser.role !== UserRole.ADMIN && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+            <div className="bg-slate-100/50 rounded-3xl p-4 flex flex-col gap-4">
+              <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-xs flex items-center gap-2"><Clock size={16}/> Arriving Soon</h4></div>
+              <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
+                {receptionPatientFlow.arriving.map(apt => (
+                    <div key={apt.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span>
+                            <div className="flex gap-1">
+                                {apt.entryMode === 'MANUAL' && <AlertTriangle size={12} className="text-yellow-600" title="Downtime Entry - Needs Recon"/>}
+                                {apt.isPendingSync && <CloudOff size={12} className="text-lilac-600 animate-pulse"/>}
+                            </div>
+                        </div>
+                        <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                    </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-teal-50 rounded-3xl p-4 flex flex-col gap-4 border border-teal-100/50 lg:col-span-2">
+                <div className="flex justify-between items-center px-2"><h4 className="font-black text-teal-700 uppercase tracking-widest text-xs flex items-center gap-2"><Activity size={16}/> In Treatment</h4></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {receptionPatientFlow.inTreatment.map(apt => (
+                        <div key={apt.id} className="bg-white p-4 rounded-2xl shadow-sm border-2 border-teal-200">
+                            <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          </div>
       )}
     </div>
   );
