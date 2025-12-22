@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-/* Added Plus to lucide-react imports to fix Error on line 396 */
-import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus } from 'lucide-react';
-import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus } from '../types';
+import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, ArrowRightLeft, Target, Trash2 } from 'lucide-react';
+import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, ClaimStatus, AuditLogEntry } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -16,6 +15,8 @@ interface FinancialsProps {
   staff?: StaffUser[];
   currentUser: StaffUser;
   onUpdatePhilHealthClaim?: (updatedClaim: PhilHealthClaim) => void;
+  onUpdateHmoClaim?: (updatedClaim: HMOClaim) => void;
+  onUpdatePatient?: (patient: Patient) => void;
   reconciliations?: ReconciliationRecord[];
   onSaveReconciliation?: (record: ReconciliationRecord) => void;
   onSaveCashSession?: (session: CashSession) => void;
@@ -28,22 +29,24 @@ interface FinancialsProps {
   onApprovePayrollAdjustment: (id: string) => void;
   onAddCommissionDispute: (d: CommissionDispute) => void;
   onResolveCommissionDispute: (id: string) => void;
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
 const Financials: React.FC<FinancialsProps> = (props) => {
   const { 
     claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
-    onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch 
+    onUpdatePhilHealthClaim, onUpdateHmoClaim, onUpdatePatient, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch, logAction 
   } = props;
-  const [activeTab, setActiveTab] = useState<'analytics' | 'reconciliation' | 'aging' | 'payroll' | 'claims' | 'philhealth' | 'expenses'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'reconciliation' | 'claims-hub' | 'aging' | 'payroll' | 'claims' | 'philhealth' | 'expenses'>('analytics');
 
   const tabs = [
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'reconciliation', label: 'Cash Reconciliation', icon: Calculator },
+    { id: 'claims-hub', label: 'Claims Hub', icon: Target },
     { id: 'aging', label: 'Debt Aging', icon: Clock },
     { id: 'payroll', label: 'Staff Payroll', icon: Award },
-    { id: 'claims', label: 'HMO Claims', icon: Heart },
     { id: 'philhealth', label: 'PhilHealth', icon: FileText },
+    { id: 'claims', label: 'HMO Raw', icon: Heart },
     { id: 'expenses', label: 'Expenses', icon: Package },
   ];
 
@@ -51,6 +54,17 @@ const Financials: React.FC<FinancialsProps> = (props) => {
     switch (activeTab) {
       case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
       case 'reconciliation': return <CashReconciliationTab patients={patients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} onSaveSession={onSaveCashSession} fieldSettings={fieldSettings} />;
+      case 'claims-hub': return (
+        <ClaimsHub 
+            hmoClaims={claims} 
+            philHealthClaims={philHealthClaims} 
+            patients={patients} 
+            onUpdateHmo={onUpdateHmoClaim}
+            onUpdatePhilHealth={onUpdatePhilHealthClaim}
+            onUpdatePatient={onUpdatePatient}
+            logAction={logAction}
+        />
+      );
       case 'payroll': return (
         <PayrollTab 
             appointments={appointments || []} 
@@ -96,6 +110,181 @@ const Financials: React.FC<FinancialsProps> = (props) => {
       </div>
     </div>
   );
+};
+
+const ClaimsHub: React.FC<{ 
+    hmoClaims: HMOClaim[], 
+    philHealthClaims: PhilHealthClaim[], 
+    patients: Patient[],
+    onUpdateHmo?: (c: HMOClaim) => void,
+    onUpdatePhilHealth?: (c: PhilHealthClaim) => void,
+    onUpdatePatient?: (p: Patient) => void,
+    logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void
+}> = ({ hmoClaims, philHealthClaims, patients, onUpdateHmo, onUpdatePhilHealth, onUpdatePatient, logAction }) => {
+    const toast = useToast();
+    
+    // Unified list for logic
+    const allClaims = useMemo(() => {
+        const unified = [
+            ...hmoClaims.map(c => ({ ...c, type: 'HMO' })),
+            ...philHealthClaims.map(c => ({ ...c, type: 'PhilHealth' }))
+        ];
+        return unified;
+    }, [hmoClaims, philHealthClaims]);
+
+    const handleAction = (claim: any, action: 'transmit' | 'settle' | 'deny') => {
+        const patient = patients.find(p => p.id === claim.patientId);
+        if (!patient) return;
+
+        if (action === 'transmit') {
+            const tracking = prompt("Enter Carrier Tracking / Submission Number:");
+            if (!tracking) return;
+            
+            const updated = { ...claim, status: ClaimStatus.TRANSMITTED, trackingNumber: tracking, dateSubmitted: new Date().toISOString().split('T')[0] };
+            if (claim.type === 'HMO' && onUpdateHmo) onUpdateHmo(updated);
+            if (claim.type === 'PhilHealth' && onUpdatePhilHealth) onUpdatePhilHealth(updated);
+            
+            logAction?.('TRANSMIT_CLAIM', 'Claim', claim.id, `Claim transmitted to carrier. Tracking: ${tracking}`);
+            toast.success("Claim state updated: Transmitted.");
+        }
+
+        if (action === 'settle') {
+            const received = prompt("Enter Actual Amount Received (₱):", claim.amountClaimed.toString());
+            if (!received) return;
+            const amount = parseFloat(received);
+
+            // 1. Update Claim Status
+            const updatedClaim = { ...claim, status: ClaimStatus.SETTLED, amountReceived: amount, dateReceived: new Date().toISOString().split('T')[0] };
+            if (claim.type === 'HMO' && onUpdateHmo) onUpdateHmo(updatedClaim);
+            if (claim.type === 'PhilHealth' && onUpdatePhilHealth) onUpdatePhilHealth(updatedClaim);
+
+            // 2. Solidify Ledger (Shadow -> Final Payment)
+            if (onUpdatePatient) {
+                const ledger = [...(patient.ledger || [])];
+                const entryIndex = ledger.findIndex(e => e.id === claim.ledgerEntryId || e.claimId === claim.id);
+                
+                if (entryIndex >= 0) {
+                    const originalEntry = ledger[entryIndex];
+                    // Remove Shadow Credit
+                    const updatedEntry = { ...originalEntry, shadowCreditAmount: undefined };
+                    ledger[entryIndex] = updatedEntry;
+                    
+                    // Add Actual Payment Entry
+                    const currentBalance = ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter;
+                    const paymentEntry: LedgerEntry = {
+                        id: `pay_${Date.now()}`,
+                        date: new Date().toISOString().split('T')[0],
+                        description: `Claim Settlement: ${claim.type} (${claim.procedureName})`,
+                        type: 'Payment',
+                        amount: amount,
+                        balanceAfter: currentBalance - amount,
+                        claimId: claim.id
+                    };
+                    ledger.push(paymentEntry);
+                    
+                    onUpdatePatient({ ...patient, ledger, currentBalance: currentBalance - amount });
+                }
+            }
+            
+            logAction?.('SETTLE_CLAIM', 'Claim', claim.id, `Claim settled for ₱${amount.toLocaleString()}`);
+            toast.success("Claim settled. Ledger updated.");
+        }
+
+        if (action === 'deny') {
+            if (!confirm("Are you sure you want to DENY this claim? The patient's shadow credit will be removed, and they will be responsible for the full balance.")) return;
+            
+            // 1. Update Claim Status
+            const updatedClaim = { ...claim, status: ClaimStatus.DENIED };
+            if (claim.type === 'HMO' && onUpdateHmo) onUpdateHmo(updatedClaim);
+            if (claim.type === 'PhilHealth' && onUpdatePhilHealth) onUpdatePhilHealth(updatedClaim);
+
+            // 2. Remove Shadow Credit (Revert to Due)
+            if (onUpdatePatient) {
+                const ledger = [...(patient.ledger || [])];
+                const entryIndex = ledger.findIndex(e => e.id === claim.ledgerEntryId || e.claimId === claim.id);
+                
+                if (entryIndex >= 0) {
+                    const originalEntry = ledger[entryIndex];
+                    ledger[entryIndex] = { ...originalEntry, shadowCreditAmount: undefined };
+                    onUpdatePatient({ ...patient, ledger });
+                }
+            }
+
+            logAction?.('DENY_CLAIM', 'Claim', claim.id, `Claim denied by carrier. Shadow credit revoked.`);
+            toast.warning("Claim denied. Patient balance reverted.");
+        }
+    };
+
+    const Column = ({ title, status, color }: { title: string, status: ClaimStatus, color: string }) => {
+        const filtered = allClaims.filter(c => c.status === status);
+        return (
+            <div className="flex-1 min-w-[300px] flex flex-col gap-4 bg-slate-100/50 p-4 rounded-3xl border border-slate-200 shadow-inner">
+                <div className="flex justify-between items-center px-2">
+                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${color}`}>{title}</h4>
+                    <span className="bg-white px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-400 border border-slate-200">{filtered.length}</span>
+                </div>
+                <div className="flex-1 space-y-3 overflow-y-auto no-scrollbar">
+                    {filtered.map(claim => (
+                        <div key={claim.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm group hover:border-teal-500 transition-all">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                                        {claim.type}: {claim.type === 'HMO' ? (claim as HMOClaim).hmoProvider : 'PhilHealth'}
+                                    </div>
+                                    <div className="font-bold text-slate-800 text-sm">{patients.find(p => p.id === claim.patientId)?.name}</div>
+                                </div>
+                                <span className="font-black text-slate-700 text-xs">₱{claim.amountClaimed.toLocaleString()}</span>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded-xl text-[10px] font-bold text-slate-500 mb-4 border border-slate-100">
+                                {claim.procedureName}
+                            </div>
+                            <div className="flex gap-2">
+                                {status === ClaimStatus.QUEUED && (
+                                    <button onClick={() => handleAction(claim, 'transmit')} className="flex-1 py-2 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700">Transmit</button>
+                                )}
+                                {(status === ClaimStatus.TRANSMITTED || status === ClaimStatus.ADJUDICATED) && (
+                                    <>
+                                        <button onClick={() => handleAction(claim, 'deny')} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14}/></button>
+                                        <button onClick={() => handleAction(claim, 'settle')} className="flex-1 py-2 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700">Receive & Settle</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {filtered.length === 0 && (
+                        <div className="py-20 text-center text-slate-300 italic text-xs">No claims {title.toLowerCase()}.</div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="h-full flex flex-col gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-teal-50 text-teal-600 rounded-xl"><Target size={24}/></div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-800">Decoupled Claims Hub</h3>
+                        <p className="text-xs text-slate-500">Managing clinical truth separate from third-party settlement timelines.</p>
+                    </div>
+                </div>
+                <div className="flex gap-4">
+                    <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 text-center">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregate Exposure</div>
+                        <div className="text-sm font-black text-teal-900">₱{allClaims.filter(c => c.status !== ClaimStatus.SETTLED && c.status !== ClaimStatus.DENIED).reduce((s, c) => s + c.amountClaimed, 0).toLocaleString()}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 flex gap-6 overflow-x-auto pb-4 no-scrollbar">
+                <Column title="Queued" status={ClaimStatus.QUEUED} color="text-slate-500" />
+                <Column title="Transmitted" status={ClaimStatus.TRANSMITTED} color="text-lilac-600" />
+                <Column title="Adjudicated" status={ClaimStatus.ADJUDICATED} color="text-blue-600" />
+                <Column title="Settled / Closed" status={ClaimStatus.SETTLED} color="text-teal-600" />
+            </div>
+        </div>
+    );
 };
 
 const PayrollTab: React.FC<{ 
@@ -500,7 +689,7 @@ const CashReconciliationTab: React.FC<{
 
     const isAlreadyFinalized = reconciliations.some(r => r.date === today && r.branch === currentBranch);
 
-    // FIX: Removed inaccurate comments and ensured explicit numeric type safety in RHS arithmetic operations
+    // FIX: Ensured explicit numeric type safety
     const expectedFromLedger = useMemo<number>(() => {
         let total = 0;
         patients.forEach(p => {
@@ -517,7 +706,6 @@ const CashReconciliationTab: React.FC<{
         return Number(total) + (activeSession ? Number((activeSession as any).openingBalance || 0) : 0);
     }, [patients, today, currentBranch, activeSession]);
 
-    // FIX: Ensured accumulation uses explicit Number type to prevent arithmetic inference errors
     const cashTotal = Object.entries(counts).reduce((acc, [val, count]) => Number(acc) + (Number(val) * Number(count)), 0);
     const actualTotal = Number(cashTotal) + (Number(card) || 0) + (Number(ewallet) || 0);
     const discrepancy = Number(actualTotal) - Number(expectedFromLedger);

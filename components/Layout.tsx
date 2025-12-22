@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, ChevronDown, UserCircle, Settings, MapPin, RefreshCcw, ClipboardCheck, Circle, Flag, Package, DollarSign, CloudOff, Monitor } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
-import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
+import { User, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,17 +18,17 @@ interface LayoutProps {
   onGenerateReport: () => void;
   tasks?: PinboardTask[];
   onToggleTask?: (id: string) => void;
-  onEnterKioskMode?: () => void;
   isOnline?: boolean;
   pendingSyncCount?: number;
   systemStatus?: SystemStatus;
   onSwitchSystemStatus?: (status: SystemStatus) => void;
+  onEnterKiosk?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
-  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
-  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus
+  children, activeTab, setActiveTab, currentUser, onSwitchUser,
+  currentBranch, availableBranches, onChangeBranch, fieldSettings, tasks, onToggleTask,
+  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onEnterKiosk
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -67,8 +67,6 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
-      
-      {/* Cloud Pulse Connectivity Bar */}
       <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500' : 'bg-lilac-500 animate-pulse shadow-[0_0_10px_rgba(192,38,211,0.5)]'}`} />
 
       <header className={headerClass}>
@@ -77,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({
                     <span className="text-white font-bold text-xl">{isDowntime ? '!' : 'D'}</span>
                 </div>
                 <div className="flex flex-col">
-                     <span className={`font-black tracking-tight text-lg leading-none ${isDowntime ? 'text-black bg-yellow-400 px-1 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
+                     <span className={`font-black tracking-tight text-lg alignment-none ${isDowntime ? 'text-black bg-yellow-400 px-1 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
                      <div className="flex items-center gap-1.5 mt-1">
                         <span className={`text-[11px] font-bold uppercase tracking-wider leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-200'}`}>Hello {currentUser.name.split(' ')[0]}</span>
                         {!isOnline && <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase"><CloudOff size={8}/> Offline</div>}
@@ -86,7 +84,6 @@ const Layout: React.FC<LayoutProps> = ({
              </div>
              
              <div className="flex items-center gap-2">
-                 {/* SYSTEM STATUS SWITCHER (ADMIN/DENTIST) */}
                  {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
                      <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
                         <button 
@@ -111,7 +108,6 @@ const Layout: React.FC<LayoutProps> = ({
                      </div>
                  )}
 
-                 {/* TASK NOTIFICATION CENTER */}
                  <div className="relative">
                     <button onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} className={`p-2 rounded-full transition-colors relative ${isTaskPopoverOpen ? 'bg-teal-800' : 'active:bg-teal-800'}`} title="My Tasks">
                         <ClipboardCheck size={24} />
@@ -132,7 +128,7 @@ const Layout: React.FC<LayoutProps> = ({
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : <div className="p-6 text-center text-slate-400 text-xs italic"><div className="mb-2"><CheckCircle size={24} className="mx-auto opacity-20"/></div>No active tasks.</div>}
+                                    ) : <div className="p-6 text-center text-slate-400 text-xs italic"><div className="mb-2"><ClipboardCheck size={24} className="mx-auto opacity-20"/></div>No active tasks.</div>}
                                 </div>
                             </div>
                         </>
@@ -158,7 +154,7 @@ const Layout: React.FC<LayoutProps> = ({
                     )}
                     <div className="space-y-2 pt-2">
                         <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors"><div className="bg-teal-700 p-2 rounded-lg"><UserCircle size={20} className="text-white" /></div><span className="font-bold">Account Profile</span></button>
-                        <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors group"><div className="bg-lilac-600 p-2 rounded-lg group-hover:scale-110 transition-transform"><Monitor size={20} className="text-white" /></div><span className="font-bold">Enter Kiosk Mode</span></button>
+                        <button onClick={() => onEnterKiosk?.()} className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-lilac-800/50 hover:bg-lilac-800 border border-lilac-700/50 transition-colors"><div className="bg-lilac-700 p-2 rounded-lg"><Monitor size={20} className="text-white" /></div><span className="font-bold">Enter Kiosk Mode</span></button>
                     </div>
                 </div>
             </div>

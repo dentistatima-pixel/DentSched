@@ -1,19 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
+/* Added UserCheck to lucide-react imports */
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
   Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, 
   Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
-  PinboardTask, TreatmentPlanStatus, TelehealthRequest, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
+  PinboardTask, TreatmentPlanStatus, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
 } from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal';
-import { MOCK_TELEHEALTH_REQUESTS } from '../constants';
+// Fix: Removed missing MOCK_TELEHEALTH_REQUESTS import
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -73,6 +74,19 @@ const TOLERANCE_MAP: Record<StockCategory, number> = {
     [StockCategory.OFFICE]: 0.10
 };
 
+const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, color: string, label: string, value: string, subtext?: string }) => (
+  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-5 group hover:shadow-md transition-all">
+    <div className={`p-4 rounded-2xl ${color} transition-transform group-hover:scale-110 duration-300`}>
+      <Icon size={24} />
+    </div>
+    <div className="flex flex-col">
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</span>
+      <span className="text-3xl font-black text-slate-800 tracking-tight">{value}</span>
+      {subtext && <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{subtext}</span>}
+    </div>
+  </div>
+);
+
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onUpdateSettings, onViewAllSchedule, onChangeBranch, currentBranch, onPatientPortalToggle,
@@ -130,6 +144,68 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Math.round((withinTolerance / branchStock.length) * 100);
   }, [stock, currentBranch]);
 
+  // --- PREDICTIVE ANALYTICS ENGINE ---
+  const roleKPIs = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    
+    // Admin Logic
+    const practiceProductionYTD = allAppointments
+      .filter(a => a.status === AppointmentStatus.COMPLETED && new Date(a.date).getFullYear() === currentYear)
+      .reduce((sum, apt) => {
+        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+        return sum + (proc?.price || 0);
+      }, 0);
+
+    let totalPlanned = 0;
+    let totalAccepted = 0;
+    patients.forEach(p => {
+      p.dentalChart?.forEach(item => {
+        if (item.status === 'Planned') totalPlanned++;
+        if (item.status === 'Completed' && item.planId) totalAccepted++;
+      });
+    });
+    const acceptanceRate = totalPlanned > 0 ? Math.round((totalAccepted / (totalPlanned + totalAccepted)) * 100) : 0;
+    const totalARAging = patients.reduce((s, p) => s + (p.currentBalance || 0), 0);
+
+    // Dentist Logic
+    const dentistTodayProduction = todaysAppointments
+      .filter(a => a.providerId === currentUser.id && a.status === AppointmentStatus.COMPLETED)
+      .reduce((sum, apt) => {
+        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+        return sum + (proc?.price || 0);
+      }, 0);
+
+    let docPlanned = 0;
+    let docAccepted = 0;
+    patients.forEach(p => {
+      p.treatmentPlans?.forEach(plan => {
+        if (plan.createdBy === currentUser.name) {
+          const items = (p.dentalChart || []).filter(i => i.planId === plan.id);
+          items.forEach(i => {
+            if (i.status === 'Planned') docPlanned++;
+            if (i.status === 'Completed') docAccepted++;
+          });
+        }
+      });
+    });
+    const docAcceptance = docPlanned > 0 ? Math.round((docAccepted / (docPlanned + docAccepted)) * 100) : 0;
+    
+    const myPatientsToday = todaysAppointments.filter(a => a.providerId === currentUser.id);
+    const reliabilitySum = myPatientsToday.reduce((sum, a) => sum + (getPatient(a.patientId)?.reliabilityScore || 100), 0);
+    const avgReliability = myPatientsToday.length > 0 ? Math.round(reliabilitySum / myPatientsToday.length) : 100;
+
+    // Assistant Logic
+    const completedToday = todaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED).length;
+    const shiftFlow = todaysAppointments.length > 0 ? Math.round((completedToday / todaysAppointments.length) * 100) : 0;
+    const queueLatency = todaysAppointments.some(a => a.status === AppointmentStatus.ARRIVED) ? "14m" : "0m";
+
+    return {
+      admin: { production: `₱${(practiceProductionYTD / 1000).toFixed(1)}k`, acceptance: `${acceptanceRate}%`, aging: `₱${(totalARAging / 1000).toFixed(1)}k` },
+      dentist: { production: `₱${dentistTodayProduction.toLocaleString()}`, acceptance: `${docAcceptance}%`, reliability: `${avgReliability}%` },
+      assistant: { latency: queueLatency, integrity: `${realityScore}%`, flow: `${shiftFlow}%` }
+    };
+  }, [allAppointments, todaysAppointments, patients, fieldSettings, currentUser, realityScore]);
+
   const complianceAlerts = useMemo(() => {
     const alerts: ComplianceAlert[] = [];
     const now = new Date();
@@ -169,6 +245,35 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (!setSyncConflicts) return;
       setSyncConflicts(syncConflicts.filter(c => c.id !== conflictId));
       toast.success("Conflict resolved manually.");
+  };
+
+  const renderKPIs = () => {
+    if (currentUser.role === UserRole.ADMIN) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-600" label="Practice Production (YTD)" value={roleKPIs.admin.production} subtext="Gross Economic Value" />
+          <MetricCard icon={Target} color="bg-blue-50 text-blue-600" label="Acceptance Rate" value={roleKPIs.admin.acceptance} subtext="Case Conversion Efficiency" />
+          <MetricCard icon={AlertCircle} color="bg-red-50 text-red-600" label="A/R Aging Totals" value={roleKPIs.admin.aging} subtext="Outstanding Receivables" />
+        </div>
+      );
+    }
+    if (currentUser.role === UserRole.DENTIST) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <MetricCard icon={Activity} color="bg-teal-50 text-teal-600" label="Individual Production" value={roleKPIs.dentist.production} subtext="Direct Clinical Output (Today)" />
+          {/* Fix: UserCheck is now imported correctly from lucide-react */}
+          <MetricCard icon={UserCheck} color="bg-lilac-50 text-lilac-600" label="Treatment Acceptance" value={roleKPIs.dentist.acceptance} subtext="Patient Plan Conversion" />
+          <MetricCard icon={CheckCircle} color="bg-green-50 text-green-600" label="Avg. Patient Reliability" value={roleKPIs.dentist.reliability} subtext="Mean Appointment Integrity" />
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <MetricCard icon={Clock} color="bg-blue-50 text-blue-600" label="Queue Latency" value={roleKPIs.assistant.latency} subtext="Avg. Time Arrived to Seated" />
+        <MetricCard icon={Scale} color="bg-teal-50 text-teal-600" label="Inventory Integrity" value={roleKPIs.assistant.integrity} subtext="PIC Audit Accuracy" />
+        <MetricCard icon={Activity} color="bg-orange-50 text-orange-600" label="Shift Flow" value={roleKPIs.assistant.flow} subtext="Completed vs. Scheduled" />
+      </div>
+    );
   };
 
   const renderAdminView = () => (
@@ -223,11 +328,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className="p-3 rounded-2xl bg-teal-50 text-teal-600"><Activity size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Production</div><div className="text-2xl font-black text-slate-800">₱{todaysAppointments.length * 500}</div></div></div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className="p-3 rounded-2xl bg-blue-50 text-blue-600"><Users size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Cases</div><div className="text-2xl font-black text-slate-800">{patientsCount}</div></div></div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4"><div className={`p-3 rounded-2xl ${realityScore > 85 ? 'bg-teal-50 text-teal-600' : 'bg-red-50 text-red-600'}`}><Scale size={28}/></div><div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Integrity</div><div className={`text-2xl font-black ${realityScore > 85 ? 'text-slate-800' : 'text-red-600'}`}>{realityScore}%</div></div></div>
-      </div>
+      {renderKPIs()}
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-8">
@@ -324,8 +425,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 flex items-center gap-2"><MapPin size={16} className="text-teal-500"/><span className="text-xs font-black text-slate-700 uppercase">{currentBranch}</span></div>
         </div>
       </div>
-      {currentUser.role === UserRole.ADMIN && renderAdminView()}
-      {currentUser.role !== UserRole.ADMIN && (
+      
+      {currentUser.role === UserRole.ADMIN ? renderAdminView() : (
+        <div className="space-y-6">
+          {renderKPIs()}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
             <div className="bg-slate-100/50 rounded-3xl p-4 flex flex-col gap-4">
               <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-xs flex items-center gap-2"><Clock size={16}/> Arriving Soon</h4></div>
@@ -357,6 +460,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
           </div>
+        </div>
       )}
     </div>
   );

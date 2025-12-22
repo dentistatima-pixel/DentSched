@@ -1,9 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment, User, AppointmentType, LedgerEntry, TreatmentPlan, TreatmentPlanStatus, AuditLogEntry } from '../types';
 import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, FileBox, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
 import { formatDate } from '../constants';
-import TelehealthModal from './TelehealthModal';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
 
@@ -11,7 +9,7 @@ interface PatientPortalProps {
     patient: Patient;
     appointments: Appointment[];
     staff: User[];
-    auditLog?: AuditLogEntry[]; // NEW
+    auditLog?: AuditLogEntry[]; 
     onExit: () => void;
 }
 
@@ -24,7 +22,6 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
         .filter(a => new Date(a.date) >= new Date(new Date().toDateString()))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // NEW: NPC Transparency Privacy Log
     const privacyLogs = useMemo(() => {
         return auditLog.filter(log => log.entityId === patient.id && (log.action === 'VIEW_RECORD' || log.action === 'UPDATE' || log.action === 'AMEND_RECORD'));
     }, [auditLog, patient.id]);
@@ -130,9 +127,12 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                     </div>
 
                     <div className="space-y-6">
-                        <div className="bg-teal-900 p-8 rounded-3xl shadow-xl text-white">
-                             <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-teal-300"><Video size={24}/> Tele-dentistry</h2>
-                             <button className="w-full bg-white text-teal-900 font-bold py-4 rounded-2xl hover:bg-teal-50 transition-colors">Request Call</button>
+                        <div className="bg-teal-900 p-8 rounded-3xl border-2 border-teal-800 shadow-xl text-white text-center">
+                             <div className="w-16 h-16 bg-teal-800 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-teal-700">
+                                <ShieldCheck size={32} className="text-teal-400"/>
+                             </div>
+                             <h2 className="font-bold text-lg mb-2">Verified Health Record</h2>
+                             <p className="text-xs text-teal-200 opacity-80 leading-relaxed">Your data is secured with end-to-end encryption. Any access to your record is recorded in your transparency log.</p>
                         </div>
                     </div>
                 </div>

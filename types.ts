@@ -21,6 +21,28 @@ export enum AppointmentStatus {
   NO_SHOW = 'No Show'
 }
 
+export enum AppointmentType {
+    CONSULTATION = 'Consultation',
+    ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
+    RESTORATION = 'Restoration',
+    EXTRACTION = 'Extraction',
+    ROOT_CANAL = 'Root Canal',
+    SURGERY = 'Surgery',
+    WHITENING = 'Whitening',
+    CROWN = 'Crown'
+}
+
+export enum LabStatus {
+    NONE = 'None',
+    SENT = 'Sent',
+    RECEIVED = 'Received',
+    IN_PROGRESS = 'In Progress'
+}
+
+export type TriageLevel = 'Level 1: Life Threatening' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Routine Emergency' | 'Level 4: Elective';
+
+export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition' | 'Baseline';
+
 export enum ResourceType {
   CHAIR = 'Dental Chair',
   XRAY = 'Imaging Unit',
@@ -35,43 +57,19 @@ export interface ClinicResource {
   branch: string;
 }
 
-export enum HMOClaimStatus {
-    SUBMITTED = 'Submitted',
-    PAID = 'Paid',
-    REJECTED = 'Rejected',
-    PENDING = 'Pending'
+export enum ClaimStatus {
+    QUEUED = 'Queued',
+    TRANSMITTED = 'Transmitted',
+    ADJUDICATED = 'Adjudicated',
+    SETTLED = 'Settled',
+    DENIED = 'Denied'
 }
 
-export enum PhilHealthClaimStatus {
-    SUBMITTED = 'Submitted',
-    PAID = 'Paid',
-    REJECTED = 'Rejected',
-    PENDING = 'Pending'
+export interface PurgeRequest {
+    initiatorId: string;
+    initiatorName: string;
+    timestamp: string;
 }
-
-export enum LabStatus {
-  NONE = 'None',
-  PENDING = 'Pending',
-  RECEIVED = 'Received'
-}
-
-export enum AppointmentType {
-  CONSULTATION = 'Consultation',
-  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
-  RESTORATION = 'Restoration',
-  EXTRACTION = 'Extraction',
-  ROOT_CANAL = 'Root Canal',
-  PROSTHODONTICS = 'Prosthodontics',
-  ORTHODONTICS = 'Orthodontics',
-  SURGERY = 'Surgery',
-  WHITENING = 'Whitening',
-  DENTURE_ADJUSTMENTS = 'Denture Adjustments',
-  TELE_DENTISTRY = 'Tele-dentistry Consultation'
-}
-
-export type TriageLevel = 'Level 1: Trauma/Bleeding' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Appliance/Maintenance';
-
-export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
 
 export interface SyncIntent {
     id: string;
@@ -128,7 +126,7 @@ export interface ReconciliationRecord {
     notes?: string;
     verifiedBy: string;
     verifiedByName?: string;
-    explanation?: string; // Mandatory for variances
+    explanation?: string;
     timestamp: string;
 }
 
@@ -162,7 +160,7 @@ export interface PayrollAdjustment {
 
 export interface CommissionDispute {
     id: string;
-    itemId: string; // appointmentId
+    itemId: string;
     note: string;
     status: 'Open' | 'Resolved';
     date: string;
@@ -201,17 +199,9 @@ export interface ClearanceRequest {
     remarks?: string;
 }
 
-export interface TelehealthRequest {
-    id: string;
-    patientId: string;
-    patientName: string;
-    chiefComplaint: string;
-    dateRequested: string;
-    status: 'Pending' | 'Scheduled' | 'Completed';
-}
-
 export interface WaitlistEntry {
     id: string;
+    patientId: string;
     patientName: string;
     procedure: string;
     durationMinutes: number;
@@ -265,10 +255,11 @@ export interface HMOClaim {
   procedureName: string;
   amountClaimed: number;
   amountReceived?: number;
-  status: HMOClaimStatus;
+  status: ClaimStatus;
   dateSubmitted?: string;
   dateReceived?: string;
   notes?: string;
+  trackingNumber?: string;
 }
 
 export interface PhilHealthClaim {
@@ -279,7 +270,7 @@ export interface PhilHealthClaim {
     caseRateCode?: string;
     amountClaimed: number;
     amountReceived?: number;
-    status: PhilHealthClaimStatus;
+    status: ClaimStatus;
     dateSubmitted?: string;
     dateReceived?: string;
     trackingNumber?: string;
@@ -293,8 +284,8 @@ export interface StockItem {
   category: StockCategory;
   supplier?: string;
   quantity: number;
-  physicalCount?: number; // PIC accountability field
-  lastVerifiedAt?: string; // PIC accountability field
+  physicalCount?: number;
+  lastVerifiedAt?: string;
   lowStockThreshold: number;
   lastRestockDate?: string;
   expiryDate?: string;
@@ -347,12 +338,12 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'SETTLE_CLAIM' | 'DENY_CLAIM' | 'TRANSMIT_CLAIM' | 'INITIATE_PURGE';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll' | 'Kiosk';
   entityId: string;
   details: string;
-  hash?: string;          // Cryptographic seal for entry
-  previousHash?: string;  // Link to preceding entry
+  hash?: string;
+  previousHash?: string;
 }
 
 export interface OrthoAdjustment {
@@ -457,8 +448,8 @@ export interface Medication {
     dosage: string;
     instructions: string;
     contraindicatedAllergies?: string[];
-    interactions?: string[]; // Medication names it conflicts with
-    pediatricDosage?: string; // age-based guidelines
+    interactions?: string[];
+    pediatricDosage?: string;
     isS2Controlled?: boolean;
 }
 
@@ -520,10 +511,10 @@ export interface FieldSettings {
   postOpTemplates?: Record<string, string>;
   clinicalNoteTemplates?: any[];
   mediaConsentTemplate?: ConsentFormTemplate;
-  complianceOfficerId?: string; // NEW: Designated owner
-  acknowledgedAlertIds?: string[]; // NEW: Read receipts
-  resources: ClinicResource[]; // NEW: Chairs and units
-  currentPrivacyVersion: string; // NEW: Versioning for DPA
+  complianceOfficerId?: string;
+  acknowledgedAlertIds?: string[];
+  resources: ClinicResource[];
+  currentPrivacyVersion: string;
 }
 
 export enum TreatmentPlanStatus {
@@ -563,14 +554,17 @@ export interface DentalChartEntry {
   assessment?: string;
   plan?: string;
   isLocked?: boolean;
-  isVerifiedTime?: boolean; // Trust flag for non-repudiation
+  isVerifiedTime?: boolean;
   materialBatchId?: string;
   isVoid?: boolean;
   sealedHash?: string;
   sealedAt?: string;
   originalNoteId?: string;
-  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
-  reconciled?: boolean; // Post-downtime verification
+  entryMode?: 'AUTO' | 'MANUAL';
+  reconciled?: boolean;
+  version?: number;
+  supersedesId?: string;
+  isSuperseded?: boolean;
 }
 
 export interface PerioMeasurement {
@@ -594,8 +588,10 @@ export interface LedgerEntry {
   idNumber?: string;          
   branch?: string;
   procedureId?: string;
-  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
-  reconciled?: boolean; // Post-downtime verification
+  entryMode?: 'AUTO' | 'MANUAL';
+  reconciled?: boolean;
+  shadowCreditAmount?: number;
+  claimId?: string;
 }
 
 export interface UserPreferences {
@@ -675,14 +671,14 @@ export interface GuardianProfile {
     idNumber: string;
     relationship: string;
     authorityLevel: AuthorityLevel;
-    linkedPatientId?: string; // If guardian is an existing patient
+    linkedPatientId?: string;
 }
 
 export interface Patient {
   id: string;
   provisional?: boolean; 
   isArchived?: boolean;
-  isSeniorDependent?: boolean; // NEW: Senior status
+  isSeniorDependent?: boolean;
   name: string; 
   firstName: string;
   surname: string;
@@ -707,7 +703,6 @@ export interface Patient {
   dpaConsent?: boolean;
   marketingConsent?: boolean;
   thirdPartyDisclosureConsent?: boolean;
-  /* Fix: Changed orthoAdjustment to OrthoAdjustment to match defined interface */
   orthoHistory?: OrthoAdjustment[];
   clearanceRequests?: ClearanceRequest[];
   insuranceProvider?: string;
@@ -768,15 +763,16 @@ export interface Patient {
       lateCancelCount: number;
   };
   reliabilityScore?: number;
-  consentLogs?: ConsentLogEntry[]; // NEW: PDA Compliance
-  guardianProfile?: GuardianProfile; // NEW: PDA Authority Tracking
+  consentLogs?: ConsentLogEntry[];
+  guardianProfile?: GuardianProfile;
+  purgeRequest?: PurgeRequest;
 }
 
 export interface Appointment {
   id: string;
   patientId: string; 
   providerId: string;
-  resourceId?: string; // NEW: Linked to Chair/Unit
+  resourceId?: string;
   branch: string; 
   date: string; 
   time: string; 
@@ -795,12 +791,13 @@ export interface Appointment {
   isBlock?: boolean; 
   title?: string; 
   signedConsentUrl?: string;
-  queuedAt?: string; // NEW: Track for emergency expiry
-  triageLevel?: TriageLevel; // NEW: Mandatory reasoning
-  isStale?: boolean; // NEW: Expiry status
-  isPendingSync?: boolean; // NEW: Offline-first flag
-  entryMode?: 'AUTO' | 'MANUAL'; // Downtime tracking
-  reconciled?: boolean; // Post-downtime verification
+  queuedAt?: string;
+  triageLevel?: TriageLevel;
+  isStale?: boolean;
+  isPendingSync?: boolean;
+  entryMode?: 'AUTO' | 'MANUAL';
+  reconciled?: boolean;
+  isWaitlistOverride?: boolean;
 }
 
 export interface PinboardTask {

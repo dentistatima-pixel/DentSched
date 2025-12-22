@@ -136,6 +136,10 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   const execSave = () => {
+    // If we're coming from the waitlist and have been flagged, we'll mark the override.
+    // The waitlist logic in CalendarView triggers initialPatientId when assigning.
+    const isWaitlistOverride = !!initialPatientId && !existingAppointment && (isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0);
+
     const appointmentData: Appointment = {
         id: existingAppointment?.id || `apt_${Date.now()}`,
         patientId: activeTab === 'block' ? 'BLOCK' : selectedPatientId, 
@@ -143,7 +147,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         date, time, durationMinutes: duration, type: procedureType, status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
         notes, labStatus, labDetails: labStatus !== LabStatus.NONE ? { vendorId: labVendorId } : undefined,
         sterilizationCycleId, sterilizationVerified,
-        isBlock: activeTab === 'block', title: blockTitle
+        isBlock: activeTab === 'block', title: blockTitle,
+        isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride
     };
 
     if (showOverridePrompt && onManualOverride && pendingOverrideType) {
@@ -240,12 +245,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </div>
                 )}
 
-                {isReliabilityRisk && (
+                {(isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0) && (
                     <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3 animate-in shake duration-500">
                         <AlertTriangle className="text-red-600 shrink-0" size={20} />
                         <div>
-                            <p className="text-xs font-black text-red-900 uppercase tracking-widest">High No-Show Risk</p>
-                            <p className="text-[11px] text-red-700 leading-tight mt-1">This patient has a <strong>{selectedPatient.reliabilityScore}%</strong> reliability score. Recommend confirming twice or requesting a reservation deposit.</p>
+                            <p className="text-xs font-black text-red-900 uppercase tracking-widest">Front-Desk Alert</p>
+                            <p className="text-[11px] text-red-700 leading-tight mt-1">
+                                {isReliabilityRisk && `High No-Show Risk (${selectedPatient.reliabilityScore}%). `}
+                                {(selectedPatient?.currentBalance ?? 0) > 0 && `Outstanding Balance: ₱${selectedPatient?.currentBalance?.toLocaleString()}. `}
+                                Recommend confirming twice or requesting a reservation deposit.
+                            </p>
                         </div>
                     </div>
                 )}

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight, AlertCircle, Baby, ShieldCheck } from 'lucide-react';
+import { X, Save, User, Heart, FileText, Lock } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import { useToast } from './ToastSystem';
-import Fuse from 'fuse.js';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -15,19 +14,15 @@ interface PatientRegistrationModalProps {
   readOnly?: boolean;
   initialData?: Patient | null;
   fieldSettings: FieldSettings; 
-  isKiosk?: boolean; 
   patients?: Patient[]; 
+  isKiosk?: boolean;
 }
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false, patients = [] }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, patients = [], isKiosk = false }) => {
   const toast = useToast();
   const [activeSection, setActiveSection] = useState<string>('basic');
-  const [isQuickReg, setIsQuickReg] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
-  const [familySearchTerm, setFamilySearchTerm] = useState('');
-  const [showFamilySearch, setShowFamilySearch] = useState(false);
-
   const basicRef = useRef<HTMLDivElement>(null);
   const medicalRef = useRef<HTMLDivElement>(null);
   const dentalRef = useRef<HTMLDivElement>(null);
@@ -48,12 +43,10 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     if (isOpen) {
         if (initialData) { 
             setFormData({ ...initialData }); 
-            setIsQuickReg(false); 
         } 
         else { 
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
             setFormData({ ...initialFormState, id: generatedId }); 
-            setIsQuickReg(false); 
         }
         setActiveSection('basic');
     }
@@ -119,22 +112,22 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     }
 
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...formData, name: fullName, provisional: isQuickReg });
+    onSave({ ...formData, name: fullName });
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4"}>
-      <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
-        <div className={`flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
+    <div className={`fixed inset-0 z-[60] flex justify-center items-end md:items-center ${isKiosk ? 'p-0' : 'p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm'}`}>
+      <div className={`bg-white w-full flex flex-col overflow-hidden ${isKiosk ? 'h-full' : 'md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl animate-in slide-in-from-bottom-20 duration-300'}`}>
+        <div className={`flex justify-between items-center p-4 md:p-6 border-b border-slate-100 text-white shrink-0 ${isKiosk ? 'bg-teal-600' : 'bg-teal-900 md:rounded-t-3xl'}`}>
           <div className="flex items-center gap-3">
             <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20"><User size={24} className="text-white" /></div>
             <div>
-                <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient' : 'Registration')}</h2>
+                <h2 className="text-xl font-bold">{initialData ? 'Update Record' : 'New Registration'}</h2>
                 <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-700 text-teal-100 uppercase tracking-widest border border-teal-600">Clinical Admission</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-black/10 text-white uppercase tracking-widest border border-white/20">Clinical Admission</span>
                 </div>
             </div>
           </div>
@@ -182,8 +175,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Section {activeSection.toUpperCase()} in progress</span>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-                <button onClick={onClose} className="flex-1 md:flex-none px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm uppercase">Cancel</button>
-                {!readOnly && (<button onClick={handleSubmit} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:bg-teal-700 transition-all"><Save size={20} /> Create Record</button>)}
+                {!isKiosk && <button onClick={onClose} className="flex-1 md:flex-none px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm uppercase">Cancel</button>}
+                {!readOnly && (<button onClick={handleSubmit} className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-12 py-4 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all ${isKiosk ? 'bg-teal-600 shadow-teal-600/30' : 'bg-teal-900 shadow-teal-900/20 hover:bg-teal-800'}`}><Save size={20} /> {initialData ? 'Update and Submit' : 'Register and Submit'}</button>)}
             </div>
         </div>
       </div>

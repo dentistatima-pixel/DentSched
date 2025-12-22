@@ -234,9 +234,11 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];
 
+  // CLINICAL VERSIONING: Filter odontogram to only show non-superseded records (Current Truth)
   const filteredChart = useMemo(() => {
-      if (!showBaseline) return chart;
-      return chart.filter(e => e.isBaseline || e.status === 'Existing');
+      const activeEntries = chart.filter(e => !e.isSuperseded);
+      if (!showBaseline) return activeEntries;
+      return activeEntries.filter(e => e.isBaseline || e.status === 'Existing');
   }, [chart, showBaseline]);
 
   const q1 = [18, 17, 16, 15, 14, 13, 12, 11];
@@ -265,7 +267,8 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
               status: activeTool.status,
               surfaces: ['extraction', 'missing', 'crown', 'endo'].includes(activeToolId) ? undefined : surface,
               date: new Date().toISOString().split('T')[0],
-              price: 0
+              price: 0,
+              version: 1
           };
           onChartUpdate(newEntry);
       }
@@ -388,7 +391,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                                     </div>
                                 </div>
                             </div>
-                        )) : <div className="p-4 text-center text-xs text-slate-400 italic">No records found.</div>}
+                        )) : <div className="p-4 text-center text-xs text-slate-400 italic">No current records.</div>}
                     </div>
                     <div className="bg-slate-50 p-2 border-t border-slate-100">
                         <button onClick={() => onToothClick(selectedTooth)} className="w-full py-2 text-xs font-bold text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg flex items-center justify-center gap-2 transition-colors"><FileText size={14} /> Full History</button>
