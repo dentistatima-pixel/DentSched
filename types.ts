@@ -4,6 +4,13 @@ export enum UserRole {
   DENTAL_ASSISTANT = 'Dental Assistant'
 }
 
+export enum AccessPurpose {
+  TREATMENT = 'TREATMENT',
+  BILLING = 'BILLING',
+  AUDIT = 'AUDIT',
+  COORDINATION = 'COORDINATION'
+}
+
 export enum SystemStatus {
   OPERATIONAL = 'OPERATIONAL',
   DOWNTIME = 'DOWNTIME',
@@ -276,6 +283,8 @@ export interface PhilHealthClaim {
     trackingNumber?: string;
     claimFormType: 'CF-2' | 'CF-4';
     caseRateAmount?: number;
+    manualOverrideNotes?: string;
+    proofOfSubmissionUrl?: string;
 }
 
 export interface StockItem {
@@ -342,6 +351,7 @@ export interface AuditLogEntry {
   entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll' | 'Kiosk';
   entityId: string;
   details: string;
+  accessPurpose?: AccessPurpose;
   hash?: string;
   previousHash?: string;
 }
@@ -652,6 +662,8 @@ export interface ConsentLogEntry {
     status: ConsentStatus;
     version: string;
     timestamp: string;
+    scope?: string;
+    validUntil?: string;
     reason?: string;
     staffId: string;
     staffName: string;

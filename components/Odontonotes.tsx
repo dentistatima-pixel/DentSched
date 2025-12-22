@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem, User, AuditLogEntry } from '../types';
-// Added AlertTriangle to lucide-react imports
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, AlertTriangle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, History, ChevronRight, ChevronDown, Award } from 'lucide-react';
+import { DentalChartEntry, ProcedureItem, StockItem, User, AuditLogEntry, AccessPurpose } from '../types';
+import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, AlertTriangle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, History, ChevronRight, ChevronDown, Award, ShieldOff } from 'lucide-react';
 import { formatDate, STAFF } from '../constants';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -11,13 +10,14 @@ interface OdontonotesProps {
   entries: DentalChartEntry[];
   onAddEntry: (entry: DentalChartEntry) => void;
   onUpdateEntry: (entry: DentalChartEntry) => void;
-  currentUser: string;
+  currentUser: User;
   readOnly?: boolean;
   procedures: ProcedureItem[];
   inventory?: StockItem[]; 
   prefill?: Partial<DentalChartEntry> | null;
   onClearPrefill?: () => void;
-  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], id: string, details: string) => void;
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], id: string, details: string, previousState?: any, newState?: any, accessPurpose?: AccessPurpose) => void;
+  isLicenseExpired?: boolean;
 }
 
 interface ClinicalMacro {
@@ -48,8 +48,11 @@ const QUICK_FILLS: ClinicalMacro[] = [
     }
 ];
 
-const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction }) => {
+const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction, isLicenseExpired }) => {
   const toast = useToast();
+  
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   
   const [toothNum, setToothNum] = useState<string>('');
   const [selectedProcedure, setSelectedProcedure] = useState('');
@@ -64,6 +67,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedLineages, setExpandedLineages] = useState<Set<string>>(new Set());
   const recognitionRef = useRef<any>(null);
+
+  const isFormBlocked = readOnly || isLicenseExpired;
 
   const safeInventory = useMemo(() => {
       const now = new Date();
@@ -82,11 +87,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         setAssessment(prefill.assessment || '');
         setPlan(prefill.plan || '');
         setEditingId(null);
+        setIsFormVisible(true);
         if (onClearPrefill) onClearPrefill();
     }
   }, [prefill, onClearPrefill]);
 
   const applyQuickFill = (fill: ClinicalMacro) => {
+      if (isFormBlocked) return;
       setSubjective(fill.s || '');
       setObjective(fill.o || '');
       setAssessment(fill.a || '');
@@ -95,6 +102,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const toggleRecording = (field: 's'|'o'|'a'|'p') => {
+      if (isFormBlocked) return;
       if (isRecording === field) {
           recognitionRef.current?.stop();
           setIsRecording(null);
@@ -129,10 +137,9 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const handleSeal = async (entry: DentalChartEntry) => {
-      if (entry.sealedHash) return;
+      if (isFormBlocked || entry.sealedHash) return;
       const { timestamp, isVerified } = await getTrustedTime();
       
-      // Mini-blockchain link: Include previous version hash if it exists
       const prevVersionHash = entry.supersedesId ? entries.find(e => e.id === entry.supersedesId)?.sealedHash || 'NO_PREV' : 'GENESIS';
       const contentToHash = `${entry.id}|${entry.notes}|${entry.author}|${timestamp}|${prevVersionHash}|v${entry.version || 1}`;
       const hash = CryptoJS.SHA256(contentToHash).toString();
@@ -146,13 +153,17 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       });
 
       if (logAction) {
-          logAction('SEAL_RECORD', 'ClinicalNote', entry.id, `Digitally Sealed clinical record (v${entry.version || 1}) with hash chain link.`);
+          logAction('SEAL_RECORD', 'ClinicalNote', entry.id, `Digitally Sealed clinical record (v${entry.version || 1}).`);
       }
       toast.success("Clinical record digitally sealed.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormBlocked) {
+        toast.error("Registry access blocked.");
+        return;
+    }
     if (!subjective && !objective && !assessment && !plan) return;
     const combinedNotes = `S: ${subjective}\nO: ${objective}\nA: ${assessment}\nP: ${plan}`;
 
@@ -160,7 +171,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         const originalEntry = entries.find(e => e.id === editingId);
         if (originalEntry) {
             if (isLocked(originalEntry)) {
-                // MEDIC-LEGAL VERSIONING: Create linked record, increment version, and supersede original
                 const nextVersionNum = (originalEntry.version || 1) + 1;
                 const amendment: DentalChartEntry = {
                     ...originalEntry,
@@ -173,21 +183,15 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                     sealedHash: undefined, sealedAt: undefined, isLocked: false,
                     isSuperseded: false
                 };
-                
-                // 1. Mark original as Superseded
                 onUpdateEntry({ ...originalEntry, isSuperseded: true });
-                
-                // 2. Add the new version
                 onAddEntry(amendment);
-                
-                toast.success(`Amendment committed as Version ${nextVersionNum}. Original record archived.`);
-                if (logAction) logAction('AMEND_RECORD', 'ClinicalNote', originalEntry.id, `Amended sealed record. New version: ${amendment.id}`);
+                toast.success(`Amendment committed (v${nextVersionNum}).`);
             } else {
-                // Simple update for un-sealed notes
                 onUpdateEntry({ ...originalEntry, notes: combinedNotes, subjective, objective, assessment, plan, version: originalEntry.version || 1 });
-                toast.success("Clinical note updated.");
+                toast.success("Note updated.");
             }
             setEditingId(null);
+            setIsFormVisible(false);
         }
     } else {
         const newEntry: DentalChartEntry = { 
@@ -199,21 +203,21 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
             subjective, objective, assessment, plan, 
             price: charge ? parseFloat(charge) : 0, 
             date: new Date().toISOString().split('T')[0], 
-            author: currentUser, 
+            author: currentUser.name, 
             materialBatchId: selectedBatchId || undefined,
             version: 1 
         };
         onAddEntry(newEntry);
-        toast.success(`Clinical record saved.`);
+        toast.success(`Record saved.`);
+        setIsFormVisible(false);
     }
     setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId('');
   };
 
   const handleEdit = (entry: DentalChartEntry) => {
-      if (isLocked(entry)) {
-          toast.warning("Versioning Protocol Active: Changes to this sealed record will create a new timestamped version.");
-      }
+      if (isFormBlocked) return;
       setEditingId(entry.id);
+      setIsFormVisible(true);
       setSubjective(entry.subjective || ''); setObjective(entry.objective || ''); setAssessment(entry.assessment || ''); setPlan(entry.plan || ''); setToothNum(entry.toothNumber?.toString() || ''); setSelectedProcedure(entry.procedure || '');
   };
 
@@ -230,90 +234,76 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
               <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{label}</label>
               <button type="button" onClick={() => toggleRecording(field)} className={`p-1.5 rounded-lg transition-all ${isRecording === field ? 'bg-red-500 text-white animate-pulse' : 'text-slate-300 hover:text-teal-600 hover:bg-teal-50 opacity-0 group-hover/field:opacity-100'}`}>{isRecording === field ? <MicOff size={12}/> : <Mic size={12}/>}</button>
           </div>
-          <textarea className={`w-full p-3 border rounded-xl text-xs h-24 bg-white focus:ring-2 transition-all outline-none ${isRecording === field ? 'border-red-400 ring-red-500/10 shadow-inner' : 'border-slate-200 focus:ring-teal-500/10 focus:border-teal-500 shadow-sm'}`} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+          <textarea className={`w-full p-3 border rounded-xl text-xs h-24 bg-white focus:ring-2 transition-all outline-none ${isRecording === field ? 'border-red-400 ring-red-500/10 shadow-inner' : 'border-slate-200 focus:ring-teal-500/10 focus:border-teal-500 shadow-sm'} ${isFormBlocked ? 'opacity-50 cursor-not-allowed' : ''}`} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={isFormBlocked}/>
       </div>
   );
 
-  // Group current and superseded versions
   const sortedAndGrouped = useMemo(() => {
       const currentVersions = entries.filter(e => !e.isSuperseded);
       return [...currentVersions].sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime());
   }, [entries]);
 
-  const getHistoryForLineage = (currentId: string) => {
-      const history: DentalChartEntry[] = [];
-      let nextId: string | undefined = entries.find(e => e.id === currentId)?.supersedesId;
-      while(nextId) {
-          const prev = entries.find(e => e.id === nextId);
-          if (prev) {
-              history.push(prev);
-              nextId = prev.supersedesId;
-          } else break;
-      }
-      return history;
-  };
-
   return (
     <div className="flex flex-col h-[850px] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      {!readOnly && (
-          <div className={`border-b border-slate-200 p-6 ${editingId ? 'bg-amber-50/50' : 'bg-slate-50/50'}`}>
-             {editingId && entries.find(e => e.id === editingId && isLocked(e)) && (
-                 <div className="bg-amber-100 border-2 border-amber-200 p-4 rounded-2xl mb-6 flex gap-4 items-start animate-in slide-in-from-top-4 duration-300">
-                     <div className="bg-amber-600 text-white p-2 rounded-xl shrink-0"><AlertTriangle size={24}/></div>
-                     <div>
-                         <h4 className="font-black text-amber-900 uppercase tracking-tighter text-sm">Authenticated Amendment Protocol</h4>
-                         <p className="text-xs text-amber-800 font-medium leading-relaxed mt-1">You are editing a <strong>sealed clinical record</strong>. Saving will not overwrite the original; instead, a new timestamped version (v{(entries.find(e => e.id === editingId)?.version || 1) + 1}) will be generated, and the current record will be archived as "Superseded" for medico-legal history.</p>
-                     </div>
-                 </div>
-             )}
+      {isLicenseExpired && (
+          <div className="bg-red-600 text-white p-4 flex items-center justify-center gap-3 shrink-0">
+              <ShieldOff size={24}/>
+              <h4 className="font-black uppercase tracking-widest text-sm">Registry Access Blocked: License Expired</h4>
+          </div>
+      )}
 
-             <div className="flex justify-between items-center mb-4">
-                 <h4 className="font-bold text-slate-700 flex items-center gap-2">{editingId ? <RotateCcw size={18}/> : <Plus size={18}/>} {editingId ? 'Amend Clinical Record' : 'SOAP Documentation'}</h4>
-                 {editingId && <button onClick={() => setEditingId(null)} className="text-xs font-bold text-amber-700 hover:underline">Cancel Amendment</button>}
-             </div>
-             
-             <div className="space-y-3 mb-6">
-                 <div className="flex gap-2 pb-1 overflow-x-auto no-scrollbar">
-                    <span className="text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1.5 rounded-full border border-teal-100 flex items-center gap-1 shrink-0 uppercase tracking-tighter"><Zap size={12} className="fill-teal-500"/> Quick-Fill:</span>
-                    {QUICK_FILLS.map(fill => (
-                        <button key={fill.label} type="button" onClick={() => applyQuickFill(fill)} className="text-[10px] font-black px-4 py-1.5 bg-teal-600 text-white rounded-full shadow-md hover:bg-teal-700 transition-all whitespace-nowrap uppercase tracking-widest">{fill.label}</button>
-                    ))}
-                 </div>
-             </div>
+      <div className="p-4 border-b bg-slate-50/50 flex justify-between items-center shrink-0">
+          <h4 className="font-bold text-slate-700 flex items-center gap-2"><FileText size={18}/> Clinical Narrative History</h4>
+          <div className="flex gap-2">
+            <button onClick={() => setShowTechnicalDetails(!showTechnicalDetails)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${showTechnicalDetails ? 'bg-teal-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                {showTechnicalDetails ? 'Hide Forensic Data' : 'Technical Details'}
+            </button>
+            {!readOnly && !isLicenseExpired && (
+                <button 
+                    onClick={() => setIsFormVisible(!isFormVisible)} 
+                    className={`px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md transition-all ${isFormVisible ? 'bg-slate-800 text-white' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
+                >
+                    {isFormVisible ? 'Collapse Form' : 'Record New Entry'}
+                </button>
+            )}
+          </div>
+      </div>
 
+      {!readOnly && !isLicenseExpired && isFormVisible && (
+          <div className={`border-b border-slate-200 p-6 animate-in slide-in-from-top-4 duration-300 ${editingId ? 'bg-amber-50/50' : 'bg-white'}`}>
              <form onSubmit={handleSubmit} className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                      <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tooth #</label>
-                        <input type="number" className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold bg-white outline-none shadow-sm" value={toothNum} onChange={e => setToothNum(e.target.value)} disabled={!!editingId}/>
+                        <input type="number" className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold" value={toothNum} onChange={e => setToothNum(e.target.value)} disabled={!!editingId}/>
                      </div>
                      <div className="md:col-span-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Clinical Procedure</label>
-                        <select value={selectedProcedure} onChange={(e) => setSelectedProcedure(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white font-bold shadow-sm" disabled={!!editingId}>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Procedure</label>
+                        <select value={selectedProcedure} onChange={(e) => setSelectedProcedure(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white font-bold" disabled={!!editingId}>
                             <option value="">- Select -</option>
                             {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                         </select>
                      </div>
                      <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Material Batch</label>
-                        <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-xs outline-none bg-white font-medium shadow-sm">
+                        <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white font-medium">
                             <option value="">- No Supply Used -</option>
-                            {safeInventory.map(item => (<option key={item.id} value={item.id}>{item.name} {item.expiryDate ? `(Exp: ${formatDate(item.expiryDate)})` : ''}</option>))}
+                            {safeInventory.map(item => (<option key={item.id} value={item.id}>{item.name}</option>))}
                         </select>
                      </div>
                  </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <SoapField label="Subjective" value={subjective} onChange={setSubjective} field="s" placeholder="Patient reports..." />
-                     <SoapField label="Objective" value={objective} onChange={setObjective} field="o" placeholder="Visible symptoms..." />
+                     <SoapField label="Subjective" value={subjective} onChange={setSubjective} field="s" placeholder="Reports..." />
+                     <SoapField label="Objective" value={objective} onChange={setObjective} field="o" placeholder="Findings..." />
                      <SoapField label="Assessment" value={assessment} onChange={setAssessment} field="a" placeholder="Diagnosis..." />
-                     <SoapField label="Plan" value={plan} onChange={setPlan} field="p" placeholder="Treatment performed..." />
+                     <SoapField label="Plan" value={plan} onChange={setPlan} field="p" placeholder="Action..." />
                  </div>
 
-                 <div className="flex gap-2 items-center">
-                     <button type="submit" className={`flex-1 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-3 shadow-lg transition-all active:scale-[0.98] ${editingId ? 'bg-amber-600' : 'bg-teal-600 shadow-teal-600/20 hover:bg-teal-700'}`}>
-                         {editingId ? <RotateCcw size={20} /> : <ShieldCheck size={20} />} 
-                         <span>{editingId && entries.find(e => e.id === editingId && isLocked(e)) ? 'Seal & Supersede Record' : editingId ? 'Commit Amendment' : 'Seal & Log Clinical Entry'}</span>
+                 <div className="flex gap-2">
+                     <button type="submit" className="flex-1 py-3 rounded-xl font-bold text-white bg-teal-600 shadow-lg hover:bg-teal-700 flex items-center justify-center gap-2">
+                         <ShieldCheck size={20} />
+                         <span>{editingId ? 'Update Record' : 'Seal & Log Entry'}</span>
                      </button>
                  </div>
              </form>
@@ -332,89 +322,35 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                   </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100">
-                  {sortedAndGrouped.map((entry, idx) => {
+                  {sortedAndGrouped.map((entry) => {
                       const locked = isLocked(entry);
-                      const clinician = STAFF.find(s => s.name.includes(entry.author || ''));
-                      const history = getHistoryForLineage(entry.id);
-                      const isExpanded = expandedLineages.has(entry.id);
-
                       return (
                       <React.Fragment key={entry.id}>
-                        <tr className={`${entry.isVoid ? 'bg-red-50/30' : 'bg-white'} hover:bg-teal-50/20 transition-colors group relative`}>
+                        <tr className="hover:bg-slate-50/50 transition-colors group relative">
                             <td className="p-4 font-mono text-[10px] text-slate-500">{formatDate(entry.date)}</td>
                             <td className="p-4 text-center font-bold text-slate-700"><span className="bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-xs">#{entry.toothNumber || '-'}</span></td>
-                            <td className="p-4 font-bold text-slate-800">
-                                {entry.procedure}
-                                {entry.version && entry.version > 1 && (
-                                    <span className="ml-2 bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-teal-100 shadow-sm" title={`Amended from v${entry.version-1}`}>v{entry.version}</span>
-                                )}
-                            </td>
+                            <td className="p-4 font-bold text-slate-800">{entry.procedure}</td>
                             <td className="p-4 text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
-                                <div className="bg-white/50 p-2 rounded-lg relative">
-                                    {entry.notes}
-                                    {entry.supersedesId && (
-                                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                                            <div className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase">
-                                                <GitCommit size={10}/> Amendment linked to archived record
-                                            </div>
-                                            <button 
-                                                onClick={() => toggleLineage(entry.id)}
-                                                className="text-[9px] font-black text-teal-600 uppercase flex items-center gap-1 hover:underline"
-                                            >
-                                                {isExpanded ? <ChevronDown size={10}/> : <ChevronRight size={10}/>}
-                                                {isExpanded ? 'Hide History' : `Show ${history.length} Previous Versions`}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                {entry.notes}
+                                {showTechnicalDetails && entry.sealedHash && (
+                                    <div className="mt-2 text-[8px] font-mono text-teal-600 bg-teal-50 p-1.5 rounded truncate border border-teal-100 uppercase tracking-tighter">
+                                        SHA-256 Hash: {entry.sealedHash}
+                                    </div>
+                                )}
                                 <div className="text-[9px] text-slate-400 mt-2 uppercase font-bold flex justify-between items-center px-1">
                                     <span className="flex items-center gap-1">
-                                        {entry.sealedHash ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center gap-1 text-lilac-600"><Key size={10}/> DIGITALLY SEALED</div>
-                                                {entry.isVerifiedTime === false && (
-                                                    <div className="flex items-center gap-1 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100" title="Signed with Unverified System Time">
-                                                        <Clock size={10}/> UNVERIFIED TIME
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : <ShieldCheck size={10} className="text-teal-500"/>}
-                                        Verified by Dr. {entry.author}
+                                        <ShieldCheck size={10} className="text-teal-500"/>
+                                        Dr. {entry.author}
                                     </span>
-                                    {!readOnly && (
-                                        <div className="flex gap-2">
-                                            {!entry.sealedHash && <button onClick={() => handleSeal(entry)} className="opacity-0 group-hover:opacity-100 text-lilac-600 hover:bg-lilac-50 px-2 py-0.5 rounded transition-all font-bold border border-lilac-100">SIGN & SEAL</button>}
-                                            <button onClick={() => handleEdit(entry)} className="opacity-0 group-hover:opacity-100 text-teal-600 hover:bg-teal-100 px-2 py-0.5 rounded transition-all font-bold">AMEND</button>
-                                        </div>
+                                    {!isFormBlocked && (
+                                        <button onClick={() => handleEdit(entry)} className="opacity-0 group-hover:opacity-100 text-teal-600 hover:bg-teal-100 px-2 py-0.5 rounded transition-all font-bold">EDIT</button>
                                     )}
                                 </div>
                             </td>
                             <td className="p-4 text-right">
-                                {locked && <Lock size={14} className="text-slate-300 ml-auto" title="Note Locked for Non-Repudiation" />}
+                                {locked && <Lock size={14} className="text-slate-300 ml-auto" />}
                             </td>
                         </tr>
-
-                        {isExpanded && history.map(h => (
-                            <tr key={h.id} className="bg-slate-50 opacity-60 grayscale-[0.5] transition-all">
-                                <td className="p-4 font-mono text-[9px] text-slate-400">{formatDate(h.date)}</td>
-                                <td className="p-4 text-center font-bold text-slate-400">#{h.toothNumber || '-'}</td>
-                                <td className="p-4 font-bold text-slate-400 line-through">
-                                    {h.procedure}
-                                    <span className="ml-2 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-[8px] font-black uppercase border border-red-100 shadow-sm">SUPERSEDED</span>
-                                </td>
-                                <td className="p-4 text-[11px] text-slate-400 italic">
-                                    <div className="border-l-2 border-slate-200 pl-3">
-                                        {h.notes}
-                                        <div className="mt-1 flex items-center gap-1 text-[8px] font-bold uppercase">
-                                            <History size={8}/> Version {h.version || 1} • Sealed at {h.sealedAt ? new Date(h.sealedAt).toLocaleTimeString() : 'N/A'}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-4 text-right">
-                                    <ShieldAlert size={12} className="text-slate-200 ml-auto" />
-                                </td>
-                            </tr>
-                        ))}
                       </React.Fragment>
                   )})}
               </tbody>
