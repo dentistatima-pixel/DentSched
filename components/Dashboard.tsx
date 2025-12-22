@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, Mail } from 'lucide-react';
+import { Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, Mail, Zap, X, AlertTriangle } from 'lucide-react';
 import { Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, PinboardTask, TreatmentPlanStatus, TelehealthRequest, RecallStatus } from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal';
@@ -20,7 +20,7 @@ interface DashboardProps {
   onBookAppointment: (patientId?: string) => void;
   onUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => void;
   onCompleteRegistration: (patientId: string) => void;
-  onUpdatePatientRecall?: (patientId: string, status: RecallStatus) => void; // NEW
+  onUpdatePatientRecall?: (patientId: string, status: RecallStatus) => void; 
   fieldSettings?: FieldSettings;
   onViewAllSchedule?: () => void; 
   onChangeBranch?: (branch: string) => void;
@@ -30,12 +30,13 @@ interface DashboardProps {
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   onSaveConsent: (appointmentId: string, consentUrl: string) => void;
+  onQuickQueue?: (name: string, phone: string, complaint: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onViewAllSchedule, onChangeBranch, onPatientPortalToggle,
-  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent
+  tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, onQuickQueue
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openTrayId, setOpenTrayId] = useState<string | null>(null);
@@ -45,6 +46,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
   const [telehealthRequests] = useState<TelehealthRequest[]>(MOCK_TELEHEALTH_REQUESTS);
   const [activeRecallTab, setActiveRecallTab] = useState<RecallStatus>('Due');
+  
+  // Emergency Quick-Queue State
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [emergencyData, setEmergencyData] = useState({ name: '', phone: '', complaint: '' });
 
   const today = new Date().toLocaleDateString('en-CA');
   const tomorrow = new Date();
@@ -59,7 +64,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const todaysAppointments = visibleAppointments.filter(a => a.date === today && !a.isBlock);
 
-  // --- COMPLIANCE PULSE: STAFF LICENSE TRACKING ---
   const licenseAlerts = useMemo(() => {
       const alerts: { name: string, type: string, daysLeft: number, urgency: 'high' | 'med' }[] = [];
       const now = new Date();
@@ -121,29 +125,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       });
   }, [tasks]);
 
-  const tomorrowStats = useMemo(() => {
-      const apts = visibleAppointments.filter(a => a.date === tomorrowStr);
-      return {
-          total: apts.length,
-          newPatients: apts.filter(a => {
-              const p = patients.find(pt => pt.id === a.patientId);
-              return p?.provisional || (p?.lastVisit === 'First Visit');
-          }).length,
-          surgeries: apts.filter(a => ['Surgery', 'Implant', 'Extraction', 'Root Canal'].includes(a.type)).length
-      };
-  }, [visibleAppointments, patients, tomorrowStr]);
-
-  const incomingLabCases = useMemo(() => {
-      const threeDaysFromNow = new Date();
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-      return visibleAppointments.filter(a => {
-          if (a.labStatus !== LabStatus.PENDING) return false;
-          const d = new Date(a.date);
-          const todayDate = new Date();
-          return d > todayDate && d <= threeDaysFromNow;
-      }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [visibleAppointments]);
-
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
   const getTrayItems = (type: string) => {
       const trays: Record<string, string[]> = {
@@ -163,6 +144,19 @@ const Dashboard: React.FC<DashboardProps> = ({
     const fuse = new Fuse(patients, { keys: ['name', 'phone'], threshold: 0.3 });
     return fuse.search(searchTerm).map(result => result.item).slice(0, 5);
   }, [patients, searchTerm]);
+
+  const handleEmergencySubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!emergencyData.name || !emergencyData.phone) return;
+      if (onQuickQueue) onQuickQueue(emergencyData.name, emergencyData.phone, emergencyData.complaint);
+      setEmergencyData({ name: '', phone: '', complaint: '' });
+      setIsEmergencyModalOpen(false);
+  };
+
+  const hasInstallmentDue = (p?: Patient) => {
+      if (!p?.installmentPlans) return false;
+      return p.installmentPlans.some(plan => plan.status === 'Active' && plan.totalAmount > plan.paidAmount);
+  };
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
@@ -195,6 +189,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                 )}
             </div>
             <div className="flex gap-2 shrink-0">
+                 <button onClick={() => setIsEmergencyModalOpen(true)} className="h-11 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-500/20" title="Emergency Quick-Queue">
+                    <Zap size={20} /> <span className="hidden md:inline font-bold text-sm">Emergency Queue</span>
+                </button>
                  <button onClick={() => onBookAppointment()} className="h-11 px-4 bg-lilac-100 hover:bg-lilac-200 text-lilac-700 rounded-xl flex items-center justify-center gap-2 transition-colors" title="Book Appointment">
                     <CalendarPlus size={20} /> <span className="hidden md:inline font-bold text-sm">Book</span>
                 </button>
@@ -280,6 +277,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           todaysAppointments.map(apt => {
                               const patient = getPatient(apt.patientId);
                               const hasMedicalAlert = isCritical(patient);
+                              const installmentDue = hasInstallmentDue(patient);
                               const procDef = fieldSettings?.procedures.find(p => p.name === apt.type);
                               const rowClass = apt.status === AppointmentStatus.ARRIVED ? 'bg-orange-50/60 border-l-4 border-l-orange-400' : apt.status === AppointmentStatus.SEATED ? 'bg-blue-50/60 border-l-4 border-l-blue-400' : apt.status === AppointmentStatus.TREATING ? 'bg-lilac-50/60 border-l-4 border-l-lilac-400' : apt.status === AppointmentStatus.COMPLETED ? 'bg-emerald-50/40 opacity-70' : 'bg-white border-l-4 border-l-transparent';
 
@@ -291,6 +289,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               <div className="flex items-center gap-2">
                                                   <button onClick={() => onPatientSelect(apt.patientId)} className={`font-bold text-sm leading-none flex items-center gap-2 hover:underline text-left ${hasMedicalAlert ? 'text-red-600' : 'text-slate-800'}`}>{patient?.name || 'Unknown'}{hasMedicalAlert && <HeartPulse size={14} className="text-red-500 animate-pulse" />}</button>
                                                   {patient?.provisional && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 rounded uppercase">New</span>}
+                                                  {installmentDue && <span className="bg-yellow-400 text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-sm"><DollarSign size={8}/> ₱ DUE</span>}
                                               </div>
                                               <div className="flex items-center gap-2 text-xs text-slate-500 leading-none">
                                                   <span className="truncate max-w-[200px] font-medium">{apt.type}</span>
@@ -371,6 +370,40 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
           </div>
       </div>
+
+      {/* Emergency Quick-Queue Modal */}
+      {isEmergencyModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                  <div className="bg-amber-500 p-6 text-white flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <Zap size={24} fill="currentColor" />
+                          <h3 className="text-xl font-bold">Emergency Quick-Queue</h3>
+                      </div>
+                      <button onClick={() => setIsEmergencyModalOpen(false)}><X size={24}/></button>
+                  </div>
+                  <form onSubmit={handleEmergencySubmit} className="p-6 space-y-4">
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">Instantly add an emergency patient to today's arrived queue. Full registration can be completed later.</p>
+                      <div>
+                          <label className="label text-amber-700">Patient Full Name</label>
+                          <input required type="text" value={emergencyData.name} onChange={e => setEmergencyData({...emergencyData, name: e.target.value})} className="input border-amber-100 focus:border-amber-500" placeholder="e.g. John Doe" />
+                      </div>
+                      <div>
+                          <label className="label text-amber-700">Mobile Number</label>
+                          <input required type="tel" value={emergencyData.phone} onChange={e => setEmergencyData({...emergencyData, phone: e.target.value})} className="input border-amber-100 focus:border-amber-500" placeholder="09XX-XXX-XXXX" />
+                      </div>
+                      <div>
+                          <label className="label text-amber-700">Chief Complaint</label>
+                          <textarea value={emergencyData.complaint} onChange={e => setEmergencyData({...emergencyData, complaint: e.target.value})} className="input border-amber-100 focus:border-amber-500 h-24 resize-none" placeholder="Reason for emergency visit..." />
+                      </div>
+                      <div className="pt-2 flex gap-3">
+                          <button type="button" onClick={() => setIsEmergencyModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
+                          <button type="submit" className="flex-[2] py-4 bg-amber-500 text-white font-black uppercase tracking-widest text-sm rounded-2xl shadow-xl shadow-amber-500/20 hover:bg-amber-600 transition-all">Add to Queue</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
 
       {consentModalApt && (
           <ConsentCaptureModal

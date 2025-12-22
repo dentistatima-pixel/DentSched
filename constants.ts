@@ -1,4 +1,3 @@
-
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus } from './types';
 
 // Generators for mock data
@@ -152,7 +151,7 @@ export const PATIENTS: Patient[] = [
              { id: 'dc_heavy_15', toothNumber: 16, procedure: 'Crown', status: 'Planned', notes: 'Crack lines visible', price: 15000, date: getTomorrowStr(), planId: 'tp1' }
         ],
         ledger: [
-            { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46, 47', type: 'Charge', amount: 5000, balanceAfter: 5000, materialAmount: 1000, pfAmount: 4000 },
+            { id: 'l1', date: getPastDateStr(2), description: 'Restoration 46, 47', type: 'Charge', amount: 5000, balanceAfter: 5000 },
             { id: 'l2', date: getPastDateStr(2), description: 'Partial Payment', type: 'Payment', amount: 2500, balanceAfter: 2500 },
             { id: 'l3', date: getPastDateStr(35), description: 'Crowns 11, 21', type: 'Charge', amount: 24000, balanceAfter: 26500 },
             { id: 'l4', date: getPastDateStr(35), description: 'Full Payment', type: 'Payment', amount: 24000, balanceAfter: 2500 }
@@ -240,6 +239,8 @@ export const MOCK_STOCK: StockItem[] = [
     { id: 'stk_4', name: 'Mouth Mirror', category: StockCategory.INSTRUMENTS, quantity: 100, lowStockThreshold: 50 },
     { id: 'stk_5', name: 'Bond Paper (Ream)', category: StockCategory.OFFICE, quantity: 8, lowStockThreshold: 5 },
     { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getFutureDateStr(15) }, // EXPIRE ALERT
+    { id: 'stk_7', name: 'Endo Files Set', category: StockCategory.INSTRUMENTS, quantity: 4, lowStockThreshold: 5 }, // Pre-allocated shortage mock
+    { id: 'stk_8', name: 'Gutta Percha Points', category: StockCategory.RESTORATIVE, quantity: 10, lowStockThreshold: 5 },
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -321,10 +322,10 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'p2', name: 'Oral Prophylaxis', price: 1200, category: 'Preventive' },
       { id: 'p3', name: 'Restoration', price: 1500, category: 'Restorative', riskAllergies: ['Latex'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 1 }, { stockItemId: 'stk_2', quantity: 2 }, { stockItemId: 'stk_3', quantity: 1 }] },
       { id: 'p4', name: 'Extraction', price: 1000, category: 'Surgery', requiresConsent: true, riskAllergies: ['Latex', 'Penicillin'], riskDisclosures: ['Alveolar osteitis (dry socket)', 'Post-operative bleeding', 'Infection', 'Damage to adjacent teeth', 'Nerve paresthesia'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 2 }, { stockItemId: 'stk_2', quantity: 2 }] },
-      { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true, riskAllergies: ['Latex', 'Local Anesthetic'], riskDisclosures: ['Post-treatment sensitivity', 'Instrument separation', 'Re-infection', 'Tooth fracture', 'Sinus involvement'] },
+      { id: 'p5', name: 'Root Canal', price: 8000, category: 'Endodontics', requiresConsent: true, riskAllergies: ['Latex', 'Local Anesthetic'], riskDisclosures: ['Post-treatment sensitivity', 'Instrument separation', 'Re-infection', 'Tooth fracture', 'Sinus involvement'], billOfMaterials: [ { stockItemId: 'stk_7', quantity: 1 }, { stockItemId: 'stk_8', quantity: 4 }, { stockItemId: 'stk_1', quantity: 1 }] },
       { id: 'p6', name: 'Prosthodontics', price: 15000, category: 'Restorative' },
       { id: 'p7', name: 'Orthodontics', price: 50000, category: 'Orthodontics' },
-      { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery', requiresConsent: true, riskAllergies: ['Latex', 'Penicillin', 'Local Anesthetic'], riskDisclosures: ['Jaw stiffness (trismus)', 'Nerve injury', 'Sinus perforation', 'Reaction to anesthetic'] },
+      { id: 'p8', name: 'Surgery', price: 5000, category: 'Surgery', requiresConsent: true, riskAllergies: ['Latex', 'Penicillin', 'Local Anesthetic'], riskDisclosures: ['Jaw stiffness (trismus)', 'Nerve injury', 'Sinus perforation', 'Reaction to anesthetic'], billOfMaterials: [ { stockItemId: 'stk_1', quantity: 4 }, { stockItemId: 'stk_2', quantity: 2 }] },
       { id: 'p9', name: 'Whitening', price: 20000, category: 'Cosmetic' },
       { id: 'p10', name: 'Denture Adjustments', price: 500, category: 'Prosthodontics' },
       { id: 'p11', name: 'Sealant', price: 1500, category: 'Pediatric' },
@@ -342,7 +343,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableHMOClaims: true,
       enableInventory: true,
       enableAnalytics: true,
-      enableBIRCompliance: true,
       enablePatientPortal: true,
       enableDigitalConsent: true,
       enableAutomatedRecall: true,
@@ -360,7 +360,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableSmsAutomation: true
   },
   smsTemplates: DEFAULT_SMS,
-  receiptBooklets: [{ id: 'rb1', seriesStart: 1, seriesEnd: 1000, prefix: 'A', isActive: true }],
   stockCategories: Object.values(StockCategory),
   stockItems: MOCK_STOCK,
   expenseCategories: ['Lab Fee', 'Supplies', 'Utilities', 'Rent', 'Salary', 'Other'],

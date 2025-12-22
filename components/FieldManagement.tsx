@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, TrendingUp, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 import { jsPDF } from 'jspdf';
@@ -22,6 +22,10 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     const toast = useToast();
     const [activeCategory, setActiveCategory] = useState<string>('features');
     const [activeSmsCat, setActiveSmsCat] = useState<SmsCategory>('Onboarding');
+    
+    // Destruction Modal State
+    const [purgeTarget, setPurgeTarget] = useState<Patient | null>(null);
+    const [purgeCountdown, setPurgeCountdown] = useState(0);
 
     const securityAlerts = useMemo(() => {
         return auditLog.filter(log => log.action === 'SECURITY_ALERT').slice(0, 20);
@@ -46,54 +50,158 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         ]},
     ];
 
-    const generateNpcReport = (incidentId: string) => {
-        const incident = auditLog.find(l => l.id === incidentId);
-        if (!incident) return;
-
+    const generateDestructionCertificate = (patient: Patient) => {
         const doc = new jsPDF();
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text("NATIONAL PRIVACY COMMISSION (PH)", 105, 15, { align: 'center' });
-        doc.text("SECURITY INCIDENT & DATA BREACH REPORT", 105, 22, { align: 'center' });
+        const certId = `CERT-DESTROY-${Date.now()}`;
         
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Report Date: ${new Date().toLocaleString()}`, 15, 35);
-        doc.text(`Discovery Date: ${formatDate(incident.timestamp)}`, 15, 40);
-        doc.text(`Case ID: ${incident.id}`, 15, 45);
-
         doc.setFont('helvetica', 'bold');
-        doc.text("I. PERSONAL INFORMATION CONTROLLER", 15, 55);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Organization: Dentsched Dental Practice", 20, 60);
-        doc.text("Data Protection Officer (DPO): System Administrator", 20, 65);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text("II. DESCRIPTION OF INCIDENT", 15, 75);
-        doc.setFont('helvetica', 'normal');
-        const desc = `The following security alert was triggered by the system for user account "${incident.userName}": ${incident.details}. Affected records ID(s) associated: ${incident.entityId}`;
-        const splitLines = doc.splitTextToSize(desc, 180);
-        doc.text(splitLines, 20, 82);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text("III. PRELIMINARY IMPACT ASSESSMENT", 15, 110);
-        doc.setFont('helvetica', 'normal');
-        doc.text("• Category: Confidentiality / Integrity Violation", 20, 118);
-        doc.text("• Nature of Data: Sensitive Personal Information (Medical Records)", 20, 124);
-        doc.text("• Affected Parties: 1 patient(s) confirmed.", 20, 130);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text("IV. CONTAINMENT MEASURES", 15, 145);
-        doc.setFont('helvetica', 'normal');
-        doc.text("• Session immediately terminated upon system alert.", 20, 152);
-        doc.text("• Multi-factor challenge triggered for associated account.", 20, 158);
-        doc.text("• Cryptographic seal verification initiated for related clinical notes.", 20, 164);
-
-        doc.line(15, 200, 100, 200);
-        doc.text("Digitally Certified by DPO", 15, 205);
+        doc.setFontSize(18);
+        doc.text("CERTIFICATE OF DIGITAL DESTRUCTION", 105, 30, { align: 'center' });
         
-        doc.save(`NPC_Breach_Report_${incident.id}.pdf`);
-        toast.success("NPC Incident Documentation generated.");
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text("PURSUANT TO PHILIPPINES DATA PRIVACY ACT OF 2012 (R.A. 10173)", 105, 38, { align: 'center' });
+        
+        doc.line(20, 45, 190, 45);
+        
+        doc.setFontSize(12);
+        doc.text(`Certificate Ref: ${certId}`, 20, 60);
+        doc.text(`Destruction Date: ${new Date().toLocaleString()}`, 20, 68);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text("DATA SUBJECT INFORMATION (ANONYMIZED)", 20, 85);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Record ID: ${patient.id}`, 25, 93);
+        doc.text(`Last Active Visit: ${formatDate(patient.lastVisit)}`, 25, 100);
+        doc.text(`Retention Status: Over 10 Years Inactive`, 25, 107);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text("METHOD OF DESTRUCTION", 20, 125);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Permanent erasure of encrypted database objects, audit trails (excluding destruction log),", 25, 133);
+        doc.text("imaging files, and clinical metadata. This action is irreversible.", 25, 140);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text("LEGAL COMPLIANCE ATTESTATION", 20, 160);
+        doc.setFont('helvetica', 'normal');
+        const legalBasis = "The Personal Information Controller (PIC) hereby certifies that the identified record has been permanently purged in accordance with the clinic's data retention policy and R.A. 10173 Section 11, following the mandatory 10-year clinical records retention requirement set by the Philippine Regulatory Commission (PRC) and DOH.";
+        const splitBasis = doc.splitTextToSize(legalBasis, 170);
+        doc.text(splitBasis, 25, 168);
+        
+        doc.line(20, 220, 100, 220);
+        doc.text("Clinic Data Protection Officer (DPO)", 20, 225);
+        doc.text("Digitally Signed - Verified System Clock", 20, 230);
+        
+        doc.save(`${certId}.pdf`);
+        toast.success("Certificate generated and downloaded.");
+        return certId;
+    };
+
+    const handlePurge = () => {
+        if (!purgeTarget) return;
+        const certId = generateDestructionCertificate(purgeTarget);
+        if (onPurgePatient) onPurgePatient(purgeTarget.id);
+        setPurgeTarget(null);
+        toast.success("Record destroyed successfully.");
+    };
+
+    const renderRetention = () => {
+        const policy = settings.retentionPolicy || { archivalYears: 10, purgeYears: 15 };
+        const now = new Date();
+        const eligibleForPurge = patients.filter(p => {
+            if (!p.lastVisit) return false;
+            const lastDate = new Date(p.lastVisit);
+            const yearsDiff = (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24 * 365.25);
+            return yearsDiff >= policy.archivalYears;
+        });
+
+        return (
+            <div className="p-6 bg-slate-50 h-full space-y-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5"><Archive size={120}/></div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">DPA Data Retention Lifecycle</h3>
+                    <p className="text-sm text-slate-500 mb-8 max-w-xl">Automate compliance with the "Right to be Forgotten" while maintaining DOH-mandated clinical record retention.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-6 rounded-2xl bg-teal-50 border border-teal-100"><h4 className="font-bold text-teal-900 mb-1">Automated Archival</h4><p className="text-[10px] text-teal-700 mb-4">Records inactive for {policy.archivalYears} years will be moved to cold storage.</p><input type="range" min="5" max="20" value={policy.archivalYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, archivalYears: parseInt(e.target.value)}})} className="w-full accent-teal-600" /></div>
+                        <div className="p-6 rounded-2xl bg-red-50 border border-red-100"><h4 className="font-bold text-red-900 mb-1">Permanent Purge</h4><p className="text-[10px] text-red-700 mb-4">Records inactive for {policy.purgeYears} years will be permanently deleted.</p><input type="range" min="10" max="30" value={policy.purgeYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, purgeYears: parseInt(e.target.value)}})} className="w-full accent-red-600" /></div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                        <h4 className="font-bold text-slate-700 flex items-center gap-2"><FileWarning size={18} className="text-red-600"/> Destruction Queue</h4>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{eligibleForPurge.length} Records Eligible</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto max-h-[400px]">
+                        {eligibleForPurge.length > 0 ? (
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                                    <tr><th className="p-4">Patient Record</th><th className="p-4 text-center">Last Active</th><th className="p-4 text-right">Action</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {eligibleForPurge.map(p => (
+                                        <tr key={p.id} className="hover:bg-slate-50">
+                                            <td className="p-4">
+                                                <div className="font-bold text-slate-800">{p.name}</div>
+                                                <div className="text-[10px] font-mono text-slate-400 uppercase">UID: {p.id}</div>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className="text-red-600 font-bold">{formatDate(p.lastVisit)}</span>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <button 
+                                                    onClick={() => { setPurgeTarget(p); setPurgeCountdown(3); }} 
+                                                    className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-600/20 hover:scale-105 transition-transform"
+                                                >
+                                                    Destroy & Issue Cert
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="p-10 text-center flex flex-col items-center gap-3">
+                                <CheckCircle size={48} className="text-teal-200" />
+                                <p className="text-slate-400 text-sm italic">All records are currently within the retention window.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {purgeTarget && (
+                    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
+                            <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <AlertTriangle size={40} />
+                            </div>
+                            <h3 className="text-2xl font-bold text-center text-slate-900 mb-2">Confirm Destruction</h3>
+                            <p className="text-slate-500 text-center text-sm leading-relaxed mb-6">
+                                You are about to permanently purge the record of <strong>{purgeTarget.name}</strong>. This action is irreversible under PDA R.A. 10173. A Digital Destruction Certificate will be issued to your local storage.
+                            </p>
+                            
+                            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl mb-8">
+                                <div className="text-center">
+                                    <div className="text-[10px] font-black text-red-600 uppercase mb-1">Time until authorized</div>
+                                    <div className="text-3xl font-black text-red-700">{purgeCountdown > 0 ? `${purgeCountdown}s` : 'AUTHORIZED'}</div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => setPurgeTarget(null)} className="py-4 rounded-xl bg-slate-100 text-slate-600 font-bold uppercase tracking-widest text-xs">Abort</button>
+                                <button 
+                                    onClick={handlePurge}
+                                    disabled={purgeCountdown > 0}
+                                    className="py-4 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-red-600/30 disabled:opacity-50"
+                                >
+                                    Destroy Record
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const renderNPCProtocol = () => (
@@ -160,23 +268,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                     <p className="text-sm text-slate-500 mb-6">Drive clinic growth by automatically requesting reviews from satisfied patients.</p>
                     <div className="space-y-4">
                         <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Maps Review Link</label><input type="text" className="w-full mt-1 p-3 bg-slate-50 border rounded-xl" placeholder="e.g. https://g.page/r/YOUR_ID/review" value={settings.reputationSettings?.googleReviewLink || ''} onChange={e => onUpdateSettings({...settings, reputationSettings: {...settings.reputationSettings, googleReviewLink: e.target.value, npsThreshold: 5}})} /></div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    function renderRetention() {
-        const policy = settings.retentionPolicy || { archivalYears: 10, purgeYears: 15 };
-        return (
-            <div className="p-6 bg-slate-50 h-full space-y-6">
-                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-5"><Archive size={120}/></div>
-                    <h3 className="text-xl font-bold text-slate-800 mb-2">DPA Data Retention Lifecycle</h3>
-                    <p className="text-sm text-slate-500 mb-8 max-w-xl">Automate compliance with the "Right to be Forgotten" while maintaining DOH-mandated clinical record retention.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-6 rounded-2xl bg-teal-50 border border-teal-100"><h4 className="font-bold text-teal-900 mb-1">Automated Archival</h4><p className="text-[10px] text-teal-700 mb-4">Records inactive for {policy.archivalYears} years will be moved to cold storage.</p><input type="range" min="5" max="20" value={policy.archivalYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, archivalYears: parseInt(e.target.value)}})} className="w-full accent-teal-600" /></div>
-                        <div className="p-6 rounded-2xl bg-red-50 border border-red-100"><h4 className="font-bold text-red-900 mb-1">Permanent Purge</h4><p className="text-[10px] text-red-700 mb-4">Records inactive for {policy.purgeYears} years will be permanently deleted.</p><input type="range" min="10" max="30" value={policy.purgeYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...policy, purgeYears: parseInt(e.target.value)}})} className="w-full accent-red-600" /></div>
                     </div>
                 </div>
             </div>
@@ -250,6 +341,56 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             </div>
         );
     }
+
+    const generateNpcReport = (incidentId: string) => {
+        const incident = auditLog.find(l => l.id === incidentId);
+        if (!incident) return;
+
+        const doc = new jsPDF();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text("NATIONAL PRIVACY COMMISSION (PH)", 105, 15, { align: 'center' });
+        doc.text("SECURITY INCIDENT & DATA BREACH REPORT", 105, 22, { align: 'center' });
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Report Date: ${new Date().toLocaleString()}`, 15, 35);
+        doc.text(`Discovery Date: ${formatDate(incident.timestamp)}`, 15, 40);
+        doc.text(`Case ID: ${incident.id}`, 15, 45);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("I. PERSONAL INFORMATION CONTROLLER", 15, 55);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Organization: Dentsched Dental Practice", 20, 60);
+        doc.text("Data Protection Officer (DPO): System Administrator", 20, 65);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("II. DESCRIPTION OF INCIDENT", 15, 75);
+        doc.setFont('helvetica', 'normal');
+        const desc = `The following security alert was triggered by the system for user account "${incident.userName}": ${incident.details}. Affected records ID(s) associated: ${incident.entityId}`;
+        const splitLines = doc.splitTextToSize(desc, 180);
+        doc.text(splitLines, 20, 82);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("III. PRELIMINARY IMPACT ASSESSMENT", 15, 110);
+        doc.setFont('helvetica', 'normal');
+        doc.text("• Category: Confidentiality / Integrity Violation", 20, 118);
+        doc.text("• Nature of Data: Sensitive Personal Information (Medical Records)", 20, 124);
+        doc.text("• Affected Parties: 1 patient(s) confirmed.", 20, 130);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("IV. CONTAINMENT MEASURES", 15, 145);
+        doc.setFont('helvetica', 'normal');
+        doc.text("• Session immediately terminated upon system alert.", 20, 152);
+        doc.text("• Multi-factor challenge triggered for associated account.", 20, 158);
+        doc.text("• Cryptographic seal verification initiated for related clinical notes.", 20, 164);
+
+        doc.line(15, 200, 100, 200);
+        doc.text("Digitally Certified by DPO", 15, 205);
+        
+        doc.save(`NPC_Breach_Report_${incident.id}.pdf`);
+        toast.success("NPC Incident Documentation generated.");
+    };
 
     return (
         <div className="flex flex-col md:flex-row h-full gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

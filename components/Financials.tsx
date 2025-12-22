@@ -1,7 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, User } from 'lucide-react';
-/* FIX: Added UserRole to imports */
+import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight } from 'lucide-react';
 import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, TreatmentPlanStatus, UserRole } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
@@ -26,14 +24,13 @@ const Financials: React.FC<FinancialsProps> = ({
     claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
     onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, currentBranch 
 }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'reconciliation' | 'aging' | 'payroll' | 'compliance' | 'claims' | 'philhealth' | 'expenses'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'reconciliation' | 'aging' | 'payroll' | 'claims' | 'philhealth' | 'expenses'>('analytics');
 
   const tabs = [
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'reconciliation', label: 'Cash Reconciliation', icon: Calculator },
     { id: 'aging', label: 'Debt Aging', icon: Clock },
     { id: 'payroll', label: 'Staff Payroll', icon: Award },
-    { id: 'compliance', label: 'BIR Compliance', icon: ShieldCheck },
     { id: 'claims', label: 'HMO Claims', icon: Heart },
     { id: 'philhealth', label: 'PhilHealth', icon: FileText },
     { id: 'expenses', label: 'Expenses', icon: Package },
@@ -44,7 +41,6 @@ const Financials: React.FC<FinancialsProps> = ({
       case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
       case 'reconciliation': return <CashReconciliationTab patients={patients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} />;
       case 'payroll': return <PayrollTab appointments={appointments || []} staff={staff || []} expenses={expenses} fieldSettings={fieldSettings} />;
-      case 'compliance': return <BIRComplianceTab patients={patients} currentBranch={currentBranch} />;
       case 'aging': return <DebtAgingTab patients={patients} />;
       case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients} onUpdateClaim={onUpdatePhilHealthClaim} />;
       case 'claims': return <HMOClaimsTab claims={claims} patients={patients} />;
@@ -194,48 +190,6 @@ const PayrollTab: React.FC<{ appointments: Appointment[], staff: StaffUser[], ex
                             </div>
                         );
                     })}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const BIRComplianceTab: React.FC<{ patients: Patient[], currentBranch: string }> = ({ patients, currentBranch }) => {
-    const toast = useToast();
-
-    const handleExportCAS = (type: 'Sales' | 'VAT') => {
-        let csv = type === 'Sales' ? "Date,OR Number,Patient Name,Gross Amount,VAT,Net Amount,VAT Exempt\n" : "TIN,Supplier,Invoice No,Gross,VAT,Net\n";
-        patients.forEach(p => {
-            p.ledger?.filter(e => e.type === 'Payment' || e.type === 'Charge').forEach(e => {
-                if (e.type === 'Payment' && e.orNumber) {
-                     const vat = e.isVatExempt ? 0 : e.amount * 0.12;
-                     const net = e.amount - vat;
-                     csv += `${e.date},${e.orNumber},${p.name},${e.amount},${vat.toFixed(2)},${net.toFixed(2)},${e.isVatExempt ? 'YES' : 'NO'}\n`;
-                }
-            });
-        });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `BIR_CAS_${type}_${currentBranch.replace(' ', '_')}.csv`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast.success(`BIR ${type} Report generated.`);
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-5"><ShieldCheck size={120}/></div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">BIR Computerized Accounting (CAS)</h3>
-                <p className="text-sm text-slate-500 mb-8 max-w-xl">Generate audit-ready reports for your Philippine clinic compliance. Handles Split PF/Materials and Senior/PWD Exemption logic.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 rounded-2xl bg-teal-50 border border-teal-100 flex flex-col justify-between group hover:bg-teal-100 transition-all">
-                        <div><div className="p-3 bg-white rounded-xl text-teal-600 shadow-sm w-fit mb-4"><Receipt size={24}/></div><h4 className="font-bold text-teal-900">Summary of Sales</h4></div>
-                        <button onClick={() => handleExportCAS('Sales')} className="mt-6 w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"><Download size={18}/> Export CSV</button>
-                    </div>
-                    <div className="p-6 rounded-2xl bg-lilac-50 border border-lilac-100 flex flex-col justify-between group hover:bg-lilac-100 transition-all">
-                        <div><div className="p-3 bg-white rounded-xl text-lilac-600 shadow-sm w-fit mb-4"><Filter size={24}/></div><h4 className="font-bold text-lilac-900">VAT Relief Report</h4></div>
-                        <button onClick={() => handleExportCAS('VAT')} className="mt-6 w-full py-3 bg-lilac-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"><Download size={18}/> Export CSV</button>
-                    </div>
                 </div>
             </div>
         </div>

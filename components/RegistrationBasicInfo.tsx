@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Patient, FieldSettings } from '../types';
-import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby } from 'lucide-react';
+import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText } from 'lucide-react';
 import Fuse from 'fuse.js';
 
 interface RegistrationBasicInfoProps {
@@ -177,6 +177,44 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="label">Primary HMO / Insurance Provider</label><select name="insuranceProvider" value={formData.insuranceProvider || ''} onChange={handleChange} className="input">{['', ...fieldSettings.insuranceProviders].map(ins => <option key={ins} value={ins}>{ins || '- Private Pay -'}</option>)}</select></div>
                 <div><label className="label">Policy / Member Number</label><input type="text" name="insuranceNumber" value={formData.insuranceNumber || ''} onChange={handleChange} className="input" placeholder="e.g. 123-456-789" /></div>
+            </div>
+            
+            {/* PhilHealth Specific Details */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-50 mt-2">
+                <div>
+                    <label className="label text-teal-700">PhilHealth Category</label>
+                    <select name="philHealthCategory" value={formData.philHealthCategory || ''} onChange={handleChange} className="input">
+                        <option value="">Select Category</option>
+                        <option value="Direct">Direct Contributor</option>
+                        <option value="Indirect">Indirect Contributor</option>
+                        <option value="Lifetime">Lifetime Member</option>
+                        <option value="Senior Citizen">Senior Citizen</option>
+                        <option value="PWD">PWD Member</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="label text-teal-700">PhilHealth PIN</label>
+                    <input type="text" name="philHealthPIN" value={formData.philHealthPIN || ''} onChange={handleChange} className="input font-mono" placeholder="12-digit PIN" maxLength={12} />
+                </div>
+                <div className="flex flex-col justify-end">
+                    <label className="label text-teal-700">Member Status</label>
+                    <div className="flex bg-slate-50 p-1 rounded-xl border border-lilac-100">
+                        <button 
+                            type="button" 
+                            onClick={() => handleChange({ target: { name: 'philHealthMemberStatus', value: 'Member' } } as any)}
+                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.philHealthMemberStatus === 'Member' ? 'bg-lilac-600 text-white shadow-md' : 'text-slate-400 hover:bg-white'}`}
+                        >
+                            Member
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={() => handleChange({ target: { name: 'philHealthMemberStatus', value: 'Dependent' } } as any)}
+                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.philHealthMemberStatus === 'Dependent' ? 'bg-lilac-600 text-white shadow-md' : 'text-slate-400 hover:bg-white'}`}
+                        >
+                            Dependent
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

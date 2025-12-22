@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset } from '../types';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, RefreshCcw, Boxes, TrendingDown, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -18,11 +18,13 @@ interface InventoryProps {
   patients?: Patient[];
   fieldSettings?: FieldSettings;
   onUpdateSettings?: (s: FieldSettings) => void;
+  appointments?: Appointment[];
 }
 
 const Inventory: React.FC<InventoryProps> = ({ 
     stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser, 
-    currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings
+    currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings,
+    appointments = []
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'maintenance' | 'sterilization'>('stock');
@@ -35,6 +37,52 @@ const Inventory: React.FC<InventoryProps> = ({
   }, [stock, currentBranch]);
 
   const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // --- PREDICTIVE ANALYTICS ENGINE ---
+  const forecastingData = useMemo(() => {
+    if (!fieldSettings || !appointments) return { shortages: [], timeline: [] };
+    
+    const now = new Date();
+    const next7Days = new Date();
+    next7Days.setDate(now.getDate() + 7);
+
+    // Filter appointments for next 7 days in this branch
+    const upcoming = appointments.filter(a => {
+        const aptDate = new Date(a.date);
+        return a.branch === currentBranch && aptDate >= now && aptDate <= next7Days;
+    });
+
+    const usageMap: Record<string, { total: number, appointments: Appointment[] }> = {};
+
+    upcoming.forEach(apt => {
+        const procedureDef = fieldSettings.procedures.find(p => p.name === apt.type);
+        if (procedureDef?.billOfMaterials) {
+            procedureDef.billOfMaterials.forEach(bom => {
+                if (!usageMap[bom.stockItemId]) usageMap[bom.stockItemId] = { total: 0, appointments: [] };
+                usageMap[bom.stockItemId].total += bom.quantity;
+                usageMap[bom.stockItemId].appointments.push(apt);
+            });
+        }
+    });
+
+    const shortages = Object.entries(usageMap).map(([id, data]) => {
+        const stockItem = stock.find(s => s.id === id);
+        if (!stockItem) return null;
+        
+        const remaining = stockItem.quantity - data.total;
+        return {
+            itemId: id,
+            name: stockItem.name,
+            current: stockItem.quantity,
+            required: data.total,
+            remaining,
+            isShortage: remaining < 0,
+            appointments: data.appointments
+        };
+    }).filter(s => s !== null);
+
+    return { shortages, upcomingCount: upcoming.length };
+  }, [appointments, fieldSettings, stock, currentBranch]);
 
   const getExpiryStatus = (expiryDate?: string) => {
       if (!expiryDate) return { label: 'STABLE', color: 'bg-green-50 text-green-700 border-green-100', isExpired: false, isUrgent: false };
@@ -71,6 +119,7 @@ const Inventory: React.FC<InventoryProps> = ({
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock</button>
+                <button onClick={() => setActiveTab('forecasting')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><LineChart size={18}/> Demand Forecasting</button>
                 <button onClick={() => setActiveTab('maintenance')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'maintenance' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Wrench size={18}/> Maintenance Log</button>
                 <button onClick={() => setActiveTab('transfers')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><ArrowRightLeft size={18}/> Transfers</button>
                 <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization</button>
@@ -102,7 +151,95 @@ const Inventory: React.FC<InventoryProps> = ({
                         </div>
                     </div>
                 )}
-                {/* ... other tabs ... */}
+
+                {activeTab === 'forecasting' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <div className="bg-white p-8 rounded-3xl border border-teal-100 shadow-xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-5"><TrendingUp size={120}/></div>
+                            <h3 className="text-2xl font-black text-teal-900 mb-2 uppercase tracking-tight">Predictive Resource Forecast</h3>
+                            <p className="text-slate-500 text-sm max-w-xl mb-8">Analyzing upcoming appointments for the next 7 days to calculate material consumption and identify potential shortages before treatment.</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="p-6 rounded-2xl bg-teal-50 border border-teal-200">
+                                    <div className="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-1">Upcoming Procedures</div>
+                                    <div className="text-3xl font-black text-teal-900">{forecastingData.upcomingCount}</div>
+                                    <div className="text-xs text-teal-700 mt-1">7-Day Outlook</div>
+                                </div>
+                                <div className="p-6 rounded-2xl bg-lilac-50 border border-lilac-200">
+                                    <div className="text-[10px] font-black text-lilac-600 uppercase tracking-widest mb-1">Material Items Flagged</div>
+                                    <div className="text-3xl font-black text-lilac-900">{forecastingData.shortages.length}</div>
+                                    <div className="text-xs text-lilac-700 mt-1">At-risk supplies</div>
+                                </div>
+                                <div className="p-6 rounded-2xl bg-red-50 border border-red-200">
+                                    <div className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Critical Shortages</div>
+                                    <div className="text-3xl font-black text-red-900">{forecastingData.shortages.filter(s => s!.remaining < 0).length}</div>
+                                    <div className="text-xs text-red-700 mt-1">Refill immediately</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-slate-700 flex items-center gap-2 px-2"><Activity size={18} className="text-teal-600"/> Resource Allocation Summary</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {forecastingData.shortages.length > 0 ? forecastingData.shortages.map(item => item && (
+                                    <div key={item.itemId} className={`bg-white p-6 rounded-3xl border transition-all shadow-sm flex flex-col justify-between ${item.remaining < 0 ? 'border-red-300 ring-4 ring-red-500/5 bg-red-50/20' : 'border-slate-100 hover:border-teal-300'}`}>
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h5 className="font-black text-slate-800 uppercase tracking-tight">{item.name}</h5>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Item ID: {item.itemId}</span>
+                                                </div>
+                                                {item.remaining < 0 ? (
+                                                    <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1 animate-pulse"><AlertCircle size={10}/> SHORTAGE</span>
+                                                ) : (
+                                                    <span className="bg-teal-50 text-teal-700 text-[10px] font-black px-3 py-1 rounded-full border border-teal-100">SAFE</span>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-3 mb-6">
+                                                <div className="flex justify-between text-xs font-bold">
+                                                    <span className="text-slate-500">Scheduled Demand</span>
+                                                    <span className="text-slate-800">{item.required} units</span>
+                                                </div>
+                                                <div className="flex justify-between text-xs font-bold">
+                                                    <span className="text-slate-500">Current Supply</span>
+                                                    <span className="text-slate-800">{item.current} units</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200">
+                                                    <div 
+                                                        className={`h-full transition-all duration-1000 ${item.remaining < 0 ? 'bg-red-500' : 'bg-teal-500'}`} 
+                                                        style={{ width: `${Math.min(100, (item.current / (item.required || 1)) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                {item.remaining < 0 && (
+                                                    <p className="text-[10px] font-bold text-red-600 uppercase bg-red-50 p-2 rounded-lg border border-red-100">Missing {Math.abs(item.remaining)} units for upcoming procedures.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-slate-100">
+                                            <h6 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Affected Scheduled Procedures:</h6>
+                                            <div className="space-y-1">
+                                                {item.appointments.slice(0, 2).map(apt => (
+                                                    <div key={apt.id} className="flex justify-between items-center text-[10px] font-bold text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                        <span className="truncate flex items-center gap-1"><ChevronRight size={8} className="text-teal-400"/> {apt.type} ({formatDate(apt.date)})</span>
+                                                        <span className="text-slate-400">ID: {apt.id.slice(-4)}</span>
+                                                    </div>
+                                                ))}
+                                                {item.appointments.length > 2 && <div className="text-[8px] font-bold text-slate-400 text-center italic mt-1">+ {item.appointments.length - 2} more appointments</div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <div className="col-span-2 py-20 text-center flex flex-col items-center gap-4 bg-white rounded-3xl border border-dashed border-slate-200">
+                                        <CheckCircle size={48} className="text-teal-200" />
+                                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Inventory Fully Prepared for Next 7 Days</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
         {editItem && <StockItemModal item={editItem} onSave={(i) => { onUpdateStock(stock.find(s => s.id === i.id) ? stock.map(s => s.id === i.id ? i : s) : [...stock, i]); setEditItem(null); }} onClose={() => setEditItem(null)} />}

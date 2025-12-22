@@ -197,6 +197,8 @@ export interface PhilHealthClaim {
     dateSubmitted?: string;
     dateReceived?: string;
     trackingNumber?: string;
+    claimFormType: 'CF-2' | 'CF-4';
+    caseRateAmount?: number;
 }
 
 export interface StockItem {
@@ -305,7 +307,6 @@ export interface FeatureToggles {
   enableHMOClaims: boolean;
   enableInventory: boolean;
   enableAnalytics: boolean;
-  enableBIRCompliance: boolean;
   enablePatientPortal: boolean;
   enableDigitalConsent: boolean;
   enableAutomatedRecall: boolean;
@@ -359,14 +360,6 @@ export interface Vendor {
 }
 
 export type ClinicProfile = 'boutique' | 'corporate';
-
-export interface ReceiptBooklet {
-    id: string;
-    seriesStart: number;
-    seriesEnd: number;
-    prefix: string;
-    isActive: boolean;
-}
 
 export interface Medication {
     id: string;
@@ -430,7 +423,6 @@ export interface FieldSettings {
       purgeYears: number;
   };
   assets?: MaintenanceAsset[];
-  receiptBooklets?: ReceiptBooklet[];
   stockCategories?: StockCategory[];
   expenseCategories?: string[];
   documentCategories?: string[];
@@ -447,7 +439,6 @@ export enum TreatmentPlanStatus {
     REJECTED = 'Rejected'
 }
 
-// Added TreatmentPlan interface to fix undefined type errors in patient and components.
 export interface TreatmentPlan {
     id: string;
     patientId: string;
@@ -481,7 +472,6 @@ export interface DentalChartEntry {
   isVerifiedTime?: boolean; // Trust flag for non-repudiation
   materialBatchId?: string;
   isVoid?: boolean;
-  // NEW: Non-Repudiation fields
   sealedHash?: string;
   sealedAt?: string;
   originalNoteId?: string;
@@ -504,14 +494,10 @@ export interface LedgerEntry {
   type: 'Charge' | 'Payment' | 'Adjustment';
   amount: number;
   balanceAfter: number;
-  orNumber?: string;
   discountType?: string; 
   idNumber?: string;          
   branch?: string;
   procedureId?: string;
-  pfAmount?: number;
-  materialAmount?: number;
-  isVatExempt?: boolean;
 }
 
 export interface UserPreferences {
@@ -636,11 +622,14 @@ export interface Patient {
   goodHealth?: boolean;
   treatments?: string[];
   mobile2?: string;
-  // NEW: Pediatric & PWD Consent Workflows
   isPwd?: boolean;
   guardianIdType?: string;
   guardianIdNumber?: string;
   relationshipToPatient?: string;
+  philHealthCategory?: 'Direct' | 'Indirect' | 'Lifetime' | 'Senior Citizen' | 'PWD';
+  philHealthMemberStatus?: 'Member' | 'Dependent';
+  philHealthPIN?: string;
+  lastDigitalUpdate?: string;
 }
 
 export interface Appointment {
