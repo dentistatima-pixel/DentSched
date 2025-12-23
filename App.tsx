@@ -15,13 +15,15 @@ import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, 
 import { Appointment, User, Patient, FieldSettings, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, SterilizationCycle, HMOClaim, PhilHealthClaim, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, SystemStatus, SyncIntent, SyncConflict, PurgeRequest, AccessPurpose, ClinicStatus, UIMode, TreatmentPlanStatus } from './types';
 import { useToast } from './components/ToastSystem';
 import CryptoJS from 'crypto-js';
-import { ShieldCheck, Mail, Lock as LockIcon, Fingerprint } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
-import { db, auth } from './firebase';
-import { ref, onValue, set, get, child } from "firebase/database";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { db } from './firebase';
+import { ref, onValue, set, update, onDisconnect } from "firebase/database";
 
-const REGISTRY_MASTER_SECRET_PATH = 'registry_secrets/master_key';
+const CANARY_KEY = 'dentsched_auth_canary';
+const SALT_KEY = 'dentsched_security_salt';
+const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
+const PBKDF2_ITERATIONS = 600000; 
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -47,7 +49,6 @@ function App() {
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
-  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
   const [isInKioskMode, setIsInKioskMode] = useState(false);
@@ -85,24 +86,8 @@ function App() {
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
 
   const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
-  const [currentBranch, currentBranchSetter] = useState<string>('Your Clinic');
+  const [currentBranch, setCurrentBranch] = useState<string>('Your Clinic');
   const [isClosureRitualOpen, setIsClosureRitualOpen] = useState(false);
-
-  // --- FIREBASE AUTH LISTENER ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            // Already logged in, ensure we have the key
-            if (!encryptionKey) {
-                await fetchRegistrySecrets();
-            }
-        } else {
-            setIsAuthenticated(false);
-            setEncryptionKey(null);
-        }
-    });
-    return () => unsubscribe();
-  }, [encryptionKey]);
 
   // --- FIREBASE CONNECTIVITY MONITOR ---
   useEffect(() => {
@@ -136,7 +121,7 @@ function App() {
 
   useEffect(() => {
     if (!restrictedBranches.includes(currentBranch)) {
-        currentBranchSetter(restrictedBranches[0]);
+        setCurrentBranch(restrictedBranches[0]);
     }
   }, [restrictedBranches, currentBranch]);
 
@@ -146,7 +131,7 @@ function App() {
 
   useEffect(() => {
     if (!fieldSettings.features.enableMultiBranch) {
-        if (currentBranch !== 'Your Clinic') currentBranchSetter('Your Clinic');
+        if (currentBranch !== 'Your Clinic') setCurrentBranch('Your Clinic');
     }
   }, [fieldSettings.features.enableMultiBranch, currentBranch]);
 
@@ -233,15 +218,15 @@ function App() {
       setAuditLog(prev => {
           const lastEntry = prev[0];
           const prevHash = lastEntry?.hash || "GENESIS_LINK_PDA_RA10173";
-          const payload = `${timestamp}|${auth.currentUser?.email || 'system'}|${action}|${entityId}|${prevHash}|${fieldSettings.encryptionEpoch || 1}`;
+          const payload = `${timestamp}|${currentUser?.id || 'system'}|${action}|${entityId}|${prevHash}|${fieldSettings.encryptionEpoch || 1}`;
           const currentHash = CryptoJS.SHA256(payload).toString();
 
           const newLog: AuditLogEntry = {
               id: `log_${Date.now()}`,
               timestamp,
               isVerifiedTimestamp: isVerified,
-              userId: auth.currentUser?.uid || 'system',
-              userName: auth.currentUser?.email || 'System',
+              userId: currentUser?.id || 'system',
+              userName: currentUser?.name || 'System',
               action,
               entity,
               entityId,
@@ -261,7 +246,7 @@ function App() {
       for (let i = 1; i < sorted.length; i++) {
           const current = sorted[i];
           const prev = sorted[i-1];
-          const payload = `${current.timestamp}|${current.userName}|${current.action}|${current.entityId}|${prev.hash}|${current.encryptionEpoch || 1}`;
+          const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}|${current.encryptionEpoch || 1}`;
           const expectedHash = CryptoJS.SHA256(payload).toString();
           if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
               return false;
@@ -287,49 +272,42 @@ function App() {
       return activePatients;
   }, [patientsWithPES, currentUser.role, currentBranch]);
 
-  const fetchRegistrySecrets = async () => {
-    try {
-        const dbRef = ref(db);
-        const snapshot = await get(child(dbRef, REGISTRY_MASTER_SECRET_PATH));
-        if (snapshot.exists()) {
-            const key = snapshot.val();
-            setEncryptionKey(key);
-            await loadSecureData(key);
-            setIsAuthenticated(true);
-            return true;
-        } else {
-            // Initial Practice Setup: Generate first key
-            const initialKey = CryptoJS.lib.WordArray.random(256/8).toString();
-            await set(ref(db, REGISTRY_MASTER_SECRET_PATH), initialKey);
-            setEncryptionKey(initialKey);
-            await loadSecureData(initialKey);
-            setIsAuthenticated(true);
-            return true;
-        }
-    } catch (e) {
-        console.error("Vault access denied:", e);
-        toast.error("Registry Vault Locked. Verify credentials.");
-        return false;
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
 
-      try {
-          const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
-          if (userCredential.user) {
-              const success = await fetchRegistrySecrets();
-              if (success) {
-                  logAction('LOGIN', 'System', 'Session', `Authenticated Registry Access by ${userCredential.user.email}`);
+      setTimeout(async () => {
+          try {
+              let salt = localStorage.getItem(SALT_KEY);
+              if (!salt) {
+                  salt = localStorage.getItem(CANARY_KEY) ? "dentsched-salt-v1" : CryptoJS.lib.WordArray.random(128/8).toString();
+                  localStorage.setItem(SALT_KEY, salt);
               }
+
+              const derivedKey = CryptoJS.PBKDF2(passwordInput, salt, { keySize: 256/32, iterations: PBKDF2_ITERATIONS }).toString();
+              const storedCanary = localStorage.getItem(CANARY_KEY);
+              
+              if (storedCanary) {
+                  const bytes = CryptoJS.AES.decrypt(storedCanary, derivedKey);
+                  if (bytes.toString(CryptoJS.enc.Utf8) !== VERIFICATION_TOKEN) {
+                      toast.error("Verified access denied.");
+                      setIsInitializing(false);
+                      return;
+                  }
+              } else {
+                  localStorage.setItem(CANARY_KEY, CryptoJS.AES.encrypt(VERIFICATION_TOKEN, derivedKey).toString());
+              }
+
+              setEncryptionKey(derivedKey);
+              await loadSecureData(derivedKey);
+              setIsAuthenticated(true);
+              setIsInitializing(false);
+              logAction('LOGIN', 'System', 'Session', `Boutique Registry Unlocked. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
+          } catch (error) {
+              setIsInitializing(false);
+              toast.error("Auth Failure.");
           }
-      } catch (error: any) {
-          toast.error(error.message || "Authentication Failure.");
-      } finally {
-          setIsInitializing(false);
-      }
+      }, 100);
   };
 
   const loadSecureData = async (key: string) => {
@@ -477,42 +455,16 @@ function App() {
 
   if (!isAuthenticated) {
       return (
-          <div className="fixed inset-0 bg-slate-950 flex items-center justify-center p-4">
-              {/* GLASSMORPHISM BACKGROUND ACCENTS */}
-              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-[120px] animate-pulse"></div>
-              <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-lilac-500/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
-
-              <div className="bg-white/80 backdrop-blur-2xl w-full max-w-md rounded-[3rem] shadow-2xl p-10 border border-white/20 animate-in zoom-in-95 duration-500 relative z-10">
+          <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10">
                   <div className="flex flex-col items-center mb-10">
-                      <div className="w-20 h-20 bg-teal-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-teal-600/30 mb-6"><ShieldCheck size={40} className="text-white"/></div>
-                      <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Boutique Registry</h1>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2 px-4 py-1 bg-slate-100 rounded-full">PDA Encrypted Infrastructure</p>
+                      <div className="w-20 h-20 bg-teal-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-teal-600/20 mb-6"><ShieldCheck size={40} className="text-white"/></div>
+                      <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Boutique Registry</h1>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Dentsched Clinical Access</p>
                   </div>
-                  <form onSubmit={handleLogin} className="space-y-5">
-                      <div className="relative">
-                        <label className="label ml-2 mb-2 block">Staff Email Address</label>
-                        <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
-                            <input type="email" required value={emailInput} onChange={e => setEmailInput(e.target.value)} className="input pl-12 h-14 bg-white/50 border-white/40 focus:bg-white" placeholder="practitioner@clinic.ph" />
-                        </div>
-                      </div>
-                      <div className="relative">
-                        <label className="label ml-2 mb-2 block">Security Password</label>
-                        <div className="relative">
-                            <LockIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
-                            <input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="input pl-12 h-14 bg-white/50 border-white/40 focus:bg-white" placeholder="••••••••" />
-                        </div>
-                      </div>
-                      <button type="submit" disabled={isInitializing} className="w-full h-16 bg-teal-900 text-white font-black uppercase tracking-widest rounded-2xl shadow-2xl shadow-lilac-500/30 hover:shadow-lilac-500/50 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center justify-center gap-3">
-                        {isInitializing ? (
-                            <><div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> Verification Active...</>
-                        ) : (
-                            <><Fingerprint size={24}/> Unlock Clinic</>
-                        )}
-                      </button>
-                      <div className="text-center mt-4">
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Compliance with National Privacy Commission R.A. 10173</p>
-                      </div>
+                  <form onSubmit={handleLogin} className="space-y-6">
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block mb-2">Practice PIN Code</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-2xl font-black tracking-[0.5em] text-center" placeholder="••••" /></div>
+                      <button type="submit" disabled={isInitializing || !passwordInput} className="w-full py-5 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-2xl shadow-teal-600/30 active:scale-95 transition-all">{isInitializing ? 'Processing Keys...' : 'Unlock Clinic'}</button>
                   </form>
               </div>
           </div>
@@ -524,7 +476,7 @@ function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={effectiveUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={restrictedBranches} onChangeBranch={currentBranchSetter} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} isOnline={isFirebaseConnected} pendingSyncCount={offlineQueue.length} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onEnterKiosk={() => setIsInKioskMode(true)} isCorporateReadOnly={isCorporateReadOnly} uiMode={uiMode} onChangeUiMode={setUiMode} isAuditLogVerified={isAuditLogVerified} >
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={effectiveUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={restrictedBranches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} isOnline={isFirebaseConnected} pendingSyncCount={offlineQueue.length} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onEnterKiosk={() => setIsInKioskMode(true)} isCorporateReadOnly={isCorporateReadOnly} uiMode={uiMode} onChangeUiMode={setUiMode} isAuditLogVerified={isAuditLogVerified} >
       {renderContent()}
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={(a) => setAppointments(prev => [...prev, a])} patients={patients} staff={staff} appointments={appointments} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} isDowntime={systemStatus === SystemStatus.DOWNTIME} currentUser={effectiveUser} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={(p) => setPatients(prev => [...prev, { ...p, originatingBranch: currentBranch } as Patient])} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} currentBranch={currentBranch} />

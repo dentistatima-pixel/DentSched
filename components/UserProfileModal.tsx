@@ -1,10 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, FieldSettings, UserPreferences, CpdEntry } from '../types';
-import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, Link, LogOut } from 'lucide-react';
+import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap } from 'lucide-react';
 import { formatDate } from '../constants';
-import { auth } from '../firebase';
-import { signOut } from 'firebase/auth';
 
 interface UserProfileModalProps {
   user: User;
@@ -40,11 +38,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
       setNewCpdTitle(''); setNewCpdUnits('');
   };
 
-  const handleSignOut = async () => {
-      await signOut(auth);
-      onClose();
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-center p-4">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col h-[90vh]">
@@ -59,10 +52,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
             <div className="flex items-center gap-2 mt-1">
                 <span className="bg-teal-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{formData.role}</span>
             </div>
-            <div className="mt-3 flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border border-white/10">
-                <CheckCircle size={10} className="text-teal-400"/>
-                <span className="text-[10px] font-bold text-teal-100 uppercase truncate max-w-[150px]">{auth.currentUser?.email}</span>
-            </div>
           </div>
           <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors"><X size={20} /></button>
         </div>
@@ -75,22 +64,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {activeTab === 'profile' && (
                 <div className="space-y-6">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                        <div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-200 pb-2 mb-3"><Shield size={18} /> Compliance Status</div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between text-sm"><span>PRC License:</span><span className="font-mono font-bold">{formData.prcLicense || '---'}</span></div>
-                            <div className="flex justify-between text-sm"><span>S2 License:</span><span className="font-mono font-bold">{formData.s2License || '---'}</span></div>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl flex flex-col gap-3">
-                        <h4 className="text-[10px] font-black text-teal-900 uppercase tracking-widest flex items-center gap-2"><Link size={14}/> Identity Verification</h4>
-                        <button className="w-full py-3 bg-white border border-teal-200 text-teal-700 font-bold text-xs rounded-xl hover:bg-teal-600 hover:text-white transition-all">Link Alternative Account</button>
-                    </div>
-
-                    <button onClick={handleSignOut} className="w-full py-4 border-2 border-red-100 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-red-50 transition-all">
-                        <LogOut size={16}/> Revoke Session & Sign Out
-                    </button>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200"><div className="flex items-center gap-2 text-teal-800 font-bold border-b border-slate-200 pb-2 mb-3"><Shield size={18} /> Compliance Status</div><div className="space-y-3"><div className="flex justify-between text-sm"><span>PRC License:</span><span className="font-mono font-bold">{formData.prcLicense || '---'}</span></div><div className="flex justify-between text-sm"><span>S2 License:</span><span className="font-mono font-bold">{formData.s2License || '---'}</span></div></div></div>
                 </div>
             )}
 
