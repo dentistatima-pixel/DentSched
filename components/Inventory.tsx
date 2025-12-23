@@ -124,7 +124,8 @@ const Inventory: React.FC<InventoryProps> = ({
                                 <div className="bg-red-50 px-4 py-2 rounded-xl border border-red-100 text-center">
                                     <div className="text-[9px] font-black text-red-400 uppercase">Critical Risks</div>
                                     <div className="text-lg font-black text-red-600">
-                                        {Object.values(burnRateStats).filter(s => s.daysLeft < 3).length} Items
+                                        {/* Fix: Explicitly cast Object.values result to allow access to daysLeft property and avoid 'unknown' type errors */}
+                                        {(Object.values(burnRateStats) as { used: number, daysLeft: number }[]).filter(s => s.daysLeft < 3).length} Items
                                     </div>
                                 </div>
                             </div>

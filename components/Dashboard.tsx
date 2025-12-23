@@ -41,7 +41,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
 
-  // --- URGENCY GRADIENT HELPER ---
   const getUrgencyGradient = (value: number, threshold: number) => {
     if (value >= threshold) return 'bg-[linear-gradient(135deg,#ef4444,#dc2626)] text-white'; // Red
     if (value >= threshold * 0.7) return 'bg-[linear-gradient(135deg,#f59e0b,#d97706)] text-white'; // Amber
@@ -77,21 +76,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
       <button 
         onClick={() => onPatientSelect(apt.patientId)}
-        className="shrink-0 w-72 h-44 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg relative overflow-hidden group transition-all active:scale-95"
+        className="shrink-0 w-[min(280px,85vw)] sm:w-72 h-44 bg-white p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-lg relative overflow-hidden group transition-all active:scale-95"
       >
         <div className="absolute top-0 right-0 p-4">
           <div className={`w-3 h-3 rounded-full ${apt.status === AppointmentStatus.ARRIVED ? 'bg-orange-500 animate-pulse' : 'bg-teal-500'}`} />
         </div>
         <div className="text-[10px] font-mono font-black text-teal-600 mb-1">{apt.time}</div>
-        <div className="text-xl font-black text-slate-800 truncate">{p?.name || 'Block'}</div>
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{apt.type}</div>
+        <div className="text-lg sm:text-xl font-black text-slate-800 truncate">{p?.name || 'Block'}</div>
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1 truncate">{apt.type}</div>
         
         <div className="mt-8">
           <div className="flex justify-between items-center mb-1.5">
             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${apt.status === AppointmentStatus.TREATING ? 'bg-lilac-100 text-lilac-600' : 'bg-slate-100 text-slate-500'}`}>
               {apt.status}
             </span>
-            <span className="text-[8px] font-bold text-slate-400 uppercase">Session Progress</span>
+            <span className="text-[8px] font-bold text-slate-400 uppercase">Progress</span>
           </div>
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div className="h-full bg-teal-500 transition-all duration-1000" style={{ width: `${elapsed}%` }} />
@@ -102,32 +101,32 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
+    <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-700">
       
       {/* SECTION: PULSE INDICATOR */}
-      <div className="flex justify-between items-end px-2">
+      <div className="flex justify-between items-end px-1 sm:px-2">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Registry Pulse</h1>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live from {currentBranch}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Registry Pulse</h1>
+          <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate max-w-[200px]">Live: {currentBranch}</p>
         </div>
-        <button onClick={onOpenClosureRitual} className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all">
+        <button onClick={onOpenClosureRitual} className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all shrink-0">
           <History size={20} className="text-teal-400" />
         </button>
       </div>
 
       {/* CAROUSEL: NEXT ARRIVALS */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <Clock size={16} className="text-teal-600"/> Queued Arrivals
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex justify-between items-center px-1 sm:px-2">
+          <h3 className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <Clock size={16} className="text-teal-600 flex-shrink-0"/> Queued Arrivals
           </h3>
-          <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">{arrivals.length} Waiting</span>
+          <span className="text-[8px] sm:text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full whitespace-nowrap">{arrivals.length} Waiting</span>
         </div>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 px-2 -mx-2 snap-x">
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1 -mx-1 snap-x scroll-smooth">
           {arrivals.length > 0 ? arrivals.map(a => (
             <div key={a.id} className="snap-center"><PatientCard apt={a} /></div>
           )) : (
-            <div className="w-full p-10 text-center bg-slate-100/50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+            <div className="w-full p-8 sm:p-10 text-center bg-slate-100/50 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-dashed border-slate-200">
               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Arrival feed empty</p>
             </div>
           )}
@@ -135,43 +134,43 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* CAROUSEL: ACTIVE CHAIRS */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <Armchair size={16} className="text-lilac-600"/> Active Treatment Bays
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex justify-between items-center px-1 sm:px-2">
+          <h3 className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <Armchair size={16} className="text-lilac-600 flex-shrink-0"/> Active Treatment Bays
           </h3>
-          <span className="text-[10px] font-bold text-lilac-600 bg-lilac-50 px-2 py-0.5 rounded-full">{activeChairs.length} Chairs</span>
+          <span className="text-[8px] sm:text-[10px] font-bold text-lilac-600 bg-lilac-50 px-2 py-0.5 rounded-full whitespace-nowrap">{activeChairs.length} Chairs</span>
         </div>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 px-2 -mx-2 snap-x">
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1 -mx-1 snap-x scroll-smooth">
           {activeChairs.length > 0 ? activeChairs.map(a => (
             <div key={a.id} className="snap-center"><PatientCard apt={a} /></div>
           )) : (
-            <div className="w-full p-10 text-center bg-slate-100/50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+            <div className="w-full p-8 sm:p-10 text-center bg-slate-100/50 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-dashed border-slate-200">
               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No active chair sessions</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* SECTION: ECONOMIC PULSE & LICENSE (THRESHOLD GRADIENTS) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
-        <div className={`p-8 rounded-[3rem] shadow-xl border-2 transition-all ${getUrgencyGradient(financialMetrics.production, 25000)}`}>
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Economic Pulse Today</div>
-          <div className="text-4xl font-black tracking-tighter">₱{financialMetrics.production.toLocaleString()}</div>
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-[9px] font-bold uppercase opacity-60">Target: ₱45,000</div>
+      {/* SECTION: ECONOMIC PULSE & LICENSE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 px-1 sm:px-2">
+        <div className={`p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3rem] shadow-xl border-2 transition-all ${getUrgencyGradient(financialMetrics.production, 25000)}`}>
+          <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-3 sm:mb-4 opacity-70">Economic Pulse Today</div>
+          <div className="text-3xl sm:text-4xl font-black tracking-tighter">₱{financialMetrics.production.toLocaleString()}</div>
+          <div className="mt-4 sm:mt-6 flex items-center justify-between">
+            <div className="text-[8px] sm:text-[9px] font-bold uppercase opacity-60">Target: ₱45,000</div>
             <TrendingUp size={24} className="opacity-20" />
           </div>
         </div>
 
         {currentUser.prcExpiry && (
-          <div className={`p-8 rounded-[3rem] shadow-xl border-2 transition-all ${
+          <div className={`p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3rem] shadow-xl border-2 transition-all ${
             (new Date(currentUser.prcExpiry).getTime() - Date.now()) / 86400000 < 30 ? 'bg-red-600 text-white' : 'bg-white border-slate-100'
           }`}>
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Practitioner Compliance</div>
-            <div className="text-2xl font-black tracking-tight uppercase">License Renewal Due</div>
-            <div className="text-[10px] font-bold mt-1 opacity-60">{formatDate(currentUser.prcExpiry)}</div>
-            <div className="mt-8 flex justify-end">
+            <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-3 sm:mb-4 opacity-70">Practitioner Compliance</div>
+            <div className="text-xl sm:text-2xl font-black tracking-tight uppercase line-clamp-1">License Renewal Due</div>
+            <div className="text-[9px] sm:text-[10px] font-bold mt-1 opacity-60">{formatDate(currentUser.prcExpiry)}</div>
+            <div className="mt-6 sm:mt-8 flex justify-end">
               <AlertOctagon size={32} className="opacity-10" />
             </div>
           </div>
@@ -180,19 +179,19 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* ADMIN OVERVIEW WIDGET */}
       {isAdmin && fieldSettings?.features.enableMultiBranch && (
-        <div className="px-2 pb-10">
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg">
+        <div className="px-1 sm:px-2 pb-10">
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-lg">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Org Overview</h3>
+              <h3 className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Org Overview</h3>
               <LayoutGrid size={16} className="text-teal-600" />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {fieldSettings.branches.slice(0, 3).map(b => (
-                <div key={b} className="text-center">
-                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-2 text-teal-600">
-                    <Building2 size={24} />
+                <div key={b} className="text-center overflow-hidden">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-2 text-teal-600">
+                    <Building2 size={20} sm:size={24} />
                   </div>
-                  <div className="text-[8px] font-black uppercase text-slate-800 truncate">{b}</div>
+                  <div className="text-[7px] sm:text-[8px] font-black uppercase text-slate-800 truncate">{b}</div>
                 </div>
               ))}
             </div>
