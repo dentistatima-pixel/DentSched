@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -21,6 +22,9 @@ const app = initializeApp(firebaseConfig);
 // Initialize Realtime Database with explicit URL for regional resolution
 const db = getDatabase(app, firebaseConfig.databaseURL);
 
+// Initialize Auth
+const auth = getAuth(app);
+
 let analytics = null;
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
@@ -32,4 +36,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { app, analytics, db };
+export { app, analytics, db, auth };
