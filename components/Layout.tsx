@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Calendar, Users, LayoutDashboard, Menu, X, ChevronDown, UserCircle, Settings, 
@@ -89,8 +90,8 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
-      {/* STATUS RIBBON */}
-      <div className={`h-1 w-full shrink-0 transition-all duration-1000 z-[70] ${isOnline ? 'bg-teal-500' : 'bg-lilac-500 animate-pulse'}`} />
+      {/* STATUS RIBBON - RECONCILED TO FIREBASE CONNECTION */}
+      <div className={`h-1 w-full shrink-0 transition-all duration-1000 z-[70] ${isOnline ? 'bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]' : 'bg-lilac-500 animate-pulse'}`} />
 
       {/* HEADER / BRANCH RIBBON */}
       <header 
@@ -123,6 +124,7 @@ const Layout: React.FC<LayoutProps> = ({
 
         <div className="flex items-center gap-3">
           {pendingSyncCount > 0 && <RefreshCcw size={16} className="text-lilac-500 animate-spin" />}
+          {!isOnline && <CloudOff size={16} className="text-red-500 animate-bounce" />}
           <div 
             onClick={() => setIsProfileOpen(true)}
             className={`w-8 h-8 rounded-full border-2 overflow-hidden transition-all cursor-pointer ${isAuditLogVerified === false ? 'border-red-500 animate-pulse' : 'border-teal-500'}`}

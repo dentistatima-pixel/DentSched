@@ -17,6 +17,8 @@ import { useToast } from './components/ToastSystem';
 import CryptoJS from 'crypto-js';
 import { ShieldCheck } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
+import { db } from './firebase';
+import { ref, onValue, set, update, onDisconnect } from "firebase/database";
 
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
@@ -52,6 +54,9 @@ function App() {
   const [isInKioskMode, setIsInKioskMode] = useState(false);
   const [uiMode, setUiMode] = useState<UIMode>(UIMode.OPERATIONAL);
 
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+  const isRemoteUpdate = useRef(false);
+
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
@@ -84,8 +89,15 @@ function App() {
   const [currentBranch, setCurrentBranch] = useState<string>('Your Clinic');
   const [isClosureRitualOpen, setIsClosureRitualOpen] = useState(false);
 
-  // --- GOVERNANCE LOGIC: CLINIC LIFECYCLE & ROLE CEILING ---
-  
+  // --- FIREBASE CONNECTIVITY MONITOR ---
+  useEffect(() => {
+    const connectedRef = ref(db, ".info/connected");
+    const unsub = onValue(connectedRef, (snap) => {
+        setIsFirebaseConnected(snap.val() === true);
+    });
+    return () => unsub();
+  }, []);
+
   const isCorporateReadOnly = useMemo(() => {
     return fieldSettings.features.enableCentralAdmin && currentBranch !== currentUser.defaultBranch;
   }, [fieldSettings.features.enableCentralAdmin, currentBranch, currentUser.defaultBranch]);
@@ -304,7 +316,8 @@ function App() {
           if (!enc) return def;
           try {
               const bytes = CryptoJS.AES.decrypt(enc, key);
-              return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+              const str = bytes.toString(CryptoJS.enc.Utf8);
+              return str ? JSON.parse(str) : def;
           } catch { return def; } 
       };
 
@@ -323,7 +336,6 @@ function App() {
       setReferrals(load('dentsched_referrals', []));
       setReconciliations(load('dentsched_reconciliations', []));
       setCashSessions(load('dentsched_cash_sessions', []));
-      setStaff(STAFF.map(s => ({ ...s, fatigueMetric: 0 })));
       setTransfers(load('dentsched_transfers', []));
       setPayrollPeriods(load('dentsched_payroll_periods', []));
       setPayrollAdjustments(load('dentsched_payroll_adjustments', []));
@@ -342,32 +354,76 @@ function App() {
       }
   };
 
+  // --- FIREBASE REAL-TIME SYNC ENGINE ---
   useEffect(() => {
-      if (!isAuthenticated || !encryptionKey) return;
-      const save = (k: string, data: any) => localStorage.setItem(k, CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey).toString());
-      save('dentsched_appointments', appointments);
-      save('dentsched_patients', patients);
-      save('dentsched_staff', staff);
-      save('dentsched_stock', stock);
-      save('dentsched_sterilization', sterilizationCycles);
-      save('dentsched_auditlog', auditLog);
-      save('dentsched_pinboard_tasks', tasks);
-      save('dentsched_fields', fieldSettings);
-      save('dentsched_hmo_claims', hmoClaims);
-      save('dentsched_philhealth_claims', philHealthClaims);
-      save('dentsched_incidents', incidents);
-      save('dentsched_referrals', referrals);
-      save('dentsched_reconciliations', reconciliations);
-      save('dentsched_cash_sessions', cashSessions);
-      save('dentsched_transfers', transfers);
-      save('dentsched_payroll_periods', payrollPeriods);
-      save('dentsched_payroll_adjustments', payrollAdjustments);
-      save('dentsched_commission_disputes', commissionDisputes);
-      save('dentsched_offline_queue', offlineQueue);
-      save('dentsched_sync_conflicts', syncConflicts);
-      save('dentsched_system_status', systemStatus);
-      save('dentsched_ui_mode', uiMode);
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, uiMode, isAuthenticated, encryptionKey]);
+    if (!isAuthenticated || !encryptionKey) return;
+
+    const syncNode = (path: string, setter: (val: any) => void) => {
+        const syncRef = ref(db, `registry_v1/${path}`);
+        return onValue(syncRef, (snapshot) => {
+            const encryptedData = snapshot.val();
+            if (encryptedData) {
+                isRemoteUpdate.current = true;
+                try {
+                    const bytes = CryptoJS.AES.decrypt(encryptedData, encryptionKey);
+                    const decrypted = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                    setter(decrypted);
+                } catch (e) {
+                    console.warn(`[Cloud Sync] Decrypt failed for ${path}. Likely key mismatch.`);
+                }
+                setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+            }
+        });
+    };
+
+    const unsubscribes = [
+        syncNode('appointments', setAppointments),
+        syncNode('patients', setPatients),
+        syncNode('fieldSettings', setFieldSettings),
+        syncNode('auditLog', (logs) => { setAuditLog(logs); setIsAuditLogVerified(verifyAuditTrail(logs)); }),
+        syncNode('stock', setStock),
+        syncNode('hmoClaims', setHmoClaims),
+        syncNode('philHealthClaims', setPhilHealthClaims),
+        syncNode('reconciliations', setReconciliations)
+    ];
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [isAuthenticated, encryptionKey, verifyAuditTrail]);
+
+  // --- GLOBAL PERSISTENCE EFFECT (Cloud + Local) ---
+  useEffect(() => {
+      if (!isAuthenticated || !encryptionKey || isRemoteUpdate.current) return;
+
+      const saveItem = (key: string, cloudPath: string, data: any) => {
+          const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey).toString();
+          localStorage.setItem(key, encrypted);
+          if (isFirebaseConnected) {
+              set(ref(db, `registry_v1/${cloudPath}`), encrypted);
+          }
+      };
+
+      saveItem('dentsched_appointments', 'appointments', appointments);
+      saveItem('dentsched_patients', 'patients', patients);
+      saveItem('dentsched_staff', 'staff', staff);
+      saveItem('dentsched_stock', 'stock', stock);
+      saveItem('dentsched_sterilization', 'sterilization', sterilizationCycles);
+      saveItem('dentsched_auditlog', 'auditLog', auditLog);
+      saveItem('dentsched_pinboard_tasks', 'tasks', tasks);
+      saveItem('dentsched_fields', 'fieldSettings', fieldSettings);
+      saveItem('dentsched_hmo_claims', 'hmoClaims', hmoClaims);
+      saveItem('dentsched_philhealth_claims', 'philHealthClaims', philHealthClaims);
+      saveItem('dentsched_incidents', 'incidents', incidents);
+      saveItem('dentsched_referrals', 'referrals', referrals);
+      saveItem('dentsched_reconciliations', 'reconciliations', reconciliations);
+      saveItem('dentsched_cash_sessions', 'cashSessions', cashSessions);
+      saveItem('dentsched_transfers', 'transfers', transfers);
+      saveItem('dentsched_payroll_periods', 'payrollPeriods', payrollPeriods);
+      saveItem('dentsched_payroll_adjustments', 'payrollAdjustments', payrollAdjustments);
+      saveItem('dentsched_commission_disputes', 'commissionDisputes', commissionDisputes);
+      saveItem('dentsched_system_status', 'systemStatus', systemStatus);
+      saveItem('dentsched_ui_mode', 'uiMode', uiMode);
+      
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, uiMode, isAuthenticated, encryptionKey, isFirebaseConnected]);
 
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -420,7 +476,7 @@ function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={effectiveUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={restrictedBranches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} isOnline={isOnline} pendingSyncCount={offlineQueue.length} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onEnterKiosk={() => setIsInKioskMode(true)} isCorporateReadOnly={isCorporateReadOnly} uiMode={uiMode} onChangeUiMode={setUiMode} isAuditLogVerified={isAuditLogVerified} >
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={effectiveUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={restrictedBranches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} isOnline={isFirebaseConnected} pendingSyncCount={offlineQueue.length} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onEnterKiosk={() => setIsInKioskMode(true)} isCorporateReadOnly={isCorporateReadOnly} uiMode={uiMode} onChangeUiMode={setUiMode} isAuditLogVerified={isAuditLogVerified} >
       {renderContent()}
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={(a) => setAppointments(prev => [...prev, a])} patients={patients} staff={staff} appointments={appointments} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} isDowntime={systemStatus === SystemStatus.DOWNTIME} currentUser={effectiveUser} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={(p) => setPatients(prev => [...prev, { ...p, originatingBranch: currentBranch } as Patient])} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} currentBranch={currentBranch} />
