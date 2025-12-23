@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment, User, AppointmentType, LedgerEntry, TreatmentPlan, TreatmentPlanStatus, AuditLogEntry } from '../types';
-import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, FileBox, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
+import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, Archive, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
@@ -118,7 +118,7 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                                         <button onClick={() => setShowSecurityModal({ type: 'data' })} className="w-full px-4 py-2 bg-white border border-lilac-200 text-lilac-700 font-bold text-xs rounded-xl hover:bg-lilac-50 transition-colors">Request My Data</button>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col justify-between">
-                                        <div className="flex items-center gap-4 mb-4"><div className="p-3 bg-white rounded-xl text-teal-600 shadow-sm"><FileBox size={24}/></div><div><h4 className="font-bold text-slate-800 text-sm">Clinical Abstract</h4><p className="text-xs text-slate-500 mt-0.5">Generate a formal PDF summary of your records.</p></div></div>
+                                        <div className="flex items-center gap-4 mb-4"><div className="p-3 bg-white rounded-xl text-teal-600 shadow-sm"><Archive size={24}/></div><div><h4 className="font-bold text-slate-800 text-sm">Clinical Abstract</h4><p className="text-xs text-slate-500 mt-0.5">Generate a formal PDF summary of your records.</p></div></div>
                                         <button onClick={() => setShowSecurityModal({ type: 'abstract' })} className="w-full px-4 py-2 bg-teal-600 text-white font-bold text-xs rounded-xl hover:bg-teal-700 shadow-sm transition-colors">Generate PDF</button>
                                     </div>
                                 </div>

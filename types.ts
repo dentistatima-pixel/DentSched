@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -265,7 +266,7 @@ export interface ClinicalIncident {
     reportedBy: string;
     npcNotified?: boolean;
     npcRefNumber?: string;
-    adminAnnotation?: string; // New field for Incident Annotation System
+    adminAnnotation?: string;
 }
 
 export interface Referral {
@@ -340,6 +341,8 @@ export interface StockItem {
   expiryDate?: string;
   batchNumber?: string;
   branch?: string;
+  isRecalled?: boolean;
+  recallDate?: string;
 }
 
 export interface SterilizationCycle {
@@ -387,13 +390,14 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'SETTLE_CLAIM' | 'DENY_CLAIM' | 'TRANSMIT_CLAIM' | 'INITIATE_PURGE' | 'CLOSE_DAY';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'SETTLE_CLAIM' | 'DENY_CLAIM' | 'TRANSMIT_CLAIM' | 'INITIATE_PURGE' | 'CLOSE_DAY' | 'ROTATE_KEYS';
   entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll' | 'Kiosk' | 'ClosureRitual';
   entityId: string;
   details: string;
   accessPurpose?: AccessPurpose;
   hash?: string;
   previousHash?: string;
+  encryptionEpoch?: number;
 }
 
 export interface OrthoAdjustment {
@@ -536,6 +540,13 @@ export interface ClinicIdentity {
     status: ClinicStatus;
 }
 
+export interface RightsRequest {
+    id: string;
+    type: 'Correction' | 'Access' | 'Portability' | 'Erasure';
+    status: 'Pending' | 'Executed';
+    timestamp: string;
+}
+
 export interface FieldSettings {
   clinicProfile: ClinicProfile;
   clinicIdentity?: ClinicIdentity;
@@ -578,6 +589,13 @@ export interface FieldSettings {
   acknowledgedAlertIds?: string[];
   resources: ClinicResource[];
   currentPrivacyVersion: string;
+  dataResidency?: {
+      primaryRegion: string;
+      backupRegion: string;
+      lastAuditDate: string;
+  };
+  encryptionEpoch?: number;
+  epochLastRotated?: string;
 }
 
 export enum TreatmentPlanStatus {
@@ -691,6 +709,7 @@ export interface User {
   employeeId?: string;
   assignedDoctors?: string[];
   isReadOnly?: boolean;
+  fatigueMetric?: number;
 }
 
 export interface PatientFile {
@@ -771,7 +790,7 @@ export interface Patient {
   ledger?: LedgerEntry[];
   installmentPlans?: InstallmentPlan[]; 
   currentBalance?: number;
-  engagementScore?: number; // New field for PES
+  engagementScore?: number;
   allergies?: string[];
   medicalConditions?: string[];
   treatmentPlans?: TreatmentPlan[];
@@ -842,6 +861,7 @@ export interface Patient {
   consentLogs?: ConsentLogEntry[];
   guardianProfile?: GuardianProfile;
   purgeRequest?: PurgeRequest;
+  rightsLog?: RightsRequest[];
 }
 
 export interface Appointment {
@@ -875,6 +895,11 @@ export interface Appointment {
   reconciled?: boolean;
   isWaitlistOverride?: boolean;
   sendSmsReminder?: boolean;
+  emergencyBypass?: {
+      reason: string;
+      supervisorId: string;
+      timestamp: string;
+  };
 }
 
 export interface PinboardTask {

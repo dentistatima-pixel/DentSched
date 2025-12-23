@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -157,10 +158,20 @@ function App() {
     return new Date(currentUser.prcExpiry) < new Date();
   }, [currentUser]);
 
+  // --- CLINICAL FATIGUE LOGIC ---
+  const currentFatigue = useMemo(() => {
+    const today = new Date().toLocaleDateString('en-CA');
+    const load = appointments
+      .filter(a => a.date === today && a.providerId === currentUser.id && [AppointmentStatus.COMPLETED, AppointmentStatus.TREATING].includes(a.status))
+      .reduce((sum, a) => sum + a.durationMinutes, 0);
+    return load;
+  }, [appointments, currentUser.id]);
+
   const effectiveUser = useMemo(() => ({
     ...currentUser,
-    isReadOnly: effectiveReadOnly || isLicenseExpired
-  }), [currentUser, effectiveReadOnly, isLicenseExpired]);
+    isReadOnly: effectiveReadOnly || isLicenseExpired,
+    fatigueMetric: currentFatigue
+  }), [currentUser, effectiveReadOnly, isLicenseExpired, currentFatigue]);
 
   // --- PES CALCULATION LOGIC ---
   const calculatePES = useCallback((p: Patient): number => {
@@ -195,7 +206,7 @@ function App() {
       setAuditLog(prev => {
           const lastEntry = prev[0];
           const prevHash = lastEntry?.hash || "GENESIS_LINK_PDA_RA10173";
-          const payload = `${timestamp}|${currentUser?.id || 'system'}|${action}|${entityId}|${prevHash}`;
+          const payload = `${timestamp}|${currentUser?.id || 'system'}|${action}|${entityId}|${prevHash}|${fieldSettings.encryptionEpoch || 1}`;
           const currentHash = CryptoJS.SHA256(payload).toString();
 
           const newLog: AuditLogEntry = {
@@ -210,7 +221,8 @@ function App() {
               details: finalDetails,
               accessPurpose,
               hash: currentHash,
-              previousHash: prevHash
+              previousHash: prevHash,
+              encryptionEpoch: fieldSettings.encryptionEpoch || 1
           };
           return [newLog, ...prev];
       });
@@ -222,7 +234,7 @@ function App() {
       for (let i = 1; i < sorted.length; i++) {
           const current = sorted[i];
           const prev = sorted[i-1];
-          const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
+          const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}|${current.encryptionEpoch || 1}`;
           const expectedHash = CryptoJS.SHA256(payload).toString();
           if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
               return false;
@@ -311,6 +323,7 @@ function App() {
       setReferrals(load('dentsched_referrals', []));
       setReconciliations(load('dentsched_reconciliations', []));
       setCashSessions(load('dentsched_cash_sessions', []));
+      setStaff(STAFF.map(s => ({ ...s, fatigueMetric: 0 })));
       setTransfers(load('dentsched_transfers', []));
       setPayrollPeriods(load('dentsched_payroll_periods', []));
       setPayrollAdjustments(load('dentsched_payroll_adjustments', []));
@@ -377,9 +390,9 @@ function App() {
       case 'dashboard': return <Dashboard appointments={appointments} currentUser={effectiveUser} patients={sanitizedPatients} onPatientSelect={setSelectedPatientId} onUpdateAppointmentStatus={(id, s) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: s } : a))} fieldSettings={fieldSettings} currentBranch={currentBranch} auditLog={auditLog} systemStatus={systemStatus} onViewAllSchedule={() => setActiveTab('schedule')} uiMode={uiMode} onOpenClosureRitual={() => setIsClosureRitualOpen(true)} isAuditLogVerified={isAuditLogVerified} />;
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={() => !isBranchSuspended && !isBranchArchived && setIsAppointmentModalOpen(true)} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={effectiveUser} patients={sanitizedPatients} currentBranch={currentBranch} fieldSettings={fieldSettings} uiMode={uiMode} />;
       case 'patients': return <PatientList patients={sanitizedPatients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={(up) => setPatients(prev => prev.map(p => p.id === up.id ? up : p))} onDeletePatient={(id) => setPatients(prev => prev.map(p => p.id === id ? { ...p, isArchived: true } : p))} onBookAppointment={() => setIsAppointmentModalOpen(true)} fieldSettings={fieldSettings} logAction={logAction} staff={staff} currentBranch={currentBranch} uiMode={uiMode} />;
-      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={restrictedBranches} transfers={transfers} fieldSettings={fieldSettings} logAction={logAction} uiMode={uiMode} appointments={appointments} />;
+      case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={restrictedBranches} transfers={transfers} fieldSettings={fieldSettings} logAction={logAction} uiMode={uiMode} appointments={appointments} patients={patients} />;
       case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={sanitizedPatients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={(r) => setReconciliations(prev => [r, ...prev])} onSaveCashSession={(s) => setCashSessions(prev => [s, ...prev])} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={(p) => setPayrollPeriods(prev => [...prev, p])} onAddPayrollAdjustment={(a) => setPayrollAdjustments(prev => [...prev, a])} onApprovePayrollAdjustment={(id) => setPayrollAdjustments(prev => prev.map(a => a.id === id ? { ...a, status: 'Approved' } : a))} onAddCommissionDispute={(d) => setCommissionDisputes(prev => [...prev, d])} onResolveCommissionDispute={(id) => setCommissionDisputes(prev => prev.map(d => d.id === id ? { ...d, status: 'Resolved' } : d))} onUpdateHmoClaim={(c) => setHmoClaims(prev => prev.map(cl => cl.id === c.id ? c : cl))} onUpdatePhilHealthClaim={(c) => setPhilHealthClaims(prev => prev.map(cl => cl.id === c.id ? c : cl))} onUpdatePatient={(up) => setPatients(prev => prev.map(p => p.id === up.id ? up : p))} logAction={logAction} uiMode={uiMode} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} currentUser={effectiveUser} auditLog={auditLog} patients={patients} onInitiatePurge={(id, uid, un) => setPatients(prev => prev.map(p => p.id === id ? { ...p, purgeRequest: { initiatorId: uid, initiatorName: un, timestamp: new Date().toISOString() } } : p))} onFinalPurge={(id) => setPatients(prev => prev.filter(p => p.id !== id))} auditLogVerified={isAuditLogVerified} uiMode={uiMode} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} currentUser={effectiveUser} auditLog={auditLog} patients={patients} onInitiatePurge={(id, uid, un) => setPatients(prev => prev.map(p => p.id === id ? { ...p, purgeRequest: { initiatorId: uid, initiatorName: un, timestamp: new Date().toISOString() } } : p))} onFinalPurge={(id) => setPatients(prev => prev.filter(p => p.id !== id))} auditLogVerified={isAuditLogVerified} uiMode={uiMode} logAction={logAction} />;
       default: return null;
     }
   };
@@ -409,7 +422,7 @@ function App() {
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={effectiveUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={restrictedBranches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} isOnline={isOnline} pendingSyncCount={offlineQueue.length} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onEnterKiosk={() => setIsInKioskMode(true)} isCorporateReadOnly={isCorporateReadOnly} uiMode={uiMode} onChangeUiMode={setUiMode} isAuditLogVerified={isAuditLogVerified} >
       {renderContent()}
-      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={(a) => setAppointments(prev => [...prev, a])} patients={patients} staff={staff} appointments={appointments} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
+      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={(a) => setAppointments(prev => [...prev, a])} patients={patients} staff={staff} appointments={appointments} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} isDowntime={systemStatus === SystemStatus.DOWNTIME} currentUser={effectiveUser} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={(p) => setPatients(prev => [...prev, { ...p, originatingBranch: currentBranch } as Patient])} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} currentBranch={currentBranch} />
       <ClosureRitualModal isOpen={isClosureRitualOpen} onClose={() => setIsClosureRitualOpen(false)} onConfirm={handleCloseDay} appointments={appointments.filter(a => a.date === new Date().toLocaleDateString('en-CA') && a.branch === currentBranch)} reconciliations={reconciliations.filter(r => r.date === new Date().toLocaleDateString('en-CA'))} />
     </Layout>

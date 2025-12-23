@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, LayoutGrid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Fingerprint, Armchair, ZapIcon, Info, Target } from 'lucide-react';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, LayoutGrid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Fingerprint, Armchair, ZapIcon, Info, Target, Share2, Edit3, Trash, Eye } from 'lucide-react';
 import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule, ClearanceRequest, TreatmentPlanStatus, ConsentCategory, ConsentLogEntry, AuthorityLevel, AccessPurpose, UIMode } from '../types';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
@@ -52,25 +52,6 @@ const PatientList: React.FC<PatientListProps> = ({
     setActiveTab('info');
   }, [selectedPatientId]);
 
-  const getConsentStatus = (patient: Patient, category: ConsentCategory) => {
-      const logs = patient.consentLogs?.filter(l => l.category === category) || [];
-      if (logs.length === 0) return { status: 'None', version: 'N/A' };
-      const latest = [...logs].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-      return { status: latest.status, version: latest.version };
-  };
-
-  const isClinicalProcessingAllowed = useMemo(() => {
-      if (!selectedPatient) return true;
-      const { status } = getConsentStatus(selectedPatient, 'Clinical');
-      if (status === 'None') return selectedPatient.dpaConsent ?? false;
-      return status === 'Granted';
-  }, [selectedPatient]);
-
-  const referrals = useMemo(() => {
-      if (!selectedPatient) return [];
-      return patients.filter(p => p.referredById === selectedPatient.id);
-  }, [patients, selectedPatient]);
-
   const handlePurposeSelection = (purpose: AccessPurpose) => {
     setSessionAccessPurpose(purpose);
     if (selectedPatientId) {
@@ -110,6 +91,13 @@ const PatientList: React.FC<PatientListProps> = ({
       };
   }, [selectedPatient, appointments]);
 
+  // Fix: Calculate referrals derived from the patients list for the selected patient
+  // This resolves the errors: "Cannot find name 'referrals'" on line 226 and 228.
+  const referrals = useMemo(() => {
+    if (!selectedPatient) return [];
+    return patients.filter(p => p.referredById === selectedPatient.id);
+  }, [patients, selectedPatient]);
+
   const tabs = useMemo(() => {
     if (isAssistant) {
         return [
@@ -138,9 +126,19 @@ const PatientList: React.FC<PatientListProps> = ({
 
   const clinicalTabs = ['medical', 'chart', 'imaging', 'perio', 'plan'];
 
+  const handleRightsAction = (type: 'Correction' | 'Access' | 'Portability' | 'Erasure') => {
+    if (!selectedPatient) return;
+    toast.info(`PDA Rights Protocol: Initiating ${type} request...`);
+    // Mock logging the request
+    const newLog = { id: `req_${Date.now()}`, type, status: 'Pending' as const, timestamp: new Date().toISOString() };
+    const updated = { ...selectedPatient, rightsLog: [newLog, ...(selectedPatient.rightsLog || [])] };
+    onQuickUpdatePatient(updated);
+    logAction('UPDATE', 'Patient', selectedPatient.id, `Patient exercised PDA Right: ${type}`);
+  };
+
   return (
     <div className="h-full flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
-      {/* LIST COLUMN - Responsive Visibility */}
+      {/* LIST COLUMN */}
       <div className={`flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col ${selectedPatientId ? 'hidden md:flex' : 'flex'}`}>
            <div className="p-4 border-b border-slate-100">
                <div className="relative">
@@ -151,7 +149,6 @@ const PatientList: React.FC<PatientListProps> = ({
            <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
                {patients.map(p => {
                    const reliability = getAttendancePatternUI(p.reliabilityScore);
-                   const isMinorPt = p.age !== undefined && p.age < 18;
                    const pes = p.engagementScore || 0;
                    return (
                    <button key={p.id} onClick={() => onSelectPatient(p.id)} className={`w-full text-left p-4 rounded-xl transition-all flex justify-between items-center group ${selectedPatientId === p.id ? 'bg-teal-600 text-white shadow-lg' : 'hover:bg-teal-50'}`}>
@@ -159,11 +156,7 @@ const PatientList: React.FC<PatientListProps> = ({
                            <div className="relative w-10 h-10 shrink-0">
                                <svg className="w-full h-full transform -rotate-90">
                                    <circle cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="2" fill="transparent" className={selectedPatientId === p.id ? 'text-teal-800/30' : 'text-slate-100'} />
-                                   <circle 
-                                        cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="2" fill="transparent" 
-                                        strokeDasharray={113} strokeDashoffset={113 - (113 * pes) / 100} 
-                                        className={`${selectedPatientId === p.id ? 'text-white' : pes > 80 ? 'text-teal-500' : pes > 60 ? 'text-lilac-500' : 'text-red-500'} transition-all duration-1000`} 
-                                    />
+                                   <circle cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="2" fill="transparent" strokeDasharray={113} strokeDashoffset={113 - (113 * pes) / 100} className={`${selectedPatientId === p.id ? 'text-white' : pes > 80 ? 'text-teal-500' : pes > 60 ? 'text-lilac-500' : 'text-red-500'} transition-all duration-1000`} />
                                </svg>
                                <div className="absolute inset-0 flex items-center justify-center">
                                     <span className={`text-[8px] font-black ${selectedPatientId === p.id ? 'text-white' : 'text-slate-500'}`}>{pes}%</span>
@@ -174,12 +167,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                    <div className="font-bold text-sm truncate">{p.name}</div>
                                    <reliability.icon size={12} className={selectedPatientId === p.id ? 'text-white' : reliability.color} />
                                </div>
-                               <div className={`text-[10px] uppercase font-bold flex items-center gap-2 ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-400'}`}>
-                                   ID: {p.id}
-                                   {p.currentBalance !== undefined && p.currentBalance > 0 && (
-                                       <span className="bg-red-500 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5"><DollarSign size={8}/> DUE</span>
-                                   )}
-                               </div>
+                               <div className={`text-[10px] uppercase font-bold flex items-center gap-2 ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-400'}`}>ID: {p.id}</div>
                            </div>
                        </div>
                        <ChevronRight size={16} className={selectedPatientId === p.id ? 'text-white' : 'text-slate-300 group-hover:text-teal-400'} />
@@ -191,55 +179,17 @@ const PatientList: React.FC<PatientListProps> = ({
       {selectedPatient ? (
         <div className="flex-[2.5] bg-white rounded-2xl shadow-sm border border-slate-100 p-0 relative animate-in slide-in-from-right-10 duration-300 overflow-hidden flex flex-col max-h-full">
            
-           {/* MOBILE BACK BUTTON */}
-           <div className="md:hidden p-3 border-b bg-slate-50/50 flex items-center gap-2">
-                <button onClick={() => onSelectPatient(null)} className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600"><ChevronRight size={20} className="rotate-180"/></button>
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Back to Directory</span>
-           </div>
-
-           {/* PURPOSE PORTAL OVERLAY - Optimized for vertical space */}
            {!sessionAccessPurpose && (
                <div className="absolute inset-0 z-[100] bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500 overflow-y-auto">
-                    <div className="w-16 h-16 bg-lilac-50 text-lilac-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl shadow-lilac-200 ring-4 ring-lilac-50">
-                        <Fingerprint size={32}/>
-                    </div>
+                    <div className="w-16 h-16 bg-lilac-50 text-lilac-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl shadow-lilac-200 ring-4 ring-lilac-50"><Fingerprint size={32}/></div>
                     <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-1">Access Identification</h2>
                     <p className="text-xs text-slate-500 font-medium mb-8 max-w-xs">Explicitly tag information access events for PDA R.A. 10173.</p>
-                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                        <button onClick={() => handlePurposeSelection(AccessPurpose.TREATMENT)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group">
-                            <Activity size={20} className="text-slate-400 group-hover:text-teal-600"/>
-                            <span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Clinical Treatment</span>
-                        </button>
-                        {!isAssistant && (
-                            <button onClick={() => handlePurposeSelection(AccessPurpose.BILLING)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group">
-                                <CreditCard size={20} className="text-slate-400 group-hover:text-teal-600"/>
-                                <span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Financial / Billing</span>
-                            </button>
-                        )}
-                        <button onClick={() => handlePurposeSelection(AccessPurpose.AUDIT)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group">
-                            <Scale size={20} className="text-slate-400 group-hover:text-teal-600"/>
-                            <span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Compliance Audit</span>
-                        </button>
-                        <button onClick={() => handlePurposeSelection(AccessPurpose.COORDINATION)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group">
-                            <Users size={20} className="text-slate-400 group-hover:text-teal-600"/>
-                            <span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Care Coordination</span>
-                        </button>
+                        <button onClick={() => handlePurposeSelection(AccessPurpose.TREATMENT)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group"><Activity size={20} className="text-slate-400 group-hover:text-teal-600"/><span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Clinical Treatment</span></button>
+                        {!isAssistant && <button onClick={() => handlePurposeSelection(AccessPurpose.BILLING)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group"><CreditCard size={20} className="text-slate-400 group-hover:text-teal-600"/><span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Financial / Billing</span></button>}
+                        <button onClick={() => handlePurposeSelection(AccessPurpose.AUDIT)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group"><Scale size={20} className="text-slate-400 group-hover:text-teal-600"/><span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Compliance Audit</span></button>
+                        <button onClick={() => handlePurposeSelection(AccessPurpose.COORDINATION)} className="p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-4 group"><Users size={20} className="text-slate-400 group-hover:text-teal-600"/><span className="font-black uppercase tracking-widest text-[9px] text-slate-600">Care Coordination</span></button>
                     </div>
-               </div>
-           )}
-
-           {/* ALERT BANNER */}
-           {highRiskConditions.length > 0 && (
-               <div className="bg-red-600 text-white px-4 sm:px-6 py-2 flex items-center justify-between animate-pulse shrink-0 z-50">
-                   <div className="flex items-center gap-3">
-                       <ShieldAlert size={20} className="flex-shrink-0" />
-                       <div className="min-w-0">
-                           <h3 className="font-black text-[10px] uppercase tracking-widest leading-none">High-Risk Alert</h3>
-                           <p className="text-[8px] font-bold mt-0.5 opacity-90 truncate max-w-[150px] sm:max-w-full">{highRiskConditions.join(" • ")}</p>
-                       </div>
-                   </div>
-                   <div className="text-[8px] font-black border border-white px-2 py-0.5 rounded uppercase tracking-tighter flex-shrink-0">Verified</div>
                </div>
            )}
 
@@ -259,60 +209,18 @@ const PatientList: React.FC<PatientListProps> = ({
                             <h2 className="text-xl sm:text-2xl font-black text-slate-900 truncate leading-tight uppercase tracking-tight">{selectedPatient.name}</h2>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {selectedPatient.id}</span>
-                                {selectedPatient.reliabilityScore !== undefined && (
-                                    <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-1 border ${selectedPatient.reliabilityScore >= 80 ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-lilac-50 border-lilac-200 text-lilac-700'}`}>
-                                        Score: {selectedPatient.reliabilityScore}%
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
                 </div>
            </div>
 
-           {/* --- CLINICAL NOW SNAPSHOT CARD - Horizontal Scrolling for mobile --- */}
-           {nowViewSnapshot && (
-               <div className="mx-4 sm:mx-6 mt-4 p-3 sm:p-4 bg-white border-2 border-lilac-100 rounded-[1.5rem] sm:rounded-[2rem] shadow-md flex overflow-x-auto no-scrollbar gap-6 items-center z-10 shrink-0">
-                   <div className="flex-none bg-lilac-50 p-2.5 rounded-xl text-lilac-600">
-                        <ZapIcon size={20} className="animate-pulse" />
-                   </div>
-                   <div className="flex-none min-w-[120px]">
-                       <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Complaint</div>
-                       <div className="text-[11px] font-black text-lilac-700 uppercase truncate">{nowViewSnapshot.complaint}</div>
-                   </div>
-                   <div className="flex-none min-w-[120px]">
-                       <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Procedure</div>
-                       <div className="text-[11px] font-black text-slate-800 uppercase truncate">{nowViewSnapshot.procedure}</div>
-                   </div>
-                   <div className="flex-none min-w-[120px]">
-                       <div className="text-[8px] font-black text-red-400 uppercase tracking-widest">Allergies</div>
-                       <div className="text-[11px] font-black text-red-600 uppercase truncate">{nowViewSnapshot.allergies}</div>
-                   </div>
-                   <div className="flex-none">
-                       <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consent</div>
-                       <div className={`text-[11px] font-black uppercase ${nowViewSnapshot.consent === 'Verified' ? 'text-teal-600' : 'text-red-600'}`}>{nowViewSnapshot.consent}</div>
-                   </div>
-               </div>
-           )}
-
-           <div className="bg-white px-4 sm:px-6 border-b border-slate-200 flex gap-4 sm:gap-6 shrink-0 z-0 overflow-x-auto no-scrollbar mt-4">
-               {tabs.map(tab => {
-                   const isBlocked = clinicalTabs.includes(tab.id) && !isClinicalProcessingAllowed;
-                   return (
-                   <button 
-                    key={tab.id} 
-                    onClick={() => !isBlocked && setActiveTab(tab.id as any)} 
-                    className={`
-                        py-3 sm:py-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2
-                        ${activeTab === tab.id ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-400 hover:text-slate-600'}
-                        ${isBlocked ? 'opacity-30 cursor-not-allowed' : ''}
-                    `}
-                   >
-                       <tab.icon size={14}/>
-                       {tab.label}
-                       {isBlocked && <LockKeyhole size={10}/>}
+           <div className="bg-white px-4 sm:px-6 border-b border-slate-200 flex gap-4 sm:gap-6 shrink-0 z-0 overflow-x-auto no-scrollbar">
+               {tabs.map(tab => (
+                   <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`py-3 sm:py-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+                       <tab.icon size={14}/> {tab.label}
                    </button>
-               )})}
+               ))}
            </div>
 
            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/50 no-scrollbar">
@@ -330,28 +238,42 @@ const PatientList: React.FC<PatientListProps> = ({
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="p-8 text-center flex flex-col items-center gap-2">
-                                        <Users size={32} className="text-slate-200" />
-                                        <p className="text-slate-400 text-[10px] italic font-bold uppercase tracking-tighter">Growth loop inactive.</p>
-                                    </div>
-                                )}
+                                ) : <div className="p-8 text-center flex flex-col items-center gap-2"><Users size={32} className="text-slate-200" /><p className="text-slate-400 text-[10px] italic font-bold uppercase tracking-tighter">Growth loop inactive.</p></div>}
                             </div>
 
-                            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-lilac-100 shadow-sm flex flex-col h-fit">
-                                <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-[10px] mb-4">
-                                    <Scale size={16} className="text-lilac-600"/> Legal Guardianship
+                            {/* PDA PRIVACY RIGHTS HUB */}
+                            <div className="bg-white p-6 rounded-3xl border-2 border-teal-100 shadow-md">
+                                <h4 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-[10px] mb-4">
+                                    <ShieldCheck size={16} className="text-teal-600"/> PDA Privacy Rights Hub
                                 </h4>
-                                {selectedPatient.guardianProfile ? (
-                                    <div className="p-3 rounded-xl bg-teal-50 border border-teal-100 text-[11px]">
-                                        <div className="font-black uppercase text-teal-900">{selectedPatient.guardianProfile.legalName}</div>
-                                        <div className="text-teal-600 font-bold uppercase mt-0.5">{selectedPatient.guardianProfile.relationship}</div>
-                                    </div>
-                                ) : (
-                                    <div className="p-6 text-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                                        <p className="text-slate-400 text-[9px] font-bold uppercase italic">No legal nexus found.</p>
-                                    </div>
-                                )}
+                                <div className="grid grid-cols-4 gap-2 mb-6">
+                                    <button onClick={() => handleRightsAction('Portability')} className="flex flex-col items-center gap-2 group">
+                                        <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-all"><Share2 size={16}/></div>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 text-center">Portability</span>
+                                    </button>
+                                    <button onClick={() => handleRightsAction('Correction')} className="flex flex-col items-center gap-2 group">
+                                        <div className="w-10 h-10 rounded-full bg-lilac-50 text-lilac-600 flex items-center justify-center group-hover:bg-lilac-600 group-hover:text-white transition-all"><Edit3 size={16}/></div>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 text-center">Rectification</span>
+                                    </button>
+                                    <button onClick={() => handleRightsAction('Erasure')} className="flex flex-col items-center gap-2 group">
+                                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all"><Trash size={16}/></div>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 text-center">Erasure</span>
+                                    </button>
+                                    <button onClick={() => handleRightsAction('Access')} className="flex flex-col items-center gap-2 group">
+                                        {/* Fix: Added missing 'Eye' icon from lucide-react. Resolves error on line 257. */}
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><Eye size={16}/></div>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 text-center">Access</span>
+                                    </button>
+                                </div>
+                                <div className="space-y-2 max-h-24 overflow-y-auto no-scrollbar border-t pt-3">
+                                    {(selectedPatient.rightsLog || []).map(r => (
+                                        <div key={r.id} className="flex justify-between items-center text-[9px] font-bold p-2 bg-slate-50 rounded-lg">
+                                            <span className="text-slate-600 uppercase">{r.type} Request</span>
+                                            <span className="text-teal-600">{formatDate(r.timestamp)}</span>
+                                        </div>
+                                    ))}
+                                    {(!selectedPatient.rightsLog || selectedPatient.rightsLog.length === 0) && <p className="text-[8px] text-center text-slate-400 italic">No rights requests logged.</p>}
+                                </div>
                             </div>
                         </div>
 
@@ -359,56 +281,21 @@ const PatientList: React.FC<PatientListProps> = ({
                             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
                                 <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-[10px] uppercase tracking-widest"><FileText size={16} className="text-teal-600"/> Identity Registry</h4>
                                 <div className="space-y-2">
-                                    <div className="flex justify-between text-[11px]">
-                                        <span className="text-slate-500">Demographics:</span>
-                                        <span className="font-bold text-slate-700">{selectedPatient.age || '-'}Y / {selectedPatient.sex || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between text-[11px]">
-                                        <span className="text-slate-500">Secure Line:</span>
-                                        <span className="font-bold text-teal-600">{selectedPatient.phone}</span>
-                                    </div>
+                                    <div className="flex justify-between text-[11px]"><span className="text-slate-500">Demographics:</span><span className="font-bold text-slate-700">{selectedPatient.age || '-'}Y / {selectedPatient.sex || '-'}</span></div>
+                                    <div className="flex justify-between text-[11px]"><span className="text-slate-500">Secure Line:</span><span className="font-bold text-teal-600">{selectedPatient.phone}</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {activeTab === 'chart' && !isAssistant && (
-                    <div className="pb-20">
-                        <Odontogram chart={selectedPatient.dentalChart || []} onToothClick={() => {}} readOnly={!isClinicalProcessingAllowed} />
-                    </div>
-                )}
-
-                {activeTab === 'perio' && !isAssistant && (
-                    <div className="h-[500px] sm:h-[600px] pb-20">
-                        <PerioChart data={selectedPatient.perioChart || []} onSave={(newData) => onQuickUpdatePatient({...selectedPatient, perioChart: newData})} readOnly={!isClinicalProcessingAllowed} />
-                    </div>
-                )}
-
-                {activeTab === 'plan' && !isAssistant && (
-                    <div className="pb-20">
-                        <TreatmentPlan patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings?.features} />
-                    </div>
-                )}
-
-                {activeTab === 'ledger' && !isAssistant && (
-                    <div className="pb-20">
-                        <PatientLedger patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} fieldSettings={fieldSettings} />
-                    </div>
-                )}
+                {activeTab === 'chart' && !isAssistant && <div className="pb-20"><Odontogram chart={selectedPatient.dentalChart || []} onToothClick={() => {}} /></div>}
+                {activeTab === 'perio' && !isAssistant && <div className="h-[500px] sm:h-[600px] pb-20"><PerioChart data={selectedPatient.perioChart || []} onSave={(newData) => onQuickUpdatePatient({...selectedPatient, perioChart: newData})} /></div>}
+                {activeTab === 'plan' && !isAssistant && <div className="pb-20"><TreatmentPlan patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings?.features} /></div>}
+                {activeTab === 'ledger' && !isAssistant && <div className="pb-20"><PatientLedger patient={selectedPatient} onUpdatePatient={onQuickUpdatePatient} fieldSettings={fieldSettings} /></div>}
            </div>
         </div>
       ) : <div className="hidden md:flex flex-[2.5] items-center justify-center text-slate-400 italic font-black uppercase tracking-widest text-xs">Registry Terminal Idle</div>}
-
-      {revocationTarget && selectedPatient && (
-          <PrivacyRevocationModal 
-            isOpen={!!revocationTarget} 
-            onClose={() => setRevocationTarget(null)} 
-            onConfirm={() => {}} 
-            patient={selectedPatient} 
-            category={revocationTarget.category} 
-          />
-      )}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   Calendar, Activity, DollarSign, Clock, Zap, AlertTriangle, ShieldCheck, 
@@ -67,6 +68,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { production };
   }, [todaysAppointments, fieldSettings, currentBranch]);
 
+  // Clinical Fatigue Calculation
+  const loadMinutes = currentUser.fatigueMetric || 0;
+  const fatiguePercent = Math.min(100, (loadMinutes / 480) * 100);
+  const fatigueColor = loadMinutes >= 480 ? 'bg-red-500 animate-pulse' : loadMinutes >= 360 ? 'bg-lilac-500' : 'bg-teal-500';
+
   const PatientCard = ({ apt }: { apt: Appointment }) => {
     const p = getPatient(apt.patientId);
     const [h, m] = apt.time.split(':').map(Number);
@@ -105,9 +111,20 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       {/* SECTION: PULSE INDICATOR */}
       <div className="flex justify-between items-end px-1 sm:px-2">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Registry Pulse</h1>
-          <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate max-w-[200px]">Live: {currentBranch}</p>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex-1 max-w-[200px]">
+               <div className="flex justify-between text-[8px] font-black uppercase text-slate-400 mb-1">
+                  <span>Clinical Load Sentinel</span>
+                  <span>{Math.round(loadMinutes / 60)}h {loadMinutes % 60}m</span>
+               </div>
+               <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full transition-all duration-1000 ${fatigueColor}`} style={{ width: `${fatiguePercent}%` }} />
+               </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Live: {currentBranch}</p>
+          </div>
         </div>
         <button onClick={onOpenClosureRitual} className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl active:scale-90 transition-all shrink-0">
           <History size={20} className="text-teal-400" />
