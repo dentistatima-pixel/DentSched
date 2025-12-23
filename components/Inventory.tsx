@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Edit2, Boxes, RefreshCcw, ArrowRightLeft, MapPin, Wrench, Shield, History, Scale, Zap, CheckCircle } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, StockTransfer, FieldSettings, AuditLogEntry } from '../types';
+import { Package, Plus, Search, AlertTriangle, X, Save, Edit2, Boxes, RefreshCcw, ArrowRightLeft, MapPin, Wrench, Shield, History, Scale, Zap, CheckCircle, TrendingDown, Info } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, StockTransfer, FieldSettings, AuditLogEntry, Appointment } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -15,18 +15,12 @@ interface InventoryProps {
   transfers?: StockTransfer[];
   fieldSettings?: FieldSettings;
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  appointments?: Appointment[];
+  uiMode?: string;
 }
 
-const TOLERANCE_MAP: Record<StockCategory, number> = {
-    [StockCategory.CONSUMABLES]: 0.10,
-    [StockCategory.RESTORATIVE]: 0.05,
-    [StockCategory.INSTRUMENTS]: 0,
-    [StockCategory.PROSTHODONTIC]: 0,
-    [StockCategory.OFFICE]: 0.10
-};
-
 const Inventory: React.FC<InventoryProps> = ({ 
-    stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentBranch, availableBranches, transfers = [], fieldSettings, logAction
+    stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentBranch, availableBranches, transfers = [], fieldSettings, logAction, appointments = []
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'maintenance' | 'sterilization'>('stock');
@@ -37,6 +31,33 @@ const Inventory: React.FC<InventoryProps> = ({
 
   const branchStock = useMemo(() => stock.filter(s => s.branch === currentBranch || !s.branch), [stock, currentBranch]);
   const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // --- PREDICTIVE BURN RATE LOGIC ---
+  // Explicitly type the useMemo return to resolve 'unknown' property access errors.
+  const burnRateStats = useMemo<Record<string, { used: number, daysLeft: number }>>(() => {
+    const projections: Record<string, { used: number, daysLeft: number }> = {};
+    const next7Days = appointments.filter(a => {
+        const d = new Date(a.date);
+        const today = new Date();
+        const diff = (d.getTime() - today.getTime()) / (1000 * 3600 * 24);
+        return diff >= 0 && diff <= 7 && a.branch === currentBranch;
+    });
+
+    branchStock.forEach(item => {
+        let projectedUsage = 0;
+        next7Days.forEach(apt => {
+            const procedure = fieldSettings?.procedures.find(p => p.name === apt.type);
+            const bomItem = procedure?.billOfMaterials?.find(bom => bom.stockItemId === item.id);
+            if (bomItem) {
+                projectedUsage += bomItem.quantity;
+            }
+        });
+        const daysLeft = projectedUsage > 0 ? Math.floor(item.quantity / (projectedUsage / 7)) : 999;
+        projections[item.id] = { used: projectedUsage, daysLeft };
+    });
+
+    return projections;
+  }, [appointments, branchStock, fieldSettings, currentBranch]);
 
   const handleEmergencyDecrement = (item: StockItem) => {
       const updatedStock = stock.map(s => s.id === item.id ? { ...s, quantity: Math.max(0, s.quantity - 1) } : s);
@@ -88,6 +109,27 @@ const Inventory: React.FC<InventoryProps> = ({
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                 {activeTab === 'stock' && (
                     <div className="space-y-4">
+                        {/* --- BURN RATE INSIGHT CARD --- */}
+                        <div className="bg-white p-6 rounded-[2rem] border border-lilac-100 shadow-lg flex items-center justify-between animate-in slide-in-from-top-2 duration-500">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-lilac-50 p-3 rounded-2xl text-lilac-600">
+                                    <TrendingDown size={24} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Inventory Burn-Rate Monitor</h4>
+                                    <p className="text-xs text-slate-500">Projected stockouts based on the next 7 days of scheduled surgeries.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="bg-red-50 px-4 py-2 rounded-xl border border-red-100 text-center">
+                                    <div className="text-[9px] font-black text-red-400 uppercase">Critical Risks</div>
+                                    <div className="text-lg font-black text-red-600">
+                                        {Object.values(burnRateStats).filter(s => s.daysLeft < 3).length} Items
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col md:flex-row justify-between gap-4">
                             <div className="relative w-full md:w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search materials..." className="input pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
                             <button onClick={() => setEditItem({ branch: currentBranch })} className="bg-teal-600 text-white rounded-xl font-bold px-6 py-2 flex items-center gap-2 hover:bg-teal-700 shadow-md">New Item</button>
@@ -95,11 +137,14 @@ const Inventory: React.FC<InventoryProps> = ({
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 font-black uppercase text-[10px] tracking-widest">
-                                    <tr><th className="p-4">Material Identity</th><th className="p-4 text-center">In-Stock</th><th className="p-4">Clinical Expiry</th><th className="p-4 text-right">Actions</th></tr>
+                                    <tr><th className="p-4">Material Identity</th><th className="p-4 text-center">In-Stock</th><th className="p-4">Burn Rate / Affinity</th><th className="p-4">Clinical Expiry</th><th className="p-4 text-right">Actions</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredStock.map(item => {
                                         const expiry = getExpiryStatus(item.expiryDate);
+                                        const burn = burnRateStats[item.id] || { used: 0, daysLeft: 999 };
+                                        const isProjectedOut = burn.daysLeft <= 7;
+                                        
                                         return (
                                             <tr key={item.id} className="group hover:bg-slate-50 transition-all">
                                                 <td className="p-4">
@@ -115,6 +160,22 @@ const Inventory: React.FC<InventoryProps> = ({
                                                     ) : (
                                                         <div className="text-center font-black text-lg text-slate-700">{item.quantity}</div>
                                                     )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="space-y-1.5 min-w-[150px]">
+                                                        <div className="flex justify-between text-[10px] font-black uppercase">
+                                                            <span className={isProjectedOut ? 'text-red-500' : 'text-teal-600'}>
+                                                                {isProjectedOut ? `Out in ~${burn.daysLeft} days` : 'Schedule Coverage: OK'}
+                                                            </span>
+                                                            <span className="text-slate-400">{burn.used} units needed/week</span>
+                                                        </div>
+                                                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full transition-all duration-1000 ${isProjectedOut ? 'bg-red-500' : 'bg-teal-500'}`} 
+                                                                style={{ width: `${Math.min(100, (item.quantity / (burn.used || 1)) * 20)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="p-4"><span className={`px-2 py-1 rounded text-[10px] font-black border uppercase ${expiry.color}`}>{expiry.label}</span></td>
                                                 <td className="p-4 text-right">

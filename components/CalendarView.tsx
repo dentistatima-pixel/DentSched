@@ -3,11 +3,11 @@ import {
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Slash, UserX
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, 
-  LabStatus, FieldSettings, WaitlistEntry, ClinicResource 
+  LabStatus, FieldSettings, WaitlistEntry, ClinicResource, ReliabilityArchetype, UIMode 
 } from '../types';
 import { formatDate } from '../constants';
 
@@ -20,18 +20,17 @@ interface CalendarViewProps {
   patients?: Patient[];
   currentBranch?: string;
   fieldSettings?: FieldSettings;
+  uiMode?: UIMode;
 }
 
 const MOCK_WAITLIST: WaitlistEntry[] = [
     { id: 'wl_1', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Restoration', durationMinutes: 60, priority: 'High', notes: 'Flexible anytime AM' },
     { id: 'wl_2', patientId: 'p_surg_04', patientName: 'Juan Dela Cruz', procedure: 'Extraction', durationMinutes: 30, priority: 'Normal', notes: 'Prefer afternoons' },
-    { id: 'wl_3', patientId: 'p_full_perio_02', patientName: 'Sofia Reyes', procedure: 'Cleaning', durationMinutes: 45, priority: 'Low', notes: 'Short notice ok' },
-    { id: 'wl_4', patientId: 'p_debt_09', patientName: 'Ronnie Runner', procedure: 'Root Canal', durationMinutes: 60, priority: 'High', notes: 'Emergency opening requested' },
 ];
 
-const RELIABILITY_THRESHOLD = 70;
+const ATTENDANCE_THRESHOLD = 70;
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, currentUser, patients = [], currentBranch, fieldSettings }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, currentUser, patients = [], currentBranch, fieldSettings, uiMode }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
   const [viewDimension, setViewDimension] = useState<'provider' | 'chair'>('provider');
@@ -126,6 +125,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
 
+  // --- BEHAVIORAL BADGE LOGIC ---
+  const getBehavioralIcon = (p?: Patient) => {
+    if (!p) return null;
+    if (p.reliabilityScore !== undefined && p.reliabilityScore < 60) return <UserX size={12} className="text-red-600" title="High No-Show Risk" />;
+    if (p.reliabilityScore !== undefined && p.reliabilityScore < 80) return <Clock size={12} className="text-orange-600" title="Chronic Late history" />;
+    if (p.currentBalance !== undefined && p.currentBalance > 0) return <AlertCircle size={12} className="text-yellow-600" title="Payment Risk" />;
+    return <ShieldCheck size={12} className="text-teal-500" title="Verified Reliable" />;
+  };
+
   const getAppointmentBaseStyle = (type: AppointmentType, status: AppointmentStatus, isPendingSync?: boolean, entryMode?: string) => {
      let styles = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-500' };
      if (status === AppointmentStatus.ARRIVED) styles = { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-600' };
@@ -179,7 +187,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const handleWaitlistAssign = (entry: WaitlistEntry) => {
       const patient = getPatient(entry.patientId);
-      const isReliable = (patient?.reliabilityScore ?? 100) >= RELIABILITY_THRESHOLD;
+      const isReliable = (patient?.reliabilityScore ?? 100) >= ATTENDANCE_THRESHOLD;
       const hasBalance = (patient?.currentBalance ?? 0) > 0;
 
       if (!isReliable || hasBalance) {
@@ -280,6 +288,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     <div className="flex justify-between items-center mb-1">
                                                         <span className="font-bold opacity-75">{apt.time}</span>
                                                         <div className="flex items-center gap-1">
+                                                            {getBehavioralIcon(patient)}
                                                             {apt.isWaitlistOverride && <ShieldAlert size={12} className="text-red-600 animate-pulse" title="Waitlist Priority Override Entry"/>}
                                                             {apt.entryMode === 'MANUAL' && <AlertTriangle size={10} className="text-yellow-600 animate-pulse" title="Manual Entry - Needs Reconciliation"/>}
                                                             {apt.isPendingSync && <CloudOff size={10} className="text-lilac-600 animate-pulse" title="Awaiting Sync"/>}
@@ -315,9 +324,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
               <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
                   {MOCK_WAITLIST.map(entry => {
                       const patient = getPatient(entry.patientId);
-                      const isUnreliable = (patient?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD;
+                      const isIrregular = (patient?.reliabilityScore ?? 100) < ATTENDANCE_THRESHOLD;
                       const hasBalance = (patient?.currentBalance ?? 0) > 0;
-                      const isClear = !isUnreliable && !hasBalance;
+                      const isClear = !isIrregular && !hasBalance;
 
                       return (
                           <div key={entry.id} className={`p-4 rounded-3xl border-2 transition-all group ${isClear ? 'bg-white border-slate-100 hover:border-teal-400' : 'bg-slate-50 border-slate-200 opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}`}>
@@ -325,9 +334,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                   <div>
                                       <h4 className="font-black text-slate-800 uppercase text-sm leading-tight">{entry.patientName}</h4>
                                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                          {isUnreliable && (
+                                          {isIrregular && (
                                               <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-red-100">
-                                                  {patient?.reliabilityScore}% Reliability
+                                                  {patient?.reliabilityScore}% Attendance
                                               </span>
                                           )}
                                           {hasBalance && (
@@ -337,7 +346,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                           )}
                                           {isClear && (
                                               <span className="bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-teal-100 flex items-center gap-1">
-                                                  <ShieldCheck size={10}/> Verified Clear
+                                                  <ShieldCheck size={10}/> Verified Pattern
                                               </span>
                                           )}
                                       </div>
@@ -365,7 +374,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
               <div className="p-4 border-t border-slate-100 bg-slate-50">
                   <p className="text-[9px] font-bold text-slate-400 uppercase text-center leading-relaxed">
-                      Integrity signals are derived from real-time patient ledger and attendance analytics.
+                      Integrity signals are derived from branch-specific attendance pattern analytics.
                   </p>
               </div>
           </div>
@@ -388,11 +397,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                           Attention: <strong>{overrideTarget.patientName}</strong> is currently flagged for:
                       </p>
                       <ul className="space-y-2">
-                          {(getPatient(overrideTarget.patientId)?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD && (
-                              <li className="flex items-center gap-2 text-xs font-bold text-red-700"><AlertCircle size={14}/> Low Appointment Reliability</li>
+                          {(getPatient(overrideTarget.patientId)?.reliabilityScore ?? 100) < ATTENDANCE_THRESHOLD && (
+                              <li className="flex items-center gap-2 text-xs font-bold text-red-700"><AlertCircle size={14}/> Irregular Attendance Pattern</li>
                           )}
                           {(getPatient(overrideTarget.patientId)?.currentBalance ?? 0) > 0 && (
-                              <li className="flex items-center gap-2 text-xs font-bold text-red-700"><FinanceIcon size={14}/> Unresolved Practice Debt</li>
+                              <li className="flex items-center gap-2 text-xs font-bold text-red-700"><FinanceIcon size={14}/> Unresolved Branch Balance</li>
                           )}
                       </ul>
                   </div>
@@ -405,7 +414,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                         className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
                       />
                       <div className="text-xs font-black uppercase text-slate-700 leading-tight">
-                          I have received Managerial Approval to bypass clinical guardrails.
+                          I have received Managerial Approval to bypass attendance guardrails.
                       </div>
                   </label>
 

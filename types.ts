@@ -4,6 +4,20 @@ export enum UserRole {
   DENTAL_ASSISTANT = 'Dental Assistant'
 }
 
+export enum UIMode {
+  OPERATIONAL = 'OPERATIONAL',
+  REVIEW = 'REVIEW',
+  AUDIT = 'AUDIT'
+}
+
+export enum ReliabilityArchetype {
+  VIP = 'Registry VIP',
+  STANDARD = 'Standard Pattern',
+  CHRONIC_LATE = 'Chronic Late',
+  NO_SHOW_RISK = 'High Attrition Risk',
+  PAYMENT_RISK = 'Payment Risk'
+}
+
 export enum AccessPurpose {
   TREATMENT = 'TREATMENT',
   BILLING = 'BILLING',
@@ -17,6 +31,12 @@ export enum SystemStatus {
   RECONCILIATION = 'RECONCILIATION'
 }
 
+export enum ClinicStatus {
+  ACTIVE = 'Active',
+  SUSPENDED = 'Suspended',
+  ARCHIVED = 'Archived'
+}
+
 export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
@@ -26,6 +46,24 @@ export enum AppointmentStatus {
   COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
+}
+
+export enum ReminderStatus {
+    QUEUED = 'Queued',
+    SENT = 'Sent',
+    CONFIRMED = 'Confirmed by Patient',
+    FAILED = 'Failed'
+}
+
+export interface ScheduledReminder {
+    id: string;
+    appointmentId: string;
+    patientId: string;
+    patientName: string;
+    type: 'SMS' | 'Email';
+    scheduledFor: string;
+    status: ReminderStatus;
+    content: string;
 }
 
 export enum AppointmentType {
@@ -83,6 +121,7 @@ export interface SyncIntent {
     action: 'CREATE_APPOINTMENT' | 'UPDATE_APPOINTMENT' | 'UPDATE_PATIENT' | 'REGISTER_PATIENT' | 'UPDATE_STATUS';
     payload: any;
     timestamp: string;
+    originatingBranch?: string;
 }
 
 export interface SyncConflict {
@@ -226,6 +265,7 @@ export interface ClinicalIncident {
     reportedBy: string;
     npcNotified?: boolean;
     npcRefNumber?: string;
+    adminAnnotation?: string; // New field for Incident Annotation System
 }
 
 export interface Referral {
@@ -347,8 +387,8 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'SETTLE_CLAIM' | 'DENY_CLAIM' | 'TRANSMIT_CLAIM' | 'INITIATE_PURGE';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll' | 'Kiosk';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'SETTLE_CLAIM' | 'DENY_CLAIM' | 'TRANSMIT_CLAIM' | 'INITIATE_PURGE' | 'CLOSE_DAY';
+  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll' | 'Kiosk' | 'ClosureRitual';
   entityId: string;
   details: string;
   accessPurpose?: AccessPurpose;
@@ -394,6 +434,7 @@ export interface FeatureToggles {
   enableLabTracking: boolean;
   enableComplianceAudit: boolean;
   enableMultiBranch: boolean;
+  enableCentralAdmin: boolean;
   enableDentalAssistantFlow: boolean;
   enableHMOClaims: boolean;
   enableInventory: boolean;
@@ -485,8 +526,20 @@ export interface PurchaseOrder {
     totalAmount: number;
 }
 
+export interface ClinicIdentity {
+    registryName: string;
+    licenseNumber: string;
+    dohPermit: string;
+    responsibleDentistId: string;
+    certificationStatus: 'Verified' | 'Pending Review' | 'Audit Required';
+    establishmentDate: string;
+    status: ClinicStatus;
+}
+
 export interface FieldSettings {
   clinicProfile: ClinicProfile;
+  clinicIdentity?: ClinicIdentity;
+  clinicMetadata: Record<string, ClinicIdentity>;
   suffixes: string[];
   civilStatus: string[];
   insuranceProviders: string[];
@@ -686,6 +739,13 @@ export interface GuardianProfile {
     linkedPatientId?: string;
 }
 
+export interface BehavioralProfile {
+    archetype: ReliabilityArchetype;
+    punctualityHistory: number[]; // minutes late/early
+    noShowCount: number;
+    paymentHistory: 'RELIABLE' | 'ERRATIC' | 'DEFAULT';
+}
+
 export interface Patient {
   id: string;
   provisional?: boolean; 
@@ -704,11 +764,14 @@ export interface Patient {
   nextVisit: string | null;
   notes: string;
   referredById?: string; 
+  originatingBranch?: string;
+  associatedBranches?: string[];
   dentalChart?: DentalChartEntry[];
   perioChart?: PerioMeasurement[];
   ledger?: LedgerEntry[];
   installmentPlans?: InstallmentPlan[]; 
   currentBalance?: number;
+  engagementScore?: number; // New field for PES
   allergies?: string[];
   medicalConditions?: string[];
   treatmentPlans?: TreatmentPlan[];
@@ -775,6 +838,7 @@ export interface Patient {
       lateCancelCount: number;
   };
   reliabilityScore?: number;
+  behavioralProfile?: BehavioralProfile;
   consentLogs?: ConsentLogEntry[];
   guardianProfile?: GuardianProfile;
   purgeRequest?: PurgeRequest;
@@ -810,6 +874,7 @@ export interface Appointment {
   entryMode?: 'AUTO' | 'MANUAL';
   reconciled?: boolean;
   isWaitlistOverride?: boolean;
+  sendSmsReminder?: boolean;
 }
 
 export interface PinboardTask {

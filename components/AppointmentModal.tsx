@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, MessageSquare } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
@@ -31,6 +31,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   
   const [providerId, setProviderId] = useState('');
   const [resourceId, setResourceId] = useState(''); 
+  const [branch, setBranch] = useState('');
   const [date, setDate] = useState(initialDate || new Date().toLocaleDateString('en-CA'));
   const [time, setTime] = useState(initialTime || '09:00');
   const [duration, setDuration] = useState(60);
@@ -39,6 +40,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [labVendorId, setLabVendorId] = useState('');
   const [sterilizationCycleId, setSterilizationCycleId] = useState('');
   const [sterilizationVerified, setSterilizationVerified] = useState(false); 
+  const [sendSmsReminder, setSendSmsReminder] = useState(true);
 
   // Override States
   const [showOverridePrompt, setShowOverridePrompt] = useState(false);
@@ -54,17 +56,22 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const isCriticalProcedure = ['Surgery', 'Root Canal', 'Extraction'].includes(procedureType);
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
-  const isReliabilityRisk = selectedPatient?.reliabilityScore !== undefined && selectedPatient.reliabilityScore < 60;
+  const isPatternRisk = selectedPatient?.reliabilityScore !== undefined && selectedPatient.reliabilityScore < 60;
+
+  const enableMultiBranch = fieldSettings.features.enableMultiBranch;
+  const showBranchUI = enableMultiBranch && fieldSettings.branches.length > 1;
 
   const availableResources = useMemo(() => {
-      return (fieldSettings.resources || []).filter(r => !existingAppointment || r.branch === existingAppointment.branch);
-  }, [fieldSettings.resources, existingAppointment]);
+      const currentSelectionBranch = branch || fieldSettings.branches[0];
+      return (fieldSettings.resources || []).filter(r => r.branch === currentSelectionBranch);
+  }, [fieldSettings.resources, branch, fieldSettings.branches]);
 
   useEffect(() => {
       if (isOpen) {
           if (existingAppointment) {
               setProviderId(existingAppointment.providerId);
               setResourceId(existingAppointment.resourceId || '');
+              setBranch(existingAppointment.branch);
               setDate(existingAppointment.date);
               setTime(existingAppointment.time);
               setDuration(existingAppointment.durationMinutes);
@@ -73,6 +80,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setLabVendorId(existingAppointment.labDetails?.vendorId || '');
               setSterilizationCycleId(existingAppointment.sterilizationCycleId || '');
               setSterilizationVerified(existingAppointment.sterilizationVerified || false);
+              setSendSmsReminder(existingAppointment.sendSmsReminder ?? true);
               
               if (existingAppointment.isBlock) { setActiveTab('block'); setBlockTitle(existingAppointment.title || ''); } 
               else { setActiveTab('existing'); setSelectedPatientId(existingAppointment.patientId); setProcedureType(existingAppointment.type); }
@@ -80,8 +88,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setDate(initialDate || new Date().toLocaleDateString('en-CA'));
               setTime(initialTime || '09:00');
               setProviderId(dentists[0]?.id || '');
-              setResourceId(availableResources[0]?.id || '');
+              const defaultBranch = fieldSettings.branches[0];
+              setBranch(defaultBranch);
+              const firstRes = (fieldSettings.resources || []).find(r => r.branch === defaultBranch);
+              setResourceId(firstRes?.id || '');
               setLabStatus(LabStatus.NONE); setLabVendorId(''); setSterilizationCycleId(''); setSterilizationVerified(false);
+              setSendSmsReminder(true);
               if (initialPatientId) { setActiveTab('existing'); setSelectedPatientId(initialPatientId); } 
               else { setSelectedPatientId(''); setActiveTab('existing'); }
               setSearchTerm('');
@@ -89,7 +101,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           setShowOverridePrompt(false);
           setOverrideReason('');
       }
-  }, [isOpen, existingAppointment, staff, availableResources]);
+  }, [isOpen, existingAppointment, staff, fieldSettings]);
 
   const checkConflict = () => {
     return appointments.some(apt => 
@@ -136,19 +148,18 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   const execSave = () => {
-    // If we're coming from the waitlist and have been flagged, we'll mark the override.
-    // The waitlist logic in CalendarView triggers initialPatientId when assigning.
-    const isWaitlistOverride = !!initialPatientId && !existingAppointment && (isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0);
+    const isWaitlistOverride = !!initialPatientId && !existingAppointment && (isPatternRisk || (selectedPatient?.currentBalance ?? 0) > 0);
 
     const appointmentData: Appointment = {
         id: existingAppointment?.id || `apt_${Date.now()}`,
         patientId: activeTab === 'block' ? 'BLOCK' : selectedPatientId, 
-        providerId, resourceId, branch: existingAppointment?.branch || 'Makati Branch',
+        providerId, resourceId, branch: branch || 'Main Clinic',
         date, time, durationMinutes: duration, type: procedureType, status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
         notes, labStatus, labDetails: labStatus !== LabStatus.NONE ? { vendorId: labVendorId } : undefined,
         sterilizationCycleId, sterilizationVerified,
         isBlock: activeTab === 'block', title: blockTitle,
-        isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride
+        isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride,
+        sendSmsReminder
     };
 
     if (showOverridePrompt && onManualOverride && pendingOverrideType) {
@@ -156,6 +167,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
 
     onSave(appointmentData);
+    if (sendSmsReminder && !existingAppointment) {
+        toast.info("Queued: Booking Confirmation SMS.");
+    }
     onClose();
   };
 
@@ -245,13 +259,13 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </div>
                 )}
 
-                {(isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0) && (
+                {(isPatternRisk || (selectedPatient?.currentBalance ?? 0) > 0) && (
                     <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3 animate-in shake duration-500">
                         <AlertTriangle className="text-red-600 shrink-0" size={20} />
                         <div>
                             <p className="text-xs font-black text-red-900 uppercase tracking-widest">Front-Desk Alert</p>
                             <p className="text-[11px] text-red-700 leading-tight mt-1">
-                                {isReliabilityRisk && `High No-Show Risk (${selectedPatient.reliabilityScore}%). `}
+                                {isPatternRisk && `Irregular Attendance Pattern (${selectedPatient.reliabilityScore}%). `}
                                 {(selectedPatient?.currentBalance ?? 0) > 0 && `Outstanding Balance: ₱${selectedPatient?.currentBalance?.toLocaleString()}. `}
                                 Recommend confirming twice or requesting a reservation deposit.
                             </p>
@@ -260,13 +274,36 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Clinical Provider</label><select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">{dentists.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                    <div><label className="label">Clinical Resource / Chair</label><select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input">{availableResources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}</select></div>
+                    <div>
+                        <label className="label">Clinical Provider</label>
+                        <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">{dentists.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                    </div>
+                    {showBranchUI && (
+                        <div>
+                            <label className="label">Location / Branch</label>
+                            <select value={branch} onChange={e => setBranch(e.target.value)} className="input">{fieldSettings.branches.map(b => <option key={b} value={b}>{b}</option>)}</select>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className={showBranchUI ? "col-span-2" : "col-span-1"}>
+                        <label className="label">Clinical Resource / Chair</label>
+                        <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input">{availableResources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}</select>
+                    </div>
+                    {!showBranchUI && (
+                        <div>
+                            <label className="label">Duration (Min)</label>
+                            <select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div><label className="label">Procedure</label><select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-                    <div><label className="label">Duration (Min)</label><select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select></div>
+                    {showBranchUI && (
+                         <div><label className="label">Duration (Min)</label><select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select></div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -285,6 +322,21 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 )}
                 
                 <textarea placeholder="Internal Notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input h-20 resize-none" />
+
+                <label className="flex items-center gap-3 p-4 bg-lilac-50 rounded-2xl border border-lilac-100 cursor-pointer hover:bg-lilac-100 transition-all">
+                    <input 
+                        type="checkbox" 
+                        checked={sendSmsReminder}
+                        onChange={e => setSendSmsReminder(e.target.checked)}
+                        className="w-6 h-6 accent-lilac-600 rounded" 
+                    />
+                    <div>
+                        <div className="font-bold text-lilac-900 text-sm flex items-center gap-2">
+                            <MessageSquare size={16} /> Send Instant Confirmation SMS
+                        </div>
+                        <p className="text-[10px] text-lilac-600 font-bold uppercase tracking-widest mt-0.5">Auto-Queued to Patient Registry Mobile</p>
+                    </div>
+                </label>
                 </>
             )}
         </div>

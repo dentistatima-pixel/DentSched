@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Patient, AuditLogEntry } from '../types';
-import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, QrCode, Scan } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 
@@ -12,7 +12,7 @@ interface KioskViewProps {
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
-type KioskStep = 'welcome' | 'identify' | 'verify' | 'update' | 'thankyou';
+type KioskStep = 'welcome' | 'identify' | 'qr_scan' | 'verify' | 'update' | 'thankyou';
 
 const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExitKiosk, fieldSettings, logAction }) => {
   const toast = useToast();
@@ -72,7 +72,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
                     <span className="text-white font-bold text-2xl">D</span>
                 </div>
                 <div>
-                    <h1 className="font-bold text-xl tracking-tight leading-none">dentsched</h1>
+                    <h1 className="font-black text-xl tracking-tight leading-none uppercase">dentsched</h1>
                     <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Digital Patient Terminal</span>
                 </div>
             </div>
@@ -97,41 +97,66 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
             {step === 'welcome' && (
                 <div className="w-full max-w-4xl animate-in zoom-in-95 duration-500">
                     <div className="text-center mb-12">
-                        <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-4 uppercase tracking-tight">Digital Registration</h2>
-                        <p className="text-xl text-slate-500 font-medium">Please select your patient status to begin.</p>
+                        <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-4 uppercase tracking-tighter">Welcome to the Registry</h2>
+                        <p className="text-xl text-slate-500 font-medium italic">Your journey to a healthier smile starts here.</p>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <button 
+                            onClick={() => setStep('qr_scan')}
+                            className="col-span-1 md:col-span-2 bg-gradient-to-r from-teal-600 to-lilac-600 p-8 rounded-[2.5rem] text-white flex items-center justify-between shadow-2xl hover:scale-[1.02] transition-all group overflow-hidden relative"
+                        >
+                            <div className="relative z-10">
+                                <h3 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
+                                    <Scan size={32} className="animate-pulse" />
+                                    Quick Check-In
+                                </h3>
+                                <p className="text-teal-50 mt-1 font-medium">Scan your Appointment QR to bypass manual entry.</p>
+                            </div>
+                            <QrCode size={100} className="opacity-20 -mr-4 relative z-10" />
+                        </button>
+
                         <button 
                             onClick={() => { setFoundPatient(null); setStep('update'); }}
-                            className="bg-white p-10 rounded-[2.5rem] border-4 border-teal-100 shadow-2xl hover:border-teal-500 transition-all group hover:-translate-y-2 text-center"
+                            className="bg-white p-10 rounded-[2.5rem] border-4 border-teal-100 shadow-xl hover:border-teal-500 transition-all group text-center"
                         >
-                            <div className="w-24 h-24 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-600 group-hover:text-white transition-all">
-                                <UserPlus size={48} />
+                            <div className="w-20 h-20 bg-teal-50 text-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-inner">
+                                <UserPlus size={40} />
                             </div>
-                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">I am a New Patient</h3>
-                            <p className="text-slate-500 mt-2 font-medium">First time here? Register your record.</p>
+                            <h3 className="text-xl font-black text-teal-900 uppercase tracking-tighter">New Patient</h3>
                         </button>
 
                         <button 
                             onClick={() => setStep('identify')}
-                            className="bg-white p-10 rounded-[2.5rem] border-4 border-lilac-100 shadow-2xl hover:border-lilac-500 transition-all group hover:-translate-y-2 text-center"
+                            className="bg-white p-10 rounded-[2.5rem] border-4 border-lilac-100 shadow-xl hover:border-lilac-500 transition-all group text-center"
                         >
-                            <div className="w-24 h-24 bg-lilac-50 text-lilac-600 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-lilac-600 group-hover:text-white transition-all">
-                                <UserCheck size={48} />
+                            <div className="w-20 h-20 bg-lilac-50 text-lilac-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:bg-lilac-600 group-hover:text-white transition-all shadow-inner">
+                                <UserCheck size={40} />
                             </div>
-                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">I am an Existing Patient</h3>
-                            <p className="text-slate-500 mt-2 font-medium">Verify your ID to update information.</p>
+                            <h3 className="text-xl font-black text-lilac-900 uppercase tracking-tighter">Existing Patient</h3>
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* QR SCAN PLACEHOLDER */}
+            {step === 'qr_scan' && (
+              <div className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-2xl text-center animate-in zoom-in-95">
+                <div className="w-64 h-64 border-4 border-dashed border-teal-500 rounded-3xl mx-auto mb-8 flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-teal-500 animate-bounce mt-10"></div>
+                  <QrCode size={120} className="text-slate-200" />
+                </div>
+                <h3 className="text-2xl font-black uppercase text-teal-900 mb-2">Awaiting Scan</h3>
+                <p className="text-sm text-slate-500 mb-8">Align your QR code within the frame above.</p>
+                <button onClick={() => setStep('welcome')} className="w-full py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold uppercase tracking-widest text-xs">Cancel Scan</button>
+              </div>
             )}
 
             {/* IDENTIFY (SECURE 2FA) */}
             {step === 'identify' && (
                 <div className="w-full max-w-md animate-in slide-in-from-bottom-10 duration-300">
                     <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100">
-                        <h3 className="text-2xl font-black text-center text-slate-800 mb-8 uppercase tracking-widest">Verify Identity</h3>
+                        <h3 className="text-2xl font-black text-center text-slate-800 mb-8 uppercase tracking-widest">Identify Profile</h3>
                         <form onSubmit={handleIdentify} className="space-y-6">
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest flex items-center gap-1"><Phone size={12}/> Registered Mobile</label>
@@ -184,10 +209,6 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
                     </div>
                     <h2 className="text-4xl font-black text-teal-900 uppercase tracking-tighter">Records Processed</h2>
                     <p className="text-xl text-slate-500 mt-4 max-w-md mx-auto">Thank you for updating your information. Please wait for your name to be called.</p>
-                    <div className="mt-12 flex items-center justify-center gap-2 text-slate-300">
-                        <ShieldCheck size={16}/>
-                        <span className="text-[10px] font-black uppercase tracking-widest">Compliant with R.A. 10173</span>
-                    </div>
                 </div>
             )}
         </div>
@@ -202,6 +223,7 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
                     initialData={foundPatient}
                     fieldSettings={fieldSettings}
                     isKiosk={true} 
+                    currentBranch={""}
                  />
             </div>
         )}

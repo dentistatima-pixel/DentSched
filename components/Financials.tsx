@@ -1,10 +1,27 @@
-
 import React, { useState, useMemo } from 'react';
-import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, ArrowRightLeft, Target, Trash2, Link } from 'lucide-react';
+import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, ArrowRightLeft, Target, Trash2, Link, Activity } from 'lucide-react';
 import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, ClaimStatus, AuditLogEntry } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
+
+// --- VISUAL COMPONENT: SPARKLINE ---
+const Sparkline: React.FC<{ data: number[], color: string }> = ({ data, color }) => {
+  const max = Math.max(...data, 1);
+  const points = data.map((d, i) => `${(i / (data.length - 1)) * 100},${100 - (d / max) * 100}`).join(' ');
+  return (
+    <svg viewBox="0 0 100 100" className="w-20 h-10 overflow-visible" preserveAspectRatio="none">
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+};
 
 interface FinancialsProps {
   claims: HMOClaim[];
@@ -33,7 +50,6 @@ interface FinancialsProps {
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
-// Fixed: Added TreatmentAcceptanceCard component to track treatment plan approval rates
 const TreatmentAcceptanceCard: React.FC<{ patients: Patient[] }> = ({ patients }) => {
     const stats = useMemo(() => {
         const allPlans = patients.flatMap(p => p.treatmentPlans || []);
@@ -55,7 +71,6 @@ const TreatmentAcceptanceCard: React.FC<{ patients: Patient[] }> = ({ patients }
     );
 };
 
-// Fixed: Added DebtAgingTab to visualize accounts receivable aging (0-90+ days)
 const DebtAgingTab: React.FC<{ patients: Patient[] }> = ({ patients }) => {
     const aging = useMemo(() => {
         const buckets = { current: 0, thirty: 0, sixty: 0, ninety: 0 };
@@ -86,12 +101,15 @@ const DebtAgingTab: React.FC<{ patients: Patient[] }> = ({ patients }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-                { label: 'Current (0-30D)', value: aging.current, color: 'bg-emerald-50 text-emerald-700' },
-                { label: '30-60 Days', value: aging.thirty, color: 'bg-amber-50 text-amber-700' },
-                { label: '60-90 Days', value: aging.sixty, color: 'bg-orange-50 text-orange-700' },
-                { label: '90+ Days (Risk)', value: aging.ninety, color: 'bg-red-50 text-red-700' },
+                { label: 'Current (0-30D)', value: aging.current, color: 'bg-emerald-50 text-emerald-700', trend: [10, 20, 15, 25, 30, 20, 28] },
+                { label: '30-60 Days', value: aging.thirty, color: 'bg-amber-50 text-amber-700', trend: [5, 10, 8, 12, 10, 15, 14] },
+                { label: '60-90 Days', value: aging.sixty, color: 'bg-orange-50 text-orange-700', trend: [2, 4, 3, 5, 8, 6, 7] },
+                { label: '90+ Days (Risk)', value: aging.ninety, color: 'bg-red-50 text-red-700', trend: [8, 12, 10, 15, 20, 18, 22] },
             ].map(b => (
-                <div key={b.label} className={`p-6 rounded-[2rem] border border-slate-100 shadow-sm ${b.color}`}>
+                <div key={b.label} className={`p-6 rounded-[2.5rem] border border-slate-100 shadow-sm ${b.color} relative overflow-hidden group`}>
+                    <div className="absolute bottom-4 right-4 opacity-40 group-hover:opacity-100 transition-opacity">
+                      <Sparkline data={b.trend} color="currentColor" />
+                    </div>
                     <div className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">{b.label}</div>
                     <div className="text-2xl font-black">₱{b.value.toLocaleString()}</div>
                 </div>
@@ -100,7 +118,6 @@ const DebtAgingTab: React.FC<{ patients: Patient[] }> = ({ patients }) => {
     );
 };
 
-// Fixed: Added HMOClaimsTab for raw list view of carrier claims
 const HMOClaimsTab: React.FC<{ claims: HMOClaim[], patients: Patient[] }> = ({ claims, patients }) => {
     return (
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
@@ -123,7 +140,6 @@ const HMOClaimsTab: React.FC<{ claims: HMOClaim[], patients: Patient[] }> = ({ c
     );
 };
 
-// Fixed: Added PhilHealthClaimsTab for specialized government claim tracking
 const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patient[], onUpdateClaim?: any }> = ({ claims, patients }) => {
     return (
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
@@ -146,7 +162,6 @@ const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patie
     );
 };
 
-// Fixed: Added CashReconciliationTab to handle daily cash-drawer verification protocol
 const CashReconciliationTab: React.FC<any> = ({ patients, currentBranch, currentUser, reconciliations, onSave, fieldSettings }) => {
     const [cash, setCash] = useState('');
     const [card, setCard] = useState('');
@@ -159,7 +174,7 @@ const CashReconciliationTab: React.FC<any> = ({ patients, currentBranch, current
             id: `rec_${Date.now()}`,
             date: new Date().toISOString().split('T')[0],
             branch: currentBranch,
-            expectedTotal: 0, // Simplified for mock
+            expectedTotal: 0,
             actualCash: parseFloat(cash) || 0,
             actualCard: parseFloat(card) || 0,
             actualEWallet: parseFloat(eWallet) || 0,
@@ -206,7 +221,6 @@ const CashReconciliationTab: React.FC<any> = ({ patients, currentBranch, current
     );
 };
 
-// Fixed: Added PayrollTab to calculate provider commissions based on completed procedure production
 const PayrollTab: React.FC<any> = ({ staff, appointments, fieldSettings, payrollPeriods, payrollAdjustments, onAddAdjustment, onApproveAdjustment }) => {
     return (
         <div className="space-y-8">
@@ -272,7 +286,6 @@ const ClaimsHub: React.FC<{
     const [overrideModal, setOverrideModal] = useState<any | null>(null);
     const [overrideForm, setOverrideForm] = useState({ notes: '', proof: '' });
 
-    // Unified list for logic
     const allClaims = useMemo(() => {
         const unified = [
             ...hmoClaims.map(c => ({ ...c, type: 'HMO' })),
@@ -308,23 +321,19 @@ const ClaimsHub: React.FC<{
             if (!received) return;
             const amount = parseFloat(received);
 
-            // 1. Update Claim Status
             const updatedClaim = { ...claim, status: ClaimStatus.SETTLED, amountReceived: amount, dateReceived: new Date().toISOString().split('T')[0] };
             if (claim.type === 'HMO' && onUpdateHmo) onUpdateHmo(updatedClaim);
             if (claim.type === 'PhilHealth' && onUpdatePhilHealth) onUpdatePhilHealth(updatedClaim);
 
-            // 2. Solidify Ledger (Shadow -> Final Payment)
             if (onUpdatePatient) {
                 const ledger = [...(patient.ledger || [])];
                 const entryIndex = ledger.findIndex(e => e.id === claim.ledgerEntryId || e.claimId === claim.id);
                 
                 if (entryIndex >= 0) {
                     const originalEntry = ledger[entryIndex];
-                    // Remove Shadow Credit
                     const updatedEntry = { ...originalEntry, shadowCreditAmount: undefined };
                     ledger[entryIndex] = updatedEntry;
                     
-                    // Add Actual Payment Entry
                     const currentBalance = ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter;
                     const paymentEntry: LedgerEntry = {
                         id: `pay_${Date.now()}`,
@@ -348,12 +357,10 @@ const ClaimsHub: React.FC<{
         if (action === 'deny') {
             if (!confirm("Are you sure you want to DENY this claim? The patient's shadow credit will be removed, and they will be responsible for the full balance.")) return;
             
-            // 1. Update Claim Status
             const updatedClaim = { ...claim, status: ClaimStatus.DENIED };
             if (claim.type === 'HMO' && onUpdateHmo) onUpdateHmo(updatedClaim);
             if (claim.type === 'PhilHealth' && onUpdatePhilHealth) onUpdatePhilHealth(updatedClaim);
 
-            // 2. Remove Shadow Credit (Revert to Due)
             if (onUpdatePatient) {
                 const ledger = [...(patient.ledger || [])];
                 const entryIndex = ledger.findIndex(e => e.id === claim.ledgerEntryId || e.claimId === claim.id);
@@ -420,9 +427,6 @@ const ClaimsHub: React.FC<{
                             </div>
                         </div>
                     ))}
-                    {filtered.length === 0 && (
-                        <div className="py-20 text-center text-slate-300 italic text-xs">No claims {title.toLowerCase()}.</div>
-                    )}
                 </div>
             </div>
         );
@@ -438,12 +442,6 @@ const ClaimsHub: React.FC<{
                         <p className="text-xs text-slate-500">Managing clinical truth separate from third-party settlement timelines.</p>
                     </div>
                 </div>
-                <div className="flex gap-4">
-                    <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 text-center">
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Aggregate Exposure</div>
-                        <div className="text-sm font-black text-teal-900">₱{allClaims.filter(c => c.status !== ClaimStatus.SETTLED && c.status !== ClaimStatus.DENIED).reduce((s, c) => s + c.amountClaimed, 0).toLocaleString()}</div>
-                    </div>
-                </div>
             </div>
 
             <div className="flex-1 flex gap-6 overflow-x-auto pb-4 no-scrollbar">
@@ -452,46 +450,6 @@ const ClaimsHub: React.FC<{
                 <Column title="Adjudicated" status={ClaimStatus.ADJUDICATED} color="text-blue-600" />
                 <Column title="Settled / Closed" status={ClaimStatus.SETTLED} color="text-teal-600" />
             </div>
-
-            {/* OVERRIDE & PROOF MODAL */}
-            {overrideModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95">
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-3 text-lilac-600">
-                                <FileText size={32} />
-                                <h3 className="text-2xl font-black uppercase tracking-tighter">PhilHealth Proof</h3>
-                            </div>
-                            <button onClick={() => setOverrideModal(null)}><X size={24} className="text-slate-400"/></button>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Proof of Transmission (URL / Screenshot Ref)</label>
-                                <input 
-                                    type="text" 
-                                    className="input" 
-                                    value={overrideForm.proof} 
-                                    onChange={e => setOverrideForm({...overrideForm, proof: e.target.value})}
-                                    placeholder="Paste PhilHealth Portal confirmation link..."
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Manual Case-Rate Override Notes</label>
-                                <textarea 
-                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl h-32 focus:ring-4 focus:ring-teal-500/10 outline-none font-medium"
-                                    value={overrideForm.notes}
-                                    onChange={e => setOverrideForm({...overrideForm, notes: e.target.value})}
-                                    placeholder="Justify non-standard case rate amounts or manual calculation..."
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setOverrideModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
-                            <button onClick={handleSaveOverride} className="flex-[2] py-4 bg-lilac-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-lilac-600/20">Save Proof Metadata</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -511,41 +469,14 @@ const Financials: React.FC<FinancialsProps> = (props) => {
     { id: 'payroll', label: 'Staff Payroll', icon: Award },
     { id: 'philhealth', label: 'PhilHealth', icon: FileText },
     { id: 'claims', label: 'HMO Raw', icon: Heart },
-    { id: 'expenses', label: 'Expenses', icon: Package },
   ];
 
   const renderContent = () => {
     switch (activeTab) {
       case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
       case 'reconciliation': return <CashReconciliationTab patients={patients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} onSaveSession={onSaveCashSession} fieldSettings={fieldSettings} />;
-      case 'claims-hub': return (
-        <ClaimsHub 
-            hmoClaims={claims} 
-            philHealthClaims={philHealthClaims} 
-            patients={patients} 
-            onUpdateHmo={onUpdateHmoClaim}
-            onUpdatePhilHealth={onUpdatePhilHealthClaim}
-            onUpdatePatient={onUpdatePatient}
-            logAction={logAction}
-        />
-      );
-      case 'payroll': return (
-        <PayrollTab 
-            appointments={appointments || []} 
-            staff={staff || []} 
-            expenses={expenses} 
-            fieldSettings={fieldSettings} 
-            currentUser={currentUser}
-            payrollPeriods={props.payrollPeriods}
-            payrollAdjustments={props.payrollAdjustments}
-            commissionDisputes={props.commissionDisputes}
-            onUpdatePayrollPeriod={props.onUpdatePayrollPeriod}
-            onAddAdjustment={props.onAddPayrollAdjustment}
-            onApproveAdjustment={props.onApprovePayrollAdjustment}
-            onAddDispute={props.onAddCommissionDispute}
-            onResolveDispute={props.onResolveCommissionDispute}
-        />
-      );
+      case 'claims-hub': return <ClaimsHub hmoClaims={claims} philHealthClaims={philHealthClaims} patients={patients} onUpdateHmo={onUpdateHmoClaim} onUpdatePhilHealth={onUpdatePhilHealthClaim} onUpdatePatient={onUpdatePatient} logAction={logAction} />;
+      case 'payroll': return <PayrollTab appointments={appointments || []} staff={staff || []} expenses={expenses} fieldSettings={fieldSettings} currentUser={currentUser} payrollPeriods={props.payrollPeriods} payrollAdjustments={props.payrollAdjustments} commissionDisputes={props.commissionDisputes} onUpdatePayrollPeriod={props.onUpdatePayrollPeriod} onAddAdjustment={props.onAddPayrollAdjustment} onApproveAdjustment={props.onApprovePayrollAdjustment} />;
       case 'aging': return <DebtAgingTab patients={patients} />;
       case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients} onUpdateClaim={onUpdatePhilHealthClaim} />;
       case 'claims': return <HMOClaimsTab claims={claims} patients={patients} />;
@@ -555,19 +486,19 @@ const Financials: React.FC<FinancialsProps> = (props) => {
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex-shrink-0 flex justify-between items-start">
+      <header className="flex-shrink-0 flex justify-between items-start px-2">
           <div className="flex items-center gap-3">
               <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-700 shadow-sm"><DollarSign size={32} /></div>
-              <div><h1 className="text-3xl font-bold text-slate-800">Practice Economics</h1><p className="text-slate-500">Clinical production and growth metrics.</p></div>
+              <div><h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Economics</h1><p className="text-slate-500">Practice growth & ledger verification.</p></div>
           </div>
           <div className="flex gap-2">
               <TreatmentAcceptanceCard patients={patients || []} />
           </div>
       </header>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
             {tabs.map(tab => (
-                 <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`py-4 px-5 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><tab.icon size={16} /> {tab.label}</button>
+                 <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`py-4 px-5 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-400 hover:text-teal-600'}`}><tab.icon size={16} /> {tab.label}</button>
             ))}
         </div>
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">{renderContent()}</div>
@@ -576,5 +507,4 @@ const Financials: React.FC<FinancialsProps> = (props) => {
   );
 };
 
-// Fixed: Added default export for Financials component
 export default Financials;

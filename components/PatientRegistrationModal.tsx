@@ -16,9 +16,10 @@ interface PatientRegistrationModalProps {
   fieldSettings: FieldSettings; 
   patients?: Patient[]; 
   isKiosk?: boolean;
+  currentBranch: string;
 }
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, patients = [], isKiosk = false }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, patients = [], isKiosk = false, currentBranch }) => {
   const toast = useToast();
   const [activeSection, setActiveSection] = useState<string>('basic');
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -46,11 +47,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         } 
         else { 
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
-            setFormData({ ...initialFormState, id: generatedId }); 
+            setFormData({ ...initialFormState, id: generatedId, originatingBranch: currentBranch }); 
         }
         setActiveSection('basic');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, currentBranch]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -137,10 +138,18 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-8 pb-10">
                 <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Protocol & Privacy Acknowledgment</h3></div>
+                    <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Protocol & Record Sovereignty</h3></div>
                     <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
                         <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
-                        <div><div className="flex items-center gap-2 mb-1"><span className="font-extrabold text-teal-900 uppercase text-xs">Primary Clinical Consent *</span><button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }} className="text-[10px] font-bold bg-white text-teal-600 border border-teal-200 px-2 py-0.5 rounded-full hover:bg-teal-500 hover:text-white">Review R.A. 10173</button></div><p className="text-xs text-slate-600 leading-relaxed">I consent to the collection of my Sensitive Personal Information, including detailed medical and dental history, for clinical diagnosis and treatment purposes.</p></div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="font-extrabold text-teal-900 uppercase text-xs">Primary Clinical Consent *</span>
+                                <button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }} className="text-[10px] font-bold bg-white text-teal-600 border border-teal-200 px-2 py-0.5 rounded-full hover:bg-teal-500 hover:text-white">Review R.A. 10173</button>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                                I consent to the collection of my SPI for diagnosis. I acknowledge this is a <strong>Clinic-Specific Record</strong>. Data is stored in branch-specific silos and only linked via explicit identifier consent.
+                            </p>
+                        </div>
                     </label>
                 </div>
 

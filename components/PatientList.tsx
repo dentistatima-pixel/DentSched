@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, LayoutGrid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Fingerprint, Armchair } from 'lucide-react';
-import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule, ClearanceRequest, TreatmentPlanStatus, ConsentCategory, ConsentLogEntry, AuthorityLevel, AccessPurpose } from '../types';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, LayoutGrid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Fingerprint, Armchair, ZapIcon, Info, Target } from 'lucide-react';
+import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule, ClearanceRequest, TreatmentPlanStatus, ConsentCategory, ConsentLogEntry, AuthorityLevel, AccessPurpose, UIMode } from '../types';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import TreatmentPlan from './TreatmentPlan';
@@ -28,30 +27,26 @@ interface PatientListProps {
   fieldSettings?: FieldSettings; 
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, previousState?: any, newState?: any, accessPurpose?: AccessPurpose) => void;
   staff?: User[];
-  // Added currentBranch to fix "Cannot find name 'currentBranch'"
   currentBranch: string;
+  uiMode?: UIMode;
 }
 
 const PatientList: React.FC<PatientListProps> = ({ 
     patients, appointments, currentUser, selectedPatientId, onSelectPatient, onAddPatient, onEditPatient,
-    onQuickUpdatePatient, onBulkUpdatePatients, onDeletePatient, onBookAppointment, fieldSettings, logAction, staff = [], currentBranch
+    onQuickUpdatePatient, onBulkUpdatePatients, onDeletePatient, onBookAppointment, fieldSettings, logAction, staff = [], currentBranch, uiMode
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>('info'); 
-  const [planViewMode, setPlanViewMode] = useState<'list' | 'timeline'>('list');
   const [revocationTarget, setRevocationTarget] = useState<{ category: ConsentCategory } | null>(null);
   const [isLegalExportOpen, setIsLegalExportOpen] = useState(false);
   
-  // UX: Role Awareness
   const isAssistant = currentUser.role === UserRole.DENTAL_ASSISTANT;
   const isAdmin = currentUser.role === UserRole.ADMIN;
 
-  // Compliance: Access Purpose Selection
   const [sessionAccessPurpose, setSessionAccessPurpose] = useState<AccessPurpose | null>(null);
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId) || null, [patients, selectedPatientId]);
 
-  // Reset purpose and tab when patient selection changes
   useEffect(() => {
     setSessionAccessPurpose(null);
     setActiveTab('info');
@@ -76,17 +71,6 @@ const PatientList: React.FC<PatientListProps> = ({
       return patients.filter(p => p.referredById === selectedPatient.id);
   }, [patients, selectedPatient]);
 
-  const isFinancialAccessRestricted = isAssistant;
-
-  const isMinor = useMemo(() => selectedPatient && selectedPatient.age !== undefined && selectedPatient.age < 18, [selectedPatient]);
-  const isSeniorDependent = useMemo(() => selectedPatient && selectedPatient.isSeniorDependent, [selectedPatient]);
-  const isDependent = isMinor || isSeniorDependent || (selectedPatient && selectedPatient.isPwd);
-
-  const dependents = useMemo(() => {
-    if (!selectedPatient) return [];
-    return patients.filter(p => p.guardianProfile?.linkedPatientId === selectedPatient.id);
-  }, [patients, selectedPatient]);
-
   const handlePurposeSelection = (purpose: AccessPurpose) => {
     setSessionAccessPurpose(purpose);
     if (selectedPatientId) {
@@ -94,15 +78,13 @@ const PatientList: React.FC<PatientListProps> = ({
     }
   };
 
-  // Reliability Logic
-  const getReliabilityUI = (score?: number) => {
+  const getAttendancePatternUI = (score?: number) => {
       if (score === undefined) return { icon: Circle, color: 'text-slate-300', label: 'New Patient' };
-      if (score >= 80) return { icon: CheckCircle, color: 'text-teal-500', label: 'High Reliability' };
-      if (score >= 60) return { icon: Circle, color: 'text-lilac-400', label: 'Standard' };
-      return { icon: AlertTriangle, color: 'text-red-500', label: 'High Risk (No-Show)' };
+      if (score >= 80) return { icon: CheckCircle, color: 'text-teal-500', label: 'Reliable Pattern' };
+      if (score >= 60) return { icon: Circle, color: 'text-lilac-400', label: 'Standard Pattern' };
+      return { icon: AlertTriangle, color: 'text-red-500', label: 'Irregular Pattern (No-Show Risk)' };
   };
 
-  // High-Risk Alert Filter
   const highRiskConditions = useMemo(() => {
       if (!selectedPatient) return [];
       const alerts = [];
@@ -113,6 +95,22 @@ const PatientList: React.FC<PatientListProps> = ({
       if (selectedPatient.respiratoryIssues) alerts.push("RESPIRATORY ISSUES");
       return alerts;
   }, [selectedPatient]);
+
+  // Clinical "Now View" Snapshot Data
+  const nowViewSnapshot = useMemo(() => {
+      if (!selectedPatient) return null;
+      const today = new Date().toLocaleDateString('en-CA');
+      const todaysApt = appointments.find(a => a.patientId === selectedPatient.id && a.date === today);
+      const latestSoap = [...(selectedPatient.dentalChart || [])].sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())[0];
+      
+      return {
+          complaint: selectedPatient.chiefComplaint || 'None Reported',
+          procedure: todaysApt?.type || 'No Scheduled Visit',
+          allergies: selectedPatient.allergies?.length ? selectedPatient.allergies.join(', ') : 'No Known Allergies',
+          consent: selectedPatient.dpaConsent ? 'Verified' : 'MISSING',
+          chair: todaysApt?.resourceId || 'Unassigned'
+      };
+  }, [selectedPatient, appointments]);
 
   const handleRevokeConsent = (reason: string, notes: string) => {
       if (!selectedPatient || !revocationTarget) return;
@@ -143,30 +141,6 @@ const PatientList: React.FC<PatientListProps> = ({
       }
   };
 
-  const handleGrantConsent = (category: ConsentCategory) => {
-      if (!selectedPatient) return;
-      
-      const newLog: ConsentLogEntry = {
-          id: `cl_${Date.now()}`,
-          category,
-          status: 'Granted',
-          version: fieldSettings?.currentPrivacyVersion || 'v1.0',
-          timestamp: new Date().toISOString(),
-          staffId: currentUser.id,
-          staffName: currentUser.name
-      };
-
-      const updatedPatient = {
-          ...selectedPatient,
-          consentLogs: [...(selectedPatient.consentLogs || []), newLog]
-      };
-
-      onQuickUpdatePatient(updatedPatient);
-      logAction('UPDATE', 'Patient', selectedPatient.id, `Re-granted ${category} consent (v${fieldSettings?.currentPrivacyVersion}).`, undefined, undefined, sessionAccessPurpose || undefined);
-      toast.success(`${category} consent successfully updated.`);
-  };
-
-  // Referral Tree Recursive Component
   const ReferralNode: React.FC<{ patient: Patient; allPatients: Patient[]; level?: number }> = ({ patient, allPatients, level = 0 }) => {
       const children = allPatients.filter(p => p.referredById === patient.id);
       return (
@@ -186,7 +160,6 @@ const PatientList: React.FC<PatientListProps> = ({
       );
   };
 
-  // Role-Based Tab Definition
   const tabs = useMemo(() => {
     if (isAssistant) {
         return [
@@ -195,7 +168,7 @@ const PatientList: React.FC<PatientListProps> = ({
             { id: 'imaging', label: 'Imaging', icon: FileImage },
         ];
     }
-    return [
+    const base = [
         { id: 'info', label: 'Identity', icon: UserIcon },
         { id: 'medical', label: 'History', icon: Heart },
         { id: 'chart', label: 'Chart', icon: LayoutGrid },
@@ -205,7 +178,13 @@ const PatientList: React.FC<PatientListProps> = ({
         { id: 'imaging', label: 'Imaging', icon: FileImage },
         { id: 'documents', label: 'Docs', icon: FileText },
     ];
-  }, [isAssistant]);
+    
+    if (uiMode === UIMode.AUDIT) {
+        base.push({ id: 'forensics', label: 'Forensic Audit', icon: Fingerprint });
+    }
+    
+    return base;
+  }, [isAssistant, uiMode]);
 
   const clinicalTabs = ['medical', 'chart', 'imaging', 'perio', 'plan'];
 
@@ -220,21 +199,38 @@ const PatientList: React.FC<PatientListProps> = ({
            </div>
            <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
                {patients.map(p => {
-                   const reliability = getReliabilityUI(p.reliabilityScore);
+                   const reliability = getAttendancePatternUI(p.reliabilityScore);
                    const isMinorPt = p.age !== undefined && p.age < 18;
+                   const pes = p.engagementScore || 0;
                    return (
                    <button key={p.id} onClick={() => onSelectPatient(p.id)} className={`w-full text-left p-4 rounded-xl transition-all flex justify-between items-center group ${selectedPatientId === p.id ? 'bg-teal-600 text-white shadow-lg' : 'hover:bg-teal-50'}`}>
-                       <div className="flex-1 min-w-0">
-                           <div className="flex items-center gap-2">
-                               <div className="font-bold text-sm truncate">{p.name}</div>
-                               <reliability.icon size={12} className={selectedPatientId === p.id ? 'text-white' : reliability.color} title={reliability.label} />
+                       <div className="flex-1 min-w-0 flex items-center gap-3">
+                           {/* --- PES ENGAGEMENT RING --- */}
+                           <div className="relative w-10 h-10 shrink-0">
+                               <svg className="w-full h-full transform -rotate-90">
+                                   <circle cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="2" fill="transparent" className={selectedPatientId === p.id ? 'text-teal-800/30' : 'text-slate-100'} />
+                                   <circle 
+                                        cx="20" cy="20" r="18" stroke="currentColor" strokeWidth="2" fill="transparent" 
+                                        strokeDasharray={113} strokeDashoffset={113 - (113 * pes) / 100} 
+                                        className={`${selectedPatientId === p.id ? 'text-white' : pes > 80 ? 'text-teal-500' : pes > 60 ? 'text-lilac-500' : 'text-red-500'} transition-all duration-1000`} 
+                                    />
+                               </svg>
+                               <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className={`text-[8px] font-black ${selectedPatientId === p.id ? 'text-white' : 'text-slate-500'}`}>{pes}%</span>
+                               </div>
                            </div>
-                           <div className={`text-[10px] uppercase font-bold flex items-center gap-2 ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-400'}`}>
-                               ID: {p.id}
-                               {p.currentBalance !== undefined && p.currentBalance > 0 && (
-                                   <span className="bg-red-500 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5"><DollarSign size={8}/> DUE</span>
-                               )}
-                               {isMinorPt && <span className="bg-lilac-500 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5"><Baby size={8}/> MINOR</span>}
+                           <div className="min-w-0">
+                               <div className="flex items-center gap-2">
+                                   <div className="font-bold text-sm truncate">{p.name}</div>
+                                   <reliability.icon size={12} className={selectedPatientId === p.id ? 'text-white' : reliability.color} title={reliability.label} />
+                               </div>
+                               <div className={`text-[10px] uppercase font-bold flex items-center gap-2 ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-400'}`}>
+                                   ID: {p.id}
+                                   {p.currentBalance !== undefined && p.currentBalance > 0 && (
+                                       <span className="bg-red-500 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5"><DollarSign size={8}/> DUE</span>
+                                   )}
+                                   {isMinorPt && <span className="bg-lilac-500 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5"><Baby size={8}/> MINOR</span>}
+                               </div>
                            </div>
                        </div>
                        <ChevronRight size={16} className={selectedPatientId === p.id ? 'text-white' : 'text-slate-300 group-hover:text-teal-400'} />
@@ -253,7 +249,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         <Fingerprint size={40}/>
                     </div>
                     <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tighter mb-2">Identify Access Purpose</h2>
-                    <p className="text-sm text-slate-500 font-medium mb-10 max-w-sm">R.A. 10173 requires explicit tagging of all sensitive information access events.</p>
+                    <p className="text-sm text-slate-500 font-medium mb-10 max-sm w-sm">R.A. 10173 requires explicit tagging of all sensitive information access events.</p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-lg">
                         <button onClick={() => handlePurposeSelection(AccessPurpose.TREATMENT)} className="p-6 bg-white border-2 border-slate-100 rounded-3xl hover:border-teal-500 hover:bg-teal-50 transition-all flex flex-col items-center gap-3 group">
@@ -294,16 +290,38 @@ const PatientList: React.FC<PatientListProps> = ({
 
            <div className="pt-6 px-6 pb-6 border-b bg-white">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-3xl font-bold text-slate-900">{selectedPatient.name}</h2>
-                            {selectedPatient.reliabilityScore !== undefined && (
-                                <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 border ${selectedPatient.reliabilityScore >= 80 ? 'bg-teal-50 border-teal-200 text-teal-700' : selectedPatient.reliabilityScore < 60 ? 'bg-red-50 border-red-200 text-red-700 animate-pulse' : 'bg-lilac-50 border-lilac-200 text-lilac-700'}`}>
-                                    <Activity size={10}/> Reliability: {selectedPatient.reliabilityScore}%
+                    <div className="flex items-center gap-4">
+                        {/* --- ENLARGED PROFILE PES RING --- */}
+                        <div className="relative w-16 h-16 group cursor-help">
+                             <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="32" cy="32" r="30" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
+                                <circle cx="32" cy="32" r="30" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={188} strokeDashoffset={188 - (188 * (selectedPatient.engagementScore || 0)) / 100} className={`${(selectedPatient.engagementScore || 0) > 80 ? 'text-teal-500' : 'text-lilac-500'} transition-all duration-1000`} />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-black text-slate-800">{(selectedPatient.engagementScore || 0)}%</span>
+                            </div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-slate-800 text-white p-3 rounded-xl text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[110] shadow-2xl">
+                                <div className="font-black uppercase tracking-widest border-b border-white/10 pb-1 mb-1 flex items-center gap-2">
+                                    <Target size={12}/> Patient Engagement Score
                                 </div>
-                            )}
+                                <div className="space-y-1 normal-case opacity-80">
+                                    • Punctuality: {selectedPatient.reliabilityScore}%<br/>
+                                    • Plan Acceptance: {Math.round((selectedPatient.treatmentPlans?.filter(tp => tp.status === TreatmentPlanStatus.APPROVED).length || 0) / (selectedPatient.treatmentPlans?.length || 1) * 100)}%<br/>
+                                    • Payment Speed: {(selectedPatient.currentBalance || 0) > 10000 ? 'Low' : 'Verified'}
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-sm font-bold text-slate-400 uppercase mt-1">ID: {selectedPatient.id}</div>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-3xl font-bold text-slate-900">{selectedPatient.name}</h2>
+                                {selectedPatient.reliabilityScore !== undefined && (
+                                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 border ${selectedPatient.reliabilityScore >= 80 ? 'bg-teal-50 border-teal-200 text-teal-700' : selectedPatient.reliabilityScore < 60 ? 'bg-red-50 border-red-200 text-red-700 animate-pulse' : 'bg-lilac-50 border-lilac-200 text-lilac-700'}`}>
+                                        <Activity size={10}/> Attendance Pattern: {selectedPatient.reliabilityScore}%
+                                    </div>
+                                )}
+                            </div>
+                            <div className="text-sm font-bold text-slate-400 uppercase mt-1">ID: {selectedPatient.id}</div>
+                        </div>
                     </div>
                     <div className="flex gap-2">
                         {referrals.length > 0 && <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-3 py-1 rounded-full border border-teal-200 flex items-center gap-1 shadow-sm"><Star size={12} fill="currentColor"/> {referrals.length} REFERRALS</span>}
@@ -319,7 +337,36 @@ const PatientList: React.FC<PatientListProps> = ({
                 </div>
            </div>
 
-           <div className="bg-white px-6 border-b border-slate-200 flex gap-6 shrink-0 z-0 overflow-x-auto no-scrollbar">
+           {/* --- CLINICAL NOW VIEWSnapshot CARD --- */}
+           {nowViewSnapshot && (
+               <div className="mx-6 mt-4 p-4 bg-white border-2 border-lilac-100 rounded-[2rem] shadow-lg flex flex-wrap gap-6 items-center animate-in slide-in-from-top-4 duration-500 z-10 shrink-0">
+                   <div className="bg-lilac-50 p-3 rounded-2xl text-lilac-600">
+                        <ZapIcon size={24} className="animate-pulse" />
+                   </div>
+                   <div className="flex-1 min-w-[150px]">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Today's Complaint</div>
+                       <div className="text-sm font-black text-lilac-700 uppercase truncate">{nowViewSnapshot.complaint}</div>
+                   </div>
+                   <div className="flex-1 min-w-[150px]">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Planned Procedure</div>
+                       <div className="text-sm font-black text-slate-800 uppercase truncate">{nowViewSnapshot.procedure}</div>
+                   </div>
+                   <div className="flex-1 min-w-[150px]">
+                       <div className="text-[9px] font-black text-red-400 uppercase tracking-widest">Allergies</div>
+                       <div className="text-sm font-black text-red-600 uppercase truncate">{nowViewSnapshot.allergies}</div>
+                   </div>
+                   <div className="flex-1 min-w-[100px]">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consent</div>
+                       <div className={`text-sm font-black uppercase ${nowViewSnapshot.consent === 'Verified' ? 'text-teal-600' : 'text-red-600'}`}>{nowViewSnapshot.consent}</div>
+                   </div>
+                   <div className="flex-1 min-w-[100px]">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chair</div>
+                       <div className="text-sm font-black text-slate-800 uppercase">{nowViewSnapshot.chair}</div>
+                   </div>
+               </div>
+           )}
+
+           <div className="bg-white px-6 border-b border-slate-200 flex gap-6 shrink-0 z-0 overflow-x-auto no-scrollbar mt-4">
                {tabs.map(tab => {
                    const isBlocked = clinicalTabs.includes(tab.id) && !isClinicalProcessingAllowed;
                    return (
@@ -341,8 +388,7 @@ const PatientList: React.FC<PatientListProps> = ({
 
            <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
                 {activeTab === 'info' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20 relative">
                         {/* LEFT COLUMN: REFERRALS & DEPENDENTS */}
                         <div className="space-y-6">
                             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-fit">
@@ -425,6 +471,16 @@ const PatientList: React.FC<PatientListProps> = ({
                                         <span className="font-bold text-teal-600">{selectedPatient.phone}</span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* RECORD SOVEREIGNTY DISCLAIMER */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
+                            <div className="bg-lilac-50/50 border border-lilac-100 rounded-xl px-6 py-3 flex items-center gap-3">
+                                <Lock size={12} className="text-lilac-400"/>
+                                <p className="text-[10px] font-bold text-lilac-600 uppercase tracking-widest">
+                                    Clinic-Specific Record Silo. Access governed by explicit identifier consent.
+                                </p>
                             </div>
                         </div>
                     </div>
