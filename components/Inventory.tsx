@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Edit2, Boxes, RefreshCcw, ArrowRightLeft, MapPin, Wrench, Shield, History, Scale, Zap, CheckCircle, TrendingDown, Info, UserX, UserMinus } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, StockTransfer, FieldSettings, AuditLogEntry, Appointment, Patient } from '../types';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, UserRole, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -14,76 +13,89 @@ interface InventoryProps {
   currentBranch: string;
   availableBranches: string[];
   transfers?: StockTransfer[];
-  fieldSettings?: FieldSettings;
-  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
-  appointments?: Appointment[];
+  onPerformTransfer?: (t: StockTransfer) => void;
   patients?: Patient[];
-  uiMode?: string;
+  fieldSettings?: FieldSettings;
+  onUpdateSettings?: (s: FieldSettings) => void;
+  appointments?: Appointment[];
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
+const TOLERANCE_MAP: Record<StockCategory, number> = {
+    [StockCategory.CONSUMABLES]: 0.10,
+    [StockCategory.RESTORATIVE]: 0.05,
+    [StockCategory.INSTRUMENTS]: 0,
+    [StockCategory.PROSTHODONTIC]: 0,
+    [StockCategory.OFFICE]: 0.10
+};
+
 const Inventory: React.FC<InventoryProps> = ({ 
-    stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentBranch, availableBranches, transfers = [], fieldSettings, logAction, appointments = [], patients = []
+    stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser, 
+    currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings,
+    appointments = [], logAction
 }) => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'maintenance' | 'sterilization'>('stock');
+  const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'maintenance' | 'sterilization'>('stock');
   const [searchTerm, setSearchTerm] = useState('');
   const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  
+  // RECONCILIATION STATE
   const [auditMode, setAuditMode] = useState(false);
-  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
-  const [recallAnalysis, setRecallAnalysis] = useState<StockItem | null>(null);
 
-  const branchStock = useMemo(() => stock.filter(s => s.branch === currentBranch || !s.branch), [stock, currentBranch]);
+  const branchStock = useMemo(() => {
+      return stock.filter(s => s.branch === currentBranch || !s.branch);
+  }, [stock, currentBranch]);
+
   const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const burnRateStats = useMemo<Record<string, { used: number, daysLeft: number }>>(() => {
-    const projections: Record<string, { used: number, daysLeft: number }> = {};
-    const next7Days = appointments.filter(a => {
-        const d = new Date(a.date);
-        const today = new Date();
-        const diff = (d.getTime() - today.getTime()) / (1000 * 3600 * 24);
-        return diff >= 0 && diff <= 7 && a.branch === currentBranch;
-    });
-    branchStock.forEach(item => {
-        let projectedUsage = 0;
-        next7Days.forEach(apt => {
-            const procedure = fieldSettings?.procedures.find(p => p.name === apt.type);
-            const bomItem = procedure?.billOfMaterials?.find(bom => bom.stockItemId === item.id);
-            if (bomItem) projectedUsage += bomItem.quantity;
-        });
-        const daysLeft = projectedUsage > 0 ? Math.floor(item.quantity / (projectedUsage / 7)) : 999;
-        projections[item.id] = { used: projectedUsage, daysLeft };
-    });
-    return projections;
-  }, [appointments, branchStock, fieldSettings, currentBranch]);
+  const realityScore = useMemo(() => {
+    if (branchStock.length === 0) return 100;
+    const withinTolerance = branchStock.filter(s => {
+        if (s.physicalCount === undefined) return true;
+        const diff = Math.abs(s.quantity - s.physicalCount);
+        const toleranceVal = s.quantity * (TOLERANCE_MAP[s.category] || 0);
+        return diff <= toleranceVal;
+    }).length;
+    return Math.round((withinTolerance / branchStock.length) * 100);
+  }, [branchStock]);
 
-  const affectedPatients = useMemo(() => {
-      if (!recallAnalysis) return [];
-      return patients.filter(p => p.dentalChart?.some(c => c.materialBatchId === recallAnalysis.id));
-  }, [recallAnalysis, patients]);
-
-  const handleRecallToggle = (item: StockItem) => {
-    const nextVal = !item.isRecalled;
-    onUpdateStock(stock.map(s => s.id === item.id ? { ...s, isRecalled: nextVal, recallDate: nextVal ? new Date().toISOString() : undefined } : s));
-    toast.warning(`Material Recall ${nextVal ? 'Activated' : 'Revoked'} for ${item.name}`);
-    if (logAction) logAction('UPDATE', 'Stock', item.id, `Recall status set to ${nextVal}`);
+  const handleDeleteItem = (item: StockItem) => {
+      if (!window.confirm(`PERMANENT DELETION: Are you sure you want to remove "${item.name}" from the practice catalog?`)) return;
+      onUpdateStock(stock.filter(s => s.id !== item.id));
+      if (logAction) logAction('DELETE', 'Stock', item.id, `Permanently removed stock item catalog record.`);
+      toast.success("Catalog entry purged.");
   };
 
-  const handleEmergencyDecrement = (item: StockItem) => {
-      const updatedStock = stock.map(s => s.id === item.id ? { ...s, quantity: Math.max(0, s.quantity - 1) } : s);
-      onUpdateStock(updatedStock);
-      if (logAction) logAction('EMERGENCY_CONSUMPTION_BYPASS', 'Stock', item.id, `Manual 1-unit decrement for ${item.name}.`);
-      toast.info(`Usage Logged: ${item.name}`);
+  const handleSaveItem = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editItem) return;
+      
+      const itemToSave = {
+          ...editItem,
+          id: editItem.id || `stk_${Date.now()}`,
+          branch: editItem.branch || currentBranch
+      } as StockItem;
+
+      if (editItem.id) {
+          onUpdateStock(stock.map(s => s.id === editItem.id ? itemToSave : s));
+          toast.success("Item updated.");
+      } else {
+          onUpdateStock([...stock, itemToSave]);
+          toast.success("New item added to catalog.");
+      }
+      setEditItem(null);
   };
 
-  const getExpiryStatus = (item: StockItem) => {
-      if (item.isRecalled) return { label: 'RECALLED', color: 'bg-red-600 text-white border-red-700 animate-pulse' };
-      if (!item.expiryDate) return { label: 'STABLE', color: 'bg-green-50 text-green-700 border-green-100' };
+  const getExpiryStatus = (expiryDate?: string) => {
+      if (!expiryDate) return { label: 'STABLE', color: 'bg-green-50 text-green-700 border-green-100', isExpired: false };
       const now = new Date();
-      const expiry = new Date(item.expiryDate);
+      const expiry = new Date(expiryDate);
       const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
-      if (diff < 0) return { label: 'EXPIRED', color: 'bg-red-600 text-white border-red-700' };
-      if (diff <= 30) return { label: `DUE: ${diff}D`, color: 'bg-orange-100 text-orange-700 border-orange-200' };
-      return { label: 'OK', color: 'bg-green-50 text-green-700 border-green-100' };
+      
+      if (diff < 0) return { label: 'EXPIRED', color: 'bg-red-600 text-white', isExpired: true };
+      if (diff <= 30) return { label: `EXPIRING: ${diff}D`, color: 'bg-orange-100 text-orange-700 border-orange-200', isExpired: false };
+      return { label: 'OK', color: 'bg-green-50 text-green-700 border-green-100', isExpired: false };
   };
 
   return (
@@ -91,62 +103,109 @@ const Inventory: React.FC<InventoryProps> = ({
         <header className="flex-shrink-0 flex justify-between items-start">
             <div className="flex items-center gap-3">
                 <div className="bg-blue-100 p-3 rounded-2xl text-blue-700 shadow-sm"><Package size={32} /></div>
-                <div><h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Clinic Logistics</h1><p className="text-slate-500">Stock integrity and sterilization compliance.</p></div>
+                <div><h1 className="text-3xl font-bold text-slate-800">Clinic Logistics</h1><p className="text-slate-500">Stock control and machine maintenance.</p></div>
             </div>
             <div className="flex gap-2">
-                <button onClick={() => setAuditMode(!auditMode)} className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 border ${auditMode ? 'bg-lilac-600 text-white border-lilac-500 shadow-lg' : 'bg-white border-slate-200 text-slate-500'}`}>
-                    <Scale size={18} /> {auditMode ? 'Audit Mode Active' : 'Enter Stock Audit'}
-                </button>
+                <div className="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div className="text-right">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inventory Reality Score</div>
+                        <div className={`text-xl font-black ${realityScore > 90 ? 'text-teal-600' : realityScore > 75 ? 'text-orange-500' : 'text-red-600'}`}>{realityScore}%</div>
+                    </div>
+                </div>
             </div>
         </header>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Material Registry</button>
-                <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization Log</button>
+            <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar justify-between items-center">
+                <div className="flex">
+                    <button onClick={() => setActiveTab('stock')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Boxes size={18}/> Stock</button>
+                    <button onClick={() => setActiveTab('forecasting')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><LineChart size={18}/> Forecasting</button>
+                    <button onClick={() => setActiveTab('sterilization')} className={`py-4 px-6 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><Shield size={18}/> Sterilization</button>
+                </div>
+                
+                {activeTab === 'stock' && (
+                    <div className="pr-4 flex items-center gap-3">
+                        <label className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all cursor-pointer ${auditMode ? 'bg-lilac-600 border-lilac-500 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-50'}`}>
+                            <input type="checkbox" checked={auditMode} onChange={e => setAuditMode(e.target.checked)} className="hidden"/>
+                            <Scale size={16}/>
+                            <span className="text-[10px] font-black uppercase tracking-widest">{auditMode ? 'Audit Active' : 'Enter Audit Mode'}</span>
+                        </label>
+                    </div>
+                )}
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                 {activeTab === 'stock' && (
                     <div className="space-y-4">
-                        <div className="bg-white p-6 rounded-[2rem] border border-lilac-100 shadow-lg flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-lilac-50 p-3 rounded-2xl text-lilac-600"><TrendingDown size={24} /></div>
-                                <div>
-                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Inventory Burn-Rate Monitor</h4>
-                                    <p className="text-xs text-slate-500">Projected stockouts for upcoming surgeries.</p>
-                                </div>
+                        <div className="flex flex-col md:flex-row justify-between gap-4">
+                            <div className="relative w-full md:w-80">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search catalog..." 
+                                    className="input pl-10" 
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
                             </div>
-                            {stock.some(s => s.isRecalled) && (
-                                <button onClick={() => toast.info("Filter for Recalled items in Registry.")} className="px-4 py-2 bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 animate-pulse"><AlertTriangle size={14}/> Active Recall Analysis</button>
-                            )}
+                            <button 
+                                onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: StockCategory.CONSUMABLES })} 
+                                className="bg-teal-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-600/20"
+                            >
+                                <Plus size={18}/> Add New Item
+                            </button>
                         </div>
 
-                        <div className="flex flex-col md:flex-row justify-between gap-4">
-                            <div className="relative w-full md:w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search materials..." className="input pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
-                            <button onClick={() => setEditItem({ branch: currentBranch })} className="bg-teal-600 text-white rounded-xl font-bold px-6 py-2 flex items-center gap-2 hover:bg-teal-700 shadow-md">New Item</button>
-                        </div>
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 font-black uppercase text-[10px] tracking-widest">
-                                    <tr><th className="p-4">Material Identity</th><th className="p-4 text-center">In-Stock</th><th className="p-4">Clinical Status</th><th className="p-4 text-right">Containment</th></tr>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                                    <tr>
+                                        <th className="p-4 text-left">Item Name</th>
+                                        <th className="p-4 text-left">Category</th>
+                                        <th className="p-4 text-center">Status</th>
+                                        <th className="p-4 text-right">In Stock</th>
+                                        <th className="p-4 text-right">Threshold</th>
+                                        <th className="p-4 text-right">Actions</th>
+                                    </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-50">
                                     {filteredStock.map(item => {
-                                        const expiry = getExpiryStatus(item);
+                                        const expiry = getExpiryStatus(item.expiryDate);
+                                        const isLow = item.quantity <= item.lowStockThreshold;
                                         return (
-                                            <tr key={item.id} className={`group hover:bg-slate-50 transition-all ${item.isRecalled ? 'bg-red-50/50' : ''}`}>
+                                            <tr key={item.id} className="hover:bg-slate-50/50 group">
                                                 <td className="p-4">
                                                     <div className="font-bold text-slate-800">{item.name}</div>
-                                                    <div className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{item.category}</div>
+                                                    <div className="text-[10px] text-slate-400 font-mono uppercase">{item.batchNumber || item.id}</div>
                                                 </td>
-                                                <td className="p-4 text-center font-black text-lg text-slate-700">{item.quantity}</td>
-                                                <td className="p-4"><span className={`px-2 py-1 rounded text-[10px] font-black border uppercase ${expiry.color}`}>{expiry.label}</span></td>
+                                                <td className="p-4">
+                                                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{item.category}</span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${expiry.color}`}>{expiry.label}</span>
+                                                </td>
+                                                <td className="p-4 text-right font-black text-slate-800">
+                                                    <span className={isLow ? 'text-red-600' : ''}>{item.quantity}</span>
+                                                </td>
+                                                <td className="p-4 text-right text-slate-400 font-bold">{item.lowStockThreshold}</td>
                                                 <td className="p-4 text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={() => handleRecallToggle(item)} className={`p-2 rounded-xl transition-all ${item.isRecalled ? 'bg-red-600 text-white' : 'text-slate-300 hover:text-red-500'}`} title="Toggle Recall"><AlertTriangle size={16}/></button>
-                                                        {item.isRecalled && <button onClick={() => setRecallAnalysis(item)} className="p-2 bg-lilac-100 text-lilac-600 rounded-xl hover:bg-lilac-200" title="Impact Analysis"><UserX size={16}/></button>}
-                                                        <button onClick={() => setEditItem(item)} className="p-2 text-slate-400 hover:text-teal-600 transition-colors"><Edit2 size={16}/></button>
+                                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => setEditItem(item)}
+                                                            className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                                                            title="Edit Item"
+                                                        >
+                                                            <Edit2 size={14}/>
+                                                        </button>
+                                                        {currentUser.role === UserRole.ADMIN && (
+                                                            <button 
+                                                                onClick={() => handleDeleteItem(item)}
+                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                                                title="Delete from Catalog"
+                                                            >
+                                                                <Trash2 size={14}/>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -157,39 +216,48 @@ const Inventory: React.FC<InventoryProps> = ({
                         </div>
                     </div>
                 )}
+                
+                {activeTab === 'forecasting' && (
+                    <div className="h-full flex items-center justify-center text-slate-400 italic py-20">
+                        Consumption forecasting module is currently aggregating historical treatment data.
+                    </div>
+                )}
+
+                {activeTab === 'sterilization' && (
+                    <div className="h-full flex items-center justify-center text-slate-400 italic py-20">
+                        Sterilization monitoring log is synchronizing with Autoclave IoT gateway.
+                    </div>
+                )}
             </div>
         </div>
-        
-        {recallAnalysis && (
-            <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col border border-red-500/20">
-                    <div className="p-8 bg-red-900 text-white flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-red-600 p-3 rounded-2xl animate-pulse"><AlertTriangle /></div>
-                            <div>
-                                <h3 className="text-2xl font-black uppercase tracking-tighter">Recall Impact Analysis</h3>
-                                <p className="text-red-300 text-xs font-bold uppercase tracking-widest mt-1">{recallAnalysis.name} • Batch ID: {recallAnalysis.id}</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setRecallAnalysis(null)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
+
+        {/* Edit Modal */}
+        {editItem && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+                <form onSubmit={handleSaveItem} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+                    <div className="bg-teal-900 p-6 text-white flex justify-between items-center">
+                        <h3 className="text-xl font-bold uppercase tracking-tight">{editItem.id ? 'Edit Catalog Item' : 'New Catalog Item'}</h3>
+                        <button type="button" onClick={() => setEditItem(null)}><X size={24}/></button>
                     </div>
-                    <div className="p-8 flex-1 overflow-y-auto no-scrollbar max-h-[60vh] space-y-4">
-                        <div className="bg-red-50 p-6 rounded-3xl border border-red-100 text-red-900">
-                            <p className="text-sm font-bold leading-relaxed">Safety Protocol 12-A: The following patients have clinical records linked to this batch ID. Immediate clinical review and follow-up notification is required.</p>
+                    <div className="p-8 space-y-4">
+                        <div><label className="label">Item Name</label><input type="text" value={editItem.name || ''} onChange={e => setEditItem({...editItem, name: e.target.value})} className="input" required /></div>
+                        <div>
+                            <label className="label">Category</label>
+                            <select value={editItem.category} onChange={e => setEditItem({...editItem, category: e.target.value as StockCategory})} className="input">
+                                {Object.values(StockCategory).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
                         </div>
-                        <div className="space-y-2">
-                            {affectedPatients.length > 0 ? affectedPatients.map(p => (
-                                <div key={p.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center">
-                                    <div><div className="font-bold text-slate-800">{p.name}</div><div className="text-[10px] text-slate-400 font-mono">Mobile: {p.phone}</div></div>
-                                    <button onClick={() => toast.info(`Queued Safety Alert for ${p.name}`)} className="bg-red-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Queue Safety SMS</button>
-                                </div>
-                            )) : <div className="text-center py-10 text-slate-400 italic">No patients found linked to this batch.</div>}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="label">Initial Stock</label><input type="number" value={editItem.quantity || ''} onChange={e => setEditItem({...editItem, quantity: parseInt(e.target.value)})} className="input" /></div>
+                            <div><label className="label">Low Threshold</label><input type="number" value={editItem.lowStockThreshold || ''} onChange={e => setEditItem({...editItem, lowStockThreshold: parseInt(e.target.value)})} className="input" /></div>
                         </div>
+                        <div><label className="label">Expiry Date (Optional)</label><input type="date" value={editItem.expiryDate || ''} onChange={e => setEditItem({...editItem, expiryDate: e.target.value})} className="input" /></div>
                     </div>
-                    <div className="p-8 bg-slate-50 border-t flex justify-end">
-                        <button onClick={() => setRecallAnalysis(null)} className="px-8 py-4 bg-white border border-slate-200 rounded-[2rem] font-black text-xs uppercase tracking-widest text-slate-600">Close Analysis</button>
+                    <div className="p-4 border-t bg-slate-50 flex gap-2">
+                        <button type="button" onClick={() => setEditItem(null)} className="flex-1 py-4 font-bold text-slate-400">Cancel</button>
+                        <button type="submit" className="flex-[2] py-4 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-teal-600/20">Save to Catalog</button>
                     </div>
-                </div>
+                </form>
             </div>
         )}
     </div>

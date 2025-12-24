@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, InstallmentPlan } from '../types';
-import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Info } from 'lucide-react';
+import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -24,26 +24,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     const [instMonthly, setInstMonthly] = useState('');
 
     const ledger = useMemo(() => patient.ledger || [], [patient.ledger]);
-    
-    // Decoupled Calculation logic
-    const { grossExposure, patientOutOfPocket, shadowTotal } = useMemo(() => {
-        let gross = 0;
-        let shadow = 0;
-        let payments = 0;
-        
-        ledger.forEach(e => {
-            if (e.type === 'Charge') gross += e.amount;
-            if (e.type === 'Payment') payments += e.amount;
-            if (e.shadowCreditAmount) shadow += e.shadowCreditAmount;
-        });
-        
-        return {
-            grossExposure: gross - payments,
-            patientOutOfPocket: gross - payments - shadow,
-            shadowTotal: shadow
-        };
-    }, [ledger]);
-
+    const currentBalance = useMemo(() => ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter, [ledger]);
     const installments = patient.installmentPlans || [];
 
     const handleCharge = (e: React.FormEvent) => {
@@ -51,10 +32,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
         const total = parseFloat(amount) || 0;
         if (total <= 0) return;
 
-        // Cumulative legacy balance for backward compatibility
-        const currentBalance = ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter;
         const newBalance = currentBalance + total;
-        
         const newEntry: LedgerEntry = {
             id: Math.random().toString(36).substr(2, 9), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
         };
@@ -68,10 +46,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
         e.preventDefault();
         const val = parseFloat(amount);
         if (isNaN(val) || val <= 0) return;
-        
-        const currentBalance = ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter;
         const newBalance = currentBalance - val;
-        
         const newEntry: LedgerEntry = { id: Math.random().toString(36).substr(2, 9), date, description, type: 'Payment', amount: val, balanceAfter: newBalance };
         onUpdatePatient({ ...patient, ledger: [...ledger, newEntry], currentBalance: newBalance });
         setMode('view'); setAmount(''); setDescription('');
@@ -93,27 +68,8 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
         <div className="h-full flex flex-col bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative">
             <div className="bg-white p-6 border-b flex justify-between items-center shadow-sm z-10">
                 <div className="flex items-center gap-4"><div className="bg-emerald-100 p-3 rounded-xl text-emerald-700"><DollarSign size={28}/></div><div><h3 className="font-bold text-lg">Financial Statement</h3><p className="text-xs text-slate-500">Billing & Account History</p></div></div>
-                
-                <div className="flex items-center gap-8">
-                    <div className="text-right group relative">
-                        <span className="flex items-center gap-1 justify-end text-[10px] font-bold uppercase text-slate-400">
-                            Patient Out-of-Pocket <Info size={10} />
-                        </span>
-                        <span className={`text-2xl font-black ${patientOutOfPocket > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                            ₱{patientOutOfPocket.toLocaleString()}
-                        </span>
-                        <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800 text-white text-[10px] p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
-                            This balance assumes full coverage of your {shadowTotal > 0 ? `₱${shadowTotal.toLocaleString()}` : ''} pending claims.
-                        </div>
-                    </div>
-                    
-                    <div className="text-right border-l pl-8 border-slate-100">
-                        <span className="block text-[10px] font-bold uppercase text-slate-400">Gross Practice Exposure</span>
-                        <span className="text-lg font-bold text-slate-600">
-                            ₱{grossExposure.toLocaleString()}
-                        </span>
-                    </div>
-
+                <div className="flex items-center gap-4">
+                    <div className="text-right"><span className="block text-[10px] font-bold uppercase text-slate-400">Current Balance</span><span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span></div>
                     {!readOnly && (
                         <div className="flex gap-2">
                              <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1"><Calendar size={16}/> Plan</button>
@@ -152,35 +108,19 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                 )}
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <table className="w-full text-sm border-collapse">
+                    <table className="w-full text-sm">
                         <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px]"><tr><th className="p-4 text-left">Date</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Type</th><th className="p-4 text-right">Amount</th><th className="p-4 text-right">Balance</th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {[...ledger].reverse().map((entry) => (
-                                <React.Fragment key={entry.id}>
-                                    <tr className="hover:bg-slate-50 transition-colors">
-                                        <td className="p-4 text-slate-500 font-mono text-xs">{formatDate(entry.date)}</td>
-                                        <td className="p-4">
-                                            <div className="font-bold text-slate-700">{entry.description}</div>
-                                        </td>
-                                        <td className="p-4"><span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${entry.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{entry.type}</span></td>
-                                        <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-600' : 'text-emerald-600'}`}>₱{entry.amount.toLocaleString()}</td>
-                                        <td className="p-4 text-right font-mono font-bold text-slate-600 bg-slate-50/30">₱{entry.balanceAfter.toLocaleString()}</td>
-                                    </tr>
-                                    {entry.shadowCreditAmount && (
-                                        <tr className="bg-lilac-50/20 border-b-2 border-dashed border-lilac-100 opacity-60">
-                                            <td className="p-4"></td>
-                                            <td className="p-4" colSpan={2}>
-                                                <div className="flex items-center gap-2 text-[10px] font-black text-lilac-700 uppercase tracking-widest">
-                                                    <Shield size={12}/> [PENDING CLAIM: COVERAGE ESTIMATE]
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className="font-bold text-lilac-700 text-xs italic">(₱{entry.shadowCreditAmount.toLocaleString()})</span>
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
+                                <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-4 text-slate-500 font-mono text-xs">{formatDate(entry.date)}</td>
+                                    <td className="p-4">
+                                        <div className="font-bold text-slate-700">{entry.description}</div>
+                                    </td>
+                                    <td className="p-4"><span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${entry.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{entry.type}</span></td>
+                                    <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-600' : 'text-emerald-600'}`}>₱{entry.amount.toLocaleString()}</td>
+                                    <td className="p-4 text-right font-mono font-bold text-slate-600 bg-slate-50/30">₱{entry.balanceAfter.toLocaleString()}</td>
+                                </tr>
                             ))}
                         </tbody>
                     </table>

@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>dentsched</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -45,24 +44,7 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      :root {
-        -webkit-text-size-adjust: none;
-        text-size-adjust: none;
-      }
-      
-      body { 
-        font-family: 'Inter', sans-serif; 
-        background-color: #f8fafc; 
-        overflow-x: hidden;
-        width: 100%;
-        position: fixed; /* Prevents bounce scroll causing horizontal shifts on some mobile browsers */
-        height: 100%;
-      }
-
-      #root {
-        height: 100%;
-        overflow: hidden;
-      }
+      body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
       
       /* Global Form Styling */
       .input { 
@@ -71,7 +53,7 @@
         background-color: #ffffff; 
         border: 2px solid #fae8ff; /* lilac-100 */
         border-radius: 1rem; 
-        font-size: 16px; /* Prevents auto-zoom on iOS */
+        font-size: 0.875rem; 
         font-weight: 600;
         color: #1e293b; 
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -108,20 +90,12 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-      .pt-safe { padding-top: env(safe-area-inset-top); }
 
       /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-      
-      /* Clamp text for mobile readability */
-      .line-clamp-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;  
-        overflow: hidden;
-      }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
   <script type="importmap">
 {
@@ -133,13 +107,12 @@
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "fuse.js": "https://aistudiocdn.com/fuse.js@^7.0.0",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js",
-    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics.js",
-    "firebase/database": "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js",
+    "firebase/app": "https://esm.sh/firebase@10.13.0/app",
+    "firebase/analytics": "https://esm.sh/firebase@10.13.0/analytics",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
-    "crypto-js": "https://esm.sh/crypto-js@4.2.0",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/"
+    "crypto-js": "https://esm.sh/crypto-js@4.2.0"
   }
 }
 </script>

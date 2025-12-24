@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment, User, AppointmentType, LedgerEntry, TreatmentPlan, TreatmentPlanStatus, AuditLogEntry } from '../types';
-import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, Archive, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
+import { LogOut, User as UserIcon, Calendar, DollarSign, Video, Send, CheckCircle, Receipt, Download, ArrowUpRight, ArrowDownLeft, FileText, ClipboardList, ShieldCheck, FileSignature, Sparkles, Database, AlertCircle, FileBox, ShieldAlert, MonitorOff, Eye } from 'lucide-react';
 import { formatDate } from '../constants';
+import TelehealthModal from './TelehealthModal';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
 
@@ -9,7 +11,7 @@ interface PatientPortalProps {
     patient: Patient;
     appointments: Appointment[];
     staff: User[];
-    auditLog?: AuditLogEntry[]; 
+    auditLog?: AuditLogEntry[]; // NEW
     onExit: () => void;
 }
 
@@ -22,6 +24,7 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
         .filter(a => new Date(a.date) >= new Date(new Date().toDateString()))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
+    // NEW: NPC Transparency Privacy Log
     const privacyLogs = useMemo(() => {
         return auditLog.filter(log => log.entityId === patient.id && (log.action === 'VIEW_RECORD' || log.action === 'UPDATE' || log.action === 'AMEND_RECORD'));
     }, [auditLog, patient.id]);
@@ -118,7 +121,7 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                                         <button onClick={() => setShowSecurityModal({ type: 'data' })} className="w-full px-4 py-2 bg-white border border-lilac-200 text-lilac-700 font-bold text-xs rounded-xl hover:bg-lilac-50 transition-colors">Request My Data</button>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col justify-between">
-                                        <div className="flex items-center gap-4 mb-4"><div className="p-3 bg-white rounded-xl text-teal-600 shadow-sm"><Archive size={24}/></div><div><h4 className="font-bold text-slate-800 text-sm">Clinical Abstract</h4><p className="text-xs text-slate-500 mt-0.5">Generate a formal PDF summary of your records.</p></div></div>
+                                        <div className="flex items-center gap-4 mb-4"><div className="p-3 bg-white rounded-xl text-teal-600 shadow-sm"><FileBox size={24}/></div><div><h4 className="font-bold text-slate-800 text-sm">Clinical Abstract</h4><p className="text-xs text-slate-500 mt-0.5">Generate a formal PDF summary of your records.</p></div></div>
                                         <button onClick={() => setShowSecurityModal({ type: 'abstract' })} className="w-full px-4 py-2 bg-teal-600 text-white font-bold text-xs rounded-xl hover:bg-teal-700 shadow-sm transition-colors">Generate PDF</button>
                                     </div>
                                 </div>
@@ -127,12 +130,9 @@ const PatientPortal: React.FC<PatientPortalProps> = ({ patient, appointments, st
                     </div>
 
                     <div className="space-y-6">
-                        <div className="bg-teal-900 p-8 rounded-3xl border-2 border-teal-800 shadow-xl text-white text-center">
-                             <div className="w-16 h-16 bg-teal-800 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-teal-700">
-                                <ShieldCheck size={32} className="text-teal-400"/>
-                             </div>
-                             <h2 className="font-bold text-lg mb-2">Verified Health Record</h2>
-                             <p className="text-xs text-teal-200 opacity-80 leading-relaxed">Your data is secured with end-to-end encryption. Any access to your record is recorded in your transparency log.</p>
+                        <div className="bg-teal-900 p-8 rounded-3xl shadow-xl text-white">
+                             <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-teal-300"><Video size={24}/> Tele-dentistry</h2>
+                             <button className="w-full bg-white text-teal-900 font-bold py-4 rounded-2xl hover:bg-teal-50 transition-colors">Request Call</button>
                         </div>
                     </div>
                 </div>

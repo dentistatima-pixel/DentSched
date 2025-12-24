@@ -1,8 +1,6 @@
-
 import React, { useMemo, useState } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
-// Added CheckCircle to imports
-import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle } from 'lucide-react';
+import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck } from 'lucide-react';
 import Fuse from 'fuse.js';
 
 interface RegistrationBasicInfoProps {
@@ -13,31 +11,13 @@ interface RegistrationBasicInfoProps {
   patients?: Patient[]; 
 }
 
-const PH_CITY_DATA: Record<string, string[]> = {
-    'Makati City': ['Bel-Air', 'San Lorenzo', 'Guadalupe Nuevo', 'Poblacion', 'Olympia', 'Bangkal'],
-    'Quezon City': ['Batasan Hills', 'Commonwealth', 'Loyola Heights', 'Fairview', 'Diliman'],
-    'Manila City': ['Binondo', 'Ermita', 'Malate', 'Paco', 'Sampaloc', 'Quiapo'],
-    'Taguig City': ['Fort Bonifacio (BGC)', 'Pateros', 'Ususan', 'Tuktukan'],
-    'Pasig City': ['San Antonio', 'Kapitolyo', 'Ugong', 'Ortigas Center'],
-    'Cebu City': ['Lahug', 'Mabolo', 'Guadalupe', 'Banilad'],
-};
-
 const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData, handleChange, readOnly, fieldSettings, patients = [] }) => {
   const [refSearch, setRefSearch] = useState('');
   const [guardianSearch, setGuardianSearch] = useState('');
 
   const isMinor = useMemo(() => formData.age !== undefined && formData.age < 18, [formData.age]);
+  const isFemale = formData.sex === 'Female';
   const showGuardian = isMinor || formData.isPwd || formData.isSeniorDependent;
-
-  const currentCity = useMemo(() => {
-      const entry = Object.entries(PH_CITY_DATA).find(([city, brgys]) => brgys.includes(formData.barangay || ''));
-      return entry ? entry[0] : '';
-  }, [formData.barangay]);
-
-  const handleCityChange = (city: string) => {
-      const firstBrgy = PH_CITY_DATA[city]?.[0] || '';
-      handleChange({ target: { name: 'barangay', value: firstBrgy } } as any);
-  };
 
   const refResults = useMemo(() => {
       if (!refSearch) return [];
@@ -77,6 +57,26 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
       handleGuardianProfileChange('linkedPatientId', p.id);
       setGuardianSearch('');
   };
+
+  const handleBoolChange = (name: string, val: boolean) => {
+      handleChange({ target: { name, value: val, type: 'checkbox', checked: val } } as any);
+  };
+
+  const BooleanField = ({ label, name, checked, onToggle }: { label: string, name: string, checked?: boolean, onToggle: (val: boolean) => void }) => (
+    <div className="flex justify-between items-center p-3 rounded-xl border border-slate-100 bg-white">
+        <span className="font-bold text-sm text-slate-700">{label}</span>
+        <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                  <input disabled={readOnly} type="radio" name={name} checked={checked === true} onChange={() => onToggle(true)} className="w-5 h-5 accent-teal-600" />
+                  <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">Yes</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer group">
+                  <input disabled={readOnly} type="radio" name={name} checked={checked === false} onChange={() => onToggle(false)} className="w-5 h-5 accent-teal-600" />
+                  <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">No</span>
+              </label>
+        </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -126,6 +126,30 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
                 <div><label className="label">Blood Group</label><select name="bloodGroup" value={formData.bloodGroup || ''} onChange={handleChange} className="input">{['', ...fieldSettings.bloodGroups].map(bg => <option key={bg} value={bg}>{bg || 'Unknown'}</option>)}</select></div>
             </div>
         </div>
+
+        {/* Conditional Women's Health Section */}
+        {isFemale && (
+            <div className="bg-lilac-50 border-2 border-lilac-200 p-6 rounded-3xl shadow-lg ring-4 ring-lilac-500/5 animate-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-lilac-600 text-white p-2 rounded-xl shadow-lg shadow-lilac-600/20"><Baby size={24}/></div>
+                    <div>
+                        <h4 className="font-black text-lilac-900 uppercase tracking-widest text-sm">Women's Clinical Health</h4>
+                        <p className="text-[10px] text-lilac-600 font-bold uppercase mt-0.5">Critical for drug prescriptions & X-ray safety</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className={`p-4 rounded-2xl border transition-all ${formData.pregnant ? 'bg-lilac-100 border-lilac-300 shadow-md' : 'bg-white border-lilac-100'}`}>
+                        <BooleanField label="Pregnant?" name="pregnant" checked={formData.pregnant} onToggle={(v) => handleBoolChange('pregnant', v)} />
+                    </div>
+                    <div className={`p-4 rounded-2xl border transition-all ${formData.nursing ? 'bg-lilac-100 border-lilac-300 shadow-md' : 'bg-white border-lilac-100'}`}>
+                        <BooleanField label="Nursing?" name="nursing" checked={formData.nursing} onToggle={(v) => handleBoolChange('nursing', v)} />
+                    </div>
+                    <div className={`p-4 rounded-2xl border transition-all ${formData.birthControl ? 'bg-lilac-100 border-lilac-300 shadow-md' : 'bg-white border-lilac-100'}`}>
+                        <BooleanField label="On Birth Control?" name="birthControl" checked={formData.birthControl} onToggle={(v) => handleBoolChange('birthControl', v)} />
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Dependent Toggles */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -208,15 +232,6 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
                         <input required={showGuardian} type="text" value={formData.guardianProfile?.idNumber || ''} onChange={e => handleGuardianProfileChange('idNumber', e.target.value)} className="input border-lilac-200 focus:border-lilac-500" />
                     </div>
                 </div>
-
-                {isMinor && (
-                    <div className="mt-6 pt-6 border-t border-lilac-100 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="md:col-span-1"><label className="label text-lilac-700">Father's Name</label><input type="text" name="fatherName" value={formData.fatherName || ''} onChange={handleChange} className="input border-lilac-100" /></div>
-                        <div className="md:col-span-1"><label className="label text-lilac-700">Father's Occupation</label><input type="text" name="fatherOccupation" value={formData.fatherOccupation || ''} onChange={handleChange} className="input border-lilac-100" /></div>
-                        <div className="md:col-span-1"><label className="label text-lilac-700">Mother's Name</label><input type="text" name="motherName" value={formData.motherName || ''} onChange={handleChange} className="input border-lilac-100" /></div>
-                        <div className="md:col-span-1"><label className="label text-lilac-700">Mother's Occupation</label><input type="text" name="motherOccupation" value={formData.motherOccupation || ''} onChange={handleChange} className="input border-lilac-100" /></div>
-                    </div>
-                )}
             </div>
         )}
 
@@ -225,8 +240,8 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-2"><MapPin size={14} className="text-teal-600"/> Residential Address</h4>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div className="md:col-span-6"><label className="label">Home Address / House No. / Street</label><input disabled={readOnly} type="text" name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} className="input" /></div>
-                <div className="md:col-span-3"><label className="label">City / Municipality</label><select value={currentCity} onChange={e => handleCityChange(e.target.value)} className="input">{Object.keys(PH_CITY_DATA).map(city => <option key={city} value={city}>{city}</option>)}</select></div>
-                <div className="md:col-span-3"><label className="label">Barangay</label><select name="barangay" value={formData.barangay || ''} onChange={handleChange} className="input">{currentCity && PH_CITY_DATA[currentCity].map(brgy => <option key={brgy} value={brgy}>{brgy}</option>)}</select></div>
+                <div className="md:col-span-3"><label className="label">City / Municipality</label><input disabled={readOnly} type="text" name="city" value={formData.city || ''} onChange={handleChange} className="input" placeholder="e.g. Makati City" /></div>
+                <div className="md:col-span-3"><label className="label">Barangay</label><input disabled={readOnly} type="text" name="barangay" value={formData.barangay || ''} onChange={handleChange} className="input" placeholder="e.g. Bel-Air" /></div>
             </div>
         </div>
 
@@ -246,6 +261,17 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ formData,
                     <div className="col-span-2 md:col-span-1"><label className="label">Occupation</label><input type="text" name="occupation" value={formData.occupation || ''} onChange={handleChange} className="input" /></div>
                     <div className="col-span-2 md:col-span-1"><label className="label">Civil Status</label><select name="civilStatus" value={formData.civilStatus || ''} onChange={handleChange} className="input">{['', ...fieldSettings.civilStatus].map(cs => <option key={cs} value={cs}>{cs || 'Select'}</option>)}</select></div>
                 </div>
+            </div>
+        </div>
+
+        {/* Family Background Section (RESTORED & ALWAYS VISIBLE) */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-2"><Users size={14} className="text-teal-600"/> Family Background</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-1"><label className="label">Father's Name</label><input type="text" name="fatherName" value={formData.fatherName || ''} onChange={handleChange} className="input" placeholder="Full legal name" /></div>
+                <div className="md:col-span-1"><label className="label">Father's Occupation</label><input type="text" name="fatherOccupation" value={formData.fatherOccupation || ''} onChange={handleChange} className="input" /></div>
+                <div className="md:col-span-1"><label className="label">Mother's Name</label><input type="text" name="motherName" value={formData.motherName || ''} onChange={handleChange} className="input" placeholder="Full legal name" /></div>
+                <div className="md:col-span-1"><label className="label">Mother's Occupation</label><input type="text" name="motherOccupation" value={formData.motherOccupation || ''} onChange={handleChange} className="input" /></div>
             </div>
         </div>
 

@@ -1,13 +1,7 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Calendar, Users, LayoutDashboard, Menu, X, ChevronDown, UserCircle, Settings, 
-  MapPin, RefreshCcw, ClipboardCheck, Circle, Flag, Package, DollarSign, 
-  CloudOff, Monitor, Info, ShieldAlert, Eye, Target, Scale, Zap, 
-  ShieldCheck, ShieldX, Plus, ChevronLeft, ChevronRight
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
-import { User, UserRole, FieldSettings, PinboardTask, SystemStatus, UIMode } from '../types';
+import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,224 +18,168 @@ interface LayoutProps {
   onGenerateReport: () => void;
   tasks?: PinboardTask[];
   onToggleTask?: (id: string) => void;
+  onEnterKioskMode?: () => void;
   isOnline?: boolean;
   pendingSyncCount?: number;
   systemStatus?: SystemStatus;
   onSwitchSystemStatus?: (status: SystemStatus) => void;
-  onEnterKiosk?: () => void;
-  isCorporateReadOnly?: boolean;
-  uiMode: UIMode;
-  onChangeUiMode: (mode: UIMode) => void;
-  isAuditLogVerified?: boolean | null;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, currentUser, onSwitchUser,
-  currentBranch, availableBranches, onChangeBranch, fieldSettings, tasks, onToggleTask,
-  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, 
-  onSwitchSystemStatus, onEnterKiosk, isCorporateReadOnly, uiMode, onChangeUiMode, isAuditLogVerified,
-  onAddAppointment
+  children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
+  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
+  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
-  const touchStartX = useRef<number | null>(null);
 
   const features = fieldSettings?.features;
+  const enableMultiBranch = features?.enableMultiBranch ?? true;
+
   const isDowntime = systemStatus === SystemStatus.DOWNTIME;
-  const isViewingRemoteBranch = currentBranch !== currentUser.defaultBranch;
+
+  const userAllowedBranches = (currentUser.role === UserRole.ADMIN) 
+      ? availableBranches 
+      : (currentUser.allowedBranches && currentUser.allowedBranches.length > 0)
+          ? currentUser.allowedBranches
+          : availableBranches;
 
   const navItems = [
-    { id: 'dashboard', label: 'Home', icon: LayoutDashboard, alert: false },
-    { id: 'schedule', label: 'Registry', icon: Calendar, alert: false },
-    { id: 'patients', label: 'Patients', icon: Users, alert: false },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'schedule', label: 'Schedule', icon: Calendar },
+    { id: 'patients', label: 'Patients', icon: Users },
   ];
 
-  if (features?.enableInventory) { navItems.push({ id: 'inventory', label: 'Logistics', icon: Package, alert: false }); }
+  if (features?.enableInventory) { navItems.push({ id: 'inventory', label: 'Inventory', icon: Package }); }
   if ((features?.enableHMOClaims || features?.enableAnalytics) && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST)) {
-      navItems.push({ id: 'financials', label: 'Economics', icon: DollarSign, alert: false });
+      navItems.push({ id: 'financials', label: 'Financials', icon: DollarSign });
   }
+  if (currentUser.role === UserRole.ADMIN) { navItems.push({ id: 'field-mgmt', label: 'Settings', icon: Settings }); }
 
-  // --- GESTURE LOGIC: SWIPE TO SWITCH BRANCH ---
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
+  const handleProfileUpdate = (updatedUser: User) => onSwitchUser(updatedUser);
+  const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
+  const badgeCount = myActiveTasks.length;
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartX.current || availableBranches.length <= 1 || currentUser.role === UserRole.DENTAL_ASSISTANT) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX;
-
-    if (Math.abs(diff) > 100) {
-      const currentIndex = availableBranches.indexOf(currentBranch);
-      let nextIndex = diff > 0 ? currentIndex + 1 : currentIndex - 1;
-      if (nextIndex >= availableBranches.length) nextIndex = 0;
-      if (nextIndex < 0) nextIndex = availableBranches.length - 1;
-      
-      onChangeBranch(availableBranches[nextIndex]);
-      if (navigator.vibrate) navigator.vibrate(10);
-    }
-    touchStartX.current = null;
-  };
-
-  const handleQuickAction = () => {
-    if (activeTab === 'schedule' || activeTab === 'dashboard') onAddAppointment();
-  };
+  const headerClass = isDowntime 
+    ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
+    : "h-16 bg-teal-900 text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0 transition-colors duration-500";
 
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
-      {/* STATUS RIBBON - RECONCILED TO FIREBASE CONNECTION */}
-      <div className={`h-1 w-full shrink-0 transition-all duration-1000 z-[70] ${isOnline ? 'bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]' : 'bg-lilac-500 animate-pulse'}`} />
+      
+      {/* Cloud Pulse Connectivity Bar */}
+      <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500' : 'bg-lilac-500 animate-pulse shadow-[0_0_10px_rgba(192,38,211,0.5)]'}`} />
 
-      {/* HEADER / BRANCH RIBBON */}
-      <header 
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        className={`h-14 shrink-0 flex items-center justify-between px-4 transition-colors relative z-50 pt-safe ${isDowntime ? 'bg-red-900' : 'bg-white border-b border-slate-100'}`}
-      >
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-slate-400 hover:text-teal-600">
-            <Menu size={22} />
-          </button>
-          <div className="flex flex-col hidden sm:flex">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isDowntime ? 'text-red-200' : 'text-slate-400'}`}>
-              {isDowntime ? 'System Offline' : 'Registry Active'}
-            </span>
-          </div>
-        </div>
+      <header className={headerClass}>
+             <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-400'}`}>
+                    <span className="text-white font-bold text-xl">{isDowntime ? '!' : 'D'}</span>
+                </div>
+                <div className="flex flex-col">
+                     <span className={`font-black tracking-tight text-lg leading-none ${isDowntime ? 'text-black bg-yellow-400 px-1 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
+                     <div className="flex items-center gap-1.5 mt-1">
+                        <span className={`text-[11px] font-bold uppercase tracking-wider leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-200'}`}>Hello {currentUser.name.split(' ')[0]}</span>
+                        {!isOnline && <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase"><CloudOff size={8}/> Offline</div>}
+                     </div>
+                </div>
+             </div>
+             
+             <div className="flex items-center gap-2">
+                 {/* SYSTEM STATUS SWITCHER (ADMIN/DENTIST) */}
+                 {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
+                     <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
+                        <button 
+                            onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                        >
+                            Operational
+                        </button>
+                        <button 
+                            onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-lg animate-pulse' : 'text-white/40 hover:text-white'}`}
+                        >
+                            Downtime
+                        </button>
+                     </div>
+                 )}
 
-        {/* SWIPEABLE BRANCH SELECTOR - Fluidly scales on mobile */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 group cursor-ew-resize select-none max-w-[50vw]">
-          <ChevronLeft size={12} className="text-lilac-300 opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" />
-          <div className="flex flex-col items-center overflow-hidden">
-            <span className={`text-[10px] sm:text-xs font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] truncate ${isDowntime ? 'text-white' : 'text-slate-900'}`}>
-              {currentBranch}
-            </span>
-            {isViewingRemoteBranch && <span className="text-[8px] font-bold text-lilac-500 uppercase tracking-tighter">Remote Silo</span>}
-          </div>
-          <ChevronRight size={12} className="text-lilac-300 opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" />
-        </div>
+                 {pendingSyncCount > 0 && (
+                     <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-lilac-600/20 border border-lilac-400/30 rounded-xl text-[10px] font-black text-lilac-200 uppercase tracking-widest animate-pulse">
+                         <RefreshCcw size={14} className="animate-spin duration-[3000ms]"/>
+                         {pendingSyncCount} Actions Queued
+                     </div>
+                 )}
 
-        <div className="flex items-center gap-3">
-          {pendingSyncCount > 0 && <RefreshCcw size={16} className="text-lilac-500 animate-spin" />}
-          {!isOnline && <CloudOff size={16} className="text-red-500 animate-bounce" />}
-          <div 
-            onClick={() => setIsProfileOpen(true)}
-            className={`w-8 h-8 rounded-full border-2 overflow-hidden transition-all cursor-pointer ${isAuditLogVerified === false ? 'border-red-500 animate-pulse' : 'border-teal-500'}`}
-          >
-            <img src={currentUser.avatar} alt="Profile" className="w-full h-full object-cover" />
-          </div>
-        </div>
+                 {/* TASK NOTIFICATION CENTER */}
+                 <div className="relative">
+                    <button onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} className={`p-2 rounded-full transition-colors relative ${isTaskPopoverOpen ? 'bg-teal-800' : 'active:bg-teal-800'}`} title="My Tasks">
+                        <ClipboardCheck size={24} />
+                        {badgeCount > 0 && <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border border-teal-900">{badgeCount}</span>}
+                    </button>
+                    {isTaskPopoverOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
+                            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800">
+                                <div className="bg-slate-50 border-b border-slate-100 p-3 flex justify-between items-center"><span className="font-bold text-sm">My Tasks</span><span className="text-xs text-slate-500 font-medium">{badgeCount} Active</span></div>
+                                <div className="max-h-64 overflow-y-auto p-2">
+                                    {myActiveTasks.length > 0 ? (
+                                        <div className="space-y-1">
+                                            {myActiveTasks.map(task => (
+                                                <div key={task.id} className="flex items-start gap-2 p-2 hover:bg-slate-50 rounded-lg group">
+                                                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 text-slate-300 hover:text-green-500 transition-colors"><Circle size={16} /></button>
+                                                    <div className="flex-1 min-w-0"><div className="text-sm font-medium leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold"><Flag size={8} /> Urgent</div>}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : <div className="p-6 text-center text-slate-400 text-xs italic"><div className="mb-2"><CheckCircle size={24} className="mx-auto opacity-20"/></div>No active tasks.</div>}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                 </div>
+
+                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 active:bg-teal-800 rounded-full transition-colors">{isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
+             </div>
       </header>
 
-      {/* MAIN CONTENT AREA - Fluid Containers */}
-      <main className="flex-1 overflow-hidden bg-slate-50 relative pb-20">
-        {isViewingRemoteBranch && (
-          <div className="bg-lilac-600 text-white text-[9px] font-black uppercase py-1 text-center tracking-widest flex items-center justify-center gap-2 shadow-inner z-40 relative">
-            <ShieldAlert size={10}/> Read-Only Mode: Branch Data Silo
-          </div>
-        )}
-        <div className="h-full overflow-y-auto no-scrollbar p-3 sm:p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto">
+      {isMobileMenuOpen && (
+            <div className="fixed inset-0 top-16 bg-teal-900/95 backdrop-blur-sm text-white z-40 animate-in slide-in-from-top-5 flex flex-col">
+                <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                    <div className="bg-teal-800 p-4 rounded-2xl flex items-center gap-4 border border-teal-700">
+                        <img src={currentUser.avatar} alt="Avatar" className="w-12 h-12 rounded-full border-2 border-lilac-400" />
+                        <div><div className="font-bold text-lg">{currentUser.name}</div><div className="text-xs text-teal-200 uppercase font-bold tracking-wider">{currentUser.role}</div></div>
+                    </div>
+                    {enableMultiBranch && (
+                        <div className="bg-teal-800 p-4 rounded-2xl border border-teal-700">
+                            <div className="flex items-center gap-2 text-teal-300 uppercase font-bold text-xs mb-3"><MapPin size={14} /> Current Location</div>
+                            <select value={currentBranch} onChange={(e) => onChangeBranch(e.target.value)} className="w-full bg-teal-900 text-white border border-teal-600 rounded-xl p-3 text-sm font-bold shadow-sm">{userAllowedBranches.map(b => (<option key={b} value={b}>{b}</option>))}</select>
+                        </div>
+                    )}
+                    <div className="space-y-2 pt-2">
+                        <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors"><div className="bg-teal-700 p-2 rounded-lg"><UserCircle size={20} className="text-white" /></div><span className="font-bold">Account Profile</span></button>
+                        <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-4 px-4 py-4 rounded-xl bg-teal-800/50 hover:bg-teal-800 border border-teal-700/50 transition-colors group"><div className="bg-lilac-600 p-2 rounded-lg group-hover:scale-110 transition-transform"><Monitor size={20} className="text-white" /></div><span className="font-bold">Enter Kiosk Mode</span></button>
+                    </div>
+                </div>
+            </div>
+      )}
+
+      <main className="flex-1 flex flex-col h-[calc(100dvh-64px)] overflow-hidden bg-slate-50 relative">
+        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-4'} pb-24`}>
             {children}
-          </div>
         </div>
       </main>
 
-      {/* ADAPTIVE BOTTOM NAV - Sized for mobile ergonomics */}
-      <nav className="fixed bottom-4 left-4 right-4 h-16 bg-teal-950/80 backdrop-blur-xl border border-white/10 rounded-[2rem] shadow-2xl flex items-center justify-around px-2 z-[60] pb-safe">
-        {navItems.slice(0, 2).map((item) => (
-          <button 
-            key={item.id} 
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === item.id ? 'text-teal-400 scale-110' : 'text-white/40 hover:text-white'}`}
-          >
-            <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-            <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
-          </button>
-        ))}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
+            {navItems.map((item) => (
+            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center p-2 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'text-teal-600 -translate-y-1' : 'text-slate-400'}`}>
+                <div className={`p-1.5 rounded-xl mb-1 transition-colors ${activeTab === item.id ? 'bg-teal-50' : 'bg-transparent'}`}><item.icon size={24} strokeWidth={activeTab === item.id ? 2.5 : 2} /></div>
+                <span className={`text-[10px] font-bold ${activeTab === item.id ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>{item.label}</span>
+            </button>
+            ))}
+      </div>
 
-        {/* FLOATING ACTION HUB */}
-        <button 
-          onClick={handleQuickAction}
-          className="w-14 h-14 bg-lilac-500 rounded-full flex items-center justify-center -mt-10 shadow-xl shadow-lilac-500/30 border-4 border-slate-50 transition-transform active:scale-90"
-        >
-          <Plus size={28} className="text-white" />
-        </button>
-
-        {navItems.slice(2, 4).map((item) => (
-          <button 
-            key={item.id} 
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === item.id ? 'text-teal-400 scale-110' : 'text-white/40 hover:text-white'}`}
-          >
-            <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-            <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* COLLAPSIBLE SIDEBAR - Full screen on mobile */}
-      {isSidebarOpen && (
-        <>
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] animate-in fade-in" onClick={() => setIsSidebarOpen(false)} />
-          <div className="fixed inset-y-0 left-0 w-full sm:w-80 bg-white shadow-2xl z-[110] animate-in slide-in-from-left duration-300 flex flex-col pt-safe">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-teal-900 text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-500 rounded-xl flex items-center justify-center font-bold text-xl">D</div>
-                <div>
-                  <h3 className="font-black uppercase tracking-tighter">Practice Hub</h3>
-                  <p className="text-[10px] text-teal-300 font-bold uppercase">{currentUser.role}</p>
-                </div>
-              </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2"><X size={24}/></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              <div>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Branch Management</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  {availableBranches.map(b => (
-                    <button 
-                      key={b} 
-                      onClick={() => { onChangeBranch(b); setIsSidebarOpen(false); }}
-                      className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${currentBranch === b ? 'border-teal-500 bg-teal-50 text-teal-900' : 'border-slate-100 hover:border-teal-200 text-slate-600'}`}
-                    >
-                      <span className="text-sm font-bold uppercase">{b}</span>
-                      {currentBranch === b && <ShieldCheck size={16} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">System Focus</h4>
-                <div className="space-y-2">
-                  <button onClick={() => { onChangeUiMode(UIMode.OPERATIONAL); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${uiMode === UIMode.OPERATIONAL ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'hover:bg-slate-50'}`}><Zap size={18}/><span className="text-sm font-bold">Operational Mode</span></button>
-                  <button onClick={() => { onChangeUiMode(UIMode.REVIEW); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${uiMode === UIMode.REVIEW ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'hover:bg-slate-50'}`}><Target size={18}/><span className="text-sm font-bold">Clinical Review</span></button>
-                  {currentUser.role === UserRole.ADMIN && (
-                    <>
-                      <button onClick={() => { onChangeUiMode(UIMode.AUDIT); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${uiMode === UIMode.AUDIT ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'hover:bg-slate-50'}`}><Scale size={18}/><span className="text-sm font-bold">Forensic Audit</span></button>
-                      <button onClick={() => { setActiveTab('field-mgmt'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${activeTab === 'field-mgmt' ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' : 'hover:bg-slate-50'}`}><Settings size={18}/><span className="text-sm font-bold">Global Settings</span></button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 border-t border-slate-100 pb-safe">
-              <button 
-                onClick={() => { onEnterKiosk?.(); setIsSidebarOpen(false); }}
-                className="w-full py-4 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-xl shadow-lilac-600/20 active:scale-95 transition-all"
-              >
-                <Monitor size={18}/> Launch Patient Kiosk
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={onSwitchUser} fieldSettings={fieldSettings} />
+      <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
     </div>
   );
 };
