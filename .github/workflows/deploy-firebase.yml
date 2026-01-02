@@ -1,32 +1,29 @@
-name: Deploy to Firebase Hosting
+name: Deploy DentSched to Firebase Hosting
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: '20'
-      - name: Install dependencies
-        run: npm install
-      - run: npm run build
+          fetch-depth: 0   # important if any git commands are used
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 20
+
       - name: Install dependencies
-        run: npm install
-      - run: npm run build
+        run: npm ci
+
+      - name: Build React + Vite
+        run: npm run build
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
