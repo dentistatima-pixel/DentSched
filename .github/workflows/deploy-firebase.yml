@@ -10,8 +10,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # important if any git commands are used
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -19,7 +17,7 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install   # Changed from npm ci to work without package-lock.json
 
       - name: Build React + Vite
         run: npm run build
@@ -29,4 +27,5 @@ jobs:
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_DENTSCHED_82B86 }}"
-          projectId: "dentsched-82b86"
+          projectId: dentsched-82b86
+          channelId: live
