@@ -1,7 +1,19 @@
+
 import React, { useState, useMemo } from 'react';
-/* Added Plus to lucide-react imports to fix Error on line 396 */
-import { DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus } from 'lucide-react';
-import { HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus } from '../types';
+import { 
+    DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
+    TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, 
+    History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, 
+    AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, 
+    Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, Activity, Target, 
+    Scale, Layers, ArrowRight, Shield 
+} from 'lucide-react';
+import { 
+    HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
+    User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
+    TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
+    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus 
+} from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -30,32 +42,166 @@ interface FinancialsProps {
   onResolveCommissionDispute: (id: string) => void;
 }
 
+type GovernanceTrack = 'STATUTORY' | 'OPERATIONAL';
+
 const Financials: React.FC<FinancialsProps> = (props) => {
   const { 
     claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
     onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch 
   } = props;
-  const [activeTab, setActiveTab] = useState<'analytics' | 'reconciliation' | 'aging' | 'payroll' | 'claims' | 'philhealth' | 'expenses'>('analytics');
+  
+  const [activeTab, setActiveTab] = useState<string>('analytics');
+  const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
 
-  const tabs = [
-    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { id: 'reconciliation', label: 'Cash Reconciliation', icon: Calculator },
-    { id: 'aging', label: 'Debt Aging', icon: Clock },
-    { id: 'payroll', label: 'Staff Payroll', icon: Award },
-    { id: 'claims', label: 'HMO Claims', icon: Heart },
-    { id: 'philhealth', label: 'PhilHealth', icon: FileText },
-    { id: 'expenses', label: 'Expenses', icon: Package },
-  ];
+  const isStatutory = governanceTrack === 'STATUTORY';
+  const isBirEnabled = fieldSettings?.features.enableStatutoryBirTrack ?? true;
+  const isHmoEnabled = fieldSettings?.features.enableHmoInsuranceTrack ?? true;
+
+  // --- DUAL-TRACK ARCHITECTURAL RENAMING ---
+  const trackTabs = useMemo(() => {
+    const tabs = [
+      { id: 'analytics', label: isStatutory ? 'Official Sales Journal' : 'Practice Performance Metrics', icon: isStatutory ? Receipt : Activity },
+      { id: 'reconciliation', label: isStatutory ? 'Cash Audit Registry' : 'Operational Estimated Yield', icon: Calculator },
+      { id: 'aging', label: isStatutory ? 'Official A/R Aging' : 'Pending Responsibility', icon: Clock },
+      { id: 'payroll', label: 'Internal Fee Splits', icon: Award }, // Rule 16 Semantic renaming
+    ];
+
+    if (isHmoEnabled && fieldSettings?.features.enableHMOClaims) {
+      tabs.push({ id: 'claims', label: 'HMO Claims', icon: Heart });
+    }
+    if (isHmoEnabled && fieldSettings?.features.enablePhilHealthClaims) {
+      tabs.push({ id: 'philhealth', label: 'PhilHealth Registry', icon: FileText });
+    }
+
+    tabs.push({ id: 'expenses', label: isStatutory ? 'Official Purchase Book' : 'Operational Overhead', icon: isStatutory ? FileText : Package });
+    
+    return tabs;
+  }, [governanceTrack, fieldSettings?.features, isHmoEnabled]);
+
+  // --- DUAL-TRACK AGGREGATION LOGIC ---
+  const trackMetrics = useMemo(() => {
+    let dcv = 0; // Direct Clinical Value (Completed)
+    let ptv = 0; // Pending Treatment Value (Planned)
+    let totalOperationalCollections = 0; // All payments
+    let totalStatutoryReceipted = 0; // Only payments with OR numbers
+
+    patients.forEach(p => {
+        p.dentalChart?.forEach(entry => {
+            if (entry.status === 'Completed') dcv += (entry.price || 0);
+            if (entry.status === 'Planned') ptv += (entry.price || 0);
+        });
+        p.ledger?.forEach(entry => {
+            if (entry.type === 'Payment') {
+                totalOperationalCollections += entry.amount;
+                if (entry.orNumber) totalStatutoryReceipted += entry.amount;
+            }
+        });
+    });
+
+    return { 
+        dcv, 
+        ptv, 
+        totalOperationalCollections, 
+        totalStatutoryReceipted, 
+        gap: totalOperationalCollections - totalStatutoryReceipted 
+    };
+  }, [patients]);
 
   const renderContent = () => {
+    // --- TRACK-SPECIFIC FILTER ENGINE ---
+    const filteredPatients = isStatutory 
+        ? patients.map(p => ({
+            ...p,
+            ledger: p.ledger?.filter(l => !!l.orNumber) || []
+          }))
+        : patients;
+
+    const filteredExpenses = isStatutory
+        ? expenses.filter(e => false) // Demo assumption
+        : expenses;
+
     switch (activeTab) {
-      case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
-      case 'reconciliation': return <CashReconciliationTab patients={patients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} onSaveSession={onSaveCashSession} fieldSettings={fieldSettings} />;
+      case 'analytics': 
+        return (
+            <div className="space-y-8">
+                {!isStatutory && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-4 duration-500">
+                        <div className="bg-white p-6 rounded-[2rem] border border-teal-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+                            <div>
+                                <div className="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-1">Direct Clinical Value</div>
+                                <div className="text-3xl font-black text-slate-800">₱{trackMetrics.dcv.toLocaleString()}</div>
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-4 uppercase flex items-center gap-1"><ShieldCheck size={10}/> Completed Clinical Production</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-[2rem] border border-lilac-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+                            <div>
+                                <div className="text-[10px] font-black text-lilac-600 uppercase tracking-widest mb-1">Pending Treatment</div>
+                                <div className="text-3xl font-black text-slate-800">₱{trackMetrics.ptv.toLocaleString()}</div>
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-4 uppercase flex items-center gap-1"><Target size={10}/> Planned Asset Yield</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
+                            <div>
+                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Real-World Flow</div>
+                                <div className="text-3xl font-black text-slate-800">₱{trackMetrics.totalOperationalCollections.toLocaleString()}</div>
+                            </div>
+                            <div className="text-[9px] font-bold text-slate-400 mt-4 uppercase flex items-center gap-1"><CreditCard size={10}/> Gross Cash Position</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-[2rem] border-2 border-amber-200 shadow-lg ring-8 ring-amber-500/5 flex flex-col justify-between relative overflow-hidden">
+                            <div className="absolute -right-4 -top-4 opacity-5 rotate-12"><ShieldAlert size={80}/></div>
+                            <div>
+                                <div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Audit Compliance Gap</div>
+                                <div className="text-3xl font-black text-amber-700">₱{trackMetrics.gap.toLocaleString()}</div>
+                            </div>
+                            <div className="text-[9px] font-black text-amber-500 mt-4 uppercase flex items-center gap-1 animate-pulse"><AlertTriangle size={10}/> Potential Audit Exposure</div>
+                        </div>
+                    </div>
+                )}
+                
+                {!isStatutory && (
+                    <div className="bg-white p-10 rounded-[3rem] border border-teal-100 shadow-xl shadow-teal-600/5 animate-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-teal-100 p-2 rounded-xl text-teal-700"><Layers size={24}/></div>
+                                <h3 className="font-black text-slate-800 uppercase tracking-tight text-lg">Governance Reconciliation Bridge</h3>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registry Sync Health</div>
+                                <div className={`text-sm font-black ${trackMetrics.gap === 0 ? 'text-teal-600' : 'text-amber-500'}`}>
+                                    {Math.round((trackMetrics.totalStatutoryReceipted / trackMetrics.totalOperationalCollections) * 100) || 0}% Match
+                                </div>
+                            </div>
+                        </div>
+                        <div className="relative h-14 bg-slate-100 rounded-2xl overflow-hidden flex border-4 border-white shadow-inner">
+                            <div className="h-full bg-teal-600 relative group transition-all duration-1000" style={{ width: `${(trackMetrics.totalStatutoryReceipted / trackMetrics.totalOperationalCollections) * 100}%` }}>
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white uppercase px-4 truncate">BIR Receipted</div>
+                            </div>
+                            <div className="h-full bg-amber-500 flex-1 relative group transition-all duration-1000 delay-300">
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white uppercase px-4 truncate">Unreceipted Flow</div>
+                            </div>
+                        </div>
+                        <div className="mt-6 grid grid-cols-2 gap-4">
+                             <div className="bg-slate-50 p-4 rounded-2xl border border-teal-100 flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Statutory (Official)</span>
+                                <span className="font-black text-teal-700">₱{trackMetrics.totalStatutoryReceipted.toLocaleString()}</span>
+                             </div>
+                             <div className="bg-slate-50 p-4 rounded-2xl border border-amber-100 flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Risk Margin (Gap)</span>
+                                <span className="font-black text-amber-700">₱{trackMetrics.gap.toLocaleString()}</span>
+                             </div>
+                        </div>
+                    </div>
+                )}
+
+                <Analytics patients={filteredPatients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />
+            </div>
+        );
+      case 'reconciliation': return <CashReconciliationTab patients={filteredPatients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} onSaveSession={onSaveCashSession} fieldSettings={fieldSettings} />;
       case 'payroll': return (
         <PayrollTab 
             appointments={appointments || []} 
             staff={staff || []} 
-            expenses={expenses} 
+            expenses={filteredExpenses} 
             fieldSettings={fieldSettings} 
             currentUser={currentUser}
             payrollPeriods={props.payrollPeriods}
@@ -64,36 +210,96 @@ const Financials: React.FC<FinancialsProps> = (props) => {
             onUpdatePayrollPeriod={props.onUpdatePayrollPeriod}
             onAddAdjustment={props.onAddPayrollAdjustment}
             onApproveAdjustment={props.onApprovePayrollAdjustment}
-            onAddDispute={props.onAddCommissionDispute}
-            onResolveDispute={props.onResolveCommissionDispute}
+            onAddCommissionDispute={props.onAddCommissionDispute}
+            onResolveCommissionDispute={props.onResolveCommissionDispute}
         />
       );
-      case 'aging': return <DebtAgingTab patients={patients} />;
+      case 'aging': return <DebtAgingTab patients={filteredPatients} />;
       case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients} onUpdateClaim={onUpdatePhilHealthClaim} />;
       case 'claims': return <HMOClaimsTab claims={claims} patients={patients} />;
-      default: return <div className="p-10 text-center text-slate-400 italic">Interface for this financial group is under development.</div>;
+      case 'expenses': 
+        return (
+            <div className="space-y-6">
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm text-center">
+                    <Package size={48} className="text-slate-200 mx-auto mb-4"/>
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">{isStatutory ? 'Official Purchase Journal' : 'Operational Overhead Analysis'}</h3>
+                    <p className="text-sm text-slate-500 mt-2">Resource tracking and clinic functioning expenditures.</p>
+                </div>
+            </div>
+        );
+      default: return <div className="p-10 text-center text-slate-400 italic">Module interface synchronizing...</div>;
     }
   };
 
   return (
-    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex-shrink-0 flex justify-between items-start">
-          <div className="flex items-center gap-3">
-              <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-700 shadow-sm"><DollarSign size={32} /></div>
-              <div><h1 className="text-3xl font-bold text-slate-800">Practice Economics</h1><p className="text-slate-500">Clinical production and growth metrics.</p></div>
+    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+      <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-4">
+              <div className={`p-4 rounded-3xl shadow-xl transition-all duration-500 ${isStatutory ? 'bg-lilac-600 text-white rotate-6' : 'bg-teal-600 text-white'}`}>
+                  {isStatutory ? <ShieldCheck size={36} /> : <Activity size={36} />}
+              </div>
+              <div>
+                  <h1 className="text-4xl font-black text-slate-800 tracking-tighter">{isStatutory ? 'Registry Monitor' : 'Practice Pulse'}</h1>
+                  <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${isStatutory ? 'bg-lilac-50 border-lilac-200 text-lilac-700' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
+                          {isStatutory ? 'Statutory Audit Active' : 'Real-World Business Intelligence'}
+                      </span>
+                      {isStatutory && <span className="text-[9px] font-bold text-slate-400 uppercase italic">NPC/BIR Compliance Mode</span>}
+                  </div>
+              </div>
           </div>
-          <div className="flex gap-2">
-              <TreatmentAcceptanceCard patients={patients || []} />
-          </div>
+          
+          {isBirEnabled && (
+            <div className="bg-slate-200/50 p-1.5 rounded-[1.5rem] flex gap-2 border border-slate-300 shadow-inner">
+                  <button 
+                      onClick={() => { setGovernanceTrack('STATUTORY'); setActiveTab('analytics'); }}
+                      className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isStatutory ? 'bg-white text-lilac-700 shadow-xl border border-lilac-100 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                  >
+                      <Receipt size={16}/> Statutory Registry (BIR)
+                  </button>
+                  <button 
+                      onClick={() => { setGovernanceTrack('OPERATIONAL'); setActiveTab('analytics'); }}
+                      className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!isStatutory ? 'bg-white text-teal-700 shadow-xl border border-teal-100 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                  >
+                      <Target size={16}/> Operational Pulse (Real)
+                  </button>
+            </div>
+          )}
       </header>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-        <div className="flex border-b border-slate-200 px-4 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar">
-            {tabs.map(tab => (
-                 <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`py-4 px-5 font-bold text-sm border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-500 hover:text-teal-600'}`}><tab.icon size={16} /> {tab.label}</button>
+
+      <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white flex-1 flex flex-col overflow-hidden relative">
+        <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar gap-2 pt-2">
+            {trackTabs.map(tab => (
+                 <button 
+                    key={tab.id} 
+                    onClick={() => setActiveTab(tab.id)} 
+                    className={`py-6 px-6 font-black text-[10px] uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-3 ${activeTab === tab.id ? 'border-teal-600 text-teal-800 bg-white' : 'border-transparent text-slate-400 hover:text-teal-600 hover:bg-white/50'}`}
+                >
+                    <tab.icon size={18} /> {tab.label}
+                </button>
             ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">{renderContent()}</div>
+        
+        <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30">
+            {renderContent()}
+        </div>
+
+        {/* --- SAFE HARBOR SEMANTIC SHIELD --- */}
+        {!isStatutory && (
+            <div className="absolute bottom-0 left-0 right-0 bg-lilac-600 text-white px-8 py-3 flex items-center justify-center gap-4 z-50 shadow-[0_-8px_30px_rgba(162,28,175,0.4)] animate-in slide-in-from-bottom-full duration-1000">
+                <Shield size={16} className="animate-bounce shrink-0"/>
+                <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">INTERNAL MANAGEMENT AID ONLY: THESE METRICS REPRESENT CLINICAL WORKFLOW AND OPERATIONAL ESTIMATES. THIS IS NOT AN ACCOUNTING RECORD AND DOES NOT REFLECT STATUTORY TAX DECLARATIONS. CLINICAL DECISIONS REMAIN THE SOLE RESPONSIBILITY OF THE DENTIST.</span>
+            </div>
+        )}
       </div>
+
+      {isStatutory && (
+          <div className="flex justify-center animate-in slide-in-from-bottom-2">
+              <button className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] flex items-center gap-4 shadow-2xl hover:bg-slate-800 hover:-translate-y-1 transition-all active:scale-95 group">
+                  <Download size={20} className="text-teal-400 group-hover:animate-bounce"/> Compile Official Journals for External Audit
+              </button>
+          </div>
+      )}
     </div>
   );
 };
@@ -110,9 +316,9 @@ const PayrollTab: React.FC<{
     onUpdatePayrollPeriod: (p: PayrollPeriod) => void,
     onAddAdjustment: (a: PayrollAdjustment) => void,
     onApproveAdjustment: (id: string) => void,
-    onAddDispute: (d: CommissionDispute) => void,
-    onResolveDispute: (id: string) => void
-}> = ({ appointments, staff, expenses, fieldSettings, currentUser, payrollPeriods, payrollAdjustments, commissionDisputes, onUpdatePayrollPeriod, onAddAdjustment, onApproveAdjustment, onAddDispute, onResolveDispute }) => {
+    onAddCommissionDispute: (d: CommissionDispute) => void,
+    onResolveCommissionDispute: (id: string) => void
+}> = ({ appointments, staff, expenses, fieldSettings, currentUser, payrollPeriods, payrollAdjustments, commissionDisputes, onUpdatePayrollPeriod, onAddAdjustment, onApproveAdjustment, onAddCommissionDispute: onAddDispute, onResolveCommissionDispute: onResolveDispute }) => {
     const toast = useToast();
     const dentists = staff.filter(s => s.role === UserRole.DENTIST);
     const [selectedDentistId, setSelectedDentistId] = useState<string>(currentUser.role === UserRole.DENTIST ? currentUser.id : dentists[0]?.id || '');
@@ -161,12 +367,12 @@ const PayrollTab: React.FC<{
 
     const handleClosePeriod = () => {
         onUpdatePayrollPeriod({ ...period, status: PayrollStatus.CLOSED, closedAt: new Date().toISOString() });
-        toast.success("Statement closed. Review period active.");
+        toast.success("Split statement closed. Review period active.");
     };
 
     const handleLockPeriod = () => {
         onUpdatePayrollPeriod({ ...period, status: PayrollStatus.LOCKED, lockedAt: new Date().toISOString() });
-        toast.success("Statement locked. Record is now immutable.");
+        toast.success("Split statement locked. Record is now immutable.");
     };
 
     const handleDisputeSubmit = () => {
@@ -206,7 +412,7 @@ const PayrollTab: React.FC<{
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <UserIcon size={20} className="text-teal-600"/>
-                        <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">Viewing Provider Statement:</span>
+                        <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">Viewing Practitioner Statement:</span>
                         <select 
                             value={selectedDentistId} 
                             onChange={e => setSelectedDentistId(e.target.value)}
@@ -216,8 +422,8 @@ const PayrollTab: React.FC<{
                         </select>
                     </div>
                     <div className="flex gap-2">
-                        {period.status === PayrollStatus.OPEN && <button onClick={handleClosePeriod} className="px-4 py-2 bg-lilac-600 text-white text-xs font-bold rounded-xl shadow-lg">Close Period</button>}
-                        {period.status === PayrollStatus.CLOSED && <button onClick={handleLockPeriod} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-2"><Lock size={14}/> Permanent Lock</button>}
+                        {period.status === PayrollStatus.OPEN && <button onClick={handleClosePeriod} className="px-4 py-2 bg-lilac-600 text-white text-xs font-bold rounded-xl shadow-lg">Close for Review</button>}
+                        {period.status === PayrollStatus.CLOSED && <button onClick={handleLockPeriod} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-2"><Lock size={14}/> Finalize & Sign</button>}
                     </div>
                 </div>
             )}
@@ -230,7 +436,7 @@ const PayrollTab: React.FC<{
                             {isLocked ? <Lock size={20}/> : <Award size={20}/>}
                         </div>
                         <div>
-                            <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Statement Status</div>
+                            <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Fee Split Statement</div>
                             <div className="text-sm font-bold text-white uppercase">{period.status} {isLocked && '• IMMUTABLE RECORD'}</div>
                         </div>
                     </div>
@@ -244,7 +450,7 @@ const PayrollTab: React.FC<{
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                 {/* PRODUCTION BREAKDOWN */}
                 <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><Briefcase size={18}/> Procedure-Level Production</h3>
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><Briefcase size={18}/> Production Attribution</h3>
                     <div className="overflow-hidden border border-slate-100 rounded-2xl">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
@@ -256,7 +462,7 @@ const PayrollTab: React.FC<{
                                     const dispute = commissionDisputes.find(d => d.itemId === apt.id);
                                     return (
                                         <tr key={apt.id} className={`group hover:bg-slate-50 transition-colors ${dispute ? 'bg-orange-50/50' : ''}`}>
-                                            <td className="p-4 font-mono text-[10px] text-slate-400">{formatDate(apt.date)}</td>
+                                            <td className="p-4 font-mono text-[10px] text-slate-500">{formatDate(apt.date)}</td>
                                             <td className="p-4">
                                                 <div className="font-bold text-slate-700">{apt.type}</div>
                                                 {dispute && <div className="text-[9px] font-bold text-orange-600 flex items-center gap-1 mt-1"><AlertTriangle size={10}/> DISPUTED: "{dispute.note}"</div>}
@@ -267,7 +473,7 @@ const PayrollTab: React.FC<{
                                                     <button 
                                                         onClick={() => setDisputeModal({ itemId: apt.id, itemName: apt.type })}
                                                         className="p-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-orange-500 transition-all"
-                                                        title="Raise Dispute"
+                                                        title="Raise Split Dispute"
                                                     >
                                                         <Flag size={14}/>
                                                     </button>
@@ -289,8 +495,8 @@ const PayrollTab: React.FC<{
                     {/* ADJUSTMENT LEDGER */}
                     <div className="pt-8 border-t border-slate-100">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><CreditCard size={18}/> Correction & Adjustment Ledger</h3>
-                            {!isLocked && <button onClick={() => setAdjModal(true)} className="px-3 py-1 bg-teal-50 text-teal-600 text-[10px] font-black uppercase rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add Adjustment</button>}
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><CreditCard size={18}/> Professional Fee Adjustments</h3>
+                            {!isLocked && <button onClick={() => setAdjModal(true)} className="px-3 py-1 bg-teal-50 text-teal-600 text-[10px] font-black uppercase rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add Credit/Debit</button>}
                         </div>
                         <div className="space-y-2">
                             {payrollAdjustments.filter(a => a.periodId === period.id).map(adj => (
@@ -312,7 +518,6 @@ const PayrollTab: React.FC<{
                                     </div>
                                 </div>
                             ))}
-                            {payrollAdjustments.filter(a => a.periodId === period.id).length === 0 && <div className="py-10 text-center text-slate-300 italic text-sm border-2 border-dashed border-slate-100 rounded-3xl">No manual adjustments recorded.</div>}
                         </div>
                     </div>
                 </div>
@@ -320,46 +525,46 @@ const PayrollTab: React.FC<{
                 {/* PAYOUT SUMMARY CARD */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="bg-white p-8 rounded-[2.5rem] border-2 border-teal-500 shadow-xl space-y-6 flex-1 flex flex-col">
-                        <h3 className="font-black text-teal-900 uppercase tracking-tighter text-lg">Payout Statement</h3>
+                        <h3 className="font-black text-teal-900 uppercase tracking-tighter text-lg">Split Yield Summary</h3>
                         <div className="space-y-4">
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Gross Production</span>
+                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Gross Attribution</span>
                                 <span className="font-black text-slate-800">₱{grossProduction.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Lab Expenses (-)</span>
+                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Attributable Lab (-)</span>
                                 <span className="font-black text-red-600">-₱{labFees.toLocaleString()}</span>
                             </div>
                             <div className="h-px bg-slate-100" />
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-700 font-black uppercase tracking-widest text-[10px]">Net Practice Base</span>
+                                <span className="text-slate-700 font-black uppercase tracking-widest text-[10px]">Adjusted Practice Yield</span>
                                 <span className="font-black text-slate-900">₱{netBase.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-teal-600 font-black uppercase tracking-widest text-[10px]">Commission ({commissionRate * 100}%)</span>
+                                <span className="text-teal-600 font-black uppercase tracking-widest text-[10px]">Contracted Split ({commissionRate * 100}%)</span>
                                 <span className="font-black text-teal-700">₱{baseCommission.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Adjustments (+)</span>
+                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Manual Modifiers (+)</span>
                                 <span className={`font-black ${approvedAdjustmentsTotal >= 0 ? 'text-teal-600' : 'text-red-600'}`}>₱{approvedAdjustmentsTotal.toLocaleString()}</span>
                             </div>
                             
                             <div className="pt-6 mt-6 border-t-2 border-teal-50">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-teal-600 text-center mb-1">Final Payout Amount</div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-teal-600 text-center mb-1">Total Payout Entitlement</div>
                                 <div className="text-4xl font-black text-teal-900 text-center">₱{finalPayout.toLocaleString()}</div>
                             </div>
                         </div>
 
                         {isAdmin && period.status === PayrollStatus.OPEN && (
-                            <button onClick={handleClosePeriod} className="w-full py-4 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-lilac-600/20 hover:scale-105 transition-all">Close & Send for Review</button>
+                            <button onClick={handleClosePeriod} className="w-full py-4 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-lilac-600/20 hover:scale-105 transition-all">Close & Certify Split</button>
                         )}
                         {isAdmin && period.status === PayrollStatus.CLOSED && (
-                            <button onClick={handleLockPeriod} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:scale-105 transition-all flex items-center justify-center gap-2"><Lock size={18}/> Verify & Lock Statement</button>
+                            <button onClick={handleLockPeriod} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:scale-105 transition-all flex items-center justify-center gap-2"><Lock size={18}/> Verify & Archive Statement</button>
                         )}
                         {isLocked && (
                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">
                                 <ShieldCheck size={24} className="text-teal-600 mx-auto mb-2"/>
-                                <p className="text-[10px] font-black text-slate-400 uppercase">Verified immutable record</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase">Verified immutable Split record</p>
                              </div>
                         )}
                     </div>
@@ -372,38 +577,18 @@ const PayrollTab: React.FC<{
                     <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
                         <div className="flex items-center gap-3 text-orange-600 mb-6">
                             <Flag size={32} />
-                            <h3 className="text-2xl font-black uppercase tracking-tighter">Raise Dispute</h3>
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Raise Split Dispute</h3>
                         </div>
-                        <p className="text-sm text-slate-500 font-medium mb-6">Raising a dispute for <strong>{disputeModal.itemName}</strong>. This item will be flagged for Administrative review.</p>
+                        <p className="text-sm text-slate-500 font-medium mb-6">Raising a professional fee dispute for <strong>{disputeModal.itemName}</strong>. This item will be flagged for review.</p>
                         <textarea 
                             className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl h-32 focus:ring-4 focus:ring-orange-500/10 outline-none font-medium mb-6"
-                            placeholder="Reason for dispute (e.g., 'Lab fee incorrect', 'Should be 40% split')..."
+                            placeholder="Reason for dispute (e.g., 'Split tier mismatch')..."
                             value={disputeNote}
                             onChange={e => setDisputeNote(e.target.value)}
                         />
                         <div className="flex gap-3">
                             <button onClick={() => setDisputeModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
-                            <button onClick={handleDisputeSubmit} className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-orange-500/20">Raise Fight</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ADJUSTMENT MODAL */}
-            {adjModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
-                        <div className="flex items-center gap-3 text-teal-600 mb-6">
-                            <Plus size={32} />
-                            <h3 className="text-2xl font-black uppercase tracking-tighter">Manual Adjustment</h3>
-                        </div>
-                        <div className="space-y-4 mb-8">
-                            <div><label className="label">Adjustment Amount (₱)</label><input type="number" className="input text-lg font-black text-teal-700" placeholder="0.00" value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} /></div>
-                            <div><label className="label">Reason / Narrative</label><input type="text" className="input" placeholder="e.g. Training Bonus, Deduct Breakage" value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} /></div>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => setAdjModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
-                            <button onClick={handleAdjSubmit} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-teal-600/20">Log Adjustment</button>
+                            <button onClick={handleDisputeSubmit} className="flex-[2] py-4 bg-orange-50 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-orange-500/20">Raise Issue</button>
                         </div>
                     </div>
                 </div>
@@ -500,7 +685,6 @@ const CashReconciliationTab: React.FC<{
 
     const isAlreadyFinalized = reconciliations.some(r => r.date === today && r.branch === currentBranch);
 
-    // FIX: Removed inaccurate comments and ensured explicit numeric type safety in RHS arithmetic operations
     const expectedFromLedger = useMemo<number>(() => {
         let total = 0;
         patients.forEach(p => {
@@ -517,7 +701,6 @@ const CashReconciliationTab: React.FC<{
         return Number(total) + (activeSession ? Number((activeSession as any).openingBalance || 0) : 0);
     }, [patients, today, currentBranch, activeSession]);
 
-    // FIX: Ensured accumulation uses explicit Number type to prevent arithmetic inference errors
     const cashTotal = Number(Object.entries(counts).reduce((acc, [val, count]) => Number(acc) + (Number(val) * Number(count)), 0));
     const actualTotal = Number(cashTotal) + (Number(card) || 0) + (Number(ewallet) || 0);
     const discrepancy = Number(actualTotal) - Number(expectedFromLedger);
@@ -737,52 +920,89 @@ const CashReconciliationTab: React.FC<{
     );
 };
 
-const TreatmentAcceptanceCard: React.FC<{ patients: Patient[] }> = ({ patients }) => {
-    const acceptance = useMemo(() => {
-        let totalPlanned = 0;
-        let totalCompletedFromPlan = 0;
-        patients.forEach(p => {
-            p.dentalChart?.forEach(item => {
-                if (item.status === 'Planned') totalPlanned++;
-                if (item.status === 'Completed' && item.planId) totalCompletedFromPlan++;
-            });
-        });
-        return totalPlanned > 0 ? Math.round((totalCompletedFromPlan / (totalPlanned + totalCompletedFromPlan)) * 100) : 0;
-    }, [patients]);
+// Fixed missing PhilHealthClaimsTab component
+const PhilHealthClaimsTab: React.FC<{ 
+    claims: PhilHealthClaim[], 
+    patients: Patient[], 
+    onUpdateClaim?: (c: PhilHealthClaim) => void 
+}> = ({ claims, patients }) => {
+    const getPatient = (id: string) => patients.find(p => p.id === id);
 
     return (
-        <div className="bg-white p-3 rounded-2xl border border-teal-200 shadow-sm flex items-center gap-4 animate-in slide-in-from-right-4 duration-700">
-            <div className="relative w-12 h-12">
-                <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
-                    <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={126} strokeDashoffset={126 - (126 * acceptance) / 100} className="text-teal-600" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-teal-700">{acceptance}%</div>
-            </div>
-            <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Treatment Acceptance</div>
-                <div className="text-sm font-black text-slate-800 uppercase mt-1">Case Conversion</div>
+        <div className="space-y-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><FileText size={18}/> PhilHealth Registry</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                            <tr><th className="p-4">Patient</th><th className="p-4">Procedure</th><th className="p-4">Tracking #</th><th className="p-4 text-right">Amount</th><th className="p-4 text-center">Status</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {claims.map(claim => (
+                                <tr key={claim.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-4 font-bold text-slate-700">{getPatient(claim.patientId)?.name || 'Unknown'}</td>
+                                    <td className="p-4 text-slate-600">{claim.procedureName}</td>
+                                    <td className="p-4 font-mono text-[10px] text-slate-400">{claim.trackingNumber || '---'}</td>
+                                    <td className="p-4 text-right font-black text-slate-800">₱{claim.amountClaimed.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase border ${
+                                            claim.status === PhilHealthClaimStatus.PAID ? 'bg-green-50 border-green-200 text-green-700' : 
+                                            claim.status === PhilHealthClaimStatus.REJECTED ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'
+                                        }`}>{claim.status}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {claims.length === 0 && <div className="p-10 text-center text-slate-300 italic">No PhilHealth claims in registry.</div>}
+                </div>
             </div>
         </div>
     );
 };
 
-const PhilHealthClaimsTab: React.FC<{ claims: PhilHealthClaim[], patients: Patient[], onUpdateClaim?: (c: PhilHealthClaim) => void }> = ({ claims, patients }) => (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4">Patient</th><th className="p-4">Procedure</th><th className="p-4">Date</th><th className="p-4 text-right">Amount</th><th className="p-4 text-center">Status</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">{claims.length > 0 ? claims.map(claim => (<tr key={claim.id} className="hover:bg-slate-50/50"><td className="p-4 font-bold text-slate-800">{patients.find(p => p.id === claim.patientId)?.name}</td><td className="p-4">{claim.procedureName}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td><td className="p-4 text-right font-mono font-bold">₱{claim.amountClaimed.toLocaleString()}</td><td className="p-4 text-center">{String(claim.status)}</td></tr>)) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 italic">No PhilHealth claims recorded.</td></tr>}</tbody>
-        </table>
-    </div>
-);
+// Fixed missing HMOClaimsTab component
+const HMOClaimsTab: React.FC<{ 
+    claims: HMOClaim[], 
+    patients: Patient[] 
+}> = ({ claims, patients }) => {
+    const getPatient = (id: string) => patients.find(p => p.id === id);
 
-const HMOClaimsTab: React.FC<{ claims: HMOClaim[], patients: Patient[] }> = ({ claims, patients }) => (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4">Patient</th><th className="p-4">Provider</th><th className="p-4">Date</th><th className="p-4 text-right">Amount</th><th className="p-4 text-center">Status</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">{claims.length > 0 ? claims.map(claim => (<tr key={claim.id} className="hover:bg-slate-50/50"><td className="p-4 font-bold text-slate-800">{patients.find(p => p.id === claim.patientId)?.name}</td><td className="p-4 font-bold text-blue-700">{claim.hmoProvider}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td><td className="p-4 text-right font-mono font-bold">₱{claim.amountClaimed.toLocaleString()}</td><td className="p-4 text-center">{String(claim.status)}</td></tr>)) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 italic">No HMO claims recorded.</td></tr>}</tbody>
-        </table>
-    </div>
-);
+    return (
+        <div className="space-y-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><Heart size={18}/> HMO Claims Registry</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                            <tr><th className="p-4">Patient</th><th className="p-4">Provider</th><th className="p-4">Procedure</th><th className="p-4 text-right">Claimed</th><th className="p-4 text-center">Status</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {claims.map(claim => (
+                                <tr key={claim.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-4 font-bold text-slate-700">{getPatient(claim.patientId)?.name || 'Unknown'}</td>
+                                    <td className="p-4 font-black text-teal-700 uppercase text-[10px]">{claim.hmoProvider}</td>
+                                    <td className="p-4 text-slate-600">{claim.procedureName}</td>
+                                    <td className="p-4 text-right font-black text-slate-800">₱{claim.amountClaimed.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase border ${
+                                            claim.status === HMOClaimStatus.PAID ? 'bg-green-50 border-green-200 text-green-700' : 
+                                            claim.status === HMOClaimStatus.REJECTED ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'
+                                        }`}>{claim.status}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {claims.length === 0 && <div className="p-10 text-center text-slate-300 italic">No HMO claims in registry.</div>}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default Financials;

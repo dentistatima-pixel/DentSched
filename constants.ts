@@ -1,4 +1,5 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, TelehealthRequest, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource } from './types';
+
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -68,7 +69,7 @@ export const STAFF: User[] = [
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
       specialization: 'General Dentistry',
       prcLicense: '0123456',
-      prcExpiry: getFutureDateStr(15), // Expiring soon for alert
+      prcExpiry: getFutureDateStr(15), 
       s2License: 'PDEA-S2-8888',
       s2Expiry: getFutureDateStr(200),
       defaultBranch: 'Makati Branch',
@@ -227,7 +228,7 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_03', patientId: 'p_pedia_05', providerId: 'doc3', resourceId: 'res_chair_03', branch: 'Makati Branch', date: getTodayStr(), time: '13:00', durationMinutes: 45, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SEATED },
     { id: 'apt_today_04', patientId: 'p_emerg_08', providerId: 'doc5', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTodayStr(), time: '14:00', durationMinutes: 60, type: AppointmentType.ROOT_CANAL, status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_05', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Branch', date: getTodayStr(), time: '15:30', durationMinutes: 60, type: AppointmentType.RESTORATION, status: AppointmentStatus.CONFIRMED },
-    { id: 'apt_today_06', patientId: 'p_vip_07', providerId: 'doc1', resourceId: 'res_xray_01', branch: 'Makati Branch', date: getTodayStr(), time: '17:00', durationMinutes: 30, type: AppointmentType.TELE_DENTISTRY, status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_today_06', patientId: 'p_vip_07', providerId: 'doc1', resourceId: 'res_xray_01', branch: 'Makati Branch', date: getTodayStr(), time: '17:00', durationMinutes: 30, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SCHEDULED },
     { id: 'apt_tom_01', patientId: 'p_prostho_06', providerId: 'doc4', resourceId: 'res_chair_02', branch: 'Quezon City Branch', date: getTomorrowStr(), time: '11:00', durationMinutes: 60, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.SCHEDULED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A2', material: 'Zirconia' } },
     { id: 'apt_tom_02', patientId: 'p_vip_07', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTomorrowStr(), time: '13:00', durationMinutes: 120, type: AppointmentType.PROSTHODONTICS, status: AppointmentStatus.CONFIRMED, labStatus: LabStatus.PENDING, labDetails: { shade: 'A1', material: 'PFM' } },
     { id: 'apt_future_01', patientId: 'p_credit_03', providerId: 'doc2', resourceId: 'res_chair_02', branch: 'Quezon City Branch', date: getFutureDateStr(30), time: '09:00', durationMinutes: 30, type: AppointmentType.ORTHODONTICS, status: AppointmentStatus.SCHEDULED },
@@ -245,11 +246,11 @@ export const MOCK_CLAIMS: HMOClaim[] = [
 export const MOCK_STOCK: StockItem[] = [
     { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60) },
     { id: 'stk_2', name: 'Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(365) },
-    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getPastDateStr(5) }, // EXPIRED RED
+    { id: 'stk_3', name: 'A2 Composite Syringe', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, expiryDate: getPastDateStr(5) }, 
     { id: 'stk_4', name: 'Mouth Mirror', category: StockCategory.INSTRUMENTS, quantity: 100, lowStockThreshold: 50 },
     { id: 'stk_5', name: 'Bond Paper (Ream)', category: StockCategory.OFFICE, quantity: 8, lowStockThreshold: 5 },
-    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getFutureDateStr(15) }, // EXPIRE ALERT
-    { id: 'stk_7', name: 'Endo Files Set', category: StockCategory.INSTRUMENTS, quantity: 4, lowStockThreshold: 5 }, // Pre-allocated shortage mock
+    { id: 'stk_6', name: 'Expiring Bond', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 5, expiryDate: getFutureDateStr(15) }, 
+    { id: 'stk_7', name: 'Endo Files Set', category: StockCategory.INSTRUMENTS, quantity: 4, lowStockThreshold: 5 }, 
     { id: 'stk_8', name: 'Gutta Percha Points', category: StockCategory.RESTORATIVE, quantity: 10, lowStockThreshold: 5 },
 ];
 
@@ -279,15 +280,6 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
     { id: 'al2', timestamp: new Date().toISOString(), userId: 'admin1', userName: 'Sarah Connor', action: 'LOGIN', entity: 'Patient', entityId: 'p_heavy_01', details: 'Viewed patient record.' }
 ];
 
-export const MOCK_TELEHEALTH_REQUESTS: TelehealthRequest[] = [
-    { id: 'thr_1', patientId: 'p_credit_03', patientName: 'Maria Clara', chiefComplaint: 'My gums are swollen near my back molar.', dateRequested: getPastDateStr(1), status: 'Pending' },
-    { id: 'thr_2', patientId: 'p_complex_10', patientName: 'Gary Grinder', chiefComplaint: 'Follow-up on my night guard fitting.', dateRequested: getPastDateStr(2), status: 'Pending' }
-];
-
-export const MOCK_TELEHEALTH_STAFF: User[] = [
-    { id: 'doc1', name: 'Dr. Alexander Crentist', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' }
-];
-
 export const MOCK_VENDORS: Vendor[] = [
     { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2024-01-15' },
     { id: 'v2', name: 'Maxicare HMO', type: 'HMO', contactPerson: 'Claims Dept', contactNumber: '02-8888-1111', email: 'claims@maxicare.com.ph', status: 'Active', dsaSignedDate: '2023-06-01', dsaExpiryDate: '2024-06-01' },
@@ -296,7 +288,6 @@ export const MOCK_VENDORS: Vendor[] = [
 
 const DEFAULT_SMS: SmsTemplates = {
     welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to dentsched, {PatientName}! Your digital health record is now active. We look forward to seeing you.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on new patient registration.' },
-    portal: { id: 'portal', label: 'Portal Activation', text: 'Access your x-rays, treatment plans, and privacy logs anytime via your secure Patient Portal: {PortalLink}.', enabled: true, category: 'Onboarding', triggerDescription: 'Triggered on first portal access.' },
     provisional: { id: 'provisional', label: 'Full Enrollment Prompt', text: 'Hi! You’re currently in our Quick Register system. Please complete your full Medical History {HistoryLink} before arrival to save time.', enabled: true, category: 'Onboarding', triggerDescription: 'Manual or 48h before first visit.' },
     birthday: { id: 'birthday', label: 'Birthday Greeting', text: 'Happy Birthday, {PatientName}! Wishing you a healthy smile today. - From your team at dentsched.', enabled: true, category: 'Onboarding', triggerDescription: 'Automated on DOB matches current date.' },
     inactive: { id: 'inactive', label: 'Patient Re-engagement', text: 'Hi {PatientName}, we noticed it’s been over a year since your last visit. Routine checkups prevent major issues! Book here: {BookingLink}.', enabled: false, category: 'Onboarding', triggerDescription: 'Triggered if lastVisit > 12 months.' },
@@ -324,13 +315,12 @@ const DEFAULT_SMS: SmsTemplates = {
     hmoresolve: { id: 'hmoresolve', label: 'HMO Resolution Alert', text: 'Good news! {Provider} has processed your claim. Your remaining patient responsibility for this visit is ₱{Amount}.', enabled: true, category: 'Financial', triggerDescription: 'On Claim Paid/Rejected.' },
     philhealth: { id: 'philhealth', label: 'PhilHealth Case-Rate Update', text: 'Your PhilHealth benefit has been successfully applied to your treatment. View the updated ledger in your portal.', enabled: true, category: 'Financial', triggerDescription: 'On PhilHealth submission.' },
     security: { id: 'security', label: 'Contact Change Alert', text: 'Security Alert: Your contact information was updated. If this was not you, please contact the clinic immediately.', enabled: true, category: 'Security', triggerDescription: 'On Phone/Email change.' },
-    transparency: { id: 'transparency', label: 'Privacy Transparency Digest', text: 'Privacy Update: Your health record was accessed {Count} times this month for clinical review. View full logs in the portal.', enabled: false, category: 'Security', triggerDescription: 'Monthly automated digest.' },
-    portability: { id: 'portability', label: 'Data Portability Fulfillment', text: 'Your request for a digital copy of your medical records has been processed. Access the secure file here: {Link}.', enabled: true, category: 'Security', triggerDescription: 'On Portal data request.' },
     waitlist: { id: 'waitlist', label: 'Waitlist Priority Opening', text: 'Hi {PatientName}! A slot just opened up today at {Time} for your {Procedure}. Tap here to grab it: {Link}.', enabled: true, category: 'Efficiency', triggerDescription: 'On Waitlist match + Cancellation.' },
     referral: { id: 'referral', label: 'Referral Follow-up', text: 'Hi {PatientName}, checking in to see if you’ve scheduled your consultation with the specialist we recommended last week.', enabled: false, category: 'Efficiency', triggerDescription: '7 days after Referral.' },
 };
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
+  clinicName: 'Practice Name',
   clinicProfile: 'boutique',
   suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Engr', 'Atty', 'Ph.D', 'Jr', 'Sr', 'III'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
@@ -366,7 +356,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableHMOClaims: true,
       enableInventory: true,
       enableAnalytics: true,
-      enablePatientPortal: true,
+      enablePatientPortal: false, // MANDATORY: PATIENT HAS ZERO REMOTE ACCESS
       enableDigitalConsent: true,
       enableAutomatedRecall: true,
       enableOnlineForms: true,
@@ -380,12 +370,16 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableAccountabilityLog: true,
       enableReferralTracking: true,
       enablePromotions: true,
-      enableSmsAutomation: true
+      enableSmsAutomation: true,
+      enableMaterialTraceability: true,
+      enableBirComplianceMode: false,
+      // Fixed missing FeatureToggles properties
+      enableStatutoryBirTrack: true,
+      enableHmoInsuranceTrack: true
   },
   smsTemplates: DEFAULT_SMS,
   stockCategories: Object.values(StockCategory),
   stockItems: MOCK_STOCK,
-  resources: MOCK_RESOURCES,
   expenseCategories: ['Lab Fee', 'Supplies', 'Utilities', 'Rent', 'Salary', 'Other'],
   documentCategories: ['X-Ray', 'Medical Clearance', 'Consent Form', 'Lab Result', 'Insurance Form', 'Media Consent', 'Other'],
   clinicalProtocolRules: [
@@ -431,25 +425,12 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
           instructions: 'Take 1 capsule every 6 hours for severe pain.', 
           isS2Controlled: true,
           pediatricDosage: 'Not recommended for children under 12 years of age.'
-      },
+      }
   ],
   consentFormTemplates: [
-      { id: 'cft1', name: 'General Consent', content: 'I, {PatientName}, consent to the dental treatment as discussed with {DoctorName} on {Date}.' },
-      { id: 'cft2', name: 'Surgical Extraction Consent', content: 'I understand the risks of the surgical extraction of {ProcedureList}, including but not limited to the specific risks listed in the Risk Disclosure section below. I have had the opportunity to ask questions and discuss alternatives.'},
+      { id: 'c1', name: 'General Dental Consent', content: 'I, {PatientName}, hereby authorize Dr. {DoctorName} to perform {ProcedureList} on {Date}. I have been informed of the risks and alternatives.' },
+      { id: 'c2', name: 'Surgical Extraction Consent', content: 'I, {PatientName}, understand that the extraction of teeth involves risks including but not limited to dry socket, infection, and nerve injury. I authorize Dr. {DoctorName} to proceed.' }
   ],
-  mediaConsentTemplate: {
-    id: 'cft_media',
-    name: 'Media Consent Form',
-    content: 'I, {PatientName}, hereby grant permission to the clinic to use photographs and/or video of my dental treatment for educational and marketing purposes in print or electronic media. I understand that my name will not be used in any publication without my further specific consent.'
-  },
-  postOpTemplates: {
-      'Extraction': 'POST-OP INSTRUCTIONS: EXTRACTION\n\n1. Bite on gauze for 30-45 mins.\n2. No spitting or rinsing for 24 hours.\n3. Soft diet for 24 hours.\n4. Take prescribed medication.\n5. Call us if bleeding persists.',
-      'Surgery': 'POST-OP INSTRUCTIONS: SURGERY\n\n1. Apply ice pack for 15 mins on, 15 mins off.\n2. Rest and avoid strenuous activity.\n3. Follow medication schedule strictly.\n4. Report any excessive swelling, pain, or fever immediately.',
-      'Root Canal': 'POST-OP INSTRUCTIONS: ROOT CANAL\n\n1. Avoid chewing on the treated tooth until it is fully restored.\n2. Some tenderness is normal.\n3. Maintain good oral hygiene.'
-  },
-  clinicalNoteTemplates: [
-      { id: 'cnt1', name: 'Prophy SOAP', content: 'S: Patient presents for routine cleaning.\nO: Generalized light plaque and calculus.\nA: Oral Prophylaxis.\nP: Performed scaling and polishing. OHI given.'}
-  ],
-  vendors: MOCK_VENDORS,
-  currentPrivacyVersion: 'v1.1-2025'
+  currentPrivacyVersion: '1.0',
+  resources: MOCK_RESOURCES
 };

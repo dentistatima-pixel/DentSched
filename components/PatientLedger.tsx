@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, InstallmentPlan } from '../types';
-import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent } from 'lucide-react';
+import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -13,11 +13,14 @@ interface PatientLedgerProps {
 
 const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings }) => {
     const toast = useToast();
+    const isBirMode = fieldSettings?.features.enableBirComplianceMode ?? false;
+    
     const [mode, setMode] = useState<'view' | 'add_charge' | 'add_payment' | 'hmo_setup' | 'add_installment'>('view');
     
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState(''); 
+    const [orNumber, setOrNumber] = useState('');
     
     const [instDesc, setInstDesc] = useState('');
     const [instTotal, setInstTotal] = useState('');
@@ -46,11 +49,27 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
         e.preventDefault();
         const val = parseFloat(amount);
         if (isNaN(val) || val <= 0) return;
+
+        if (isBirMode && !orNumber.trim()) {
+            toast.error("Compliance Error: BIR Official Receipt (OR) Number is mandatory in Compliance Mode.");
+            return;
+        }
+
         const newBalance = currentBalance - val;
-        const newEntry: LedgerEntry = { id: Math.random().toString(36).substr(2, 9), date, description, type: 'Payment', amount: val, balanceAfter: newBalance };
+        const newEntry: LedgerEntry = { 
+            id: Math.random().toString(36).substr(2, 9), 
+            date, 
+            description: isBirMode ? `OR# ${orNumber} - ${description}` : description, 
+            type: 'Payment', 
+            amount: val, 
+            balanceAfter: newBalance,
+            orNumber: isBirMode ? orNumber : undefined,
+            orDate: isBirMode ? date : undefined
+        };
+
         onUpdatePatient({ ...patient, ledger: [...ledger, newEntry], currentBalance: newBalance });
-        setMode('view'); setAmount(''); setDescription('');
-        toast.success("Payment recorded.");
+        setMode('view'); setAmount(''); setDescription(''); setOrNumber('');
+        toast.success(isBirMode ? "Official Receipt matched & recorded." : "Payment recorded.");
     };
 
     const handleAddInstallment = (e: React.FormEvent) => {
@@ -67,14 +86,27 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     return (
         <div className="h-full flex flex-col bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative">
             <div className="bg-white p-6 border-b flex justify-between items-center shadow-sm z-10">
-                <div className="flex items-center gap-4"><div className="bg-emerald-100 p-3 rounded-xl text-emerald-700"><DollarSign size={28}/></div><div><h3 className="font-bold text-lg">Financial Statement</h3><p className="text-xs text-slate-500">Billing & Account History</p></div></div>
                 <div className="flex items-center gap-4">
-                    <div className="text-right"><span className="block text-[10px] font-bold uppercase text-slate-400">Current Balance</span><span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span></div>
+                    <div className={`p-3 rounded-xl shadow-sm ${isBirMode ? 'bg-lilac-100 text-lilac-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {isBirMode ? <Receipt size={28}/> : <DollarSign size={28}/>}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-lg">{isBirMode ? 'Statutory Audit Ledger' : 'Financial Statement'}</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isBirMode ? 'BIR-OR Sync Matching Active' : 'Internal Operational Tracking'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right">
+                        <span className="block text-[10px] font-bold uppercase text-slate-400">Current Balance</span>
+                        <span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span>
+                    </div>
                     {!readOnly && (
                         <div className="flex gap-2">
                              <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1"><Calendar size={16}/> Plan</button>
                              <button onClick={() => setMode('add_charge')} className="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl font-bold text-sm transition-colors">Charge</button>
-                             <button onClick={() => setMode('add_payment')} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all">Payment</button>
+                             <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 hover:bg-lilac-700' : 'bg-teal-600 hover:bg-teal-700'} text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2`}>
+                                 {isBirMode ? <Receipt size={16}/> : <DollarSign size={16}/>} {isBirMode ? 'Issue OR' : 'Payment'}
+                             </button>
                         </div>
                     )}
                 </div>
@@ -96,27 +128,65 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                 )}
 
                 {mode === 'add_payment' && (
-                    <form onSubmit={handlePayment} className="bg-white p-6 rounded-2xl border-2 border-emerald-500 space-y-4 animate-in zoom-in-95 shadow-xl">
-                        <h4 className="font-bold text-emerald-900 flex items-center gap-2"><CreditCard size={20}/> Receive Payment</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (e.g. Cash Payment)" className="col-span-2 p-3 rounded-xl border" required />
-                            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount (₱)" className="p-3 rounded-xl border font-bold" required />
-                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="p-3 rounded-xl border" />
+                    <form onSubmit={handlePayment} className={`bg-white p-6 rounded-2xl border-2 ${isBirMode ? 'border-lilac-500' : 'border-emerald-500'} space-y-4 animate-in zoom-in-95 shadow-xl`}>
+                        <div className="flex justify-between items-start">
+                            <h4 className={`font-black uppercase tracking-widest text-sm flex items-center gap-2 ${isBirMode ? 'text-lilac-900' : 'text-emerald-900'}`}>
+                                {isBirMode ? <Receipt size={20}/> : <CreditCard size={20}/>} {isBirMode ? 'Issue BIR Official Receipt' : 'Receive Payment'}
+                            </h4>
+                            {isBirMode && <span className="text-[9px] font-black text-lilac-600 bg-lilac-50 px-2 py-1 rounded border border-lilac-100 uppercase">Statutory Sync Mode</span>}
                         </div>
-                        <div className="flex justify-end gap-2"><button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-400">Cancel</button><button type="submit" className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20">Log Payment</button></div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {isBirMode && (
+                                <div className="md:col-span-2">
+                                    <label className="text-[10px] font-black text-lilac-700 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-1"><Hash size={12}/> Official Receipt (OR) Number *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={orNumber} 
+                                        onChange={e => setOrNumber(e.target.value)} 
+                                        placeholder="Enter number from physical BIR booklet" 
+                                        className="w-full p-4 bg-lilac-50 border-2 border-lilac-200 rounded-2xl font-black text-xl text-lilac-900 outline-none focus:border-lilac-500 transition-all shadow-inner" 
+                                    />
+                                </div>
+                            )}
+                            <div className="md:col-span-2"><label className="label">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Cash Payment" className="input" required /></div>
+                            <div><label className="label">Amount (₱)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="input font-bold" required /></div>
+                            <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-4">
+                            <button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-400">Cancel</button>
+                            <button type="submit" className={`${isBirMode ? 'bg-lilac-600 shadow-lilac-600/20' : 'bg-emerald-600 shadow-emerald-600/20'} text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95`}>
+                                {isBirMode ? 'Match & Post Receipt' : 'Log Payment'}
+                            </button>
+                        </div>
                     </form>
                 )}
 
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px]"><tr><th className="p-4 text-left">Date</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Type</th><th className="p-4 text-right">Amount</th><th className="p-4 text-right">Balance</th></tr></thead>
+                        <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px]">
+                            <tr>
+                                <th className="p-4 text-left">Date</th>
+                                <th className="p-4 text-left">Description</th>
+                                {isBirMode && <th className="p-4 text-left">OR #</th>}
+                                <th className="p-4 text-left">Type</th>
+                                <th className="p-4 text-right">Amount</th>
+                                <th className="p-4 text-right">Balance</th>
+                            </tr>
+                        </thead>
                         <tbody className="divide-y divide-slate-100">
                             {[...ledger].reverse().map((entry) => (
-                                <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={entry.id} className="hover:bg-slate-50 transition-colors group">
                                     <td className="p-4 text-slate-500 font-mono text-xs">{formatDate(entry.date)}</td>
                                     <td className="p-4">
                                         <div className="font-bold text-slate-700">{entry.description}</div>
                                     </td>
+                                    {isBirMode && (
+                                        <td className="p-4">
+                                            <span className="font-mono font-bold text-lilac-700">{entry.orNumber || '---'}</span>
+                                        </td>
+                                    )}
                                     <td className="p-4"><span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${entry.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{entry.type}</span></td>
                                     <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-600' : 'text-emerald-600'}`}>₱{entry.amount.toLocaleString()}</td>
                                     <td className="p-4 text-right font-mono font-bold text-slate-600 bg-slate-50/30">₱{entry.balanceAfter.toLocaleString()}</td>
@@ -124,6 +194,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                             ))}
                         </tbody>
                     </table>
+                    {ledger.length === 0 && <div className="p-10 text-center text-slate-300 italic">No financial history recorded for this registry.</div>}
                 </div>
             </div>
         </div>

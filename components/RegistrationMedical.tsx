@@ -1,6 +1,6 @@
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
-import { Check, AlertTriangle, Droplet, Heart, ShieldAlert, Pill, Stethoscope, Activity, Thermometer, ShieldCheck, Zap, AlertCircle, Edit3 } from 'lucide-react';
+import { Check, AlertTriangle, Droplet, Heart, ShieldAlert, Pill, Stethoscope, Activity, Thermometer, ShieldCheck, Zap, AlertCircle, Edit3, EyeOff } from 'lucide-react';
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
@@ -8,9 +8,10 @@ interface RegistrationMedicalProps {
   handleArrayChange: (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings; 
+  isMasked?: boolean;
 }
 
-const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, handleChange, handleArrayChange, readOnly, fieldSettings }) => {
+const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, handleChange, handleArrayChange, readOnly, fieldSettings, isMasked = false }) => {
   
   const BooleanField = ({ label, name, checked, onToggle, alert = false, icon: Icon, children }: { label: string, name: string, checked?: boolean, onToggle: (val: boolean) => void, alert?: boolean, icon?: React.ElementType, children?: React.ReactNode }) => (
       <div className="space-y-3">
@@ -21,18 +22,23 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
               </div>
               <div className="flex gap-4 shrink-0 whitespace-nowrap">
                     <label className="flex items-center gap-2 cursor-pointer group">
-                        <input disabled={readOnly} type="radio" name={name} checked={checked === true} onChange={() => onToggle(true)} className="w-5 h-5 accent-teal-600" />
+                        <input disabled={readOnly || isMasked} type="radio" name={name} checked={checked === true} onChange={() => onToggle(true)} className="w-5 h-5 accent-teal-600" />
                         <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">Yes</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer group">
-                        <input disabled={readOnly} type="radio" name={name} checked={checked === false} onChange={() => onToggle(false)} className="w-5 h-5 accent-teal-600" />
+                        <input disabled={readOnly || isMasked} type="radio" name={name} checked={checked === false} onChange={() => onToggle(false)} className="w-5 h-5 accent-teal-600" />
                         <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">No</span>
                     </label>
               </div>
           </div>
-          {checked && children && (
+          {checked && children && !isMasked && (
               <div className="px-2 animate-in slide-in-from-top-2 duration-300">
                   {children}
+              </div>
+          )}
+          {checked && isMasked && (
+              <div className="px-6 py-2 text-[10px] font-black text-slate-300 uppercase tracking-widest italic flex items-center gap-1">
+                  <EyeOff size={10}/> Details Hidden for Privacy
               </div>
           )}
       </div>
@@ -52,7 +58,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
                 <h3 className="font-bold text-lg text-slate-800">Clinical Data Authorization</h3>
             </div>
             <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
-                <input type="checkbox" name="thirdPartyDisclosureConsent" checked={formData.thirdPartyDisclosureConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
+                <input disabled={isMasked} type="checkbox" name="thirdPartyDisclosureConsent" checked={formData.thirdPartyDisclosureConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
                 <div>
                     <span className="font-extrabold text-teal-900 uppercase text-xs">Clinical Coordination Consent *</span>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">I authorize this clinic to process my medical data and share relevant details with my physicians for clinical clearance (PDA Rule 4).</p>
@@ -93,26 +99,28 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
                 onToggle={(v) => handleBoolChange('takingMedications', v)} 
                 icon={Pill}
             >
-                <div className="space-y-6 pt-2">
-                    <div>
-                        <label className="label font-black text-teal-900 text-[9px] uppercase tracking-widest mb-3">Select Common Medications</label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {(fieldSettings.medications || []).map(med => {
-                                const isSelected = (formData.reportedMedications || []).includes(med.name);
-                                return (
-                                    <button key={med.id} type="button" onClick={() => handleArrayChange('reportedMedications', med.name)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-sm' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                                        <span className="text-[10px] font-bold leading-tight">{med.name}</span>
-                                    </button>
-                                );
-                            })}
+                {!isMasked && (
+                    <div className="space-y-6 pt-2">
+                        <div>
+                            <label className="label font-black text-teal-900 text-[9px] uppercase tracking-widest mb-3">Select Common Medications</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {(fieldSettings.medications || []).map(med => {
+                                    const isSelected = (formData.reportedMedications || []).includes(med.name);
+                                    return (
+                                        <button key={med.id} type="button" onClick={() => handleArrayChange('reportedMedications', med.name)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-sm' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                                            <span className="text-[10px] font-bold leading-tight">{med.name}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="label font-bold text-teal-800 text-[10px] flex items-center gap-2"><Edit3 size={12}/> Other Medications & Dosage Instructions</label>
+                            <textarea name="medicationDetails" value={formData.medicationDetails || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="List medications not found above, including dosage and frequency..." />
                         </div>
                     </div>
-                    <div>
-                        <label className="label font-bold text-teal-800 text-[10px] flex items-center gap-2"><Edit3 size={12}/> Other Medications & Dosage Instructions</label>
-                        <textarea name="medicationDetails" value={formData.medicationDetails || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="List medications not found above, including dosage and frequency..." />
-                    </div>
-                </div>
+                )}
             </BooleanField>
         </div>
 
@@ -172,57 +180,67 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
         </div>
 
         {/* 5. Condition and Allergy Grids */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 text-orange-800 border-b border-orange-50 pb-3">
-                <AlertTriangle size={20} />
-                <h4 className="font-black uppercase text-sm tracking-widest">Medical Condition Registry</h4>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {fieldSettings.medicalConditions.filter(c => c !== 'None').map(condition => {
-                    const isSelected = (formData.medicalConditions || []).includes(condition);
-                    const isHighRisk = ['HIV/AIDS', 'Hepatitis', 'Tuberculosis', 'Heart Disease', 'Bleeding Issues'].includes(condition);
-                    return (
-                        <button key={condition} type="button" onClick={() => handleArrayChange('medicalConditions', condition)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? isHighRisk ? 'bg-red-50 border-red-300 text-red-900 shadow-md' : 'bg-orange-50 border-orange-300 text-orange-900' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? isHighRisk ? 'bg-red-600 text-white border-red-600' : 'bg-orange-500 text-white border-orange-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                            <span className="text-[10px] font-bold leading-tight">{condition}</span>
-                        </button>
-                    );
-                })}
-            </div>
-            <div className="pt-2">
-                <label className="label text-orange-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Condition Not Listed</label>
-                <input type="text" name="otherConditions" value={formData.otherConditions || ''} onChange={handleChange} className="input border-orange-100 focus:border-orange-500" placeholder="Specify any rare or specific conditions..." />
-            </div>
-        </div>
+        {!isMasked ? (
+            <>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                    <div className="flex items-center gap-2 text-orange-800 border-b border-orange-50 pb-3">
+                        <AlertTriangle size={20} />
+                        <h4 className="font-black uppercase text-sm tracking-widest">Medical Condition Registry</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {fieldSettings.medicalConditions.filter(c => c !== 'None').map(condition => {
+                            const isSelected = (formData.medicalConditions || []).includes(condition);
+                            const isHighRisk = ['HIV/AIDS', 'Hepatitis', 'Tuberculosis', 'Heart Disease', 'Bleeding Issues'].includes(condition);
+                            return (
+                                <button key={condition} type="button" onClick={() => handleArrayChange('medicalConditions', condition)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? isHighRisk ? 'bg-red-50 border-red-300 text-red-900 shadow-md' : 'bg-orange-50 border-orange-300 text-orange-900' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? isHighRisk ? 'bg-red-600 text-white border-red-600' : 'bg-orange-500 text-white border-orange-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                                    <span className="text-[10px] font-bold leading-tight">{condition}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="pt-2">
+                        <label className="label text-orange-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Condition Not Listed</label>
+                        <input type="text" name="otherConditions" value={formData.otherConditions || ''} onChange={handleChange} className="input border-orange-100 focus:border-orange-500" placeholder="Specify any rare or specific conditions..." />
+                    </div>
+                </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
-                <Pill size={20} />
-                <h4 className="font-black uppercase text-sm tracking-widest">Allergy Registry</h4>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                    <div className="flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
+                        <Pill size={20} />
+                        <h4 className="font-black uppercase text-sm tracking-widest">Allergy Registry</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {fieldSettings.allergies.filter(a => a !== 'None').map(allergy => {
+                            const isSelected = (formData.allergies || []).includes(allergy);
+                            return (
+                                <button key={allergy} type="button" onClick={() => handleArrayChange('allergies', allergy)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                                    <span className="text-[10px] font-bold leading-tight">{allergy}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="pt-2">
+                        <label className="label text-teal-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Allergy Not Listed</label>
+                        <input type="text" name="otherAllergies" value={formData.otherAllergies || ''} onChange={handleChange} className="input border-teal-100 focus:border-teal-500" placeholder="e.g. Food, Metal, Specific Preservatives..." />
+                    </div>
+                </div>
+            </>
+        ) : (
+            <div className="p-10 bg-slate-100 rounded-3xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-3">
+                <EyeOff size={40} className="text-slate-300"/>
+                <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Medical History Registry Hidden for Privacy</p>
+                <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">Please ask a staff member to unlock this section if updates are required.</p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {fieldSettings.allergies.filter(a => a !== 'None').map(allergy => {
-                    const isSelected = (formData.allergies || []).includes(allergy);
-                    return (
-                        <button key={allergy} type="button" onClick={() => handleArrayChange('allergies', allergy)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                            <span className="text-[10px] font-bold leading-tight">{allergy}</span>
-                        </button>
-                    );
-                })}
-            </div>
-            <div className="pt-2">
-                <label className="label text-teal-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Allergy Not Listed</label>
-                <input type="text" name="otherAllergies" value={formData.otherAllergies || ''} onChange={handleChange} className="input border-teal-100 focus:border-teal-500" placeholder="e.g. Food, Metal, Specific Preservatives..." />
-            </div>
-        </div>
+        )}
 
         {/* 6. Chief Complaint */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-teal-600"/> Clinical Presentation</h4>
             <div>
                 <label className="label font-bold text-teal-800">Reason for visit (Chief Complaint)</label>
-                <textarea name="chiefComplaint" value={formData.chiefComplaint || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="e.g. Pain in molar, bleeding gums, checkup..." />
+                <textarea disabled={isMasked} name="chiefComplaint" value={isMasked ? "REDACTED" : formData.chiefComplaint || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="e.g. Pain in molar, bleeding gums, checkup..." />
             </div>
         </div>
     </div>

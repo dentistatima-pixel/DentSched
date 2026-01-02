@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
@@ -68,7 +69,6 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
-      {/* Cloud Pulse Connectivity Bar */}
       <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500' : 'bg-lilac-500 animate-pulse shadow-[0_0_10px_rgba(192,38,211,0.5)]'}`} />
 
       <header className={headerClass}>
@@ -79,14 +79,13 @@ const Layout: React.FC<LayoutProps> = ({
                 <div className="flex flex-col">
                      <span className={`font-black tracking-tight text-lg leading-none ${isDowntime ? 'text-black bg-yellow-400 px-1 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-200'}`}>Hello {currentUser.name.split(' ')[0]}</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-wider font-black leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-200'}`}>Hello {currentUser.name.split(' ')[0]}</span>
                         {!isOnline && <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase"><CloudOff size={8}/> Offline</div>}
                      </div>
                 </div>
              </div>
              
              <div className="flex items-center gap-2">
-                 {/* SYSTEM STATUS SWITCHER (ADMIN/DENTIST) */}
                  {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
                      <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
                         <button 
@@ -111,7 +110,6 @@ const Layout: React.FC<LayoutProps> = ({
                      </div>
                  )}
 
-                 {/* TASK NOTIFICATION CENTER */}
                  <div className="relative">
                     <button onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} className={`p-2 rounded-full transition-colors relative ${isTaskPopoverOpen ? 'bg-teal-800' : 'active:bg-teal-800'}`} title="My Tasks">
                         <ClipboardCheck size={24} />
@@ -169,6 +167,14 @@ const Layout: React.FC<LayoutProps> = ({
             {children}
         </div>
       </main>
+
+      {/* --- MANDATORY PDA RULE 19 DISCLAIMER --- */}
+      <div className="bg-white border-t border-slate-200 px-6 py-1 z-40 hidden md:flex items-center justify-center gap-4 shrink-0">
+          <Shield size={12} className="text-teal-600"/>
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">
+            PDA RULE 19 COMPLIANCE: THIS SYSTEM DOES NOT LICENSE DENTISTS OR CLINICS. ALL CLINICAL DECISIONS REMAIN THE SOLE RESPONSIBILITY OF THE PRACTITIONER. THIS IS A RECORD-KEEPING AID ONLY.
+          </p>
+      </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
             {navItems.map((item) => (

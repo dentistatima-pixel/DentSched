@@ -1,20 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
-/* Added UserCheck to lucide-react imports */
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
   Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, 
   Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
-  PinboardTask, TreatmentPlanStatus, TelehealthRequest, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
+  PinboardTask, TreatmentPlanStatus, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
 } from '../types';
 import Fuse from 'fuse.js';
 import ConsentCaptureModal from './ConsentCaptureModal';
-import { MOCK_TELEHEALTH_REQUESTS } from '../constants';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 
@@ -37,7 +35,6 @@ interface DashboardProps {
   onViewAllSchedule?: () => void; 
   onChangeBranch?: (branch: string) => void;
   currentBranch: string;
-  onPatientPortalToggle: () => void;
   tasks?: PinboardTask[];
   onAddTask?: (text: string, isUrgent: boolean, assignedTo: string) => void;
   onToggleTask?: (id: string) => void;
@@ -54,6 +51,7 @@ interface DashboardProps {
   systemStatus?: SystemStatus;
   onSwitchSystemStatus?: (status: SystemStatus) => void;
   onVerifyDowntimeEntry?: (id: string) => void;
+  onVerifyMedHistory?: (appointmentId: string) => void;
 }
 
 interface ComplianceAlert {
@@ -89,9 +87,9 @@ const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, c
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], patientsCount, staffCount, staff = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onUpdateSettings, onViewAllSchedule, onChangeBranch, currentBranch, onPatientPortalToggle,
+  onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onUpdateSettings, onViewAllSchedule, onChangeBranch, currentBranch,
   tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, onQuickQueue, auditLogVerified, sterilizationCycles = [], stock = [], auditLog = [], logAction,
-  syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry
+  syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry, onVerifyMedHistory
 }) => {
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +101,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [activeRecallTab, setActiveRecallTab] = useState<RecallStatus>('Due');
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [emergencyData, setEmergencyData] = useState({ name: '', phone: '', complaint: '', triageLevel: 'Level 2: Acute Pain/Swelling' as TriageLevel });
-  const [commitmentNote, setCommitmentNote] = useState('');
 
   const today = new Date().toLocaleDateString('en-CA');
 
@@ -121,16 +118,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
   }, [appointments]);
 
-  const bayStatus = useMemo(() => {
-    if (!fieldSettings?.resources) return [];
-    return fieldSettings.resources.filter(r => r.branch === currentBranch).map(res => {
-      const activeApt = todaysAppointments.find(a => a.resourceId === res.id && [AppointmentStatus.ARRIVED, AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
-      const patient = activeApt ? getPatient(activeApt.patientId) : null;
-      const initials = patient ? `${patient.firstName[0]}${patient.surname[0]}` : null;
-      return { ...res, currentInitials: initials, status: activeApt ? 'Occupied' : 'Ready' };
-    });
-  }, [fieldSettings, todaysAppointments, patients, currentBranch]);
-
   const realityScore = useMemo(() => {
     if (!stock || stock.length === 0) return 100;
     const branchStock = stock.filter(s => s.branch === currentBranch || !s.branch);
@@ -144,11 +131,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Math.round((withinTolerance / branchStock.length) * 100);
   }, [stock, currentBranch]);
 
-  // --- PREDICTIVE ANALYTICS ENGINE ---
   const roleKPIs = useMemo(() => {
     const currentYear = new Date().getFullYear();
     
-    // Admin Logic
     const practiceProductionYTD = allAppointments
       .filter(a => a.status === AppointmentStatus.COMPLETED && new Date(a.date).getFullYear() === currentYear)
       .reduce((sum, apt) => {
@@ -167,7 +152,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     const acceptanceRate = totalPlanned > 0 ? Math.round((totalAccepted / (totalPlanned + totalAccepted)) * 100) : 0;
     const totalARAging = patients.reduce((s, p) => s + (p.currentBalance || 0), 0);
 
-    // Dentist Logic
     const dentistTodayProduction = todaysAppointments
       .filter(a => a.providerId === currentUser.id && a.status === AppointmentStatus.COMPLETED)
       .reduce((sum, apt) => {
@@ -194,7 +178,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     const reliabilitySum = myPatientsToday.reduce((sum, a) => sum + (getPatient(a.patientId)?.reliabilityScore || 100), 0);
     const avgReliability = myPatientsToday.length > 0 ? Math.round(reliabilitySum / myPatientsToday.length) : 100;
 
-    // Assistant Logic
     const completedToday = todaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED).length;
     const shiftFlow = todaysAppointments.length > 0 ? Math.round((completedToday / todaysAppointments.length) * 100) : 0;
     const queueLatency = todaysAppointments.some(a => a.status === AppointmentStatus.ARRIVED) ? "14m" : "0m";
@@ -225,8 +208,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     });
     return alerts;
   }, [staff, fieldSettings, currentUser]);
-
-  const activeGateAlert = complianceAlerts.find(a => a.severity === 'high' && !a.isAcknowledged);
 
   const handleAcknowledgeAlert = (alertId: string) => {
     if (!onUpdateSettings || !fieldSettings) return;
@@ -261,7 +242,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <MetricCard icon={Activity} color="bg-teal-50 text-teal-600" label="Individual Production" value={roleKPIs.dentist.production} subtext="Direct Clinical Output (Today)" />
-          {/* Fix: UserCheck is now imported correctly from lucide-react */}
           <MetricCard icon={UserCheck} color="bg-lilac-50 text-lilac-600" label="Treatment Acceptance" value={roleKPIs.dentist.acceptance} subtext="Patient Plan Conversion" />
           <MetricCard icon={CheckCircle} color="bg-green-50 text-green-600" label="Avg. Patient Reliability" value={roleKPIs.dentist.reliability} subtext="Mean Appointment Integrity" />
         </div>
@@ -278,7 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderAdminView = () => (
     <div className="space-y-6">
-      {/* RECONCILIATION HUB OVERLAY */}
       {systemStatus === SystemStatus.RECONCILIATION && unreconciledManualEntries.length > 0 && (
           <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-8 overflow-hidden">
               <div className="bg-white w-full max-w-6xl h-full rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 border-8 border-teal-500/20">
@@ -333,7 +312,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-8">
           
-          {/* OFFLINE OUTAGE RECONCILIATION WIDGET */}
           {syncConflicts.length > 0 && (
               <div className="animate-in slide-in-from-top-4 duration-500">
                   <div className="flex justify-between items-center mb-4">
@@ -461,6 +439,23 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
                         <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                        
+                        {apt.status === AppointmentStatus.ARRIVED && (
+                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                {apt.medHistoryVerified ? (
+                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-[9px] font-black uppercase border border-teal-100">
+                                        <CheckCircle size={10}/> History Verified
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => onVerifyMedHistory?.(apt.id)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg shadow-lilac-600/20 hover:scale-105 transition-all"
+                                    >
+                                        <Stethoscope size={10}/> Verify History
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 ))}
               </div>
@@ -470,7 +465,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {receptionPatientFlow.inTreatment.map(apt => (
                         <div key={apt.id} className="bg-white p-4 rounded-2xl shadow-sm border-2 border-teal-200">
-                            <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
+                                {apt.medHistoryVerified && <VerifiedIcon size={14} className="text-teal-500" title="Medical History Re-verified Today"/>}
+                            </div>
                             <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
                         </div>
                     ))}

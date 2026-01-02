@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint } from 'lucide-react';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -18,10 +18,15 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 }) => {
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
     const [isSigning, setIsSigning] = useState(false);
+    const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
+    const [isDuressAffirmed, setIsDuressAffirmed] = useState(false);
 
     const isMinor = (patient.age || 0) < 18;
     const requiresGuardian = isMinor || patient.isPwd || patient.isSeniorDependent;
     const guardian = patient.guardianProfile;
+
+    const riskDisclosures = procedure?.riskDisclosures || [];
+    const allRisksAcknowledged = riskDisclosures.length === acknowledgedRisks.length;
 
     const getProcessedContent = () => {
         let content = template.content;
@@ -49,6 +54,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     useEffect(() => {
         if (isOpen) {
            setTimeout(setupCanvas, 50);
+           setAcknowledgedRisks([]);
+           setIsDuressAffirmed(false);
         }
     }, [isOpen]);
     
@@ -61,10 +68,19 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
-    const startSign = (e: any) => { e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
+    const startSign = (e: any) => { 
+        if (!isDuressAffirmed || !allRisksAcknowledged) return;
+        e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); 
+    };
     const stopSign = (e: any) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: any) => { if (!isSigning) return; e.preventDefault(); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.lineTo(x, y); ctx?.stroke(); };
+    const draw = (e: any) => { if (!isSigning || !isDuressAffirmed || !allRisksAcknowledged) return; e.preventDefault(); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.lineTo(x, y); ctx?.stroke(); };
     const clearCanvas = () => { const canvas = signatureCanvasRef.current; const ctx = canvas?.getContext('2d'); if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } };
+
+    const toggleRisk = (risk: string) => {
+        setAcknowledgedRisks(prev => 
+            prev.includes(risk) ? prev.filter(r => r !== risk) : [...prev, risk]
+        );
+    };
 
     const handleSave = () => {
         const finalCanvas = document.createElement('canvas');
@@ -72,7 +88,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         if (!signatureCanvas) return;
         
         finalCanvas.width = 600;
-        finalCanvas.height = 800;
+        finalCanvas.height = 1150; 
         const ctx = finalCanvas.getContext('2d');
         if (!ctx) return;
 
@@ -105,14 +121,73 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
         ctx.fillText(line, 30, y); y += 40;
 
+        if (riskDisclosures.length > 0) {
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('PROCEDURE-SPECIFIC RISK ACKNOWLEDGMENT:', 30, y);
+            y += 20;
+            ctx.font = '11px sans-serif';
+            riskDisclosures.forEach(risk => {
+                ctx.fillText(`[X] ${risk}`, 40, y);
+                y += 18;
+            });
+            y += 20;
+        }
+
+        ctx.font = 'italic 10px sans-serif';
+        ctx.fillStyle = '#64748b';
+        const duressText = "AFFIRMATION OF VOLUNTARY CONSENT: I hereby attest that I am signing this clinical document voluntarily, of my own free will, and under no form of duress, coercion, or external pressure.";
+        const splitDuress = docSplitTextToSize(duressText, 540, ctx);
+        splitDuress.forEach(line => {
+            ctx.fillText(line, 30, y);
+            y += 12;
+        });
+        y += 10;
+
         ctx.drawImage(signatureCanvas, 30, y, signatureCanvas.width, signatureCanvas.height);
         y += signatureCanvas.height + 5;
         ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(30 + signatureCanvas.width, y); ctx.strokeStyle = '#94a3b8'; ctx.stroke();
         ctx.fillStyle = '#64748b';
         const sigLabel = requiresGuardian && guardian ? `Signature of Legal Guardian: ${guardian.legalName} (ID: ${guardian.idType} ${guardian.idNumber})` : `Patient Signature: ${patient.name}`;
         ctx.fillText(sigLabel, 30, y + 15);
+        y += 35;
+
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(30, y, 540, 60);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(30, y, 540, 60);
+        
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText('FORENSIC IDENTITY FINGERPRINT (RA 8792 COMPLIANT)', 40, y + 15);
+        ctx.font = '8px monospace';
+        const fingerprintData = [
+            `DEVICE: ${navigator.userAgent.substring(0, 85)}...`,
+            `PLATFORM: ${navigator.platform} | LANG: ${navigator.language}`,
+            `SESSION_NONCE: ${Math.random().toString(36).substring(2, 15).toUpperCase()} | VERIFIED_TS: ${new Date().toISOString()}`
+        ];
+        fingerprintData.forEach((text, i) => {
+            ctx.fillText(text, 40, y + 30 + (i * 10));
+        });
         
         onSave(finalCanvas.toDataURL('image/png'));
+    };
+
+    const docSplitTextToSize = (text: string, width: number, ctx: CanvasRenderingContext2D) => {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = words[0];
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const testWidth = ctx.measureText(currentLine + " " + word).width;
+            if (testWidth < width) {
+                currentLine += " " + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+        return lines;
     };
 
     if (!isOpen) return null;
@@ -157,18 +232,62 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
 
+                    {riskDisclosures.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl border border-orange-200 shadow-sm space-y-4">
+                            <h4 className="font-black text-orange-900 uppercase tracking-widest text-xs flex items-center gap-2">
+                                <ShieldAlert size={16} className="text-orange-500"/> Specific Risk Disclosure Required
+                            </h4>
+                            <div className="space-y-2">
+                                {riskDisclosures.map(risk => {
+                                    const isChecked = acknowledgedRisks.includes(risk);
+                                    return (
+                                        <button 
+                                            key={risk} 
+                                            onClick={() => toggleRisk(risk)}
+                                            className={`w-full p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${isChecked ? 'bg-orange-50 border-orange-400' : 'bg-slate-50 border-slate-100 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            {isChecked ? <CheckSquare size={18} className="text-orange-600 shrink-0"/> : <Square size={18} className="text-slate-300 shrink-0"/>}
+                                            <span className={`text-xs font-bold ${isChecked ? 'text-orange-900' : 'text-slate-500'}`}>{risk}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white p-6 rounded-3xl border-2 border-lilac-200 shadow-sm space-y-4 animate-in slide-in-from-bottom-2">
+                        <div className="flex items-center gap-3">
+                            <ShieldCheck size={20} className="text-lilac-600"/>
+                            <h4 className="font-black text-lilac-900 uppercase tracking-widest text-xs">Anti-Duress Affirmation</h4>
+                        </div>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${isDuressAffirmed ? 'bg-lilac-50 border-lilac-500' : 'bg-slate-50 border-slate-100'}`}>
+                            <input 
+                                type="checkbox" 
+                                checked={isDuressAffirmed} 
+                                onChange={e => setIsDuressAffirmed(e.target.checked)}
+                                className="w-6 h-6 accent-lilac-600 rounded mt-1 shrink-0" 
+                            />
+                            <p className="text-[11px] text-slate-700 font-bold leading-relaxed">
+                                I hereby attest that I am signing this clinical document voluntarily, of my own free will, and under no form of duress, coercion, or external pressure. I confirm I have had sufficient opportunity to review the risks and alternatives.
+                            </p>
+                        </label>
+                    </div>
+
                     {!isAuthorityBlocked && (
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden ${!isDuressAffirmed || !allRisksAcknowledged ? 'opacity-40 grayscale' : ''}`}>
                             <div className="flex justify-between items-center mb-2">
-                                <h4 className="font-bold text-slate-700">{requiresGuardian ? 'Signature of Legal Guardian (on behalf of minor/dependent)' : 'Patient Signature'}</h4>
+                                <h4 className="font-bold text-slate-700">{requiresGuardian ? 'Signature of Legal Guardian' : 'Patient Signature'}</h4>
                                 <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button>
                             </div>
-                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
-                            {requiresGuardian && guardian && (
-                                <div className="mt-3 p-3 bg-slate-50 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200">
-                                    ID ATTACHED: {guardian.idType} ({guardian.idNumber})
-                                </div>
-                            )}
+                            <div className="relative">
+                                <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
+                                {(!isDuressAffirmed || !allRisksAcknowledged) && (
+                                    <div className="absolute inset-0 bg-slate-100/10 backdrop-blur-[1px] flex flex-col items-center justify-center pointer-events-none">
+                                        <Lock size={24} className="text-slate-400 mb-1"/>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase text-center">Complete all risk checks and affirmation <br/> to unlock signature</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -177,7 +296,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                     <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
                     <button 
                         onClick={handleSave} 
-                        disabled={isAuthorityBlocked || (requiresGuardian && !guardian)} 
+                        disabled={isAuthorityBlocked || (requiresGuardian && !guardian) || !allRisksAcknowledged || !isDuressAffirmed} 
                         className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50 disabled:grayscale transition-all"
                     >
                         <CheckCircle size={20} /> Signed & Verified

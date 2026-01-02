@@ -3,13 +3,14 @@ import {
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, 
   LabStatus, FieldSettings, WaitlistEntry, ClinicResource 
 } from '../types';
 import { formatDate } from '../constants';
+import { useToast } from './ToastSystem';
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -32,6 +33,7 @@ const MOCK_WAITLIST: WaitlistEntry[] = [
 const RELIABILITY_THRESHOLD = 70;
 
 const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, currentUser, patients = [], currentBranch, fieldSettings }) => {
+  const toast = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
   const [viewDimension, setViewDimension] = useState<'provider' | 'chair'>('provider');
@@ -43,6 +45,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   // Waitlist Override State
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
   const [overrideConfirmed, setOverrideConfirmed] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [managerPin, setManagerPin] = useState('');
 
   useEffect(() => {
       if (!activeProviderId && staff.length > 0) {
@@ -111,6 +115,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       if (!fieldSettings?.resources) return [];
       return fieldSettings.resources.filter(r => r.branch === currentBranch);
   }, [fieldSettings, currentBranch]);
+
+  const authorizedManagers = useMemo(() => {
+    return staff.filter(s => s.role === UserRole.ADMIN || s.role === UserRole.DENTIST);
+  }, [staff]);
 
   const filteredAppointments = useMemo(() => {
       if (viewMode === 'week') {
@@ -185,6 +193,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       if (!isReliable || hasBalance) {
           setOverrideTarget(entry);
           setOverrideConfirmed(false);
+          setSelectedManagerId('');
+          setManagerPin('');
           return;
       }
 
@@ -192,9 +202,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   };
 
   const executeOverride = () => {
-      if (overrideTarget) {
+      if (overrideTarget && selectedManagerId && managerPin === '1234') {
+          // Wrap with additional metadata for onAddAppointment to consume if needed
           onAddAppointment(formattedDate, undefined, overrideTarget.patientId);
+          toast.success("Manager Override Verified. Appointment Queued.");
           setOverrideTarget(null);
+          setManagerPin('');
+      } else if (managerPin !== '1234') {
+          toast.error("Invalid Manager PIN.");
       }
   };
 
@@ -383,7 +398,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                       </div>
                   </div>
 
-                  <div className="bg-red-50 p-6 rounded-3xl mb-8 space-y-4">
+                  <div className="bg-red-50 p-6 rounded-3xl mb-6 space-y-4">
                       <p className="text-sm font-medium text-red-900 leading-relaxed">
                           Attention: <strong>{overrideTarget.patientName}</strong> is currently flagged for:
                       </p>
@@ -397,26 +412,52 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                       </ul>
                   </div>
 
-                  <label className="flex items-start gap-4 p-5 rounded-3xl border-2 border-slate-100 hover:border-teal-500 transition-all cursor-pointer mb-8">
-                      <input 
-                        type="checkbox" 
-                        checked={overrideConfirmed}
-                        onChange={e => setOverrideConfirmed(e.target.checked)}
-                        className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
-                      />
-                      <div className="text-xs font-black uppercase text-slate-700 leading-tight">
-                          I have received Managerial Approval to bypass clinical guardrails.
-                      </div>
-                  </label>
+                  <div className="space-y-6 mb-8">
+                    <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Select Authorizing Manager *</label>
+                        <select 
+                            value={selectedManagerId} 
+                            onChange={e => setSelectedManagerId(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 outline-none focus:border-red-500 mb-4"
+                        >
+                            <option value="">- Choose Authorized Personnel -</option>
+                            {authorizedManagers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
+                        </select>
+                        
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-1"><Key size={12}/> Verifying Staff PIN *</label>
+                        <input 
+                            type="password"
+                            maxLength={4}
+                            value={managerPin}
+                            onChange={e => setManagerPin(e.target.value)}
+                            placeholder="Enter 4-digit PIN"
+                            className="w-full p-4 text-center text-2xl tracking-[1em] border-2 border-slate-200 rounded-2xl focus:border-teal-500 outline-none font-black"
+                        />
+                    </div>
+
+                    <label className="flex items-start gap-4 p-5 rounded-3xl border-2 border-slate-100 hover:border-teal-500 transition-all cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={overrideConfirmed}
+                            onChange={e => setOverrideConfirmed(e.target.checked)}
+                            className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
+                        />
+                        <div className="text-xs font-black uppercase text-slate-700 leading-tight">
+                            I certify that verbal approval has been received from the selected manager.
+                        </div>
+                    </label>
+                  </div>
 
                   <div className="flex gap-3">
                       <button onClick={() => setOverrideTarget(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl uppercase text-[10px] tracking-widest">Cancel</button>
                       <button 
                         onClick={executeOverride}
-                        disabled={!overrideConfirmed}
-                        className="flex-[2] py-4 bg-red-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl shadow-red-600/20 disabled:opacity-40"
+                        disabled={!overrideConfirmed || !selectedManagerId || managerPin.length < 4}
+                        className={`flex-[2] py-4 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl transition-all ${
+                            overrideConfirmed && selectedManagerId && managerPin.length === 4 ? 'bg-red-600 shadow-red-600/20' : 'bg-slate-300 shadow-none grayscale opacity-40'
+                        }`}
                       >
-                          Confirm Booking
+                          Confirm & Book
                       </button>
                   </div>
               </div>

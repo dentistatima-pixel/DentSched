@@ -1,6 +1,6 @@
 import React from 'react';
-import { Patient, DentalChartEntry, User } from '../types';
-import { FileText, Download, FileSignature } from 'lucide-react';
+import { Patient, DentalChartEntry, User, Appointment, AppointmentStatus } from '../types';
+import { FileText, Download, FileSignature, ShieldAlert, ShieldX } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { formatDate } from '../constants';
 
@@ -8,11 +8,20 @@ interface PhilHealthCF4GeneratorProps {
     patient: Patient;
     currentUser: User;
     odontogram: DentalChartEntry[];
+    appointments: Appointment[];
 }
 
-const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient, currentUser, odontogram }) => {
+const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient, currentUser, odontogram, appointments }) => {
     
     const generateCF2 = () => {
+        // --- ATTRIBUTION LOCK (CF-2) ---
+        const myEntries = odontogram.filter(e => e.status === 'Completed' && e.author === currentUser.name);
+        
+        if (myEntries.length === 0) {
+            alert(`PHILHEALTH ATTRIBUTION LOCK: You cannot generate a claim form for procedures you did not personally record. No completed records found for practitioner: ${currentUser.name}`);
+            return;
+        }
+
         const doc = new jsPDF();
         
         // CF-2 Header
@@ -42,7 +51,7 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         doc.setFont('helvetica', 'normal');
         doc.text(`6. Chief Complaint: ${patient.chiefComplaint || 'None reported'}`, 15, 73);
         
-        const lastSoap = [...odontogram].filter(e => e.subjective || e.objective).sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())[0];
+        const lastSoap = [...myEntries].filter(e => e.subjective || e.objective).sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())[0];
         doc.text("7. Diagnosis: Oral Manifestation of Systemic Condition", 15, 80);
         doc.setFontSize(8);
         const findings = lastSoap ? `${lastSoap.objective} ${lastSoap.assessment}` : "No clinical findings recorded.";
@@ -69,9 +78,9 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         doc.text("Statement of Account (Dental Procedures)", 15, y);
         y += 8;
         doc.setFont('helvetica', 'normal');
-        const completed = odontogram.filter(e => e.status === 'Completed').slice(0, 5);
+        
         let totalPF = 0;
-        completed.forEach(c => {
+        myEntries.slice(0, 5).forEach(c => {
             const price = c.price || 0;
             totalPF += price;
             doc.text(`${c.procedure} (#${c.toothNumber})`, 20, y);
@@ -99,6 +108,32 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
     };
 
     const generateCF4 = () => {
+        // --- SEAT VERIFICATION GATE (ANTI-GHOSTING LOGIC) ---
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const verifiedEntries = odontogram.filter(entry => {
+            if (entry.status !== 'Completed') return false;
+            
+            // --- ATTRIBUTION LOCK (CF-4) ---
+            if (entry.author !== currentUser.name) return false;
+            
+            // Procedure must have occurred within last 30 days
+            const entryDate = new Date(entry.date || '');
+            if (entryDate < thirtyDaysAgo) return false;
+
+            // Must have a corresponding verified seat record (Completed Appointment)
+            return appointments.some(apt => 
+                apt.status === AppointmentStatus.COMPLETED && 
+                apt.date === entry.date
+            );
+        });
+
+        if (verifiedEntries.length === 0) {
+            alert(`PHILHEALTH AUDIT GATE: No verified clinical procedures found for practitioner ${currentUser.name} within the last 30 days. All procedures must be personally recorded and linked to a verified 'Completed' appointment record.`);
+            return;
+        }
+
         const doc = new jsPDF();
         
         // CF-4 Header
@@ -127,10 +162,10 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         doc.setFont('helvetica', 'normal');
         doc.text(`Chief Complaint: ${patient.chiefComplaint || 'None reported'}`, 15, 63);
         
-        const lastSoap = [...odontogram].filter(e => e.subjective || e.objective).sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())[0];
+        const lastSoap = [...verifiedEntries].sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())[0];
         doc.text("Physical Examination / Oral Findings:", 15, 70);
         doc.setFontSize(9);
-        const soapText = lastSoap ? `S: ${lastSoap.subjective}\nO: ${lastSoap.objective}\nA: ${lastSoap.assessment}` : "No clinical soap notes found.";
+        const soapText = lastSoap ? `S: ${lastSoap.subjective}\nO: ${lastSoap.objective}\nA: ${lastSoap.assessment}` : "No verified clinical soap notes found.";
         const splitSoap = doc.splitTextToSize(soapText, 180);
         doc.text(splitSoap, 20, 75);
 
@@ -138,10 +173,9 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         let y = 75 + (splitSoap.length * 5) + 10;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
-        doc.text("III. DENTAL PROCEDURES PERFORMED", 10, y);
+        doc.text("III. DENTAL PROCEDURES PERFORMED (VERIFIED BY ATTENDING)", 10, y);
         y += 8;
         
-        const completed = odontogram.filter(e => e.status === 'Completed').slice(0, 15);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         doc.text("Date", 15, y);
@@ -152,7 +186,7 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         y += 5;
         
         doc.setFont('helvetica', 'normal');
-        completed.forEach(c => {
+        verifiedEntries.slice(0, 15).forEach(c => {
             if (y > 270) { doc.addPage(); y = 20; }
             doc.text(formatDate(c.date), 15, y);
             doc.text(c.toothNumber.toString(), 40, y);
@@ -164,12 +198,12 @@ const PhilHealthCF4Generator: React.FC<PhilHealthCF4GeneratorProps> = ({ patient
         if (y > 250) { doc.addPage(); y = 20; }
         y = 260;
         doc.setFontSize(8);
-        doc.text("I certify that the information provided above is true and correct based on clinical records.", 105, y, { align: 'center' });
+        doc.text("I certify that I personally performed and recorded the information provided above.", 105, y, { align: 'center' });
         y += 10;
         doc.line(110, y, 190, y);
         doc.text(`Dr. ${currentUser.name} (PRC: ${currentUser.prcLicense || '---'})`, 150, y + 5, { align: 'center' });
 
-        doc.save(`PhilHealth_CF4_${patient.surname}.pdf`);
+        doc.save(`PhilHealth_CF4_VERIFIED_${patient.surname}.pdf`);
     };
 
     return (

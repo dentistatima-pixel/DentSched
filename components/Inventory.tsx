@@ -61,6 +61,12 @@ const Inventory: React.FC<InventoryProps> = ({
   }, [branchStock]);
 
   const handleDeleteItem = (item: StockItem) => {
+      // --- MEDICO-LEGAL LOCK GUARD ---
+      if (item.isLockedForEvidence) {
+          toast.error("MEDICO-LEGAL LOCK: This item is linked to a sealed clinical record. Destruction is prohibited for 10 years to protect malpractice evidence.");
+          return;
+      }
+
       if (!window.confirm(`PERMANENT DELETION: Are you sure you want to remove "${item.name}" from the practice catalog?`)) return;
       onUpdateStock(stock.filter(s => s.id !== item.id));
       if (logAction) logAction('DELETE', 'Stock', item.id, `Permanently removed stock item catalog record.`);
@@ -182,7 +188,14 @@ const Inventory: React.FC<InventoryProps> = ({
                                                     <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{item.category}</span>
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${expiry.color}`}>{expiry.label}</span>
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${expiry.color}`}>{expiry.label}</span>
+                                                        {item.isLockedForEvidence && (
+                                                            <div className="flex items-center gap-1 text-[8px] font-black text-red-600 bg-red-50 px-1 rounded border border-red-200 uppercase" title="Hard-linked to sealed clinical record">
+                                                                <Shield size={8}/> Clinical Evidence
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-right font-black text-slate-800">
                                                     <span className={isLow ? 'text-red-600' : ''}>{item.quantity}</span>
@@ -200,8 +213,8 @@ const Inventory: React.FC<InventoryProps> = ({
                                                         {currentUser.role === UserRole.ADMIN && (
                                                             <button 
                                                                 onClick={() => handleDeleteItem(item)}
-                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                                                                title="Delete from Catalog"
+                                                                className={`p-2 rounded-lg transition-colors ${item.isLockedForEvidence ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
+                                                                title={item.isLockedForEvidence ? "Locked: Malpractice Evidence Protection" : "Delete from Catalog"}
                                                             >
                                                                 <Trash2 size={14}/>
                                                             </button>

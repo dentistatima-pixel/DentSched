@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight, AlertCircle, Baby, ShieldCheck } from 'lucide-react';
+import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight, AlertCircle, Baby, ShieldCheck, Eye, EyeOff, Key } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -25,6 +25,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [isQuickReg, setIsQuickReg] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
+  // KIOSK PRIVACY SHIELD STATE
+  const [isDataMasked, setIsDataMasked] = useState(isKiosk && !!initialData);
+  
   const [familySearchTerm, setFamilySearchTerm] = useState('');
   const [showFamilySearch, setShowFamilySearch] = useState(false);
 
@@ -33,7 +36,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const dentalRef = useRef<HTMLDivElement>(null);
 
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], treatments: [], firstName: '', middleName: '', surname: '', suffix: '', treatmentDetails: {}, dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false,
+    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], treatments: [], firstName: '', middleName: '', surname: '', suffix: '', treatmentDetails: {}, dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     takingBloodThinners: false, takingBisphosphonates: false, heartValveIssues: false, tookBpMedicationToday: true, anesthesiaReaction: false, respiratoryIssues: false,
     isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
     dentalChart: []
@@ -49,15 +52,27 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         if (initialData) { 
             setFormData({ ...initialData }); 
             setIsQuickReg(false); 
+            setIsDataMasked(isKiosk);
         } 
         else { 
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
             setFormData({ ...initialFormState, id: generatedId }); 
             setIsQuickReg(false); 
+            setIsDataMasked(false);
         }
         setActiveSection('basic');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, isKiosk]);
+
+  const handleStaffReveal = () => {
+      const pin = prompt("STAFF ACTION REQUIRED: Enter PIN to reveal sensitive history:");
+      if (pin === '1234') {
+          setIsDataMasked(false);
+          toast.success("Identity verified. Data unmasked for verification.");
+      } else {
+          toast.error("Invalid credentials.");
+      }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -107,6 +122,12 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         return; 
     }
 
+    if (!formData.thirdPartyAttestation && (formData.fatherName || formData.motherName || formData.guardian)) {
+        toast.error("PDA Compliance: Please certify consent for the family/guardian details provided.");
+        setActiveSection('basic');
+        return;
+    }
+
     if (requiresGuardian && (!formData.guardian || !formData.relationshipToPatient)) {
         toast.error("Guardian details are mandatory for Minors/PWD.");
         setActiveSection('basic');
@@ -143,6 +164,26 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-8 pb-10">
+                
+                {/* --- KIOSK PRIVACY SHIELD BANNER --- */}
+                {isDataMasked && (
+                    <div className="bg-lilac-600 text-white p-6 rounded-[2rem] shadow-xl flex items-center justify-between animate-in zoom-in-95 duration-500 border-4 border-lilac-400">
+                        <div className="flex items-center gap-5">
+                            <div className="p-3 bg-white/20 rounded-2xl"><EyeOff size={32}/></div>
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tighter leading-tight">Privacy Shield Active</h3>
+                                <p className="text-xs font-bold text-lilac-100 uppercase mt-1">Your sensitive medical history is currently hidden for your protection.</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleStaffReveal}
+                            className="px-6 py-3 bg-white text-lilac-700 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+                        >
+                            <Key size={14}/> Staff Unlock
+                        </button>
+                    </div>
+                )}
+
                 <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Protocol & Privacy Acknowledgment</h3></div>
                     <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
@@ -160,17 +201,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <form id="patientForm" onSubmit={handleSubmit} className="space-y-8">
                     {activeSection === 'basic' && (
                         <div ref={basicRef} className="animate-in slide-in-from-left-4 duration-300">
-                             <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
+                             <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} isMasked={isDataMasked} />
                         </div>
                     )}
                     {activeSection === 'medical' && (
                         <div ref={medicalRef} className="animate-in slide-in-from-right-4 duration-300">
-                            <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
+                            <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={isDataMasked} />
                         </div>
                     )}
                     {activeSection === 'dental' && (
                         <div ref={dentalRef} className="animate-in slide-in-from-bottom-4 duration-300">
-                            <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} />
+                            <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={isDataMasked} />
                         </div>
                     )}
                 </form>

@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
-import { FileText, AlertCircle } from 'lucide-react';
+import { FileText, AlertCircle, EyeOff } from 'lucide-react';
 
 interface RegistrationDentalProps {
   formData: Partial<Patient>;
@@ -9,34 +8,41 @@ interface RegistrationDentalProps {
   onUpdateChart: (entry: any) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings;
+  isMasked?: boolean;
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, onUpdateChart, readOnly, fieldSettings 
+    formData, handleChange, onUpdateChart, readOnly, fieldSettings, isMasked = false
 }) => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label className="label">Previous Dentist</label>
-                <input disabled={readOnly} type="text" name="previousDentist" value={formData.previousDentist || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+                <input disabled={readOnly || isMasked} type="text" name="previousDentist" value={isMasked ? "••••••••" : (formData.previousDentist || '')} onChange={handleChange} className="input disabled:bg-slate-100" />
             </div>
             <div>
                 <label className="label">Last Visit Date</label>
-                <input disabled={readOnly} type="date" name="lastVisit" value={formData.lastVisit || ''} onChange={handleChange} className="input disabled:bg-slate-100" />
+                <input disabled={readOnly || isMasked} type="date" name="lastVisit" value={isMasked ? "" : (formData.lastVisit || '')} onChange={handleChange} className="input disabled:bg-slate-100" />
             </div>
         </div>
         
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden">
+            {isMasked && (
+                <div className="absolute inset-0 z-10 bg-slate-100/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                    <EyeOff size={24} className="text-slate-400"/>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Clinical History Masked</span>
+                </div>
+            )}
             <label className="label flex items-center gap-2">
                 <FileText size={16} className="text-slate-500" />
                 Dental History & Clinical Notes
             </label>
             <textarea 
                 name="notes"
-                value={formData.notes || ''}
+                value={isMasked ? "" : (formData.notes || '')}
                 onChange={handleChange}
-                disabled={readOnly}
+                disabled={readOnly || isMasked}
                 placeholder="Include any specific concerns, past treatments, orthodontic history, or dental fears..."
                 className="input h-48 resize-none disabled:bg-slate-100"
             />

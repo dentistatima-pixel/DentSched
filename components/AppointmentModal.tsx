@@ -136,8 +136,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   const execSave = () => {
-    // If we're coming from the waitlist and have been flagged, we'll mark the override.
-    // The waitlist logic in CalendarView triggers initialPatientId when assigning.
     const isWaitlistOverride = !!initialPatientId && !existingAppointment && (isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0);
 
     const appointmentData: Appointment = {
@@ -148,7 +146,10 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         notes, labStatus, labDetails: labStatus !== LabStatus.NONE ? { vendorId: labVendorId } : undefined,
         sterilizationCycleId, sterilizationVerified,
         isBlock: activeTab === 'block', title: blockTitle,
-        isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride
+        isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride,
+        authorizedManagerId: existingAppointment?.authorizedManagerId,
+        medHistoryVerified: existingAppointment?.medHistoryVerified,
+        medHistoryVerifiedAt: existingAppointment?.medHistoryVerifiedAt
     };
 
     if (showOverridePrompt && onManualOverride && pendingOverrideType) {
