@@ -345,7 +345,6 @@ const PatientList: React.FC<PatientListProps> = ({
                         <div className="flex items-center gap-3 flex-wrap">
                             <h2 className="text-3xl font-black text-slate-900">{selectedPatient.name}</h2>
                             
-                            {/* --- RESTORED ALERT IDENTIFICATION FLAGS --- */}
                             {selectedPatient.allergies && selectedPatient.allergies.length > 0 && selectedPatient.allergies[0] !== 'None' && (
                                 <div className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-in zoom-in-95">
                                     <ShieldAlert size={14} fill="currentColor"/> ALLERGY: {selectedPatient.allergies.join(', ')}
@@ -358,7 +357,6 @@ const PatientList: React.FC<PatientListProps> = ({
                             )}
                             {selectedPatient.takingBloodThinners && (
                                 <div className="bg-red-100 text-red-700 border-2 border-red-200 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 animate-pulse">
-                                    {/* Added Droplet to import and using it here */}
                                     <Droplet size={14}/> BLOOD THINNER
                                 </div>
                             )}
@@ -454,6 +452,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                 inventory={fieldSettings?.stockItems || []}
                                 fieldSettings={fieldSettings}
                                 patient={selectedPatient}
+                                readOnly={false}
                             />
                         </div>
                     </div>
@@ -464,6 +463,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         <PerioChart 
                             data={selectedPatient.perioChart || []}
                             onSave={handlePerioSave}
+                            readOnly={false}
                         />
                     </div>
                 )}
@@ -476,6 +476,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         logAction={logAction}
                         featureFlags={fieldSettings?.features}
                         fieldSettings={fieldSettings}
+                        readOnly={false}
                     />
                 )}
 
@@ -483,7 +484,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     <PatientLedger 
                         patient={selectedPatient} 
                         onUpdatePatient={onQuickUpdatePatient} 
-                        readOnly={currentUser.role === UserRole.DENTAL_ASSISTANT} 
+                        readOnly={false} 
                         fieldSettings={fieldSettings}
                     />
                 )}

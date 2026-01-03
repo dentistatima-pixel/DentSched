@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, Lock } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
@@ -53,10 +52,10 @@ const Layout: React.FC<LayoutProps> = ({
   ];
 
   if (features?.enableInventory) { navItems.push({ id: 'inventory', label: 'Inventory', icon: Package }); }
-  if ((features?.enableHMOClaims || features?.enableAnalytics) && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST)) {
+  if (features?.enableHMOClaims || features?.enableAnalytics) {
       navItems.push({ id: 'financials', label: 'Financials', icon: DollarSign });
   }
-  if (currentUser.role === UserRole.ADMIN) { navItems.push({ id: 'field-mgmt', label: 'Settings', icon: Settings }); }
+  navItems.push({ id: 'field-mgmt', label: 'Settings', icon: Settings });
 
   const handleProfileUpdate = (updatedUser: User) => onSwitchUser(updatedUser);
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
@@ -102,22 +101,20 @@ const Layout: React.FC<LayoutProps> = ({
                     </div>
                  )}
 
-                 {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
-                     <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
-                        <button 
-                            onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                        >
-                            Operational
-                        </button>
-                        <button 
-                            onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-lg animate-pulse' : 'text-white/40 hover:text-white'}`}
-                        >
-                            Downtime
-                        </button>
-                     </div>
-                 )}
+                 <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
+                    <button 
+                        onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                    >
+                        Operational
+                    </button>
+                    <button 
+                        onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-lg animate-pulse' : 'text-white/40 hover:text-white'}`}
+                    >
+                        Downtime
+                    </button>
+                 </div>
 
                  {pendingSyncCount > 0 && (
                      <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-lilac-600/20 border border-lilac-400/30 rounded-xl text-[10px] font-black text-lilac-200 uppercase tracking-widest animate-pulse">

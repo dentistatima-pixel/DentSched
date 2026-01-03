@@ -187,7 +187,6 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
     };
 
     const handleMarkComplete = (itemToComplete: DentalChartEntry) => {
-        if (readOnly) return;
         let newBalance = patient.currentBalance || 0;
         let newLedger = patient.ledger || [];
         if (itemToComplete.price && itemToComplete.price > 0) {
@@ -218,7 +217,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                 </div>
                                 <button onClick={handleAddOrthoAdjustment} className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold">Commit Adjustment</button>
                             </div>
-                        ) : !readOnly && <button onClick={() => setIsAddingOrtho(true)} className="w-full py-3 border-2 border-dashed border-teal-200 rounded-xl text-teal-600 font-bold text-xs uppercase">+ Log Adjustment</button>}
+                        ) : <button onClick={() => setIsAddingOrtho(true)} className="w-full py-3 border-2 border-dashed border-teal-200 rounded-xl text-teal-600 font-bold text-xs uppercase">+ Log Adjustment</button>}
                         <div className="space-y-3">
                             {(patient.orthoHistory || []).map(adj => (
                                 <div key={adj.id} className="bg-white border p-4 rounded-xl flex items-start gap-4">
@@ -272,7 +271,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                 <div key={item.id} className="p-3 flex justify-between items-center group">
                                     <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border">#{item.toothNumber}</div><div className="font-bold text-sm">{item.procedure}</div></div>
                                     <div className="flex gap-2">
-                                        {plan.status === TreatmentPlanStatus.APPROVED && item.status !== 'Completed' && !readOnly && (
+                                        {plan.status === TreatmentPlanStatus.APPROVED && item.status !== 'Completed' && (
                                             <><button onClick={() => setRefusalModal(item)} className="bg-red-50 text-red-600 px-3 py-1 text-xs font-bold rounded-full border border-red-100">Refusal</button>
                                             <button 
                                                 onClick={() => handleMarkComplete(item)} 

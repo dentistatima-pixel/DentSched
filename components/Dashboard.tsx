@@ -175,9 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           const alertId = `prc-${s.id}-${s.prcExpiry}`;
           const isAck = fieldSettings?.acknowledgedAlertIds?.includes(alertId) || false;
           let severity: ComplianceAlert['severity'] = diff <= 0 ? 'critical' : diff <= 15 ? 'high' : diff <= 30 ? 'med' : 'low';
-          if (currentUser.id === s.id || currentUser.role === UserRole.ADMIN) {
-            alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'PRC License', daysLeft: diff, severity, isAcknowledged: isAck });
-          }
+          alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'PRC License', daysLeft: diff, severity, isAcknowledged: isAck });
         }
       }
     });
@@ -197,18 +195,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { arriving, inTreatment, readyForBilling };
   }, [todaysAppointments]);
 
-  const renderKPIs = () => {
-    if (currentUser.role === UserRole.ADMIN) {
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-600" label="Practice Production (YTD)" value={roleKPIs.admin.production} subtext="Gross Economic Value" />
-          <MetricCard icon={Target} color="bg-blue-50 text-blue-600" label="Acceptance Rate" value={roleKPIs.admin.acceptance} subtext="Case Conversion Efficiency" />
-          <MetricCard icon={AlertCircle} color="bg-red-50 text-red-600" label="A/R Aging Totals" value={roleKPIs.admin.aging} subtext="Outstanding Receivables" />
-        </div>
-      );
-    }
+  const renderUnifiedKPIs = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-600" label="Practice Production (YTD)" value={roleKPIs.admin.production} subtext="Gross Economic Value" />
         <MetricCard icon={Clock} color="bg-blue-50 text-blue-600" label="Queue Latency" value={roleKPIs.assistant.latency} subtext="Avg. Time Arrived to Seated" />
         <MetricCard icon={Scale} color="bg-teal-50 text-teal-600" label="Inventory Integrity" value={roleKPIs.assistant.integrity} subtext="PIC Audit Accuracy" />
         <MetricCard icon={Activity} color="bg-orange-50 text-orange-600" label="Shift Flow" value={roleKPIs.assistant.flow} subtext="Completed vs. Scheduled" />
@@ -216,63 +206,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   };
 
-  const renderAdminView = () => (
-    <div className="space-y-6">
-      {renderKPIs()}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-8">
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-                <h4 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2 mb-4"><ShieldAlert size={16}/> Shortcut Anomaly Monitor</h4>
-                <div className="space-y-4">
-                    {auditLog.filter(l => l.action === 'WORKFLOW_ANOMALY').length > 0 ? auditLog.filter(l => l.action === 'WORKFLOW_ANOMALY').map(anomaly => (
-                        <div key={anomaly.id} className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-start gap-4">
-                            <div className="p-2 bg-white rounded-xl text-red-600 shadow-sm"><AlertTriangle size={20}/></div>
-                            <div><div className="font-bold text-slate-800 text-sm">{anomaly.userName}</div><p className="text-[10px] text-red-700 font-medium leading-tight mt-1">{anomaly.details}</p></div>
-                        </div>
-                    )) : <div className="p-10 text-center text-slate-400 italic bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">No anomalies detected.</div>}
-                </div>
-            </div>
-            <div className="space-y-4">
-                <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2 mb-4"><FileWarning size={16}/> Diagnostic Yield Monitor</h4>
-                <div className="space-y-3">
-                    {highRiskDiagnosticGaps.length > 0 ? highRiskDiagnosticGaps.map(p => (
-                        <div key={p.id} onClick={() => onPatientSelect(p.id)} className="p-4 rounded-2xl bg-orange-50 border-2 border-orange-200 flex items-start gap-4 cursor-pointer hover:bg-orange-100 transition-all group">
-                             <div className="p-2 bg-white rounded-xl text-orange-600 shadow-sm group-hover:scale-110 transition-transform"><ShieldAlert size={20}/></div>
-                             <div><div className="font-black text-orange-900 text-xs uppercase">{p.name}</div><p className="text-[9px] text-orange-700 font-bold uppercase mt-1">Surgical items planned without documented X-Ray justification (Rule 9).</p></div>
-                        </div>
-                    )) : (
-                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
-                            <ShieldCheck size={48} className="text-teal-500 mx-auto mb-4" />
-                            <p className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Diagnostic Coverage Validated</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-          </div>
-        </div>
-        <div className="xl:col-span-4 bg-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl flex flex-col">
-           <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg flex items-center gap-2 text-teal-400"><ShieldCheck size={20}/> Compliance Pulse</h3></div>
-           <div className="flex-1 space-y-4 overflow-y-auto no-scrollbar pr-1">
-              {complianceAlerts.map((alert) => (
-                  <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.severity === 'critical' ? 'border-red-600 bg-red-600/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-xl bg-white/10 shrink-0"><Award size={20}/></div>
-                      <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}d</div></div>
-                    </div>
-                    {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg">Acknowledge</button>}
-                  </div>
-              ))}
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
-        <div><h2 className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">{currentUser.role} Control Center</h2><h1 className="text-3xl font-black text-slate-800 tracking-tight">Practice Dashboard</h1></div>
+        <div><h2 className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Unified Control Center</h2><h1 className="text-3xl font-black text-slate-800 tracking-tight">Practice Dashboard</h1></div>
         <div className="flex items-center gap-3">
             <button 
                 onClick={onAddPatient}
@@ -302,81 +239,109 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
       </div>
 
-      {currentUser.role === UserRole.ADMIN ? renderAdminView() : (
-        <div className="space-y-6">
-          {renderKPIs()}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px]">
-            {/* ARRIVING SOON COLUMN */}
-            <div className="lg:col-span-3 bg-slate-100/50 rounded-[2.5rem] p-4 flex flex-col gap-4">
-              <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-[10px] flex items-center gap-2"><Clock size={16}/> Queue Monitor</h4></div>
-              <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
-                {receptionPatientFlow.arriving.map(apt => (
-                    <div key={apt.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-center mb-2"><span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span></div>
-                        <div className="font-bold text-slate-800 text-sm truncate">{getPatient(apt.patientId)?.name || 'Unknown'}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
-                        {apt.status === AppointmentStatus.ARRIVED && (
-                            <div className="mt-3 pt-3 border-t border-slate-100">
-                                <button onClick={() => onVerifyMedHistory?.(apt.id)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 transition-all ${apt.medHistoryVerified ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-lilac-600 text-white shadow-lg'}`}>{apt.medHistoryVerified ? <CheckCircle size={10}/> : <Stethoscope size={10}/>} {apt.medHistoryVerified ? 'Verified' : 'Verify History'}</button>
-                            </div>
-                        )}
-                    </div>
-                ))}
+      <div className="space-y-6">
+        {renderUnifiedKPIs()}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* ARRIVING SOON COLUMN */}
+          <div className="lg:col-span-3 bg-slate-100/50 rounded-[2.5rem] p-4 flex flex-col gap-4">
+            <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-[10px] flex items-center gap-2"><Clock size={16}/> Queue Monitor</h4></div>
+            <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar max-h-[400px]">
+              {receptionPatientFlow.arriving.map(apt => (
+                  <div key={apt.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
+                      <div className="flex justify-between items-center mb-2"><span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span></div>
+                      <div className="font-bold text-slate-800 text-sm truncate">{getPatient(apt.patientId)?.name || 'Unknown'}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                      {apt.status === AppointmentStatus.ARRIVED && (
+                          <div className="mt-3 pt-3 border-t border-slate-100">
+                              <button onClick={() => onVerifyMedHistory?.(apt.id)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 transition-all ${apt.medHistoryVerified ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-lilac-600 text-white shadow-lg'}`}>{apt.medHistoryVerified ? <CheckCircle size={10}/> : <Stethoscope size={10}/>} {apt.medHistoryVerified ? 'Verified' : 'Verify History'}</button>
+                          </div>
+                      )}
+                  </div>
+              ))}
+            </div>
+          </div>
+
+          {/* IN TREATMENT / CENTER COLUMN */}
+          <div className="lg:col-span-5 bg-teal-50 rounded-[2.5rem] p-4 flex flex-col gap-4 border border-teal-100/50">
+              <div className="flex justify-between items-center px-2"><h4 className="font-black text-teal-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><Activity size={16}/> Active Operatories</h4></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto no-scrollbar max-h-[400px]">
+                  {receptionPatientFlow.inTreatment.map(apt => (
+                      <div key={apt.id} className="bg-white p-5 rounded-[2rem] shadow-sm border-2 border-teal-200">
+                          <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-800 leading-tight">{getPatient(apt.patientId)?.name || 'Unknown'}</div>{apt.medHistoryVerified && <VerifiedIcon size={14} className="text-teal-500"/>}</div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                          <div className="mt-3 text-[9px] font-black text-teal-600 uppercase flex items-center gap-1"><Timer size={10}/> Seated: {apt.time}</div>
+                      </div>
+                  ))}
               </div>
-            </div>
+          </div>
 
-            {/* IN TREATMENT / CENTER COLUMN */}
-            <div className="lg:col-span-5 bg-teal-50 rounded-[2.5rem] p-4 flex flex-col gap-4 border border-teal-100/50">
-                <div className="flex justify-between items-center px-2"><h4 className="font-black text-teal-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><Activity size={16}/> Active Operatories</h4></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto no-scrollbar">
-                    {receptionPatientFlow.inTreatment.map(apt => (
-                        <div key={apt.id} className="bg-white p-5 rounded-[2rem] shadow-sm border-2 border-teal-200">
-                            <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-800 leading-tight">{getPatient(apt.patientId)?.name || 'Unknown'}</div>{apt.medHistoryVerified && <VerifiedIcon size={14} className="text-teal-500"/>}</div>
-                            <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
-                            <div className="mt-3 text-[9px] font-black text-teal-600 uppercase flex items-center gap-1"><Timer size={10}/> Seated: {apt.time}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* POST-OP VIGILANCE / RIGHT COLUMN */}
-            <div className="lg:col-span-4 bg-lilac-50 rounded-[2.5rem] p-6 flex flex-col gap-4 border border-lilac-100/50 overflow-hidden">
-                <div className="flex justify-between items-center"><h4 className="font-black text-lilac-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><ShieldAlert size={18}/> Post-Op Vigilance (24h)</h4><span className="text-[9px] font-black bg-lilac-600 text-white px-2 py-0.5 rounded-full">{postOpPatients.length} Pending</span></div>
-                <p className="text-[10px] text-lilac-600 font-bold uppercase leading-tight mb-2">Standard of Care: Patients requiring 24h follow-up following surgery.</p>
-                <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
-                    {postOpPatients.length > 0 ? postOpPatients.map(apt => (
-                        <div key={apt.id} className="bg-white p-5 rounded-[2rem] border-2 border-lilac-200 shadow-sm animate-in slide-in-from-right-4">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <div className="font-black text-slate-800 text-sm uppercase leading-tight">{getPatient(apt.patientId)?.name}</div>
-                                    <p className="text-[9px] text-lilac-600 font-bold uppercase mt-0.5">{apt.type} compl. {formatDate(apt.date)}</p>
-                                </div>
-                                <div className="p-2 bg-lilac-50 rounded-xl text-lilac-700"><MessageCircle size={18}/></div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => window.open(`tel:${getPatient(apt.patientId)?.phone}`)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 hover:bg-slate-200"><Phone size={10}/> Call</button>
-                                <button 
-                                    onClick={() => onConfirmFollowUp?.(apt.id)}
-                                    className="flex-[2] py-2.5 bg-lilac-600 text-white rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 transition-all"
-                                >
-                                    <Heart size={10} fill="currentColor"/> Log Follow-up
-                                </button>
-                            </div>
+          {/* POST-OP VIGILANCE / RIGHT COLUMN */}
+          <div className="lg:col-span-4 bg-lilac-50 rounded-[2.5rem] p-6 flex flex-col gap-4 border border-lilac-100/50 overflow-hidden">
+              <div className="flex justify-between items-center"><h4 className="font-black text-lilac-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><ShieldAlert size={18}/> Post-Op Vigilance (24h)</h4><span className="text-[9px] font-black bg-lilac-600 text-white px-2 py-0.5 rounded-full">{postOpPatients.length} Pending</span></div>
+              <p className="text-[10px] text-lilac-600 font-bold uppercase leading-tight mb-2">Standard of Care: Patients requiring 24h follow-up following surgery.</p>
+              <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar max-h-[300px]">
+                  {postOpPatients.length > 0 ? postOpPatients.map(apt => (
+                      <div key={apt.id} className="bg-white p-5 rounded-[2rem] border-2 border-lilac-200 shadow-sm animate-in slide-in-from-right-4">
+                          <div className="flex justify-between items-start mb-4">
+                              <div>
+                                  <div className="font-black text-slate-800 text-sm uppercase leading-tight">{getPatient(apt.patientId)?.name}</div>
+                                  <p className="text-[9px] text-lilac-600 font-bold uppercase mt-0.5">{apt.type} compl. {formatDate(apt.date)}</p>
+                              </div>
+                              <div className="p-2 bg-lilac-50 rounded-xl text-lilac-700"><MessageCircle size={18}/></div>
+                          </div>
+                          <div className="flex gap-2">
+                              <button onClick={() => window.open(`tel:${getPatient(apt.patientId)?.phone}`)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 hover:bg-slate-200"><Phone size={10}/> Call</button>
+                              <button 
+                                  onClick={() => onConfirmFollowUp?.(apt.id)}
+                                  className="flex-[2] py-2.5 bg-lilac-600 text-white rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 transition-all"
+                              >
+                                  <Heart size={10} fill="currentColor"/> Log Follow-up
+                              </button>
+                          </div>
+                      </div>
+                  )) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                          <VerifiedIcon size={64} className="text-lilac-400 mb-4" />
+                          <p className="text-[10px] font-black text-lilac-700 uppercase tracking-widest">Follow-ups Current</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2 mb-4"><FileWarning size={16}/> Diagnostic Yield Monitor</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {highRiskDiagnosticGaps.length > 0 ? highRiskDiagnosticGaps.map(p => (
+                        <div key={p.id} onClick={() => onPatientSelect(p.id)} className="p-4 rounded-2xl bg-orange-50 border-2 border-orange-200 flex items-start gap-4 cursor-pointer hover:bg-orange-100 transition-all group">
+                             <div className="p-2 bg-white rounded-xl text-orange-600 shadow-sm group-hover:scale-110 transition-transform"><ShieldAlert size={20}/></div>
+                             <div><div className="font-black text-orange-900 text-xs uppercase">{p.name}</div><p className="text-[9px] text-orange-700 font-bold uppercase mt-1">Surgical items planned without documented X-Ray justification (Rule 9).</p></div>
                         </div>
                     )) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-                            <VerifiedIcon size={64} className="text-lilac-400 mb-4" />
-                            <p className="text-[10px] font-black text-lilac-700 uppercase tracking-widest">Follow-ups Current</p>
+                        <div className="col-span-full bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
+                            <ShieldCheck size={48} className="text-teal-500 mx-auto mb-4" />
+                            <p className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Diagnostic Coverage Validated</p>
                         </div>
                     )}
                 </div>
-                <div className="mt-2 p-3 bg-white/50 rounded-2xl border border-dashed border-lilac-200">
-                    <p className="text-[8px] font-bold text-lilac-600 uppercase text-center leading-relaxed">Verification confirms absence of post-op swelling or fever (Standard of Care Compliance).</p>
-                </div>
             </div>
-          </div>
+            <div className="xl:col-span-4 bg-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl">
+               <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg flex items-center gap-2 text-teal-400"><ShieldCheck size={20}/> Compliance Pulse</h3></div>
+               <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
+                  {complianceAlerts.map((alert) => (
+                      <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.severity === 'critical' ? 'border-red-600 bg-red-600/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-xl bg-white/10 shrink-0"><Award size={20}/></div>
+                          <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}d</div></div>
+                        </div>
+                        {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg">Acknowledge</button>}
+                      </div>
+                  ))}
+               </div>
+            </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

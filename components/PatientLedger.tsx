@@ -100,15 +100,13 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                         <span className="block text-[10px] font-bold uppercase text-slate-400">Current Balance</span>
                         <span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span>
                     </div>
-                    {!readOnly && (
-                        <div className="flex gap-2">
-                             <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1"><Calendar size={16}/> Plan</button>
-                             <button onClick={() => setMode('add_charge')} className="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl font-bold text-sm transition-colors">Charge</button>
-                             <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 hover:bg-lilac-700' : 'bg-teal-600 hover:bg-teal-700'} text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2`}>
-                                 {isBirMode ? <Receipt size={16}/> : <DollarSign size={16}/>} {isBirMode ? 'Issue OR' : 'Payment'}
-                             </button>
-                        </div>
-                    )}
+                    <div className="flex gap-2">
+                         <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1"><Calendar size={16}/> Plan</button>
+                         <button onClick={() => setMode('add_charge')} className="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl font-bold text-sm transition-colors">Charge</button>
+                         <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 hover:bg-lilac-700' : 'bg-teal-600 hover:bg-teal-700'} text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2`}>
+                             {isBirMode ? <Receipt size={16}/> : <DollarSign size={16}/>} {isBirMode ? 'Issue OR' : 'Payment'}
+                         </button>
+                    </div>
                 </div>
             </div>
 

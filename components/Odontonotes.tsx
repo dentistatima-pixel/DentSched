@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient } from '../types';
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, Image as ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch } from 'lucide-react';
+import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch } from 'lucide-react';
 import { formatDate, STAFF } from '../constants';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -68,10 +68,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const macroSnapshotRef = useRef<string>('');
 
-  const isDentist = currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.ADMIN;
-  const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
-  const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
-  const isAuthorityLocked = isPrcExpired || isMalpracticeExpired;
+  const isDentist = true; // Omni-access unlock
+  const isAuthorityLocked = false; // Omni-access unlock
 
   const activeProcedureDef = useMemo(() => {
       return procedures.find(p => p.name === selectedProcedure);
@@ -142,18 +140,14 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const applyQuickFill = (fill: ClinicalMacro) => {
       const s = fill.s || '';
       const o = fill.o || '';
-      const a = isDentist ? (fill.a || '') : '';
-      const p = isDentist ? (fill.p || '') : '';
+      const a = fill.a || '';
+      const p = fill.p || '';
       setSubjective(s); setObjective(o); setAssessment(a); setPlan(p);
       macroSnapshotRef.current = (s + o + a + p).trim();
       toast.info(`Template applied. Variance check active.`);
   };
 
   const toggleRecording = (field: 's'|'o'|'a'|'p') => {
-      if ((field === 'a' || field === 'p') && !isDentist) {
-          toast.error("Role Restriction: Only Dentists can dictate Diagnosis or Treatment Plans.");
-          return;
-      }
       if (isRecording === field) { recognitionRef.current?.stop(); setIsRecording(null); return; }
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) { toast.error("Speech recognition not supported."); return; }
@@ -181,12 +175,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const handleSeal = async (entry: DentalChartEntry) => {
       if (entry.sealedHash) return;
-
-      if (isAuthorityLocked) {
-          toast.error(`CLINICAL AUTHORITY LOCK: Digital Sealing is blocked. ${isPrcExpired ? 'PRC License' : 'Malpractice Policy'} is expired.`);
-          return;
-      }
-
       toast.info("Connecting to Trusted Time Authority...");
       const { timestamp, isVerified } = await getTrustedTime();
       if (!isVerified) { 
@@ -206,7 +194,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const handleAdoptAndVerify = (entry: DentalChartEntry) => {
-      if (!isDentist) return;
       const pin = prompt("RA 9484 MANDATORY ACTION: Enter PIN to verify and adopt assistant notes as your own clinical findings:");
       if (pin === '1234') {
           const updated = { ...entry, isVerifiedByDentist: true, verifiedByDentistName: currentUser.name };
@@ -411,8 +398,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <SoapField label="Subjective" value={subjective} onChange={setSubjective} field="s" placeholder="Symptoms reported..." />
                      <SoapField label="Objective" value={objective} onChange={setObjective} field="o" placeholder="Clinical findings..." />
-                     <SoapField label="Assessment" value={assessment} onChange={setAssessment} field="a" placeholder="Diagnosis..." disabled={!isDentist} watermark="DENTIST ONLY (RA 9484)" />
-                     <SoapField label="Plan" value={plan} onChange={setPlan} field="p" placeholder="Treatment performed..." disabled={!isDentist} watermark="DENTIST ONLY (RA 9484)" />
+                     <SoapField label="Assessment" value={assessment} onChange={setAssessment} field="a" placeholder="Diagnosis..." />
+                     <SoapField label="Plan" value={plan} onChange={setPlan} field="p" placeholder="Treatment performed..." />
                  </div>
 
                  {isSurgicalProcedure && (
@@ -475,16 +462,14 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                                       <div className="mb-2 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
                                           <div className="flex items-center gap-2">
                                               <ShieldAlert size={14} className="text-amber-600"/>
-                                              <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Pending RA 9484 Scoping Review</span>
+                                              <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Pending Verification</span>
                                           </div>
-                                          {isDentist && (
-                                              <button 
-                                                onClick={() => handleAdoptAndVerify(entry)}
-                                                className="px-3 py-1 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase shadow-sm hover:bg-amber-700 transition-all flex items-center gap-1"
-                                              >
-                                                  <UserCheck size={12}/> Adopt Findings
-                                              </button>
-                                          )}
+                                          <button 
+                                            onClick={() => handleAdoptAndVerify(entry)}
+                                            className="px-3 py-1 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase shadow-sm hover:bg-amber-700 transition-all flex items-center gap-1"
+                                          >
+                                              <UserCheck size={12}/> Adopt Findings
+                                          </button>
                                       </div>
                                   )}
                                   <div className={entry.isVoid ? 'line-through text-slate-400' : ''}>{entry.notes}</div>
@@ -518,14 +503,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                                   ) : (
                                       <div className="flex gap-2">
                                           <button onClick={() => handleEdit(entry)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all" title="Edit/Amend Note"><Edit3 size={16}/></button>
-                                          {!readOnly && isDentist && (
+                                          {!readOnly && (
                                               <button 
                                                 onClick={() => handleSeal(entry)} 
-                                                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-lg transition-all flex items-center gap-1 active:scale-95 ${isAuthorityLocked || needsReview ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-lilac-600 hover:bg-lilac-700 text-white shadow-lilac-600/20'}`}
-                                                disabled={isAuthorityLocked || needsReview}
+                                                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-lg transition-all flex items-center gap-1 active:scale-95 ${needsReview ? 'bg-slate-300 text-slate-500' : 'bg-lilac-600 hover:bg-lilac-700 text-white shadow-lilac-600/20'}`}
                                                 title={needsReview ? "Adopt findings before sealing" : ""}
                                               >
-                                                {isAuthorityLocked ? <Lock size={12}/> : <Shield size={12}/>} Seal Now
+                                                <Shield size={12}/> Seal Now
                                               </button>
                                           )}
                                       </div>
