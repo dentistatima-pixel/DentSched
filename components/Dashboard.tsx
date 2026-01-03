@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
@@ -5,7 +6,7 @@ import {
   Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
@@ -114,6 +115,16 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const todaysAppointments = useMemo(() => appointments.filter(a => a.date === today && !a.isBlock), [appointments, today]);
 
+  // DIAGNOSTIC GAP MONITOR (Logic Point 3)
+  const highRiskDiagnosticGaps = useMemo(() => {
+    return patients.filter(p => {
+        const hasLevel1Trauma = appointments.some(a => a.patientId === p.id && a.triageLevel === 'Level 1: Trauma/Bleeding');
+        const hasSurgicalPlan = (p.dentalChart || []).some(e => e.status === 'Planned' && e.procedure.toLowerCase().includes('surgery'));
+        const hasXRay = (p.files || []).some(f => f.category === 'X-Ray');
+        return (hasLevel1Trauma || hasSurgicalPlan) && !hasXRay;
+    });
+  }, [patients, appointments]);
+
   const unreconciledManualEntries = useMemo(() => {
     return appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
   }, [appointments]);
@@ -203,6 +214,18 @@ const Dashboard: React.FC<DashboardProps> = ({
           if (currentUser.id === s.id || currentUser.role === UserRole.ADMIN) {
             alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'PRC License', daysLeft: diff, severity, isAcknowledged: isAck });
           }
+        }
+      }
+      if (s.role === UserRole.DENTIST && s.malpracticeExpiry) {
+        const expiry = new Date(s.malpracticeExpiry);
+        const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
+        if (diff <= 60) {
+            const alertId = `malpractice-${s.id}-${s.malpracticeExpiry}`;
+            const isAck = fieldSettings?.acknowledgedAlertIds?.includes(alertId) || false;
+            let severity: ComplianceAlert['severity'] = diff <= 0 ? 'critical' : diff <= 15 ? 'high' : diff <= 30 ? 'med' : 'low';
+            if (currentUser.id === s.id || currentUser.role === UserRole.ADMIN) {
+                alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'Malpractice Liability', daysLeft: diff, severity, isAcknowledged: isAck });
+            }
         }
       }
     });
@@ -367,11 +390,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )) : <div className="p-10 text-center text-slate-400 italic bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">No anomalies detected.</div>}
                 </div>
             </div>
+            
+            {/* DIAGNOSTIC GAP MONITOR UI (Logic Point 3) */}
             <div className="space-y-4">
-                <h4 className="text-xs font-black text-lilac-600 uppercase tracking-widest flex items-center gap-2 mb-4"><Target size={16}/> Inventory Pulse</h4>
-                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
-                    <ShieldCheck size={48} className="text-teal-500 mx-auto mb-4" />
-                    <p className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Inventory Reality Validated</p>
+                <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2 mb-4"><FileWarning size={16}/> Diagnostic Yield Monitor</h4>
+                <div className="space-y-3">
+                    {highRiskDiagnosticGaps.length > 0 ? highRiskDiagnosticGaps.map(p => (
+                        <div key={p.id} onClick={() => onPatientSelect(p.id)} className="p-4 rounded-2xl bg-orange-50 border-2 border-orange-200 flex items-start gap-4 cursor-pointer hover:bg-orange-100 transition-all group">
+                             <div className="p-2 bg-white rounded-xl text-orange-600 shadow-sm group-hover:scale-110 transition-transform"><ShieldAlert size={20}/></div>
+                             <div>
+                                 <div className="font-black text-orange-900 text-xs uppercase">{p.name}</div>
+                                 <p className="text-[9px] text-orange-700 font-bold uppercase mt-1">SECURITY ALERT: Surgical items planned without documented X-Ray justification (Rule 9).</p>
+                             </div>
+                        </div>
+                    )) : (
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
+                            <ShieldCheck size={48} className="text-teal-500 mx-auto mb-4" />
+                            <p className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Diagnostic Coverage Validated</p>
+                        </div>
+                    )}
                 </div>
             </div>
           </div>

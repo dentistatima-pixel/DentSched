@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
 import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer, ShieldOff, Receipt, ArrowRightLeft, Scale } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { formatDate } from '../constants';
+import { formatDate, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 import { jsPDF } from 'jspdf';
 import CryptoJS from 'crypto-js';
 
@@ -29,8 +29,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     // Dignity Validation logic for clinic name
     const isClinicNameDignified = useMemo(() => {
         if (!settings.clinicName) return true;
-        const forbidden = ['cheap', 'best', 'painless', 'express', 'discount', 'bargain', 'sale', 'free'];
-        return !forbidden.some(word => settings.clinicName.toLowerCase().includes(word));
+        return !PDA_FORBIDDEN_COMMERCIAL_TERMS.some(word => settings.clinicName.toLowerCase().includes(word));
     }, [settings.clinicName]);
 
     const menuStructure = [
@@ -122,6 +121,101 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             default: return <div className="p-10 text-center text-slate-400"><HardHat size={32} className="mx-auto mb-2" /> Section under construction.</div>;
         }
     };
+
+    function renderSmsEngine() {
+        const smsCategories: SmsCategory[] = ['Onboarding', 'Safety', 'Logistics', 'Recovery', 'Financial', 'Security', 'Efficiency', 'Reputation'];
+        // Fix: Explicitly cast to SmsTemplateConfig[] to resolve 'unknown' property access errors
+        const currentTemplates = (Object.values(settings.smsTemplates) as SmsTemplateConfig[]).filter(t => t.category === activeSmsCat);
+
+        const validateSmsText = (text: string) => {
+            const lowerText = text.toLowerCase();
+            const foundForbidden = PDA_FORBIDDEN_COMMERCIAL_TERMS.filter(word => lowerText.includes(word));
+            return { isCompliant: foundForbidden.length === 0, violations: foundForbidden };
+        };
+
+        const handleUpdateSms = (id: string, text: string) => {
+            const { isCompliant } = validateSmsText(text);
+            const updated = { ...settings.smsTemplates, [id]: { ...settings.smsTemplates[id], text, isPdaCompliant: isCompliant } };
+            onUpdateSettings({ ...settings, smsTemplates: updated });
+        };
+
+        return (
+            <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+                <div className="p-6 border-b bg-white shrink-0">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="bg-teal-100 p-2 rounded-xl text-teal-700"><Smartphone size={24}/></div>
+                        <div>
+                            <h3 className="text-xl font-black uppercase tracking-tight">SMS Professionalism Filter</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">PDA Rule 15 & 16 Automated Governance</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                        {smsCategories.map(cat => (
+                            <button key={cat} onClick={() => setActiveSmsCat(cat)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${activeSmsCat === cat ? 'bg-teal-600 text-white border-teal-500 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-white'}`}>
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {currentTemplates.map(template => {
+                        const { isCompliant, violations } = validateSmsText(template.text);
+                        return (
+                            <div key={template.id} className={`bg-white p-6 rounded-[2rem] border-2 shadow-sm transition-all ${!isCompliant ? 'border-red-200 ring-4 ring-red-500/5' : 'border-slate-100'}`}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-xl ${isCompliant ? 'bg-teal-50 text-teal-600' : 'bg-red-100 text-red-600 animate-pulse'}`}>
+                                            {isCompliant ? <ShieldCheck size={20}/> : <ShieldAlert size={20}/>}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">{template.label}</h4>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase">{template.triggerDescription}</p>
+                                        </div>
+                                    </div>
+                                    {!isCompliant && (
+                                        <div className="bg-red-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter">PDA RULE 15 VIOLATION</div>
+                                    )}
+                                </div>
+                                
+                                <div className="relative">
+                                    <textarea 
+                                        value={template.text} 
+                                        onChange={e => handleUpdateSms(template.id, e.target.value)}
+                                        className={`w-full p-4 rounded-2xl text-xs font-bold leading-relaxed outline-none transition-all h-24 ${isCompliant ? 'bg-slate-50 border border-slate-100 focus:border-teal-500' : 'bg-red-50 border-2 border-red-200 focus:border-red-500'}`}
+                                    />
+                                    {!isCompliant && (
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            <span className="text-[9px] font-black text-red-600 uppercase tracking-widest py-1">Flagged Commercial Terms:</span>
+                                            {violations.map(v => (
+                                                <span key={v} className="bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase">{v}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-4">
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => onUpdateSettings({ ...settings, smsTemplates: { ...settings.smsTemplates, [template.id]: { ...template, enabled: !template.enabled } } })}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${template.enabled ? 'bg-teal-600' : 'bg-slate-300'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${template.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Automation: {template.enabled ? 'Live' : 'Paused'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <Zap size={10} className="text-teal-400"/>
+                                        <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Compliant delivery route active</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
 
     function renderProcedures() {
         return (
@@ -257,7 +351,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
     }
 
     function renderReputation() { return <div className="p-6 bg-slate-50 h-full">Marketing settings locked.</div>; }
-    function renderSmsEngine() { return <div className="p-6 bg-slate-50 h-full">SMS engine active.</div>; }
     function renderNPCProtocol() { return <div className="p-6 bg-slate-50 h-full">Breach protocol active.</div>; }
 
     return (

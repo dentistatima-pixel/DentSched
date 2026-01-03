@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -9,7 +10,8 @@ import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
 import Inventory from './components/Inventory';
 import Financials from './components/Financials';
-import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES } from './constants';
+import PostOpHandoverModal from './components/PostOpHandoverModal';
+import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
@@ -102,6 +104,9 @@ function App() {
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  // Compliance Gate States
+  const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
 
   // Connectivity Listeners
   useEffect(() => {
@@ -465,32 +470,80 @@ function App() {
     toast.success("Medical history verified for session safety.");
   };
 
+  const finalizeUpdateStatus = (id: string, status: AppointmentStatus) => {
+    const apt = appointments.find(a => a.id === id);
+    if (!apt) return;
+    const patient = patients.find(p => p.id === apt.patientId);
+
+    if (patient && apt.status !== status) {
+        const stats = patient.attendanceStats || { totalBooked: 1, completedCount: 0, noShowCount: 0, lateCancelCount: 0 };
+        let newStats = { ...stats };
+        if (apt.status === AppointmentStatus.COMPLETED) newStats.completedCount--;
+        if (apt.status === AppointmentStatus.NO_SHOW) newStats.noShowCount--;
+        if (apt.status === AppointmentStatus.CANCELLED) newStats.lateCancelCount--;
+        if (status === AppointmentStatus.COMPLETED) newStats.completedCount++;
+        if (status === AppointmentStatus.NO_SHOW) newStats.noShowCount++;
+        if (status === AppointmentStatus.CANCELLED) newStats.lateCancelCount++;
+        const denominator = newStats.completedCount + newStats.noShowCount + newStats.lateCancelCount;
+        const score = denominator > 0 ? Math.round((newStats.completedCount / denominator) * 100) : 100;
+        setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, attendanceStats: newStats, reliabilityScore: score } : p));
+    }
+
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status, isPendingSync: !isOnline } : a));
+    logAction('UPDATE', 'Appointment', id, `Updated status to ${status}.`);
+  };
+
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       const apt = appointments.find(a => a.id === appointmentId);
       if (!apt) return;
+
+      const patient = patients.find(p => p.id === apt.patientId);
+
+      // --- REFERRAL HARD-STOP LOGIC (PDA Rule 4) ---
+      if ([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(status)) {
+        const isSurgical = ['Surgery', 'Extraction'].includes(apt.type);
+        if (isSurgical && patient) {
+            const hasCriticalCondition = patient.medicalConditions?.some(c => CRITICAL_CLEARANCE_CONDITIONS.includes(c));
+            
+            if (hasCriticalCondition) {
+                const activeClearance = patient.clearanceRequests?.find(r => r.status === 'Approved');
+                if (!activeClearance) {
+                    toast.error("REFERRAL HARD-STOP (PDA Rule 4): Medical clearance is REQUIRED for a critical condition before surgical seating. Ensure clearance is verified in Patient Registry.");
+                    logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Hard-Stop Triggered: Attempted surgical seating on high-risk patient without verified medical clearance.`);
+                    return;
+                }
+            }
+        }
+      }
+
+      // --- POST-OP HANDOVER GATE (Malpractice Shield) ---
+      if (status === AppointmentStatus.COMPLETED) {
+          const isSurgical = ['Surgery', 'Extraction'].includes(apt.type);
+          if (isSurgical && !apt.postOpVerified) {
+              setPendingPostOpAppointment(apt);
+              return;
+          }
+      }
 
       if (!isOnline) {
           setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'UPDATE_STATUS', payload: { id: appointmentId, status }, timestamp: new Date().toISOString() }]);
           toast.info("Status update queued for offline sync.");
       }
 
-      const patient = patients.find(p => p.id === apt.patientId);
+      finalizeUpdateStatus(appointmentId, status);
+  };
 
-      if (patient && apt.status !== status) {
-          const stats = patient.attendanceStats || { totalBooked: 1, completedCount: 0, noShowCount: 0, lateCancelCount: 0 };
-          let newStats = { ...stats };
-          if (apt.status === AppointmentStatus.COMPLETED) newStats.completedCount--;
-          if (apt.status === AppointmentStatus.NO_SHOW) newStats.noShowCount--;
-          if (apt.status === AppointmentStatus.CANCELLED) newStats.lateCancelCount--;
-          if (status === AppointmentStatus.COMPLETED) newStats.completedCount++;
-          if (status === AppointmentStatus.NO_SHOW) newStats.noShowCount++;
-          if (status === AppointmentStatus.CANCELLED) newStats.lateCancelCount++;
-          const denominator = newStats.completedCount + newStats.noShowCount + newStats.lateCancelCount;
-          const score = denominator > 0 ? Math.round((newStats.completedCount / denominator) * 100) : 100;
-          setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, attendanceStats: newStats, reliabilityScore: score } : p));
-      }
-
-      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status, isPendingSync: !isOnline } : a));
+  const handleConfirmPostOp = () => {
+      if (!pendingPostOpAppointment) return;
+      const id = pendingPostOpAppointment.id;
+      const timestamp = new Date().toISOString();
+      
+      setAppointments(prev => prev.map(a => a.id === id ? { ...a, postOpVerified: true, postOpVerifiedAt: timestamp } : a));
+      logAction('UPDATE', 'Appointment', id, "Post-Op Handover Shield: Verified that oral/written instructions were received and understood by the patient.");
+      
+      finalizeUpdateStatus(id, AppointmentStatus.COMPLETED);
+      setPendingPostOpAppointment(null);
+      toast.success("Post-op verification logged. Treatment finalized.");
   };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
@@ -673,6 +726,7 @@ function App() {
       {isInKioskMode ? <KioskView patients={patients} onUpdatePatient={handleSavePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} /> : renderContent()}
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
+      {pendingPostOpAppointment && <PostOpHandoverModal isOpen={!!pendingPostOpAppointment} onClose={() => setPendingPostOpAppointment(null)} onConfirm={handleConfirmPostOp} appointment={pendingPostOpAppointment} />}
     </Layout>
   );
 }

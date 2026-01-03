@@ -190,6 +190,11 @@ export interface StockTransfer {
     status: 'Completed';
 }
 
+export enum VerificationMethod {
+  DIGITAL_UPLOAD = 'Digital Upload',
+  PHYSICAL_FILE_VERIFIED = 'Physical File Verified'
+}
+
 export interface ClearanceRequest {
     id: string;
     patientId: string;
@@ -199,6 +204,9 @@ export interface ClearanceRequest {
     status: 'Pending' | 'Approved' | 'Rejected';
     approvedAt?: string;
     remarks?: string;
+    verificationMethod?: VerificationMethod;
+    verifiedByPractitionerId?: string;
+    verifiedByPractitionerName?: string;
 }
 
 export interface WaitlistEntry {
@@ -230,6 +238,7 @@ export interface Referral {
     referredTo: string;
     reason: string;
     status: 'Pending' | 'Sent' | 'Completed';
+    continuityStatementSigned?: boolean; // Rule 2 Transfer of Care
 }
 
 export interface WasteLogEntry {
@@ -420,6 +429,7 @@ export interface SmsTemplateConfig {
   enabled: boolean;
   category: SmsCategory;
   triggerDescription: string;
+  isPdaCompliant?: boolean;
 }
 
 export type SmsTemplates = Record<string, SmsTemplateConfig>;
@@ -450,7 +460,8 @@ export type ClinicProfile = 'boutique' | 'corporate';
 
 export interface Medication {
     id: string;
-    name: string;
+    genericName: string;
+    brandName?: string;
     dosage: string;
     instructions: string;
     contraindicatedAllergies?: string[];
@@ -566,6 +577,7 @@ export interface DentalChartEntry {
   witnessId?: string;
   witnessName?: string;
   materialBatchId?: string;
+  sterilizationCycleId?: string; // Forensic autoclave link
   isVoid?: boolean;
   sealedHash?: string;
   sealedAt?: string;
@@ -573,6 +585,12 @@ export interface DentalChartEntry {
   entryMode?: 'AUTO' | 'MANUAL'; 
   reconciled?: boolean; 
   imageHashes?: string[]; 
+  informedRefusal?: {
+    reason: string;
+    timestamp: string;
+    signature?: string;
+    risks: string[];
+  };
 }
 
 export interface PerioMeasurement {
@@ -621,6 +639,8 @@ export interface User {
   tin?: string;
   s2License?: string;
   s2Expiry?: string; 
+  malpracticeExpiry?: string;
+  malpracticePolicy?: string;
   specialization?: string;
   defaultBranch?: string; 
   allowedBranches?: string[]; 
@@ -649,6 +669,7 @@ export interface PatientFile {
     uploadedAt: string;
     documentDate?: string; 
     justification?: string; // Rule 9: Indication for Radiograph/Document
+    safetyAffirmed?: boolean; // Rule 9 Radiation Safety Lead Shield
 }
 
 export type RecallStatus = 'Due' | 'Contacted' | 'No Response' | 'Booked';
@@ -693,6 +714,14 @@ export interface DpaRequestEntry {
     requestor: string;
     type: string;
     fulfillmentDate: string;
+}
+
+export interface PostOpLog {
+    id: string;
+    timestamp: string;
+    templateId: string;
+    content: string;
+    status: 'Delivered' | 'Failed';
 }
 
 export interface Patient {
@@ -797,6 +826,7 @@ export interface Patient {
   reliabilityScore?: number;
   consentLogs?: ConsentLogEntry[]; 
   guardianProfile?: GuardianProfile; 
+  postOpLogs?: PostOpLog[];
 }
 
 export interface Appointment {
@@ -832,6 +862,8 @@ export interface Appointment {
   authorizedManagerId?: string; 
   medHistoryVerified?: boolean; 
   medHistoryVerifiedAt?: string; 
+  postOpVerified?: boolean;
+  postOpVerifiedAt?: string;
 }
 
 export interface PinboardTask {

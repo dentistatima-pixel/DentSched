@@ -40,6 +40,10 @@ export const formatDate = (dateStr: string | undefined | null) => {
   });
 };
 
+export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
+
+export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues'];
+
 export const STAFF: User[] = [
   { 
       id: 'admin1', 
@@ -72,6 +76,8 @@ export const STAFF: User[] = [
       prcExpiry: getFutureDateStr(15), 
       s2License: 'PDEA-S2-8888',
       s2Expiry: getFutureDateStr(200),
+      malpracticeExpiry: getFutureDateStr(90),
+      malpracticePolicy: 'MP-2024-8891',
       defaultBranch: 'Makati Branch',
       allowedBranches: ['Makati Branch', 'Quezon City Branch'], 
       colorPreference: '#14b8a6', 
@@ -86,15 +92,17 @@ export const STAFF: User[] = [
       specialization: 'Orthodontics',
       prcLicense: '0987654',
       prcExpiry: getFutureDateStr(365),
+      malpracticeExpiry: getFutureDateStr(180),
+      malpracticePolicy: 'MP-2024-5521',
       defaultBranch: 'Quezon City Branch',
       allowedBranches: ['Quezon City Branch'],
       colorPreference: '#8b5cf6', 
       defaultConsultationFee: 800.00,
       roster: { 'Tue': 'Quezon City Branch', 'Thu': 'Quezon City Branch', 'Sat': 'Quezon City Branch' }
   },
-  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', prcExpiry: getFutureDateStr(400), colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
-  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', prcExpiry: getFutureDateStr(50), colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
-  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', prcExpiry: getFutureDateStr(600), colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
+  { id: 'doc3', name: 'Dr. Cassandra Filling', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cass', specialization: 'Pediatric Dentistry', prcLicense: '0112233', prcExpiry: getFutureDateStr(400), malpracticeExpiry: getFutureDateStr(300), colorPreference: '#f43f5e', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
+  { id: 'doc4', name: 'Dr. David Crown', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dave', specialization: 'Prosthodontics', prcLicense: '0445566', prcExpiry: getFutureDateStr(50), malpracticeExpiry: getFutureDateStr(45), colorPreference: '#f59e0b', defaultBranch: 'Quezon City Branch', allowedBranches: ['Quezon City Branch'] },
+  { id: 'doc5', name: 'Dr. Elena Root', role: UserRole.DENTIST, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elena', specialization: 'Endodontics', prcLicense: '0778899', prcExpiry: getFutureDateStr(600), malpracticeExpiry: getFutureDateStr(200), colorPreference: '#10b981', defaultBranch: 'Makati Branch', allowedBranches: ['Makati Branch'] },
   
   { 
       id: 'asst1', 
@@ -161,6 +169,9 @@ export const PATIENTS: Patient[] = [
         ],
         consentLogs: [
             { id: 'cl_1', category: 'Clinical', status: 'Granted', version: 'v1.0-2024', timestamp: getPastDateStr(365), staffId: 'admin1', staffName: 'Sarah Connor' }
+        ],
+        postOpLogs: [
+            { id: 'po_1', timestamp: getPastDateStr(1), templateId: 'hemostasis', content: 'Post-Op: Keep firm pressure on the gauze for 30 more minutes...', status: 'Delivered' }
         ]
     },
     {
@@ -403,7 +414,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   medications: [
       { 
           id: 'med1', 
-          name: 'Amoxicillin', 
+          genericName: 'Amoxicillin', 
+          brandName: 'Amoxil',
           dosage: '500mg', 
           instructions: 'Take 1 capsule every 8 hours for 7 days.', 
           contraindicatedAllergies: ['Penicillin'],
@@ -412,7 +424,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       },
       { 
           id: 'med2', 
-          name: 'Mefenamic Acid', 
+          genericName: 'Mefenamic Acid', 
+          brandName: 'Ponstan',
           dosage: '500mg', 
           instructions: 'Take 1 tablet every 6 hours as needed for pain.', 
           contraindicatedAllergies: ['Aspirin', 'Ibuprofen'],
@@ -420,7 +433,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       },
       { 
           id: 'med3', 
-          name: 'Tramadol', 
+          genericName: 'Tramadol', 
+          brandName: 'Ultram',
           dosage: '50mg', 
           instructions: 'Take 1 capsule every 6 hours for severe pain.', 
           isS2Controlled: true,

@@ -62,6 +62,12 @@ const Layout: React.FC<LayoutProps> = ({
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
   const badgeCount = myActiveTasks.length;
 
+  const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
+  const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
+  const isCoverageValid = !isPrcExpired && !isMalpracticeExpired;
+  const isNearExpiry = (currentUser.prcExpiry && new Date(currentUser.prcExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000) || 
+                       (currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000);
+
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
     : "h-16 bg-teal-900 text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0 transition-colors duration-500";
@@ -86,6 +92,12 @@ const Layout: React.FC<LayoutProps> = ({
              </div>
              
              <div className="flex items-center gap-2">
+                 {currentUser.role === UserRole.DENTIST && (
+                    <div className={`p-2 rounded-lg transition-all ${isCoverageValid ? 'bg-teal-500/20 text-teal-300' : (isNearExpiry ? 'bg-amber-500/30 text-amber-400 animate-pulse' : 'bg-red-600 text-white animate-bounce')}`} title={isCoverageValid ? "PRC & Malpractice Valid" : "Credential Alert"}>
+                        <Shield size={20} />
+                    </div>
+                 )}
+
                  {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.DENTIST) && (
                      <div className="hidden lg:flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 mr-2">
                         <button 
@@ -178,9 +190,9 @@ const Layout: React.FC<LayoutProps> = ({
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe">
             {navItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center p-2 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'text-teal-600 -translate-y-1' : 'text-slate-400'}`}>
-                <div className={`p-1.5 rounded-xl mb-1 transition-colors ${activeTab === item.id ? 'bg-teal-50' : 'bg-transparent'}`}><item.icon size={24} strokeWidth={activeTab === item.id ? 2.5 : 2} /></div>
-                <span className={`text-[10px] font-bold ${activeTab === item.id ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>{item.label}</span>
+            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center p-2 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'text-teal-600 -translate-y-1' : 'text-slate-400'}`}>
+                <div className={`p-1.5 rounded-xl transition-colors ${activeTab === item.id ? 'bg-teal-50' : 'bg-transparent'}`}><item.icon size={24} strokeWidth={activeTab === item.id ? 2.5 : 2} /></div>
+                <span className={`text-[10px] font-bold ${activeTab === item.id ? 'opacity-100 ml-2' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
             </button>
             ))}
       </div>

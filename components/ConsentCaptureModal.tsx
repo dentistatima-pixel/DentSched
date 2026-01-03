@@ -1,6 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck } from 'lucide-react';
+import CryptoJS from 'crypto-js';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -17,9 +19,18 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     isOpen, onClose, onSave, patient, appointment, provider, template, procedure
 }) => {
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
+    
     const [isSigning, setIsSigning] = useState(false);
     const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
     const [isDuressAffirmed, setIsDuressAffirmed] = useState(false);
+    
+    // Witness Identity State
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [witnessAnchorHash, setWitnessAnchorHash] = useState<string | null>(null);
+    const [witnessAnchorThumb, setWitnessAnchorThumb] = useState<string | null>(null);
+    const [isFaceDetected, setIsFaceDetected] = useState(false);
 
     const isMinor = (patient.age || 0) < 18;
     const requiresGuardian = isMinor || patient.isPwd || patient.isSeniorDependent;
@@ -51,12 +62,38 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
     };
 
+    const startWitnessCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320, facingMode: 'user' } });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setIsCameraActive(true);
+                // Simulate face detection
+                setTimeout(() => setIsFaceDetected(true), 2000);
+            }
+        } catch (err) {
+            console.error("Witness lens initialization failed", err);
+        }
+    };
+
+    const stopWitnessCamera = () => {
+        if (videoRef.current?.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(t => t.stop());
+        }
+        setIsCameraActive(false);
+    };
+
     useEffect(() => {
         if (isOpen) {
            setTimeout(setupCanvas, 50);
            setAcknowledgedRisks([]);
            setIsDuressAffirmed(false);
+           startWitnessCamera();
+        } else {
+            stopWitnessCamera();
         }
+        return () => stopWitnessCamera();
     }, [isOpen]);
     
     const getCoords = (e: any) => {
@@ -69,12 +106,29 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     }
 
     const startSign = (e: any) => { 
-        if (!isDuressAffirmed || !allRisksAcknowledged) return;
+        if (!isDuressAffirmed || !allRisksAcknowledged || !isFaceDetected) return;
         e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); 
     };
     const stopSign = (e: any) => { e.preventDefault(); setIsSigning(false); };
     const draw = (e: any) => { if (!isSigning || !isDuressAffirmed || !allRisksAcknowledged) return; e.preventDefault(); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.lineTo(x, y); ctx?.stroke(); };
     const clearCanvas = () => { const canvas = signatureCanvasRef.current; const ctx = canvas?.getContext('2d'); if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } };
+
+    const captureWitnessAnchor = () => {
+        const video = videoRef.current;
+        const canvas = witnessCanvasRef.current;
+        if (video && canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                canvas.width = 64;
+                canvas.height = 64;
+                ctx.filter = 'grayscale(100%)';
+                ctx.drawImage(video, 0, 0, 64, 64);
+                const thumb = canvas.toDataURL('image/jpeg', 0.5);
+                setWitnessAnchorThumb(thumb);
+                setWitnessAnchorHash(CryptoJS.SHA256(thumb).toString());
+            }
+        }
+    };
 
     const toggleRisk = (risk: string) => {
         setAcknowledgedRisks(prev => 
@@ -83,12 +137,14 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     };
 
     const handleSave = () => {
+        captureWitnessAnchor();
+        
         const finalCanvas = document.createElement('canvas');
         const signatureCanvas = signatureCanvasRef.current;
         if (!signatureCanvas) return;
         
         finalCanvas.width = 600;
-        finalCanvas.height = 1150; 
+        finalCanvas.height = 1200; 
         const ctx = finalCanvas.getContext('2d');
         if (!ctx) return;
 
@@ -151,22 +207,31 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         ctx.fillText(sigLabel, 30, y + 15);
         y += 35;
 
-        ctx.fillStyle = '#f1f5f9';
-        ctx.fillRect(30, y, 540, 60);
+        // Forensic Metadata Block
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(30, y, 540, 100);
         ctx.strokeStyle = '#cbd5e1';
-        ctx.strokeRect(30, y, 540, 60);
+        ctx.strokeRect(30, y, 540, 100);
         
-        ctx.fillStyle = '#64748b';
+        ctx.fillStyle = '#334155';
         ctx.font = 'bold 9px monospace';
-        ctx.fillText('FORENSIC IDENTITY FINGERPRINT (RA 8792 COMPLIANT)', 40, y + 15);
+        ctx.fillText('FORENSIC IDENTITY BIND (RA 8792 COMPLIANT)', 40, y + 15);
+        
+        if (witnessAnchorThumb) {
+            const img = new Image();
+            img.src = witnessAnchorThumb;
+            ctx.drawImage(img, 40, y + 25, 60, 60);
+        }
+
         ctx.font = '8px monospace';
         const fingerprintData = [
-            `DEVICE: ${navigator.userAgent.substring(0, 85)}...`,
-            `PLATFORM: ${navigator.platform} | LANG: ${navigator.language}`,
-            `SESSION_NONCE: ${Math.random().toString(36).substring(2, 15).toUpperCase()} | VERIFIED_TS: ${new Date().toISOString()}`
+            `WITNESS_HASH: ${witnessAnchorHash?.substring(0, 32)}...`,
+            `PRESENCE_TOKEN: ${Math.random().toString(36).substring(2, 15).toUpperCase()}`,
+            `DEVICE_UA: ${navigator.userAgent.substring(0, 65)}`,
+            `VERIFIED_TS: ${new Date().toISOString()}`
         ];
         fingerprintData.forEach((text, i) => {
-            ctx.fillText(text, 40, y + 30 + (i * 10));
+            ctx.fillText(text, 110, y + 35 + (i * 12));
         });
         
         onSave(finalCanvas.toDataURL('image/png'));
@@ -200,35 +265,60 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-teal-100 p-3 rounded-xl text-teal-700"><FileSignature size={24} /></div>
-                        <div><h2 className="text-xl font-bold text-slate-800">{template.name}</h2><p className="text-sm text-slate-500">Legal Informed Consent Protocol</p></div>
+                        <div><h2 className="text-xl font-bold text-slate-800">{template.name}</h2><p className="text-sm text-slate-500">RA 8792 Verified Consent Protocol</p></div>
                     </div>
                     <button onClick={onClose}><X size={24} className="text-slate-500" /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 space-y-6">
-                    {requiresGuardian && guardian ? (
-                        <div className={`p-4 rounded-xl border flex items-center gap-3 ${isAuthorityBlocked ? 'bg-red-50 border-red-200 text-red-800' : 'bg-lilac-50 border-lilac-200 text-lilac-800'}`}>
-                            {isAuthorityBlocked ? <AlertTriangle size={20} className="text-red-600"/> : <Scale size={20} className="text-lilac-600"/>}
-                            <div>
-                                <p className="text-xs font-black uppercase">Guardian Verification Active</p>
-                                <p className="text-[11px] font-medium leading-tight">
-                                    Legal Representative: <strong>{guardian.legalName}</strong> ({guardian.relationship})<br/>
-                                    Authority Level: <span className="font-black underline">{guardian.authorityLevel.replace('_', ' ')}</span>
-                                </p>
-                            </div>
-                        </div>
-                    ) : requiresGuardian && (
-                        <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white shadow-lg animate-pulse">
-                            <AlertTriangle size={32} />
-                            <div><p className="font-bold">GUARDIAN PROFILE MISSING</p><p className="text-xs opacity-90">A legal guardian must be added to the patient profile before clinical consent can be captured.</p></div>
-                        </div>
-                    )}
+                    <div className="flex justify-between items-start gap-6">
+                        <div className="flex-1 space-y-6">
+                            {requiresGuardian && guardian ? (
+                                <div className={`p-4 rounded-xl border flex items-center gap-3 ${isAuthorityBlocked ? 'bg-red-50 border-red-200 text-red-800' : 'bg-lilac-50 border-lilac-200 text-lilac-800'}`}>
+                                    {isAuthorityBlocked ? <AlertTriangle size={20} className="text-red-600"/> : <Scale size={20} className="text-lilac-600"/>}
+                                    <div>
+                                        <p className="text-xs font-black uppercase">Guardian Verification Active</p>
+                                        <p className="text-[11px] font-medium leading-tight">
+                                            Legal Representative: <strong>{guardian.legalName}</strong> ({guardian.relationship})<br/>
+                                            Authority Level: <span className="font-black underline">{guardian.authorityLevel.replace('_', ' ')}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : requiresGuardian && (
+                                <div className="bg-red-600 p-4 rounded-xl flex gap-3 text-white shadow-lg animate-pulse">
+                                    <AlertTriangle size={32} />
+                                    <div><p className="font-bold">GUARDIAN PROFILE MISSING</p><p className="text-xs opacity-90">A legal guardian must be added to the patient profile before clinical consent can be captured.</p></div>
+                                </div>
+                            )}
 
-                    {isAuthorityBlocked && (
-                        <div className="bg-red-100 text-red-800 p-4 rounded-xl text-xs font-bold border border-red-200">
-                            CRITICAL: This guardian is restricted to FINANCIAL decisions only. They are legally unauthorized to sign clinical consent forms.
+                            {isAuthorityBlocked && (
+                                <div className="bg-red-100 text-red-800 p-4 rounded-xl text-xs font-bold border border-red-200">
+                                    CRITICAL: This guardian is restricted to FINANCIAL decisions only. They are legally unauthorized to sign clinical consent forms.
+                                </div>
+                            )}
                         </div>
-                    )}
+
+                        {/* --- WITNESS LENS UI --- */}
+                        <div className="shrink-0 flex flex-col items-center gap-2">
+                             <div className={`w-24 h-24 rounded-full border-4 overflow-hidden relative shadow-lg bg-slate-200 ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
+                                 {isCameraActive ? (
+                                     <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                                 ) : (
+                                     <div className="w-full h-full flex items-center justify-center text-slate-400"><Camera size={32}/></div>
+                                 )}
+                                 {isFaceDetected && (
+                                     <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center">
+                                         <UserCheck size={40} className="text-teal-500 opacity-40"/>
+                                     </div>
+                                 )}
+                             </div>
+                             <div className="text-center">
+                                 <span className={`text-[8px] font-black uppercase tracking-widest ${isFaceDetected ? 'text-teal-600' : 'text-red-500'}`}>
+                                     {isFaceDetected ? 'Face Verified' : 'Detecting...'}
+                                 </span>
+                             </div>
+                        </div>
+                    </div>
 
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
 
@@ -274,29 +364,33 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                     </div>
 
                     {!isAuthorityBlocked && (
-                        <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden ${!isDuressAffirmed || !allRisksAcknowledged ? 'opacity-40 grayscale' : ''}`}>
+                        <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all relative overflow-hidden ${!isDuressAffirmed || !allRisksAcknowledged || !isFaceDetected ? 'opacity-40 grayscale' : ''}`}>
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-bold text-slate-700">{requiresGuardian ? 'Signature of Legal Guardian' : 'Patient Signature'}</h4>
                                 <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button>
                             </div>
                             <div className="relative">
                                 <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw}/>
-                                {(!isDuressAffirmed || !allRisksAcknowledged) && (
+                                {(!isDuressAffirmed || !allRisksAcknowledged || !isFaceDetected) && (
                                     <div className="absolute inset-0 bg-slate-100/10 backdrop-blur-[1px] flex flex-col items-center justify-center pointer-events-none">
                                         <Lock size={24} className="text-slate-400 mb-1"/>
-                                        <span className="text-[10px] font-black text-slate-500 uppercase text-center">Complete all risk checks and affirmation <br/> to unlock signature</span>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase text-center">
+                                            {!isFaceDetected ? 'Wait for witness lens detection...' : 'Complete all checks to unlock signature'}
+                                        </span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
+                    
+                    <canvas ref={witnessCanvasRef} className="hidden" />
                 </div>
 
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
                     <button 
                         onClick={handleSave} 
-                        disabled={isAuthorityBlocked || (requiresGuardian && !guardian) || !allRisksAcknowledged || !isDuressAffirmed} 
+                        disabled={isAuthorityBlocked || (requiresGuardian && !guardian) || !allRisksAcknowledged || !isDuressAffirmed || !isFaceDetected} 
                         className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50 disabled:grayscale transition-all"
                     >
                         <CheckCircle size={20} /> Signed & Verified

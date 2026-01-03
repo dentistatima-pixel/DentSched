@@ -22,7 +22,6 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const [instructions, setInstructions] = useState('');
     const [quantity, setQuantity] = useState('');
     const [clinicalJustification, setClinicalJustification] = useState('');
-    const [wetSignatureImage, setWetSignatureImage] = useState<string | null>(null);
     
     // Pediatric Safety State
     const [patientWeight, setPatientWeight] = useState<string>(patient.weightKg?.toString() || '');
@@ -64,13 +63,6 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         return { violation: false, reason: '' };
     }, [selectedMed, currentUser.s2License, currentUser.s2Expiry]);
 
-    const handleS2Certify = () => {
-        if (!selectedMed) return;
-        if (logAction) logAction('CREATE', 'System', patient.id, `Manual S2 Yellow Prescription issuance certified for ${selectedMed.name} (Qty: ${quantity}) by Dr. ${currentUser.name} (PRC: ${currentUser.prcLicense})`);
-        toast.success("S2 Issuance certified and logged.");
-        onClose();
-    };
-
     const handlePrint = () => {
         if (!selectedMed || s2Status.violation || isSafetyBlocked) return;
         if (needsJustification && !isJustificationValid) { toast.error("Narrative too short."); return; }
@@ -94,7 +86,12 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         doc.text(`DATE: ${new Date().toLocaleDateString()}`, 100, 40);
 
         doc.setFontSize(30); doc.setFont('times', 'italic'); doc.text("Rx", 15, 60);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(`${selectedMed.name.toUpperCase()} ${dosage}`, 25, 65);
+        
+        // --- RA 6675 COMPLIANT FORMATTING ---
+        const genericText = selectedMed.genericName.toUpperCase();
+        const brandText = selectedMed.brandName ? `(${selectedMed.brandName})` : '';
+        
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(`${genericText} ${brandText} ${dosage}`, 25, 65);
         doc.setFont('helvetica', 'normal'); doc.text(`Disp: #${quantity}`, 25, 75);
         doc.text(`Sig: ${instructions}`, 25, 85);
         
@@ -108,8 +105,8 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         const rawContent = `${selectedMed.id}|${dosage}|${quantity}|${patient.id}|${new Date().toDateString()}`;
         const integrityToken = CryptoJS.SHA256(rawContent).toString().toUpperCase().substring(0, 24);
         doc.text(`DIGITAL INTEGRITY TOKEN: ${integrityToken}`, 10, footerY + 8);
-        doc.save(`Prescription_${patient.surname}_${selectedMed.name}.pdf`);
-        if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.name}. Pediatric Weight: ${patientWeight}kg.`);
+        doc.save(`Prescription_${patient.surname}_${selectedMed.genericName}.pdf`);
+        if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.genericName}. Pediatric Weight: ${patientWeight}kg.`);
     };
 
     return (
@@ -148,7 +145,6 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                     </label>
                                 </div>
                             </div>
-                            <p className="text-[10px] text-red-600 font-bold italic leading-tight">Requirement: Dosage must be calculated based on milligrams per kilogram (mg/kg). Verification is mandatory to prevent overdose liability.</p>
                         </div>
                     )}
 
@@ -159,7 +155,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 <h3 className="font-black uppercase tracking-tight text-sm">Regulatory Restriction: S2 Issuance</h3>
                             </div>
                             <p className="text-xs text-amber-900 font-medium leading-relaxed">
-                                Statutory Rule: S2 Drugs require a <strong>Manual Yellow Prescription</strong>. Digital PDF issuance for controlled substances is restricted to prevent unauthorized duplication.
+                                Statutory Rule: S2 Drugs require a <strong>Manual Yellow Prescription</strong>. Digital PDF issuance for controlled substances is restricted.
                             </p>
                         </div>
                     ) : needsJustification && (
@@ -170,10 +166,14 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     )}
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Medication Selection</label>
+                        <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Medication Selection (RA 6675 Compliant)</label>
                         <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className="w-full p-3 border-2 border-slate-100 rounded-xl bg-white outline-none focus:border-teal-500 font-bold">
                             <option value="">- Choose Medication -</option>
-                            {medications.map(m => <option key={m.id} value={m.id}>{m.name} {m.isS2Controlled ? '💊 S2 CONTROLLED' : ''}</option>)}
+                            {medications.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.genericName.toUpperCase()} {m.brandName ? `(${m.brandName})` : ''} {m.isS2Controlled ? ' 💊 S2' : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
