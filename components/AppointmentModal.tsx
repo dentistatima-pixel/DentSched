@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource } from '../types';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -37,6 +38,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [notes, setNotes] = useState('');
   const [labStatus, setLabStatus] = useState<LabStatus>(LabStatus.NONE);
   const [labVendorId, setLabVendorId] = useState('');
+  
+  // MATERIAL TRACEABILITY STATE (Rule 11)
+  const [materialLotNumber, setMaterialLotNumber] = useState('');
+  const [materialCertIssuer, setMaterialCertIssuer] = useState('');
+  const [materialVerifiedBy, setMaterialVerifiedBy] = useState('');
+
   const [sterilizationCycleId, setSterilizationCycleId] = useState('');
   const [sterilizationVerified, setSterilizationVerified] = useState(false); 
 
@@ -60,6 +67,20 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       return (fieldSettings.resources || []).filter(r => !existingAppointment || r.branch === existingAppointment.branch);
   }, [fieldSettings.resources, existingAppointment]);
 
+  const labVendors = useMemo(() => {
+      return (fieldSettings.vendors || []).filter(v => v.type === 'Lab');
+  }, [fieldSettings.vendors]);
+
+  const selectedLab = useMemo(() => {
+      return labVendors.find(v => v.id === labVendorId);
+  }, [labVendorId, labVendors]);
+
+  const isDsaValid = useMemo(() => {
+      if (!selectedLab || !selectedLab.dsaSignedDate || !selectedLab.dsaExpiryDate) return false;
+      const expiry = new Date(selectedLab.dsaExpiryDate);
+      return expiry > new Date() && selectedLab.status === 'Active';
+  }, [selectedLab]);
+
   useEffect(() => {
       if (isOpen) {
           if (existingAppointment) {
@@ -71,6 +92,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setNotes(existingAppointment.notes || '');
               setLabStatus(existingAppointment.labStatus || LabStatus.NONE);
               setLabVendorId(existingAppointment.labDetails?.vendorId || '');
+              setMaterialLotNumber(existingAppointment.labDetails?.materialLotNumber || '');
+              setMaterialCertIssuer(existingAppointment.labDetails?.materialCertIssuer || '');
+              setMaterialVerifiedBy(existingAppointment.labDetails?.materialVerifiedBy || '');
               setSterilizationCycleId(existingAppointment.sterilizationCycleId || '');
               setSterilizationVerified(existingAppointment.sterilizationVerified || false);
               
@@ -81,7 +105,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
               setTime(initialTime || '09:00');
               setProviderId(dentists[0]?.id || '');
               setResourceId(availableResources[0]?.id || '');
-              setLabStatus(LabStatus.NONE); setLabVendorId(''); setSterilizationCycleId(''); setSterilizationVerified(false);
+              setLabStatus(LabStatus.NONE); setLabVendorId(''); 
+              setMaterialLotNumber(''); setMaterialCertIssuer(''); setMaterialVerifiedBy('');
+              setSterilizationCycleId(''); setSterilizationVerified(false);
               if (initialPatientId) { setActiveTab('existing'); setSelectedPatientId(initialPatientId); } 
               else { setSelectedPatientId(''); setActiveTab('existing'); }
               setSearchTerm('');
@@ -116,6 +142,20 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
           return;
       }
 
+      // --- NPC CIRCULAR 16-01 COMPLIANCE GATE ---
+      if (labStatus !== LabStatus.NONE && labVendorId && !isDsaValid) {
+          toast.error("NPC COMPLIANCE BLOCK: The selected Lab Vendor does not have a valid Data Sharing Agreement (DSA) on file. Sub-processing of patient Sensitive Personal Information is prohibited.");
+          return;
+      }
+
+      // --- MATERIAL TRACEABILITY GATE (Rule 11) ---
+      if (labStatus === LabStatus.RECEIVED) {
+          if (!materialLotNumber || !materialCertIssuer || !materialVerifiedBy) {
+              toast.error("MATERIAL TRACEABILITY BLOCK: Mandatory lot number, certificate issuer, and verifying staff are required for received prosthetics (Liability Defense).");
+              return;
+          }
+      }
+
       if (isCriticalProcedure && !sterilizationCycleId) { 
           if (isDowntime) {
               setPendingOverrideType('STERILIZATION_BYPASS');
@@ -138,18 +178,32 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const execSave = () => {
     const isWaitlistOverride = !!initialPatientId && !existingAppointment && (isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0);
 
+    // NPC CIRCULAR 16-01: Data Transfer ID generation
+    let dataTransferId = existingAppointment?.dataTransferId;
+    if (labStatus === LabStatus.PENDING && (!existingAppointment || existingAppointment.labStatus !== LabStatus.PENDING)) {
+        dataTransferId = `XFER-NPC-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        toast.info(`DPA Audit: Unique Data Transfer ID ${dataTransferId} generated for sub-processor.`);
+    }
+
     const appointmentData: Appointment = {
         id: existingAppointment?.id || `apt_${Date.now()}`,
         patientId: activeTab === 'block' ? 'BLOCK' : selectedPatientId, 
         providerId, resourceId, branch: existingAppointment?.branch || 'Makati Branch',
         date, time, durationMinutes: duration, type: procedureType, status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
-        notes, labStatus, labDetails: labStatus !== LabStatus.NONE ? { vendorId: labVendorId } : undefined,
+        notes, labStatus, 
+        labDetails: labStatus !== LabStatus.NONE ? { 
+            vendorId: labVendorId, 
+            materialLotNumber, 
+            materialCertIssuer, 
+            materialVerifiedBy 
+        } : undefined,
         sterilizationCycleId, sterilizationVerified,
         isBlock: activeTab === 'block', title: blockTitle,
         isWaitlistOverride: existingAppointment?.isWaitlistOverride || isWaitlistOverride,
         authorizedManagerId: existingAppointment?.authorizedManagerId,
         medHistoryVerified: existingAppointment?.medHistoryVerified,
-        medHistoryVerifiedAt: existingAppointment?.medHistoryVerifiedAt
+        medHistoryVerifiedAt: existingAppointment?.medHistoryVerifiedAt,
+        dataTransferId
     };
 
     if (showOverridePrompt && onManualOverride && pendingOverrideType) {
@@ -170,7 +224,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-end md:items-center p-0 md:p-4">
-      <div className="bg-white w-full max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 max-h-[95vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 max-h-[95vh] overflow-y-auto no-scrollbar">
         <div className={`p-6 border-b shrink-0 flex justify-between items-center text-white ${isDowntime ? 'bg-[repeating-linear-gradient(45deg,#b91c1c,#b91c1c_10px,#000_10px,#000_20px)]' : 'bg-teal-900'}`}>
             <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold">{isDowntime && 'DOWNTIME: '}{existingAppointment ? 'Edit Appointment' : 'New Booking'}</h2>
@@ -266,13 +320,99 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Procedure</label><select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                    <div><label className="label">Procedure</label><select value={procedureType} onChange={e => setProcedureType((e.target as HTMLSelectElement).value)} className="input">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                     <div><label className="label">Duration (Min)</label><select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
                     <div><label className="label">Time</label><input type="time" value={time} onChange={e => setTime(e.target.value)} className="input" /></div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <label className="label mb-0 flex items-center gap-2"><Beaker size={14}/> Lab Sub-processing</label>
+                        <select value={labStatus} onChange={e => setLabStatus(e.target.value as LabStatus)} className="p-1 text-xs border rounded bg-white">
+                            <option value={LabStatus.NONE}>No Lab Required</option>
+                            <option value={LabStatus.PENDING}>Order Pending</option>
+                            <option value={LabStatus.RECEIVED}>Received</option>
+                        </select>
+                    </div>
+                    {labStatus !== LabStatus.NONE && (
+                        <div className="space-y-4 animate-in slide-in-from-top-2">
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Preferred Lab Vendor</label>
+                                <select 
+                                    value={labVendorId} 
+                                    onChange={e => setLabVendorId(e.target.value)}
+                                    className={`w-full p-2.5 rounded-xl border-2 bg-white text-xs font-bold outline-none transition-all ${labVendorId && !isDsaValid ? 'border-red-400 ring-4 ring-red-500/5' : 'border-slate-100 focus:border-teal-500'}`}
+                                >
+                                    <option value="">- Select Verified Lab -</option>
+                                    {labVendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                </select>
+                                {labVendorId && (
+                                    <div className={`mt-2 flex flex-col gap-2`}>
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${isDsaValid ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-red-50 border-red-200 text-red-700 animate-bounce'}`}>
+                                            {isDsaValid ? <BadgeCheck size={14}/> : <ShieldX size={14}/>}
+                                            {isDsaValid ? 'NPC Compliance: DSA Active' : 'CRITICAL: No DSA on File'}
+                                        </div>
+                                        {existingAppointment?.dataTransferId && (
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-[8px] font-black text-blue-700 uppercase tracking-tighter">
+                                                <Database size={12}/> DPA Audit ID: {existingAppointment.dataTransferId}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* MATERIAL INTAKE FORM (Logic Point 3) */}
+                            {labStatus === LabStatus.RECEIVED && (
+                                <div className="bg-white p-4 rounded-2xl border-2 border-teal-500 shadow-lg space-y-4 animate-in zoom-in-95">
+                                    <div className="flex items-center gap-2 text-teal-700 mb-2">
+                                        <PackageCheck size={18}/>
+                                        <h4 className="text-[11px] font-black uppercase tracking-widest leading-none">Material Forensic Intake</h4>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Lot / Serial # *</label>
+                                            <input 
+                                                type="text" 
+                                                value={materialLotNumber} 
+                                                onChange={e => setMaterialLotNumber(e.target.value)} 
+                                                placeholder="e.g. SN-88912"
+                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Cert Issuer *</label>
+                                            <input 
+                                                type="text" 
+                                                value={materialCertIssuer} 
+                                                onChange={e => setMaterialCertIssuer(e.target.value)} 
+                                                placeholder="e.g. Ivoclar"
+                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Verifying Staff *</label>
+                                        <select 
+                                            value={materialVerifiedBy} 
+                                            onChange={e => setMaterialVerifiedBy(e.target.value)}
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                        >
+                                            <option value="">- Select Verifier -</option>
+                                            {staff.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="p-2 bg-teal-50 rounded-xl border border-teal-100 flex items-center gap-2">
+                                        <UserCheck size={14} className="text-teal-600"/>
+                                        <span className="text-[8px] font-black text-teal-800 uppercase leading-tight">Identity of staff who physically verified the material certification will be permanently logged.</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {isCriticalProcedure && (

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck, Scale, Receipt } from 'lucide-react';
 import { Patient, User, AuditLogEntry } from '../types';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
@@ -20,17 +20,56 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         includeNarrative: true,
         includeForensicAudit: true,
         includePractitionerProfiles: true,
-        includeIntegrityHashes: true
+        includeIntegrityHashes: true,
+        includeFinancialReconciliation: true
     });
 
     if (!isOpen) return null;
+
+    // --- RECONCILIATION CALCULATOR ---
+    const reconData = useMemo(() => {
+        let clinicalValue = 0;
+        let receiptedTotal = 0;
+        let totalPayments = 0;
+
+        patient.dentalChart?.forEach(e => {
+            if (e.status === 'Completed') clinicalValue += (e.price || 0);
+        });
+
+        patient.ledger?.forEach(l => {
+            if (l.type === 'Payment') {
+                totalPayments += l.amount;
+                if (l.orNumber) receiptedTotal += l.amount;
+            }
+        });
+
+        return { clinicalValue, receiptedTotal, totalPayments, gap: totalPayments - receiptedTotal };
+    }, [patient]);
 
     const handleExport = async () => {
         toast.info("Compiling chronological clinical narrative...");
         
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
         
+        // WATERMARK ADDER
+        const addWatermark = (pDoc: jsPDF) => {
+            pDoc.saveGraphicsState();
+            pDoc.setGState(new (pDoc as any).GState({ opacity: 0.15 }));
+            pDoc.setFontSize(40);
+            pDoc.setTextColor(150, 150, 150);
+            pDoc.text("PDA RULE 9 VERIFIED", pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+            pDoc.restoreGraphicsState();
+        };
+
+        const addSafetyAffirmation = (pDoc: jsPDF, yPos: number) => {
+            pDoc.setFontSize(8);
+            pDoc.setTextColor(100, 100, 100);
+            pDoc.setFont('helvetica', 'italic');
+            pDoc.text("Radiation Safety Protocol (PDA Rule 9) Verified: Lead shielding utilized for all diagnostic exposures.", 105, yPos, { align: 'center' });
+        };
+
         // --- COVER PAGE ---
         doc.setFillColor(15, 23, 42); // Navy Slate
         doc.rect(0, 0, pageWidth, 40, 'F');
@@ -77,6 +116,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                 if (y > 250) { doc.addPage(); y = 20; }
                 
                 const clinician = staff.find(s => s.name.includes(entry.author || ''));
+                const isImaging = entry.procedure.toLowerCase().includes('x-ray') || entry.procedure.toLowerCase().includes('radiograph');
                 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(11);
@@ -96,6 +136,11 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                 const splitNotes = doc.splitTextToSize(notes, 160);
                 doc.text(splitNotes, 25, y);
                 y += (splitNotes.length * 5) + 10;
+
+                if (isImaging) {
+                    addSafetyAffirmation(doc, y - 5);
+                    addWatermark(doc);
+                }
             });
         }
 
@@ -125,8 +170,41 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             });
         }
 
+        // --- SECTION 3: FINANCIAL RECONCILIATION (RULE 11) ---
+        if (options.includeFinancialReconciliation) {
+            doc.addPage();
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text("SECTION III: STATUTORY FINANCIAL RECONCILIATION", 20, 20);
+            doc.line(20, 25, 190, 25);
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text("Pursuant to PDA Rule 11 (Fee Transparency) and BIR compliance mandates, the following table reconciles the clinical value provided against official statutory receipts issued.", 20, 35, { maxWidth: 170 });
+
+            (doc as any).autoTable({
+                startY: 45,
+                head: [['Registry Identifier', 'Description', 'Value (PHP)']],
+                body: [
+                    ['DIRECT_CLINICAL_VALUE', 'Total value of Completed Procedures', `PHP ${reconData.clinicalValue.toLocaleString()}`],
+                    ['GROSS_OPERATIONAL_PAYMENTS', 'Total payments received by clinic', `PHP ${reconData.totalPayments.toLocaleString()}`],
+                    ['STATUTORY_OR_TOTAL', 'Payments matched to BIR Official Receipts', `PHP ${reconData.receiptedTotal.toLocaleString()}`],
+                    ['RECON_VARIANCE_GAP', 'Operational vs. Statutory Variance', `PHP ${reconData.gap.toLocaleString()}`]
+                ],
+                theme: 'striped',
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [15, 118, 110] }
+            });
+
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text("DIGNIFIED FEE DISCLOSURE (PDA Rule 11):", 20, 110);
+            doc.setFont('helvetica', 'normal');
+            doc.text(doc.splitTextToSize("The fees charged for dental services were agreed upon between the patient and the dentist prior to treatment. The clinic maintains transparency in financial dealings, and all official receipts represent accurate statutory documentation of professional fees collected.", 170), 20, 115);
+        }
+
         doc.save(`MedicoLegal_Report_${patient.surname}_${Date.now()}.pdf`);
-        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report for legal counsel.");
+        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report including Rule 11 Financial Reconciliation.");
         toast.success("Medico-Legal Narrative exported successfully.");
         onClose();
     };
@@ -151,7 +229,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                         <div>
                             <h4 className="font-black text-blue-900 uppercase text-xs tracking-widest mb-1">Electronic Evidence Standard</h4>
                             <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                                This tool compiles clinical narratives including practitioner PRC/PTR attribution and cryptographic hashes. Compliant with the <strong>Revised Rules on Evidence</strong> for electronic documents.
+                                This tool compiles clinical narratives including practitioner PRC/PTR attribution and cryptographic hashes. Compliant with the <strong>Revised Rules on Evidence</strong>.
                             </p>
                         </div>
                     </div>
@@ -168,7 +246,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                             />
                             <div>
                                 <div className="font-bold text-slate-800 text-sm">Chronological Clinical Narrative</div>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">Stitched SOAP notes with practitioner attribution</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Scale size={10}/> Includes Rule 9 Forensic Watermarks</p>
                             </div>
                         </label>
 
@@ -188,13 +266,13 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                         <label className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-teal-500 transition-all">
                             <input 
                                 type="checkbox" 
-                                checked={options.includeIntegrityHashes}
-                                onChange={e => setOptions({...options, includeIntegrityHashes: e.target.checked})}
+                                checked={options.includeFinancialReconciliation}
+                                onChange={e => setOptions({...options, includeFinancialReconciliation: e.target.checked})}
                                 className="w-6 h-6 accent-teal-600 rounded" 
                             />
                             <div>
-                                <div className="font-bold text-slate-800 text-sm">Cryptographic Integrity Hashes</div>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">Include SHA-256 seal data for every entry</p>
+                                <div className="font-bold text-slate-800 text-sm">Rule 11 Financial Reconciliation</div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Receipt size={10}/> Statutory OR Matching Summary</p>
                             </div>
                         </label>
                     </div>

@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Calendar, FileBox, Database, ArrowUpRight, Upload, Eye, QrCode } from 'lucide-react';
-import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule, ClearanceRequest, TreatmentPlanStatus, ConsentCategory, ConsentLogEntry, AuthorityLevel, DpaRequestEntry, VerificationMethod, ClinicalIncident } from '../types';
+import { Search, Phone, MessageSquare, ChevronRight, X, UserPlus, AlertTriangle, Shield, Heart, Activity, Hash, Plus, Trash2, CalendarPlus, Pencil, Printer, CheckCircle, FileCheck, ChevronDown, ChevronUp, AlertCircle, Download, Pill, Cigarette, Baby, User as UserIcon, MapPin, Briefcase, Users, CreditCard, Stethoscope, Mail, Clock, FileText, Grid, List, ClipboardList, DollarSign, StickyNote, PenLine, DownloadCloud, Archive, FileImage, FileUp, FileSignature, ShieldCheck, Lock, Megaphone, BellOff, ArrowRightLeft, Sliders, Sun, Contrast, Save, HeartPulse, ExternalLink, Star, Timeline, ShieldAlert, Crown, Award, ShieldOff, Zap, Circle, LockKeyhole, History, Scale, Calendar, FileBox, Database, ArrowUpRight, Upload, Eye, QrCode, Send, DatabaseBackup, Droplet } from 'lucide-react';
+import { Patient, Appointment, User, UserRole, DentalChartEntry, TreatmentStatus, FieldSettings, PerioMeasurement, AuditLogEntry, PatientFile, AppointmentStatus, LedgerEntry, ClinicalProtocolRule, ClearanceRequest, TreatmentPlanStatus, ConsentCategory, ConsentLogEntry, AuthorityLevel, DpaRequestEntry, VerificationMethod, ClinicalIncident, Referral } from '../types';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import TreatmentPlan from './TreatmentPlan';
@@ -46,10 +45,14 @@ const PatientList: React.FC<PatientListProps> = ({
   const [safetyAffirmed, setSafetyAffirmed] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  // Referral State (Rule 18)
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralForm, setReferralForm] = useState<Partial<Referral>>({
+      referredTo: '', reason: '', question: ''
+  });
+
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId) || null, [patients, selectedPatientId]);
 
-  // FIX: Added the missing 'referrals' useMemo to resolve the reference error on line 253.
-  // This computes all patients who have been referred by the currently active patient.
   const referrals = useMemo(() => {
     if (!selectedPatient) return [];
     return patients.filter(p => p.referredById === selectedPatient.id);
@@ -67,17 +70,9 @@ const PatientList: React.FC<PatientListProps> = ({
       return { status: latest.status, version: latest.version };
   };
 
-  const isClinicalProcessingAllowed = useMemo(() => {
-    if (!selectedPatient) return true;
-    const { status } = getConsentStatus(selectedPatient, 'Clinical');
-    if (status === 'None') return selectedPatient.dpaConsent ?? false;
-    return status === 'Granted';
-  }, [selectedPatient]);
-
-  // --- HANDLERS FOR CHART & PERIO ---
   const handleChartUpdate = (entry: DentalChartEntry) => {
     if (!selectedPatient) return;
-    const updatedChart = [...(selectedPatient.dentalChart || []), { ...entry, author: currentUser.name }];
+    const updatedChart = [...(selectedPatient.dentalChart || []), { ...entry, author: currentUser.name, authorRole: currentUser.role }];
     onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
     logAction('UPDATE', 'Patient', selectedPatient.id, `Updated dental chart: ${entry.procedure} on tooth #${entry.toothNumber}`);
     toast.success(`Record updated for tooth #${entry.toothNumber}`);
@@ -91,6 +86,44 @@ const PatientList: React.FC<PatientListProps> = ({
     onQuickUpdatePatient({ ...selectedPatient, perioChart: updatedPerio });
     logAction('UPDATE', 'Patient', selectedPatient.id, "Performed periodontal examination.");
     toast.success("Perio exam saved.");
+  };
+
+  const handleDataPortabilityExport = () => {
+    if (!selectedPatient) return;
+    
+    const exportBundle = {
+        meta: {
+            practice: fieldSettings?.clinicName,
+            exportTimestamp: new Date().toISOString(),
+            complianceStandard: "RA 10173 Section 18 Data Portability",
+            format: "Structured JSON (Machine Readable)"
+        },
+        patient: {
+            id: selectedPatient.id,
+            identity: {
+                firstName: selectedPatient.firstName,
+                surname: selectedPatient.surname,
+                middleName: selectedPatient.middleName,
+                dob: selectedPatient.dob,
+                sex: selectedPatient.sex
+            },
+            clinicalHistory: selectedPatient.dentalChart || [],
+            periodontalData: selectedPatient.perioChart || [],
+            medicalConditions: selectedPatient.medicalConditions || [],
+            allergies: selectedPatient.allergies || []
+        }
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportBundle, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", `DPA_Portability_${selectedPatient.surname}_${selectedPatient.id}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+
+    logAction('EXPORT_RECORD', 'Patient', selectedPatient.id, `DPA Section 18: Exercised Right to Data Portability. Structured JSON bundle issued.`);
+    toast.success("Machine-readable DPA bundle exported.");
   };
 
   const handleEndorse = () => {
@@ -109,7 +142,92 @@ const PatientList: React.FC<PatientListProps> = ({
       const updated = { ...selectedPatient, isEmergencyCase: false, provisional: false, primaryDentistId: targetDoc.id };
       onQuickUpdatePatient(updated);
       logAction('UPDATE', 'Patient', selectedPatient.id, `Rule 2 Endorsement: Transitioned to Dr. ${targetDoc.name}. Note: ${returnNote}`);
-      toast.success(`Patient successfully endorsed.`);
+      
+      const doc = new jsPDF();
+      doc.setFont('helvetica', 'bold'); doc.text("OFFICIAL TRANSITION OF CARE", 105, 20, { align: 'center' });
+      doc.setFontSize(10); doc.text(`Patient: ${selectedPatient.name} | Transition Date: ${new Date().toLocaleDateString()}`, 105, 28, { align: 'center' });
+      doc.line(10, 35, 200, 35);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Originating Practitioner: Dr. ${currentUser.name}`, 15, 45);
+      doc.text(`Receiving Practitioner: Dr. ${targetDoc.name}`, 15, 52);
+      
+      doc.setFont('helvetica', 'bold'); doc.text("CONTINUITY OF CARE STATEMENT (PDA RULE 2):", 15, 65);
+      doc.setFont('helvetica', 'normal');
+      const stmt = `The patient has been stabilized for the following emergency presentation. Dr. ${currentUser.name} has provided remediative care and remains available for consultation or secondary emergency care until Dr. ${targetDoc.name} formally acknowledges receipt of this clinical transition.`;
+      doc.text(doc.splitTextToSize(stmt, 170), 20, 72);
+      
+      doc.setFont('helvetica', 'bold'); doc.text("TRANSITION NARRATIVE:", 15, 95);
+      doc.setFont('helvetica', 'normal');
+      doc.text(doc.splitTextToSize(returnNote, 170), 20, 102);
+
+      doc.addPage();
+      doc.setFont('helvetica', 'bold');
+      doc.text("SECTION II: CLINICAL SUMMARY FOR RECEIVING PRACTITIONER", 15, 20);
+      doc.setLineWidth(0.5);
+      doc.line(15, 25, 195, 25);
+      
+      let y = 35;
+      const history = [...(selectedPatient.dentalChart || [])]
+        .filter(e => e.notes)
+        .sort((a,b) => new Date(b.date||'').getTime() - new Date(a.date||'').getTime())
+        .slice(0, 5);
+
+      if (history.length > 0) {
+          history.forEach(entry => {
+              if (y > 270) { doc.addPage(); y = 20; }
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+              doc.text(`${formatDate(entry.date)} - ${entry.procedure} (Tooth #${entry.toothNumber})`, 15, y);
+              y += 5;
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+              const wrapNotes = doc.splitTextToSize(entry.notes || '', 170);
+              doc.text(wrapNotes, 20, y);
+              y += (wrapNotes.length * 4) + 10;
+          });
+      } else {
+          doc.text("No prior clinical records found in this registry.", 20, 35);
+      }
+
+      doc.setFontSize(8);
+      doc.text("END OF TRANSITION REPORT", 105, 285, { align: 'center' });
+      
+      doc.save(`Endorsement_${selectedPatient.surname}_to_${targetDoc.name.split(' ')[0]}.pdf`);
+
+      toast.success(`Patient successfully endorsed. Transition PDF issued with history.`);
+  };
+
+  const handleReferralSubmit = () => {
+      if (!selectedPatient || !referralForm.referredTo || !referralForm.question) {
+          toast.error("Rule 18: Target specialist and specific clinical question are mandatory.");
+          return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFont('helvetica', 'bold'); doc.text("CLINICAL REFERRAL & SECOND OPINION REQUEST", 105, 20, { align: 'center' });
+      doc.setFontSize(8); doc.text("PDA CODE OF ETHICS SECTION 18 COMPLIANT", 105, 25, { align: 'center' });
+      doc.line(10, 30, 200, 30);
+      
+      doc.setFontSize(10);
+      doc.text(`RE: Patient ${selectedPatient.name} (DOB: ${selectedPatient.dob})`, 15, 40);
+      doc.text(`TO: ${referralForm.referredTo}`, 15, 47);
+      doc.text(`FROM: Dr. ${currentUser.name}`, 15, 54);
+      
+      doc.setFont('helvetica', 'bold'); doc.text("MANDATORY CLINICAL QUESTION (Rule 18):", 15, 65);
+      doc.setFont('helvetica', 'normal');
+      doc.text(doc.splitTextToSize(referralForm.question || '', 170), 20, 72);
+      
+      doc.setFont('helvetica', 'bold'); doc.text("CLINICAL REASON FOR REFERRAL:", 15, 95);
+      doc.setFont('helvetica', 'normal');
+      doc.text(doc.splitTextToSize(referralForm.reason || '', 170), 20, 102);
+      
+      doc.line(110, 260, 190, 260);
+      doc.setFontSize(8); doc.text(`Digitally Signed: Dr. ${currentUser.name}`, 150, 265, { align: 'center' });
+      
+      doc.save(`Referral_${selectedPatient.surname}_to_${referralForm.referredTo}.pdf`);
+      logAction('CREATE_REFERRAL', 'Referral', selectedPatient.id, `Issued Rule 18 Referral to ${referralForm.referredTo}. Question: ${referralForm.question}`);
+      
+      setShowReferralModal(false);
+      setReferralForm({ referredTo: '', reason: '', question: '' });
+      toast.success("Referral Question documented and letter issued.");
   };
 
   const handleFileUpload = () => {
@@ -168,7 +286,6 @@ const PatientList: React.FC<PatientListProps> = ({
       logAction('UPDATE', 'Patient', selectedPatient.id, `Revoked ${revocationTarget.category} consent.`);
       setRevocationTarget(null);
       toast.warning(`${revocationTarget.category} consent successfully withdrawn.`);
-      if (revocationTarget.category === 'Clinical') setActiveTab('info');
   };
 
   const handleGrantConsent = (category: ConsentCategory) => {
@@ -194,16 +311,17 @@ const PatientList: React.FC<PatientListProps> = ({
     );
   };
 
-  const clinicalTabs = ['medical', 'chart', 'imaging', 'perio', 'plan'];
-
   return (
     <div className="h-full flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
       <div className={`flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col ${selectedPatientId ? 'hidden md:flex' : 'flex'}`}>
-           <div className="p-4 border-b border-slate-100">
+           <div className="p-4 border-b border-slate-100 flex flex-col gap-3">
                <div className="relative">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                    <input type="text" placeholder="Registry search..." className="input pl-10 h-11" />
                </div>
+               <button onClick={onAddPatient} className="w-full bg-teal-600 text-white py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
+                   <UserPlus size={16}/> Register New
+               </button>
            </div>
            <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
                {patients.map(p => (
@@ -223,55 +341,88 @@ const PatientList: React.FC<PatientListProps> = ({
            
            <div className="pt-6 px-6 pb-6 border-b bg-white">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-3xl font-bold text-slate-900">{selectedPatient.name}</h2>
-                            {(selectedPatient.provisional || selectedPatient.isEmergencyCase) && (
-                                <button onClick={handleEndorse} className="px-3 py-1 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-lilac-600/20 hover:scale-105 transition-all">
-                                    <ArrowUpRight size={14}/> Discharge & Return (Rule 2)
-                                </button>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <h2 className="text-3xl font-black text-slate-900">{selectedPatient.name}</h2>
+                            
+                            {/* --- RESTORED ALERT IDENTIFICATION FLAGS --- */}
+                            {selectedPatient.allergies && selectedPatient.allergies.length > 0 && selectedPatient.allergies[0] !== 'None' && (
+                                <div className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-in zoom-in-95">
+                                    <ShieldAlert size={14} fill="currentColor"/> ALLERGY: {selectedPatient.allergies.join(', ')}
+                                </div>
+                            )}
+                            {selectedPatient.medicalConditions && selectedPatient.medicalConditions.length > 0 && selectedPatient.medicalConditions[0] !== 'None' && (
+                                <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-orange-600/20 animate-in zoom-in-95">
+                                    <AlertCircle size={14} fill="currentColor"/> CONDITION: {selectedPatient.medicalConditions.join(', ')}
+                                </div>
+                            )}
+                            {selectedPatient.takingBloodThinners && (
+                                <div className="bg-red-100 text-red-700 border-2 border-red-200 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 animate-pulse">
+                                    {/* Added Droplet to import and using it here */}
+                                    <Droplet size={14}/> BLOOD THINNER
+                                </div>
+                            )}
+                            {(selectedPatient.currentBalance || 0) > 0 && (
+                                <div className="bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5">
+                                    <DollarSign size={14}/> BALANCE: ₱{selectedPatient.currentBalance?.toLocaleString()}
+                                </div>
                             )}
                         </div>
-                        <div className="text-sm font-bold text-slate-400 uppercase mt-1">ID: {selectedPatient.id}</div>
+                        <div className="flex items-center gap-4 mt-2">
+                            <div className="text-sm font-bold text-slate-400 uppercase">Registry ID: {selectedPatient.id}</div>
+                            <div className="h-4 w-px bg-slate-200" />
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => onEditPatient(selectedPatient)} className="text-[10px] font-black text-teal-600 uppercase hover:underline flex items-center gap-1"><Pencil size={12}/> Edit Details</button>
+                                <button onClick={() => onBookAppointment(selectedPatient.id)} className="text-[10px] font-black text-lilac-600 uppercase hover:underline flex items-center gap-1 ml-3"><Calendar size={12}/> New Session</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        {(selectedPatient.provisional || selectedPatient.isEmergencyCase) && (
+                            <button onClick={handleEndorse} className="px-3 py-1.5 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-lilac-600/20 hover:scale-105 transition-all">
+                                <ArrowUpRight size={14}/> Discharge & Return (Rule 2)
+                            </button>
+                        )}
+                        <button onClick={() => setShowReferralModal(true)} className="px-3 py-1.5 bg-teal-50 text-teal-600 border border-teal-200 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 hover:bg-teal-100 transition-all">
+                            <Send size={14}/> Rule 18 Specialist Referral
+                        </button>
                     </div>
                 </div>
            </div>
 
            <div className="bg-white px-6 border-b border-slate-200 flex gap-6 shrink-0 z-0 overflow-x-auto no-scrollbar">
-               {['info', 'medical', 'chart', 'imaging', 'perio', 'plan', 'ledger', 'documents', 'instructions', 'certificates'].map(t => {
-                   const isBlocked = clinicalTabs.includes(t) && !isClinicalProcessingAllowed;
-                   return (
+               {['info', 'medical', 'chart', 'imaging', 'perio', 'plan', 'ledger', 'documents', 'instructions', 'certificates'].map(t => (
                    <button 
                     key={t} 
-                    onClick={() => !isBlocked && setActiveTab(t as any)} 
-                    className={`py-4 font-bold text-xs uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === t ? 'border-teal-600 text-teal-800' : 'border-transparent text-slate-400 hover:text-slate-600'} ${isBlocked ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    onClick={() => setActiveTab(t as any)} 
+                    className={`py-4 font-black text-[10px] uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === t ? 'border-teal-600 text-teal-800 bg-teal-50/20 px-4 -mb-1' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                    >
-                       {t === 'instructions' ? 'Instruction Logs' : t}
-                       {isBlocked && <LockKeyhole size={12}/>}
+                       {t === 'instructions' ? 'Care Log' : t}
                    </button>
-               )})}
+               ))}
            </div>
 
            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
                 {activeTab === 'info' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-fit">
-                            <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><ArrowRightLeft size={18} className="text-teal-600"/> Clinical Nexus</h4>
-                            {referrals.length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified.</div>}
+                            <h4 className="font-black text-teal-900 uppercase tracking-widest text-xs mb-6 flex items-center gap-2"><Users size={18} className="text-teal-600"/> Patient Relationship Nexus</h4>
+                            {referrals.length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified for this record.</div>}
                         </div>
                         <div className="bg-white p-6 rounded-3xl border-2 border-lilac-100 shadow-sm flex flex-col h-fit">
-                            <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-xs mb-6"><ShieldCheck size={18} className="text-lilac-600"/> Privacy Controls</h4>
+                            <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-xs mb-6"><ShieldCheck size={18} className="text-lilac-600"/> Data Governance Controls</h4>
                             <div className="space-y-4">
                                 {(['Clinical', 'Marketing', 'ThirdParty'] as ConsentCategory[]).map(cat => {
                                     const { status } = getConsentStatus(selectedPatient, cat);
                                     return (
                                         <div key={cat} className={`p-4 rounded-2xl border transition-all ${status === 'Revoked' ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
                                             <div className="flex justify-between items-center mb-1">
-                                                <span className="text-xs font-black uppercase text-slate-600">{cat} Processing</span>
+                                                <span className="text-[10px] font-black uppercase text-slate-600">{cat} Processing Access</span>
                                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${status === 'Revoked' ? 'bg-red-600 text-white' : 'bg-teal-600 text-white'}`}>{status.toUpperCase()}</span>
                                             </div>
                                             <div className="flex justify-end items-center mt-2">
-                                                {status === 'Revoked' ? <button onClick={() => handleGrantConsent(cat)} className="text-[10px] font-black text-teal-600 uppercase flex items-center gap-1">Restore</button> : <button onClick={() => setRevocationTarget({ category: cat })} className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">Revoke</button>}
+                                                {status === 'Revoked' ? <button onClick={() => handleGrantConsent(cat)} className="text-[10px] font-black text-teal-600 uppercase flex items-center gap-1">Restore Rights</button> : <button onClick={() => setRevocationTarget({ category: cat })} className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1">Revoke Access</button>}
                                             </div>
                                         </div>
                                     );
@@ -286,7 +437,6 @@ const PatientList: React.FC<PatientListProps> = ({
                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-6">
                             <Odontogram 
                                 chart={selectedPatient.dentalChart || []} 
-                                readOnly={!isClinicalProcessingAllowed}
                                 onToothClick={() => {}} 
                                 onChartUpdate={handleChartUpdate}
                             />
@@ -300,10 +450,10 @@ const PatientList: React.FC<PatientListProps> = ({
                                     onQuickUpdatePatient({...selectedPatient, dentalChart: updated});
                                 }}
                                 currentUser={currentUser}
-                                readOnly={!isClinicalProcessingAllowed}
                                 procedures={fieldSettings?.procedures || []}
                                 inventory={fieldSettings?.stockItems || []}
                                 fieldSettings={fieldSettings}
+                                patient={selectedPatient}
                             />
                         </div>
                     </div>
@@ -314,7 +464,6 @@ const PatientList: React.FC<PatientListProps> = ({
                         <PerioChart 
                             data={selectedPatient.perioChart || []}
                             onSave={handlePerioSave}
-                            readOnly={!isClinicalProcessingAllowed}
                         />
                     </div>
                 )}
@@ -323,10 +472,10 @@ const PatientList: React.FC<PatientListProps> = ({
                     <TreatmentPlan 
                         patient={selectedPatient} 
                         currentUser={currentUser} 
-                        readOnly={!isClinicalProcessingAllowed} 
                         onUpdatePatient={onQuickUpdatePatient} 
                         logAction={logAction}
                         featureFlags={fieldSettings?.features}
+                        fieldSettings={fieldSettings}
                     />
                 )}
 
@@ -347,7 +496,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                     <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors"><Calendar size={20}/></div>
                                     <div>
                                         <div className="font-black text-slate-800 uppercase text-xs">{apt.type} Session</div>
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase">{formatDate(apt.date)} • Verified Record</div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase">{formatDate(apt.date)} • Verified Clinical Record</div>
                                     </div>
                                 </div>
                                 <button onClick={() => handleGenerateCertificate(apt)} className="px-6 py-2.5 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-600/20 hover:scale-105 transition-all flex items-center gap-2"><FileCheck size={14}/> Issue Verified Certificate</button>
@@ -358,8 +507,9 @@ const PatientList: React.FC<PatientListProps> = ({
 
                 {(activeTab === 'imaging' || activeTab === 'documents') && (
                     <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
-                            <h3 className="font-black text-teal-900 uppercase tracking-widest text-sm">{activeTab === 'imaging' ? 'Radiographic Imaging' : 'Clinical Documents'}</h3>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center gap-3">
+                            <h3 className="font-black text-teal-900 uppercase tracking-widest text-sm flex-1">{activeTab === 'imaging' ? 'Radiographic Imaging' : 'Clinical Documents'}</h3>
+                            <button onClick={handleDataPortabilityExport} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg hover:bg-slate-800 transition-all"><DatabaseBackup size={14}/> Data Portability Bundle</button>
                             <button onClick={() => setShowUploadModal(true)} className="bg-teal-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-600/20"><Upload size={18}/> New Admission</button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -380,7 +530,33 @@ const PatientList: React.FC<PatientListProps> = ({
                 )}
            </div>
         </div>
-      ) : <div className="hidden md:flex flex-[2.5] items-center justify-center text-slate-400 italic">Select Patient Registry Record</div>}
+      ) : <div className="hidden md:flex flex-[2.5] items-center justify-center text-slate-400 italic">Select Patient Registry Record to View History</div>}
+
+      {/* REFERRAL MODAL (Rule 18) */}
+      {showReferralModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+              <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="flex items-center gap-3 text-teal-700 mb-6">
+                      <Send size={28}/>
+                      <h3 className="text-xl font-black text-teal-900 uppercase tracking-widest">Specialist Referral Gate</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto pr-2 space-y-6 no-scrollbar">
+                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                        <p className="text-xs text-amber-900 font-bold leading-relaxed">
+                            PDA Ethics Rule 18: "Dentists must indicate the reason and specific clinical question for a second opinion referral to define the consultant's duty."
+                        </p>
+                    </div>
+                    <div><label className="label text-teal-800 font-black">Target Specialist / Clinic *</label><input type="text" className="input" placeholder="e.g. Dr. Santos (Endodontics)" value={referralForm.referredTo} onChange={e => setReferralForm({...referralForm, referredTo: e.target.value})} /></div>
+                    <div><label className="label text-teal-800 font-black">Clinical Question (The "Task") *</label><textarea required className="input h-24" placeholder="e.g. 'Please evaluate #16 for possibility of vertical root fracture...'" value={referralForm.question} onChange={e => setReferralForm({...referralForm, question: e.target.value})} /></div>
+                    <div><label className="label">General Reason / Background</label><textarea className="input h-20" placeholder="Patient history or symptoms leading to this referral..." value={referralForm.reason} onChange={e => setReferralForm({...referralForm, reason: e.target.value})} /></div>
+                  </div>
+                  <div className="flex gap-3 mt-6 pt-6 border-t">
+                      <button onClick={() => setShowReferralModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl">Cancel</button>
+                      <button onClick={handleReferralSubmit} disabled={!referralForm.referredTo || !referralForm.question} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-teal-600/20 disabled:opacity-40">Issue Verified Referral</button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {showUploadModal && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">

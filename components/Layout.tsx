@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, Lock } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
@@ -64,7 +64,8 @@ const Layout: React.FC<LayoutProps> = ({
 
   const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
   const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
-  const isCoverageValid = !isPrcExpired && !isMalpracticeExpired;
+  const isAuthorityLocked = isPrcExpired || isMalpracticeExpired;
+  const isCoverageValid = !isAuthorityLocked;
   const isNearExpiry = (currentUser.prcExpiry && new Date(currentUser.prcExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000) || 
                        (currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000);
 
@@ -93,8 +94,11 @@ const Layout: React.FC<LayoutProps> = ({
              
              <div className="flex items-center gap-2">
                  {currentUser.role === UserRole.DENTIST && (
-                    <div className={`p-2 rounded-lg transition-all ${isCoverageValid ? 'bg-teal-500/20 text-teal-300' : (isNearExpiry ? 'bg-amber-500/30 text-amber-400 animate-pulse' : 'bg-red-600 text-white animate-bounce')}`} title={isCoverageValid ? "PRC & Malpractice Valid" : "Credential Alert"}>
-                        <Shield size={20} />
+                    <div 
+                      className={`p-2 rounded-lg transition-all flex items-center gap-2 ${isCoverageValid ? 'bg-teal-500/20 text-teal-300' : (isNearExpiry ? 'bg-amber-500/30 text-amber-400 animate-pulse' : 'bg-red-600 text-white animate-bounce')}`} 
+                      title={isAuthorityLocked ? `Clinical Authority Locked: ${isPrcExpired ? 'PRC Expired' : 'Malpractice Expired'}` : "PRC & Malpractice Valid"}
+                    >
+                        {isAuthorityLocked ? <Lock size={20}/> : <Shield size={20} />}
                     </div>
                  )}
 

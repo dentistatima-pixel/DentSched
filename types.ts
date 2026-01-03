@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -21,6 +20,9 @@ export enum AppointmentStatus {
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
 }
+
+// Added TriageLevel type for clinical priority queuing
+export type TriageLevel = 'Level 1: Trauma/Bleeding' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Appliance/Maintenance';
 
 export enum ResourceType {
   CHAIR = 'Dental Chair',
@@ -68,10 +70,6 @@ export enum AppointmentType {
   WHITENING = 'Whitening',
   DENTURE_ADJUSTMENTS = 'Denture Adjustments'
 }
-
-export type TriageLevel = 'Level 1: Trauma/Bleeding' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Appliance/Maintenance';
-
-export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
 
 export interface SyncIntent {
     id: string;
@@ -222,13 +220,26 @@ export interface WaitlistEntry {
 export interface ClinicalIncident {
     id: string;
     date: string;
-    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Data Breach' | 'Other';
+    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Data Breach' | 'Complication' | 'Other';
     patientId?: string;
+    patientName?: string;
     description: string;
     actionTaken: string;
     reportedBy: string;
+    reportedByName?: string;
     npcNotified?: boolean;
     npcRefNumber?: string;
+    sterilizationCycleId?: string; // Forensic link
+    batchId?: string; // Forensic link
+    prcLicense?: string; // Forensic link
+    autoSealTriggered?: boolean;
+    advisoryCallSigned?: boolean; // Medico-legal witness protocol
+    advisoryLog?: {
+        time: string;
+        manner: string;
+        patientResponse: string;
+        witnessId?: string;
+    };
 }
 
 export interface Referral {
@@ -239,6 +250,7 @@ export interface Referral {
     reason: string;
     status: 'Pending' | 'Sent' | 'Completed';
     continuityStatementSigned?: boolean; // Rule 2 Transfer of Care
+    question?: string; // Rule 18 Second Opinion Clinical Question
 }
 
 export interface WasteLogEntry {
@@ -349,7 +361,7 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'LAB_DATA_TRANSFER' | 'VERIFY_ASSISTANT_NOTE';
   entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll';
   entityId: string;
   details: string;
@@ -467,6 +479,7 @@ export interface Medication {
     contraindicatedAllergies?: string[];
     interactions?: string[]; 
     pediatricDosage?: string; 
+    maxMgPerKg?: number; // Clinical safety numeric limit
     isS2Controlled?: boolean;
 }
 
@@ -493,7 +506,7 @@ export interface PurchaseOrder {
 }
 
 export interface FieldSettings {
-  clinicName: string; // Mandatory Practice Identity
+  clinicName: string; // Practice Identity
   clinicProfile: ClinicProfile;
   suffixes: string[];
   civilStatus: string[];
@@ -543,6 +556,9 @@ export enum TreatmentPlanStatus {
     REJECTED = 'Rejected'
 }
 
+// Added TreatmentStatus for dental charting and procedure tracking states
+export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
+
 export interface TreatmentPlan {
     id: string;
     patientId: string;
@@ -553,6 +569,8 @@ export interface TreatmentPlan {
     reviewedBy?: string;
     reviewedAt?: string;
     reviewNotes?: string;
+    isComplexityDisclosed?: boolean; // PDA Rule 11 Fee Transparency
+    complexityContingencyNote?: string;
 }
 
 export interface DentalChartEntry {
@@ -567,6 +585,7 @@ export interface DentalChartEntry {
   date?: string; 
   planId?: string;
   author?: string;
+  authorRole?: UserRole; // Track scoping
   notes?: string;
   subjective?: string;
   objective?: string;
@@ -591,6 +610,9 @@ export interface DentalChartEntry {
     signature?: string;
     risks: string[];
   };
+  boilerplateScore?: number; // Malpractice defense uniqueness score
+  isVerifiedByDentist?: boolean; // RA 9484 Verification
+  verifiedByDentistName?: string;
 }
 
 export interface PerioMeasurement {
@@ -845,6 +867,9 @@ export interface Appointment {
       shade?: string;
       material?: string;
       vendorId?: string; 
+      materialLotNumber?: string; // Rule 11 Traceability
+      materialCertIssuer?: string; // Rule 11 Traceability
+      materialVerifiedBy?: string; // Staff ID who verified physical intake
   };
   notes?: string;
   sterilizationCycleId?: string;
@@ -853,6 +878,7 @@ export interface Appointment {
   title?: string; 
   signedConsentUrl?: string;
   queuedAt?: string; 
+  // Reference TriageLevel type for emergency queuing and clinical priority
   triageLevel?: TriageLevel; 
   isStale?: boolean; 
   isPendingSync?: boolean; 
@@ -864,6 +890,9 @@ export interface Appointment {
   medHistoryVerifiedAt?: string; 
   postOpVerified?: boolean;
   postOpVerifiedAt?: string;
+  dataTransferId?: string; // NPC Circular 16-01 compliance
+  followUpConfirmed?: boolean; // Post-Op Vigilance
+  followUpConfirmedAt?: string;
 }
 
 export interface PinboardTask {

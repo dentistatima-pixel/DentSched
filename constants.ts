@@ -292,8 +292,8 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
 ];
 
 export const MOCK_VENDORS: Vendor[] = [
-    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2024-01-15' },
-    { id: 'v2', name: 'Maxicare HMO', type: 'HMO', contactPerson: 'Claims Dept', contactNumber: '02-8888-1111', email: 'claims@maxicare.com.ph', status: 'Active', dsaSignedDate: '2023-06-01', dsaExpiryDate: '2024-06-01' },
+    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2025-01-15' },
+    { id: 'v2', name: 'Maxicare HMO', type: 'HMO', contactPerson: 'Claims Dept', contactNumber: '02-8888-1111', email: 'claims@maxicare.com.ph', status: 'Active', dsaSignedDate: '2023-06-01', dsaExpiryDate: '2025-06-01' },
     { id: 'v3', name: 'Dental Depot Inc.', type: 'Supplier', contactPerson: 'Jane Doe', contactNumber: '0918-999-0000', email: 'sales@dentaldepot.ph', status: 'Suspended', dsaSignedDate: '2022-01-01', dsaExpiryDate: '2023-01-01' }
 ];
 
@@ -408,7 +408,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
         triggerProcedureCategories: ['Surgery'],
         requiresMedicalConditions: [],
         requiresDocumentCategory: 'X-Ray',
-        alertMessage: 'A recent X-ray is required for surgical extractions to assess root morphology and vital structures. Acknowledge and proceed only if an X-ray has been reviewed.'
+        alertMessage: 'A recent x-ray is required for surgical extractions to assess root morphology and vital structures. Acknowledge and proceed only if an x-ray has been reviewed.'
     }
   ],
   medications: [
@@ -420,7 +420,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
           instructions: 'Take 1 capsule every 8 hours for 7 days.', 
           contraindicatedAllergies: ['Penicillin'],
           interactions: ['Warfarin'],
-          pediatricDosage: '20-40 mg/kg/day in divided doses every 8 hours.'
+          pediatricDosage: '20-40 mg/kg/day in divided doses every 8 hours.',
+          maxMgPerKg: 90
       },
       { 
           id: 'med2', 
@@ -429,7 +430,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
           dosage: '500mg', 
           instructions: 'Take 1 tablet every 6 hours as needed for pain.', 
           contraindicatedAllergies: ['Aspirin', 'Ibuprofen'],
-          pediatricDosage: '6.5 mg/kg/dose. Not recommended for children under 14.'
+          pediatricDosage: '6.5 mg/kg/dose. Not recommended for children under 14.',
+          maxMgPerKg: 25
       },
       { 
           id: 'med3', 
@@ -438,7 +440,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
           dosage: '50mg', 
           instructions: 'Take 1 capsule every 6 hours for severe pain.', 
           isS2Controlled: true,
-          pediatricDosage: 'Not recommended for children under 12 years of age.'
+          pediatricDosage: 'Not recommended for children under 12 years of age.',
+          maxMgPerKg: 8
       }
   ],
   consentFormTemplates: [
@@ -446,5 +449,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'c2', name: 'Surgical Extraction Consent', content: 'I, {PatientName}, understand that the extraction of teeth involves risks including but not limited to dry socket, infection, and nerve injury. I authorize Dr. {DoctorName} to proceed.' }
   ],
   currentPrivacyVersion: '1.0',
-  resources: MOCK_RESOURCES
+  resources: MOCK_RESOURCES,
+  vendors: MOCK_VENDORS
 };

@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { Patient, Medication, FieldSettings, User } from '../types';
-import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale } from 'lucide-react';
+import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -31,6 +30,37 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
     const isPediatric = (patient.age || 0) < 12;
+    const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
+    const isAuthorityLocked = isPrcExpired; 
+
+    // DIAGNOSIS ANCHOR LOGIC
+    const linkedDiagnosis = useMemo(() => {
+        if (!patient.dentalChart) return null;
+        const today = new Date().toISOString().split('T')[0];
+        return patient.dentalChart.find(entry => 
+            entry.date === today && 
+            entry.assessment && 
+            entry.assessment.trim().length > 0 &&
+            entry.sealedHash
+        );
+    }, [patient.dentalChart]);
+
+    const safetyViolation = useMemo(() => {
+        if (!isPediatric || !selectedMed || !patientWeight || !dosage) return null;
+        const weight = parseFloat(patientWeight);
+        if (isNaN(weight) || weight <= 0) return "Invalid Weight";
+        
+        const dosageMatch = dosage.match(/(\d+)/);
+        if (!dosageMatch || !selectedMed.maxMgPerKg) return null;
+        
+        const doseMg = parseFloat(dosageMatch[1]);
+        const maxSafeDose = selectedMed.maxMgPerKg * weight;
+        
+        if (doseMg > maxSafeDose) {
+            return `Dosage (${doseMg}mg) exceeds pediatric safety threshold (${maxSafeDose.toFixed(1)}mg) for this weight.`;
+        }
+        return null;
+    }, [isPediatric, selectedMed, patientWeight, dosage]);
 
     const allergyConflict = useMemo(() => {
         if (!selectedMed || !patient.allergies) return null;
@@ -45,10 +75,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         return selectedMed.interactions?.find(conflictDrug => currentMedsStr.includes(conflictDrug.toLowerCase()));
     }, [selectedMed, patient.medicationDetails]);
 
-    const needsJustification = !!allergyConflict || !!drugInteraction;
+    const needsJustification = !!allergyConflict || !!drugInteraction || !!safetyViolation;
     const isJustificationValid = clinicalJustification.trim().length >= 20;
 
-    const isSafetyBlocked = isPediatric && (!patientWeight || !isDosageVerified);
+    const isSafetyBlocked = isPediatric && (!patientWeight || !isDosageVerified || (safetyViolation && !isJustificationValid));
 
     const handleMedicationSelect = (medId: string) => {
         setSelectedMedId(medId);
@@ -64,7 +94,20 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     }, [selectedMed, currentUser.s2License, currentUser.s2Expiry]);
 
     const handlePrint = () => {
-        if (!selectedMed || s2Status.violation || isSafetyBlocked) return;
+        if (isAuthorityLocked) {
+            toast.error("CLINICAL AUTHORITY LOCK: Prescription printing is blocked due to an expired PRC License.");
+            return;
+        }
+
+        if (!linkedDiagnosis) {
+            const proceed = window.confirm("PDA ETHICS ALERT: You are issuing a prescription without a corresponding recorded and SEALED clinical assessment (A) for today's session. This increases your malpractice liability exposure. Proceed at your own risk?");
+            if (!proceed) return;
+        }
+
+        if (!selectedMed || s2Status.violation || isSafetyBlocked) {
+            if (isPediatric && !patientWeight) toast.error("SAFETY BLOCK: Pediatric weight is mandatory for minor patients.");
+            return;
+        }
         if (needsJustification && !isJustificationValid) { toast.error("Narrative too short."); return; }
         if (selectedMed.isS2Controlled) {
             toast.error("Regulatory Restriction: Controlled substances require manual Yellow Prescription.");
@@ -87,15 +130,18 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
         doc.setFontSize(30); doc.setFont('times', 'italic'); doc.text("Rx", 15, 60);
         
-        // --- RA 6675 COMPLIANT FORMATTING ---
         const genericText = selectedMed.genericName.toUpperCase();
         const brandText = selectedMed.brandName ? `(${selectedMed.brandName})` : '';
         
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(`${genericText} ${brandText} ${dosage}`, 25, 65);
-        doc.setFont('helvetica', 'normal'); doc.text(`Disp: #${quantity}`, 25, 75);
-        doc.text(`Sig: ${instructions}`, 25, 85);
+        // RA 6675: Generic name MUST be more prominent (larger font)
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text(genericText, 25, 65);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(brandText, 25, 71);
+        doc.setFontSize(12); doc.text(`Dosage: ${dosage}`, 25, 78);
         
-        if (needsJustification) { doc.setFontSize(7); doc.text(`Override: ${clinicalJustification}`, 25, 110, { maxWidth: 100 }); }
+        doc.setFont('helvetica', 'normal'); doc.text(`Disp: #${quantity}`, 25, 88);
+        doc.text(`Sig: ${instructions}`, 25, 96);
+        
+        if (needsJustification) { doc.setFontSize(7); doc.text(`Override: ${clinicalJustification}`, 25, 115, { maxWidth: 100 }); }
 
         doc.line(80, 160, 130, 160); doc.setFontSize(8); doc.text("Prescriber's Signature", 105, 164, { align: 'center' });
 
@@ -106,20 +152,49 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         const integrityToken = CryptoJS.SHA256(rawContent).toString().toUpperCase().substring(0, 24);
         doc.text(`DIGITAL INTEGRITY TOKEN: ${integrityToken}`, 10, footerY + 8);
         doc.save(`Prescription_${patient.surname}_${selectedMed.genericName}.pdf`);
-        if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.genericName}. Pediatric Weight: ${patientWeight}kg.`);
+        if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.genericName}. RA 6675 Prominence applied.`);
     };
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-300">
+            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-teal-900 text-white rounded-t-3xl">
-                    <div className="flex items-center gap-3"><Pill size={24}/><div><h2 className="text-xl font-bold">Clinical Prescription</h2><p className="text-xs text-teal-200">{patient.name}</p></div></div>
+                    <div className="flex items-center gap-3">
+                        <Pill size={24}/>
+                        <div>
+                            <h2 className="text-xl font-bold">Clinical Prescription</h2>
+                            <p className="text-xs text-teal-200">RA 6675 Generics Act Governance</p>
+                        </div>
+                    </div>
                     <button onClick={onClose}><X size={24}/></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
                     
-                    {/* --- PEDIATRIC SAFETY GATE --- */}
+                    {isAuthorityLocked && (
+                        <div className="bg-red-600 text-white p-6 rounded-3xl shadow-xl flex items-center gap-5 animate-in shake duration-500 mb-2 border-4 border-red-400">
+                            <Lock size={32} className="shrink-0" />
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tighter">Clinical Authority Locked</h3>
+                                <p className="text-xs font-bold opacity-90 leading-relaxed mt-1">Prescription functions are suspended for legal compliance due to an expired practitioner license.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex justify-center mb-2">
+                        {linkedDiagnosis ? (
+                            <div className="bg-teal-50 border border-teal-200 px-4 py-2 rounded-2xl flex items-center gap-2 animate-in fade-in zoom-in-95">
+                                <CheckCircle size={16} className="text-teal-600"/>
+                                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest">Diagnosis Linked: #{linkedDiagnosis.id.substring(0,8)}</span>
+                            </div>
+                        ) : (
+                            <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-2xl flex items-center gap-2 animate-in shake duration-500">
+                                <FileWarning size={16} className="text-orange-600"/>
+                                <span className="text-[10px] font-black text-orange-700 uppercase tracking-widest">Ethics Alert: Assessment Missing Today</span>
+                            </div>
+                        )}
+                    </div>
+
                     {isPediatric && (
                         <div className="bg-red-50 border-2 border-red-200 p-5 rounded-3xl space-y-4 animate-in slide-in-from-top-4 shadow-lg ring-4 ring-red-500/5">
                             <div className="flex items-center gap-3 text-red-700">
@@ -141,10 +216,19 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 <div className="flex items-end pb-1">
                                     <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${isDosageVerified ? 'bg-teal-50 border-teal-500 text-teal-900' : 'bg-white border-red-200 text-slate-400'}`}>
                                         <input type="checkbox" checked={isDosageVerified} onChange={e => setIsDosageVerified(e.target.checked)} className="w-5 h-5 accent-teal-600 rounded" />
-                                        <span className="text-[9px] font-black uppercase tracking-tight leading-none">Dosage accuracy verified against weight</span>
+                                        <span className="text-[9px] font-black uppercase tracking-tight leading-none">Verified against weight</span>
                                     </label>
                                 </div>
                             </div>
+                            {safetyViolation && (
+                                <div className="p-4 bg-red-600 text-white rounded-2xl flex items-start gap-3 animate-pulse border-2 border-white/20">
+                                    <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+                                    <div>
+                                        <div className="font-black text-[10px] uppercase tracking-widest">Dosage Threshold Breach</div>
+                                        <p className="text-xs font-bold leading-tight mt-1">{safetyViolation}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -160,13 +244,16 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         </div>
                     ) : needsJustification && (
                         <div className="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm space-y-3 animate-in shake duration-500">
-                            <label className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-1"><ShieldAlert size={12}/> Prescriber's Justification (Allergy/Conflict) *</label>
-                            <textarea value={clinicalJustification} onChange={e => setClinicalJustification(e.target.value)} placeholder="Forensic narrative required (Min 20 chars)..." className="w-full p-3 bg-orange-50 border border-orange-100 rounded-xl text-xs font-bold outline-none h-20" />
+                            <div className="flex items-center gap-2 text-orange-600 mb-1">
+                                <Zap size={14} className="animate-pulse"/>
+                                <label className="text-[10px] font-black uppercase tracking-widest">Prescriber's Forensic Overrule Narrative *</label>
+                            </div>
+                            <textarea value={clinicalJustification} onChange={e => setClinicalJustification(e.target.value)} placeholder="Mandatory narrative justifying this high-risk prescription (Min 20 chars)..." className="w-full p-3 bg-orange-50 border border-orange-100 rounded-xl text-xs font-bold outline-none h-20" />
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Medication Selection (RA 6675 Compliant)</label>
+                        <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Medication Selection (RA 6675)</label>
                         <select value={selectedMedId} onChange={e => handleMedicationSelect(e.target.value)} className="w-full p-3 border-2 border-slate-100 rounded-xl bg-white outline-none focus:border-teal-500 font-bold">
                             <option value="">- Choose Medication -</option>
                             {medications.map(m => (
@@ -177,6 +264,14 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         </select>
                     </div>
 
+                    {selectedMed && (
+                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-inner flex flex-col items-center text-center gap-2 animate-in fade-in duration-500">
+                            <div className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedMed.genericName}</div>
+                            {selectedMed.brandName && <div className="text-sm font-bold text-slate-400 italic">Brand: {selectedMed.brandName}</div>}
+                            <div className="mt-2 px-4 py-1 bg-teal-50 text-teal-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-100">RA 6675 Compliant Prominence</div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-2"><label className="label">Dosage</label><input type="text" value={dosage} onChange={e => setDosage(e.target.value)} className="input" /></div>
                         <div><label className="label">Qty</label><input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="input font-bold" /></div>
@@ -186,7 +281,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200 flex items-center gap-3">
                         <Fingerprint size={20} className="text-slate-400"/>
                         <p className="text-[9px] font-bold text-slate-500 uppercase leading-tight">
-                            SHA-256 Content-Hashing active. Any alteration to dosage or quantity on the PDF will invalidate the digital validation token.
+                            SHA-256 Integrity Active. Generic prominence is structurally enforced for statutory compliance.
                         </p>
                     </div>
                 </div>
@@ -194,8 +289,13 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                 <div className="p-4 border-t bg-white flex justify-end gap-3 rounded-b-3xl shrink-0">
                     <button onClick={onClose} className="px-6 py-2 font-bold rounded-xl text-slate-400">Cancel</button>
                     {!selectedMed?.isS2Controlled && (
-                        <button onClick={handlePrint} disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked} className="px-10 py-3 bg-teal-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow-xl shadow-teal-600/20 disabled:opacity-40 flex items-center gap-2 transition-all active:scale-95">
-                            <Printer size={16}/> Print Hash-Bound Rx
+                        <button 
+                          onClick={handlePrint} 
+                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked} 
+                          className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
+                        >
+                            {isAuthorityLocked ? <Lock size={16}/> : <Printer size={16}/>} 
+                            {isAuthorityLocked ? 'License Locked' : 'Print Prominent generic Rx'}
                         </button>
                     )}
                 </div>

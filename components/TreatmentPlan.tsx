@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus } from '../types';
-import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck } from 'lucide-react';
+import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings } from '../types';
+import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 import CryptoJS from 'crypto-js';
@@ -13,9 +12,10 @@ interface TreatmentPlanProps {
   currentUser: User;
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   featureFlags?: FeatureToggles;
+  fieldSettings?: FieldSettings;
 }
 
-const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags }) => {
+const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings }) => {
     const toast = useToast();
     const isApprovalEnabled = featureFlags?.enableTreatmentPlanApprovals ?? false;
 
@@ -53,18 +53,22 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
 
     // --- DATA DERIVATION ---
     const allPlans = useMemo(() => patient.treatmentPlans || [], [patient.treatmentPlans]);
-    const unassignedPlannedItems = useMemo(() => {
-        return (patient.dentalChart || []).filter(e => e.status === 'Planned' && !e.planId);
-    }, [patient.dentalChart]);
+    
+    // DYNAMIC RISK MAPPING
+    const currentRefusalRisks = useMemo(() => {
+        if (!refusalModal || !fieldSettings?.procedures) return [];
+        const proc = fieldSettings.procedures.find(p => p.name === refusalModal.procedure);
+        return proc?.riskDisclosures || [
+            "Progression of infection / Systemic spread",
+            "Loss of the tooth",
+            "Damage to adjacent teeth",
+            "Potential for acute pain or abscess",
+            "Bone loss in the affected area",
+            "Increased cost of future restorative work"
+        ];
+    }, [refusalModal, fieldSettings]);
 
-    const REFUSAL_RISKS = [
-        "Progression of infection / Systemic spread",
-        "Loss of the tooth",
-        "Damage to adjacent teeth",
-        "Potential for acute pain or abscess",
-        "Bone loss in the affected area",
-        "Increased cost of future restorative work"
-    ];
+    const allRisksChecked = currentRefusalRisks.length > 0 && selectedRisks.length === currentRefusalRisks.length;
 
     // --- CANVAS ENGINE ---
     const setupRefusalCanvas = () => {
@@ -103,7 +107,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
         return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
-    const startSign = (e: any) => { if (!isDuressAffirmed || !isFaceDetected) return; e.preventDefault(); setIsSigningRefusal(true); const { x, y } = getCoords(e); refusalCanvasRef.current?.getContext('2d')?.beginPath(); refusalCanvasRef.current?.getContext('2d')?.moveTo(x, y); };
+    const startSign = (e: any) => { if (!isDuressAffirmed || !isFaceDetected || !allRisksChecked) return; e.preventDefault(); setIsSigningRefusal(true); const { x, y } = getCoords(e); refusalCanvasRef.current?.getContext('2d')?.beginPath(); refusalCanvasRef.current?.getContext('2d')?.moveTo(x, y); };
     const stopSign = (e: any) => { e.preventDefault(); setIsSigningRefusal(false); };
     const draw = (e: any) => { if (!isSigningRefusal) return; e.preventDefault(); const { x, y } = getCoords(e); refusalCanvasRef.current?.getContext('2d')?.lineTo(x, y); refusalCanvasRef.current?.getContext('2d')?.stroke(); };
     const clearCanvas = () => { const canvas = refusalCanvasRef.current; canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); };
@@ -128,15 +132,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
         setNewPlanName(''); setIsCreating(false);
     };
 
-    const handleAssignItem = (item: DentalChartEntry, planId: string) => {
-        const plan = allPlans.find(p => p.id === planId); if (!plan) return;
-        const updatedChart = (patient.dentalChart || []).map(i => i.id === item.id ? { ...i, planId } : i);
-        onUpdatePatient({ ...patient, dentalChart: updatedChart });
-        logAction('UPDATE', 'ClinicalNote', item.id, `Assigned item "${item.procedure}" to plan "${plan.name}".`);
-        toast.success(`Item assigned to ${plan.name}.`);
-    };
-    
-    const handlePlanAction = (planId: string, action: 'submit' | 'approve' | 'reject' | 'revert_to_draft' | 'delete') => {
+    const handlePlanAction = (planId: string, action: 'submit' | 'approve' | 'reject' | 'revert_to_draft' | 'delete' | 'toggle_disclosure') => {
         const plan = allPlans.find(p => p.id === planId); if (!plan) return;
         let updatedPlans: TreatmentPlanType[];
         if (action === 'delete') {
@@ -152,6 +148,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                     case 'submit': return { ...p, status: TreatmentPlanStatus.PENDING_REVIEW };
                     case 'approve': return { ...p, status: TreatmentPlanStatus.APPROVED, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                     case 'revert_to_draft': return { ...p, status: TreatmentPlanStatus.DRAFT, reviewNotes: undefined };
+                    case 'toggle_disclosure': return { ...p, isComplexityDisclosed: !p.isComplexityDisclosed };
                 }
             }
             return p;
@@ -159,16 +156,9 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
         onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
     };
     
-    const handleRejectSave = () => {
-        if (!rejectionModal || !rejectionNotes.trim()) return;
-        const updatedPlans = allPlans.map(p => p.id === rejectionModal.planId ? { ...p, status: TreatmentPlanStatus.REJECTED, reviewNotes: rejectionNotes, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() } : p);
-        onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
-        setRejectionModal(null); setRejectionNotes('');
-    };
-
     const handleInformedRefusal = () => {
         const canvas = refusalCanvasRef.current;
-        if (!refusalModal || !refusalNotes.trim() || selectedRisks.length === 0 || !canvas) {
+        if (!refusalModal || !refusalNotes.trim() || !allRisksChecked || !canvas) {
             toast.error("Forensic requirement: Checklist, Narrative, and Signature are mandatory.");
             return;
         }
@@ -208,7 +198,6 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
         onUpdatePatient({ ...patient, dentalChart: updatedChart, ledger: newLedger, currentBalance: newBalance });
     };
 
-    const isAdmin = currentUser.role === UserRole.ADMIN;
     if (!isApprovalEnabled) return <div className="p-8 text-center bg-slate-100 rounded-xl text-slate-500">Approvals disabled.</div>;
 
     return (
@@ -248,20 +237,50 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
 
             {allPlans.map(plan => {
                 const planItems = (patient.dentalChart || []).filter(item => item.planId === plan.id);
+                const isSurgicalPlan = planItems.some(i => i.procedure.toLowerCase().includes('surgery') || i.procedure.toLowerCase().includes('extraction'));
+
                 return (
                     <div key={plan.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="p-4 border-b flex justify-between items-start">
                             <div><h3 className="font-bold text-xl">{plan.name}</h3><div className="text-xs text-slate-500 mt-1">By: {plan.createdBy}</div></div>
                             <span className={`px-3 py-1 text-xs font-bold rounded-full border`}>{plan.status}</span>
                         </div>
-                        <div className="divide-y">
+                        
+                        {isSurgicalPlan && (
+                            <div className={`p-4 mx-4 mt-4 rounded-2xl border-2 transition-all ${plan.isComplexityDisclosed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-500 animate-pulse'}`}>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={plan.isComplexityDisclosed} 
+                                        onChange={() => handlePlanAction(plan.id, 'toggle_disclosure')}
+                                        className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
+                                    />
+                                    <div>
+                                        <span className="font-black text-slate-900 uppercase text-[10px] tracking-widest flex items-center gap-1">
+                                            <Scale size={12}/> PDA Rule 16: Complexity Variance Disclosure
+                                        </span>
+                                        <p className="text-[10px] text-slate-600 leading-tight mt-1">
+                                            I acknowledge that the estimated fees for this surgical plan are subject to a +/- 20% variance based on clinical findings and complications identified intra-operatively.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        )}
+
+                        <div className="divide-y mt-4">
                             {planItems.map(item => (
                                 <div key={item.id} className="p-3 flex justify-between items-center group">
                                     <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border">#{item.toothNumber}</div><div className="font-bold text-sm">{item.procedure}</div></div>
                                     <div className="flex gap-2">
                                         {plan.status === TreatmentPlanStatus.APPROVED && item.status !== 'Completed' && !readOnly && (
                                             <><button onClick={() => setRefusalModal(item)} className="bg-red-50 text-red-600 px-3 py-1 text-xs font-bold rounded-full border border-red-100">Refusal</button>
-                                            <button onClick={() => handleMarkComplete(item)} className="bg-green-500 text-white px-3 py-1 text-xs font-bold rounded-full">Complete</button></>
+                                            <button 
+                                                onClick={() => handleMarkComplete(item)} 
+                                                disabled={isSurgicalPlan && !plan.isComplexityDisclosed}
+                                                className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${isSurgicalPlan && !plan.isComplexityDisclosed ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-green-500 text-white shadow-md'}`}
+                                            >
+                                                Complete
+                                            </button></>
                                         )}
                                     </div>
                                 </div>
@@ -275,7 +294,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                  <div className="bg-white p-4 border-2 border-dashed rounded-xl flex gap-2"><input type="text" placeholder="Plan name..." className="input" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} autoFocus/><button onClick={handleCreatePlan} className="px-4 bg-teal-600 text-white rounded-lg">Save</button></div>
             ) : <button onClick={() => setIsCreating(true)} className="w-full py-4 border-2 border-dashed rounded-2xl text-slate-500 font-bold">+ New Treatment Plan</button>}
 
-            {/* Informed Refusal Modal Enhanced (RA 8792 Compliance) */}
+            {/* Informed Refusal Modal */}
             {refusalModal && (
                 <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border-4 border-red-100 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
@@ -296,9 +315,9 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                             </div>
                             
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Risks Disclosed & Acknowledged *</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Procedure-Specific Hazards (Mandatory) *</label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {REFUSAL_RISKS.map(risk => (
+                                    {currentRefusalRisks.map(risk => (
                                         <label key={risk} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedRisks.includes(risk) ? 'bg-red-50 border-red-500' : 'bg-slate-50 border-slate-100'}`}>
                                             <input type="checkbox" checked={selectedRisks.includes(risk)} onChange={() => setSelectedRisks(prev => prev.includes(risk) ? prev.filter(r => r !== risk) : [...prev, risk])} className="w-5 h-5 accent-red-600 rounded" />
                                             <span className="text-[10px] font-bold leading-tight">{risk}</span>
@@ -314,16 +333,25 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                     <input type="checkbox" checked={isDuressAffirmed} onChange={e => setIsDuressAffirmed(e.target.checked)} className="w-6 h-6 accent-lilac-600 rounded shrink-0" />
                                     <span className="text-[10px] font-bold leading-tight">I attest that I am signing this Informed Refusal voluntarily and understand all clinical consequences disclosed.</span>
                                 </label>
-                                <div className={`relative bg-white rounded-2xl border-2 border-dashed transition-all ${!isDuressAffirmed || !isFaceDetected ? 'opacity-30' : 'border-slate-300'}`}>
+                                <div className={`relative bg-white rounded-2xl border-2 border-dashed transition-all ${!isDuressAffirmed || !isFaceDetected || !allRisksChecked ? 'opacity-30' : 'border-slate-300'}`}>
                                     <div className="flex justify-between items-center p-2"><span className="text-[9px] font-black text-slate-400 uppercase">Patient Signature Pad</span><button onClick={clearCanvas} className="text-slate-300 hover:text-red-500"><Eraser size={12}/></button></div>
                                     <canvas ref={refusalCanvasRef} className="w-full h-[120px] touch-none" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw} />
-                                    {(!isDuressAffirmed || !isFaceDetected) && <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px]"><Lock size={20} className="text-slate-400"/></div>}
+                                    {(!isDuressAffirmed || !isFaceDetected || !allRisksChecked) && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px] text-center p-4">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <Lock size={20} className="text-slate-400"/>
+                                                <span className="text-[9px] font-black text-slate-400 uppercase">
+                                                    {!allRisksChecked ? 'Acknowledge all risks to unlock' : 'Acknowledge duress and detect face'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                         <div className="p-6 border-t bg-slate-50 flex gap-3">
                             <button onClick={() => setRefusalModal(null)} className="flex-1 py-4 bg-white border font-black uppercase text-[10px] rounded-2xl">Cancel</button>
-                            <button onClick={handleInformedRefusal} disabled={!isDuressAffirmed || !isFaceDetected || !refusalNotes.trim() || selectedRisks.length === 0} className="flex-[2] py-4 bg-red-600 text-white font-black uppercase text-[10px] rounded-2xl shadow-xl shadow-red-600/20 disabled:opacity-40">Seal Refusal Record</button>
+                            <button onClick={handleInformedRefusal} disabled={!isDuressAffirmed || !isFaceDetected || !refusalNotes.trim() || !allRisksChecked} className="flex-[2] py-4 bg-red-600 text-white font-black uppercase text-[10px] rounded-2xl shadow-xl shadow-red-600/20 disabled:opacity-40">Seal Refusal Record</button>
                         </div>
                     </div>
                 </div>

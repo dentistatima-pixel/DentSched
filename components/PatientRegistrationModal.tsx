@@ -25,12 +25,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [isQuickReg, setIsQuickReg] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
-  // KIOSK PRIVACY SHIELD STATE
-  const [isDataMasked, setIsDataMasked] = useState(isKiosk && !!initialData);
-  
-  const [familySearchTerm, setFamilySearchTerm] = useState('');
-  const [showFamilySearch, setShowFamilySearch] = useState(false);
-
   const basicRef = useRef<HTMLDivElement>(null);
   const medicalRef = useRef<HTMLDivElement>(null);
   const dentalRef = useRef<HTMLDivElement>(null);
@@ -52,27 +46,15 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         if (initialData) { 
             setFormData({ ...initialData }); 
             setIsQuickReg(false); 
-            setIsDataMasked(isKiosk);
         } 
         else { 
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
             setFormData({ ...initialFormState, id: generatedId }); 
             setIsQuickReg(false); 
-            setIsDataMasked(false);
         }
         setActiveSection('basic');
     }
   }, [isOpen, initialData, isKiosk]);
-
-  const handleStaffReveal = () => {
-      const pin = prompt("STAFF ACTION REQUIRED: Enter PIN to reveal sensitive history:");
-      if (pin === '1234') {
-          setIsDataMasked(false);
-          toast.success("Identity verified. Data unmasked for verification.");
-      } else {
-          toast.error("Invalid credentials.");
-      }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -153,9 +135,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           <div className="flex items-center gap-3">
             <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20"><User size={24} className="text-white" /></div>
             <div>
-                <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient' : 'Registration')}</h2>
+                <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient Record' : 'Registry Registration')}</h2>
                 <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-700 text-teal-100 uppercase tracking-widest border border-teal-600">Clinical Admission</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-700 text-teal-100 uppercase tracking-widest border border-teal-600">Clinical Admission Gate</span>
                 </div>
             </div>
           </div>
@@ -165,25 +147,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-8 pb-10">
                 
-                {/* --- KIOSK PRIVACY SHIELD BANNER --- */}
-                {isDataMasked && (
-                    <div className="bg-lilac-600 text-white p-6 rounded-[2rem] shadow-xl flex items-center justify-between animate-in zoom-in-95 duration-500 border-4 border-lilac-400">
-                        <div className="flex items-center gap-5">
-                            <div className="p-3 bg-white/20 rounded-2xl"><EyeOff size={32}/></div>
-                            <div>
-                                <h3 className="text-lg font-black uppercase tracking-tighter leading-tight">Privacy Shield Active</h3>
-                                <p className="text-xs font-bold text-lilac-100 uppercase mt-1">Your sensitive medical history is currently hidden for your protection.</p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleStaffReveal}
-                            className="px-6 py-3 bg-white text-lilac-700 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
-                        >
-                            <Key size={14}/> Staff Unlock
-                        </button>
-                    </div>
-                )}
-
                 <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Protocol & Privacy Acknowledgment</h3></div>
                     <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
@@ -201,17 +164,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <form id="patientForm" onSubmit={handleSubmit} className="space-y-8">
                     {activeSection === 'basic' && (
                         <div ref={basicRef} className="animate-in slide-in-from-left-4 duration-300">
-                             <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} isMasked={isDataMasked} />
+                             <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} isMasked={false} />
                         </div>
                     )}
                     {activeSection === 'medical' && (
                         <div ref={medicalRef} className="animate-in slide-in-from-right-4 duration-300">
-                            <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={isDataMasked} />
+                            <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={false} />
                         </div>
                     )}
                     {activeSection === 'dental' && (
                         <div ref={dentalRef} className="animate-in slide-in-from-bottom-4 duration-300">
-                            <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={isDataMasked} />
+                            <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={false} />
                         </div>
                     )}
                 </form>
@@ -224,7 +187,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             </div>
             <div className="flex gap-2 w-full md:w-auto">
                 <button onClick={onClose} className="flex-1 md:flex-none px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm uppercase">Cancel</button>
-                {!readOnly && (<button onClick={handleSubmit} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:bg-teal-700 transition-all"><Save size={20} /> Create Record</button>)}
+                {!readOnly && (<button onClick={handleSubmit} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:bg-teal-700 transition-all"><Save size={20} /> Save Registry</button>)}
             </div>
         </div>
       </div>

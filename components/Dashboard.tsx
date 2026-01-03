@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
@@ -6,7 +5,7 @@ import {
   Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning, MessageCircle, Heart
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
@@ -53,6 +52,7 @@ interface DashboardProps {
   onSwitchSystemStatus?: (status: SystemStatus) => void;
   onVerifyDowntimeEntry?: (id: string) => void;
   onVerifyMedHistory?: (appointmentId: string) => void;
+  onConfirmFollowUp?: (appointmentId: string) => void;
 }
 
 interface ComplianceAlert {
@@ -90,32 +90,27 @@ const Dashboard: React.FC<DashboardProps> = ({
   appointments, allAppointments = [], patientsCount, staffCount, staff = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, onCompleteRegistration, onUpdatePatientRecall, fieldSettings, onUpdateSettings, onViewAllSchedule, onChangeBranch, currentBranch,
   tasks = [], onAddTask, onToggleTask, onDeleteTask, onSaveConsent, onQuickQueue, auditLogVerified, sterilizationCycles = [], stock = [], auditLog = [], logAction,
-  syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry, onVerifyMedHistory
+  syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp
 }) => {
   const toast = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
   const [privacyMode, setPrivacyMode] = useState(false);
-  const [newTaskText, setNewTaskText] = useState('');
-  const [newTaskUrgent, setNewTaskUrgent] = useState(false);
-  const [newTaskAssignee, setNewTaskAssignee] = useState('');
-  const [consentModalApt, setConsentModalApt] = useState<Appointment | null>(null);
-  const [activeRecallTab, setActiveRecallTab] = useState<RecallStatus>('Due');
-  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
-  const [emergencyData, setEmergencyData] = useState({ name: '', phone: '', complaint: '', triageLevel: 'Level 2: Acute Pain/Swelling' as TriageLevel });
-
+  
   const today = new Date().toLocaleDateString('en-CA');
-
-  const maskName = (name: string) => {
-    if (!privacyMode) return name;
-    const parts = name.split(' ');
-    return parts.map(p => p[0] + '.').join(' ');
-  };
 
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
 
   const todaysAppointments = useMemo(() => appointments.filter(a => a.date === today && !a.isBlock), [appointments, today]);
 
-  // DIAGNOSTIC GAP MONITOR (Logic Point 3)
+  const postOpPatients = useMemo(() => {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600000).toISOString();
+    return allAppointments.filter(a => 
+        ['Surgery', 'Extraction'].includes(a.type) && 
+        a.status === AppointmentStatus.COMPLETED &&
+        a.date >= twentyFourHoursAgo.split('T')[0] &&
+        !a.followUpConfirmed
+    );
+  }, [allAppointments]);
+
   const highRiskDiagnosticGaps = useMemo(() => {
     return patients.filter(p => {
         const hasLevel1Trauma = appointments.some(a => a.patientId === p.id && a.triageLevel === 'Level 1: Trauma/Bleeding');
@@ -124,10 +119,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         return (hasLevel1Trauma || hasSurgicalPlan) && !hasXRay;
     });
   }, [patients, appointments]);
-
-  const unreconciledManualEntries = useMemo(() => {
-    return appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
-  }, [appointments]);
 
   const realityScore = useMemo(() => {
     if (!stock || stock.length === 0) return 100;
@@ -163,39 +154,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     const acceptanceRate = totalPlanned > 0 ? Math.round((totalAccepted / (totalPlanned + totalAccepted)) * 100) : 0;
     const totalARAging = patients.reduce((s, p) => s + (p.currentBalance || 0), 0);
 
-    const dentistTodayProduction = todaysAppointments
-      .filter(a => a.providerId === currentUser.id && a.status === AppointmentStatus.COMPLETED)
-      .reduce((sum, apt) => {
-        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        return sum + (proc?.price || 0);
-      }, 0);
-
-    let docPlanned = 0;
-    let docAccepted = 0;
-    patients.forEach(p => {
-      p.treatmentPlans?.forEach(plan => {
-        if (plan.createdBy === currentUser.name) {
-          const items = (p.dentalChart || []).filter(i => i.planId === plan.id);
-          items.forEach(i => {
-            if (i.status === 'Planned') docPlanned++;
-            if (i.status === 'Completed') docAccepted++;
-          });
-        }
-      });
-    });
-    const docAcceptance = docPlanned > 0 ? Math.round((docAccepted / (docPlanned + docAccepted)) * 100) : 0;
-    
-    const myPatientsToday = todaysAppointments.filter(a => a.providerId === currentUser.id);
-    const reliabilitySum = myPatientsToday.reduce((sum, a) => sum + (getPatient(a.patientId)?.reliabilityScore || 100), 0);
-    const avgReliability = myPatientsToday.length > 0 ? Math.round(reliabilitySum / myPatientsToday.length) : 100;
-
     const completedToday = todaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED).length;
     const shiftFlow = todaysAppointments.length > 0 ? Math.round((completedToday / todaysAppointments.length) * 100) : 0;
     const queueLatency = todaysAppointments.some(a => a.status === AppointmentStatus.ARRIVED) ? "14m" : "0m";
 
     return {
       admin: { production: `₱${(practiceProductionYTD / 1000).toFixed(1)}k`, acceptance: `${acceptanceRate}%`, aging: `₱${(totalARAging / 1000).toFixed(1)}k` },
-      dentist: { production: `₱${dentistTodayProduction.toLocaleString()}`, acceptance: `${docAcceptance}%`, reliability: `${avgReliability}%` },
       assistant: { latency: queueLatency, integrity: `${realityScore}%`, flow: `${shiftFlow}%` }
     };
   }, [allAppointments, todaysAppointments, patients, fieldSettings, currentUser, realityScore]);
@@ -216,18 +180,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           }
         }
       }
-      if (s.role === UserRole.DENTIST && s.malpracticeExpiry) {
-        const expiry = new Date(s.malpracticeExpiry);
-        const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
-        if (diff <= 60) {
-            const alertId = `malpractice-${s.id}-${s.malpracticeExpiry}`;
-            const isAck = fieldSettings?.acknowledgedAlertIds?.includes(alertId) || false;
-            let severity: ComplianceAlert['severity'] = diff <= 0 ? 'critical' : diff <= 15 ? 'high' : diff <= 30 ? 'med' : 'low';
-            if (currentUser.id === s.id || currentUser.role === UserRole.ADMIN) {
-                alerts.push({ id: alertId, userId: s.id, userName: s.name, type: 'Malpractice Liability', daysLeft: diff, severity, isAcknowledged: isAck });
-            }
-        }
-      }
     });
     return alerts;
   }, [staff, fieldSettings, currentUser]);
@@ -245,12 +197,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { arriving, inTreatment, readyForBilling };
   }, [todaysAppointments]);
 
-  const handleResolveConflict = (conflictId: string, pick: 'local' | 'server') => {
-      if (!setSyncConflicts) return;
-      setSyncConflicts(syncConflicts.filter(c => c.id !== conflictId));
-      toast.success("Conflict resolved manually.");
-  };
-
   const renderKPIs = () => {
     if (currentUser.role === UserRole.ADMIN) {
       return (
@@ -258,15 +204,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-600" label="Practice Production (YTD)" value={roleKPIs.admin.production} subtext="Gross Economic Value" />
           <MetricCard icon={Target} color="bg-blue-50 text-blue-600" label="Acceptance Rate" value={roleKPIs.admin.acceptance} subtext="Case Conversion Efficiency" />
           <MetricCard icon={AlertCircle} color="bg-red-50 text-red-600" label="A/R Aging Totals" value={roleKPIs.admin.aging} subtext="Outstanding Receivables" />
-        </div>
-      );
-    }
-    if (currentUser.role === UserRole.DENTIST) {
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <MetricCard icon={Activity} color="bg-teal-50 text-teal-600" label="Individual Production" value={roleKPIs.dentist.production} subtext="Direct Clinical Output (Today)" />
-          <MetricCard icon={UserCheck} color="bg-lilac-50 text-lilac-600" label="Treatment Acceptance" value={roleKPIs.dentist.acceptance} subtext="Patient Plan Conversion" />
-          <MetricCard icon={CheckCircle} color="bg-green-50 text-green-600" label="Avg. Patient Reliability" value={roleKPIs.dentist.reliability} subtext="Mean Appointment Integrity" />
         </div>
       );
     }
@@ -281,103 +218,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderAdminView = () => (
     <div className="space-y-6">
-      {systemStatus === SystemStatus.RECONCILIATION && unreconciledManualEntries.length > 0 && (
-          <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-8 overflow-hidden">
-              <div className="bg-white w-full max-w-6xl h-full rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 border-8 border-teal-500/20">
-                  <div className="bg-teal-900 p-8 flex justify-between items-center text-white shrink-0">
-                      <div className="flex items-center gap-4">
-                          <div className="p-3 bg-teal-700 rounded-2xl"><Database size={32}/></div>
-                          <div>
-                              <h2 className="text-3xl font-black uppercase tracking-tight">Post-Downtime Reconciliation</h2>
-                              <p className="text-teal-300 font-bold uppercase text-xs tracking-widest mt-1">Registry Cleanup: {unreconciledManualEntries.length} items requiring verification</p>
-                          </div>
-                      </div>
-                      <button onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)} className="bg-white text-teal-900 px-6 py-3 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all">Exit Review</button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-10 grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50">
-                      <div className="space-y-4">
-                          <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs flex items-center gap-2 mb-6"><FileText size={18}/> Manual Entry Log (Verification Required)</h3>
-                          {unreconciledManualEntries.map(apt => (
-                              <div key={apt.id} className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-sm flex flex-col gap-4 group hover:border-teal-500 transition-all">
-                                  <div className="flex justify-between items-start">
-                                      <div>
-                                          <div className="text-[10px] font-black text-lilac-600 uppercase tracking-tighter mb-1">Downtime Record</div>
-                                          <div className="text-lg font-black text-slate-800 uppercase">{getPatient(apt.patientId)?.name || 'Unknown Patient'}</div>
-                                      </div>
-                                      <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black uppercase">{apt.type}</span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl text-xs">
-                                      <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Provider</span><span className="font-bold">{staff.find(s => s.id === apt.providerId)?.name}</span></div>
-                                      <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Slot</span><span className="font-bold">{apt.time} ({formatDate(apt.date)})</span></div>
-                                  </div>
-                                  <div className="flex gap-2 mt-2">
-                                      <button onClick={() => onVerifyDowntimeEntry?.(apt.id)} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center justify-center gap-2">
-                                          <CheckCircle size={14}/> Accept & Sync
-                                      </button>
-                                      <button className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Edit Details</button>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                      <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-inner flex flex-col items-center justify-center text-center">
-                          <VerifiedIcon size={120} className="text-teal-100 mb-6"/>
-                          <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Audit Guidance</h4>
-                          <p className="text-slate-500 text-sm mt-2 max-w-xs">Verify that manual entries do not conflict with existing server records. Once verified, the 'Yellow Hazard' downtime stamp will be permanently removed.</p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
       {renderKPIs()}
-
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-8 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-8">
-          
-          {syncConflicts.length > 0 && (
-              <div className="animate-in slide-in-from-top-4 duration-500">
-                  <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-black text-red-600 uppercase tracking-widest text-xs flex items-center gap-2">
-                          <CloudOff size={16}/> Outage Reconciliation Queue
-                      </h3>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Administrative Review Required</span>
-                  </div>
-                  <div className="space-y-4">
-                      {syncConflicts.map(conflict => (
-                          <div key={conflict.id} className="bg-red-50 border-2 border-red-200 p-6 rounded-[2rem] shadow-xl shadow-red-600/5">
-                              <div className="flex justify-between items-start mb-6">
-                                  <div>
-                                      <div className="text-xs font-black text-red-800 uppercase tracking-tighter">Sync Collision Detected</div>
-                                      <p className="text-[10px] text-red-600 font-bold uppercase mt-1">Entity: {conflict.entityType} | Slot: {conflict.serverData?.time || 'N/A'}</p>
-                                  </div>
-                                  <div className="text-right">
-                                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outage Context</div>
-                                      <div className="text-xs font-bold text-slate-600">{formatDate(conflict.timestamp.split('T')[0])}</div>
-                                  </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                  <div className="bg-white p-4 rounded-2xl border border-red-100">
-                                      <div className="text-[9px] font-black text-lilac-600 uppercase mb-2">Local (Offline) Input</div>
-                                      <div className="font-bold text-slate-800 text-sm">{conflict.localData?.patientName || conflict.localData?.type}</div>
-                                      <div className="text-[10px] text-slate-500 mt-1">Reason: Manually queued during ISP outage.</div>
-                                  </div>
-                                  <div className="bg-teal-50 p-4 rounded-2xl border border-teal-100">
-                                      <div className="text-[9px] font-black text-teal-600 uppercase mb-2">Server (Online) Record</div>
-                                      <div className="font-bold text-slate-800 text-sm">{conflict.serverData?.patientName || conflict.serverData?.type}</div>
-                                      <div className="text-[10px] text-teal-600 mt-1">Reason: Confirmed by Branch B while Branch A was offline.</div>
-                                  </div>
-                              </div>
-                              <div className="flex gap-2">
-                                  <button onClick={() => handleResolveConflict(conflict.id, 'local')} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Overrule Server</button>
-                                  <button onClick={() => handleResolveConflict(conflict.id, 'server')} className="flex-1 py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all">Accept Server</button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          )}
-
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
                 <h4 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2 mb-4"><ShieldAlert size={16}/> Shortcut Anomaly Monitor</h4>
@@ -390,18 +233,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )) : <div className="p-10 text-center text-slate-400 italic bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">No anomalies detected.</div>}
                 </div>
             </div>
-            
-            {/* DIAGNOSTIC GAP MONITOR UI (Logic Point 3) */}
             <div className="space-y-4">
                 <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2 mb-4"><FileWarning size={16}/> Diagnostic Yield Monitor</h4>
                 <div className="space-y-3">
                     {highRiskDiagnosticGaps.length > 0 ? highRiskDiagnosticGaps.map(p => (
                         <div key={p.id} onClick={() => onPatientSelect(p.id)} className="p-4 rounded-2xl bg-orange-50 border-2 border-orange-200 flex items-start gap-4 cursor-pointer hover:bg-orange-100 transition-all group">
                              <div className="p-2 bg-white rounded-xl text-orange-600 shadow-sm group-hover:scale-110 transition-transform"><ShieldAlert size={20}/></div>
-                             <div>
-                                 <div className="font-black text-orange-900 text-xs uppercase">{p.name}</div>
-                                 <p className="text-[9px] text-orange-700 font-bold uppercase mt-1">SECURITY ALERT: Surgical items planned without documented X-Ray justification (Rule 9).</p>
-                             </div>
+                             <div><div className="font-black text-orange-900 text-xs uppercase">{p.name}</div><p className="text-[9px] text-orange-700 font-bold uppercase mt-1">Surgical items planned without documented X-Ray justification (Rule 9).</p></div>
                         </div>
                     )) : (
                         <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 text-center py-12">
@@ -420,9 +258,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.severity === 'critical' ? 'border-red-600 bg-red-600/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
                     <div className="flex items-start gap-3">
                       <div className="p-2 rounded-xl bg-white/10 shrink-0"><Award size={20}/></div>
-                      <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}</div></div>
+                      <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}d</div></div>
                     </div>
-                    {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-lilac-500 transition-all shadow-lg">Acknowledge Responsibility</button>}
+                    {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg">Acknowledge</button>}
                   </div>
               ))}
            </div>
@@ -435,80 +273,105 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
         <div><h2 className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">{currentUser.role} Control Center</h2><h1 className="text-3xl font-black text-slate-800 tracking-tight">Practice Dashboard</h1></div>
-        <div className="flex gap-2">
-          {currentUser.role === UserRole.DENTAL_ASSISTANT && <button onClick={() => setPrivacyMode(!privacyMode)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${privacyMode ? 'bg-lilac-600 text-white border-lilac-500' : 'bg-white text-slate-500 border-slate-200'}`}>{privacyMode ? 'Privacy Mask: ON' : 'Privacy Mask: OFF'}</button>}
-          <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 flex items-center gap-2"><MapPin size={16} className="text-teal-500"/><span className="text-xs font-black text-slate-700 uppercase">{currentBranch}</span></div>
+        <div className="flex items-center gap-3">
+            <button 
+                onClick={onAddPatient}
+                className="bg-teal-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 transition-all flex items-center gap-2"
+            >
+                <UserPlus size={18}/> New Patient
+            </button>
+            <button 
+                onClick={() => onBookAppointment()}
+                className="bg-lilac-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/20 hover:scale-105 transition-all flex items-center gap-2"
+            >
+                <CalendarPlus size={18}/> Book Session
+            </button>
+            <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 flex items-center gap-2 ml-2"><MapPin size={16} className="text-teal-500"/><span className="text-xs font-black text-slate-700 uppercase">{currentBranch}</span></div>
         </div>
       </div>
 
-      {currentUser.role === UserRole.ADMIN && (
-        <div className="flex gap-3 mb-6 px-2 animate-in slide-in-from-left-4 duration-500">
-           <button 
-             onClick={onAddPatient}
-             className="px-6 py-3 rounded-2xl bg-teal-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-600/20 hover:scale-105 transition-all flex items-center gap-2"
-           >
-             <UserPlus size={16}/> Add New Patient
-           </button>
-           <button 
-             onClick={() => onBookAppointment()}
-             className="px-6 py-3 rounded-2xl bg-lilac-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-600/20 hover:scale-105 transition-all flex items-center gap-2"
-           >
-             <CalendarPlus size={16}/> Schedule Appointment
-           </button>
-        </div>
-      )}
-      
+      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-4 animate-in slide-in-from-top-4 mb-2">
+          <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl"><Zap size={20}/></div>
+          <div className="flex-1">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinic Operations Action Center</h4>
+              <div className="flex gap-4 mt-2">
+                  <button onClick={onAddPatient} className="text-sm font-bold text-teal-700 hover:underline flex items-center gap-1.5"><Plus size={14}/> Register Patient</button>
+                  <button onClick={() => onBookAppointment()} className="text-sm font-bold text-lilac-700 hover:underline flex items-center gap-1.5"><Calendar size={14}/> Schedule Procedure</button>
+                  <button onClick={onViewAllSchedule} className="text-sm font-bold text-slate-600 hover:underline flex items-center gap-1.5"><List size={14}/> View All Active Slots</button>
+              </div>
+          </div>
+      </div>
+
       {currentUser.role === UserRole.ADMIN ? renderAdminView() : (
         <div className="space-y-6">
           {renderKPIs()}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
-            <div className="bg-slate-100/50 rounded-3xl p-4 flex flex-col gap-4">
-              <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-xs flex items-center gap-2"><Clock size={16}/> Arriving Soon</h4></div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px]">
+            {/* ARRIVING SOON COLUMN */}
+            <div className="lg:col-span-3 bg-slate-100/50 rounded-[2.5rem] p-4 flex flex-col gap-4">
+              <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-[10px] flex items-center gap-2"><Clock size={16}/> Queue Monitor</h4></div>
               <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
                 {receptionPatientFlow.arriving.map(apt => (
-                    <div key={apt.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span>
-                            <div className="flex gap-1">
-                                {apt.entryMode === 'MANUAL' && <AlertTriangle size={12} className="text-yellow-600" title="Downtime Entry - Needs Recon"/>}
-                                {apt.isPendingSync && <CloudOff size={12} className="text-lilac-600 animate-pulse"/>}
-                            </div>
-                        </div>
-                        <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
-                        
+                    <div key={apt.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
+                        <div className="flex justify-between items-center mb-2"><span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span></div>
+                        <div className="font-bold text-slate-800 text-sm truncate">{getPatient(apt.patientId)?.name || 'Unknown'}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
                         {apt.status === AppointmentStatus.ARRIVED && (
-                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                                {apt.medHistoryVerified ? (
-                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 text-teal-700 rounded-lg text-[9px] font-black uppercase border border-teal-100">
-                                        <CheckCircle size={10}/> History Verified
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={() => onVerifyMedHistory?.(apt.id)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg shadow-lilac-600/20 hover:scale-105 transition-all"
-                                    >
-                                        <Stethoscope size={10}/> Verify History
-                                    </button>
-                                )}
+                            <div className="mt-3 pt-3 border-t border-slate-100">
+                                <button onClick={() => onVerifyMedHistory?.(apt.id)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 transition-all ${apt.medHistoryVerified ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-lilac-600 text-white shadow-lg'}`}>{apt.medHistoryVerified ? <CheckCircle size={10}/> : <Stethoscope size={10}/>} {apt.medHistoryVerified ? 'Verified' : 'Verify History'}</button>
                             </div>
                         )}
                     </div>
                 ))}
               </div>
             </div>
-            <div className="bg-teal-50 rounded-3xl p-4 flex flex-col gap-4 border border-teal-100/50 lg:col-span-2">
-                <div className="flex justify-between items-center px-2"><h4 className="font-black text-teal-700 uppercase tracking-widest text-xs flex items-center gap-2"><Activity size={16}/> In Treatment</h4></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* IN TREATMENT / CENTER COLUMN */}
+            <div className="lg:col-span-5 bg-teal-50 rounded-[2.5rem] p-4 flex flex-col gap-4 border border-teal-100/50">
+                <div className="flex justify-between items-center px-2"><h4 className="font-black text-teal-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><Activity size={16}/> Active Operatories</h4></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto no-scrollbar">
                     {receptionPatientFlow.inTreatment.map(apt => (
-                        <div key={apt.id} className="bg-white p-4 rounded-2xl shadow-sm border-2 border-teal-200">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="font-bold text-slate-800">{maskName(getPatient(apt.patientId)?.name || 'Unknown')}</div>
-                                {apt.medHistoryVerified && <VerifiedIcon size={14} className="text-teal-500" title="Medical History Re-verified Today"/>}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                        <div key={apt.id} className="bg-white p-5 rounded-[2rem] shadow-sm border-2 border-teal-200">
+                            <div className="flex justify-between items-start mb-2"><div className="font-bold text-slate-800 leading-tight">{getPatient(apt.patientId)?.name || 'Unknown'}</div>{apt.medHistoryVerified && <VerifiedIcon size={14} className="text-teal-500"/>}</div>
+                            <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                            <div className="mt-3 text-[9px] font-black text-teal-600 uppercase flex items-center gap-1"><Timer size={10}/> Seated: {apt.time}</div>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            {/* POST-OP VIGILANCE / RIGHT COLUMN */}
+            <div className="lg:col-span-4 bg-lilac-50 rounded-[2.5rem] p-6 flex flex-col gap-4 border border-lilac-100/50 overflow-hidden">
+                <div className="flex justify-between items-center"><h4 className="font-black text-lilac-700 uppercase tracking-widest text-[10px] flex items-center gap-2"><ShieldAlert size={18}/> Post-Op Vigilance (24h)</h4><span className="text-[9px] font-black bg-lilac-600 text-white px-2 py-0.5 rounded-full">{postOpPatients.length} Pending</span></div>
+                <p className="text-[10px] text-lilac-600 font-bold uppercase leading-tight mb-2">Standard of Care: Patients requiring 24h follow-up following surgery.</p>
+                <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
+                    {postOpPatients.length > 0 ? postOpPatients.map(apt => (
+                        <div key={apt.id} className="bg-white p-5 rounded-[2rem] border-2 border-lilac-200 shadow-sm animate-in slide-in-from-right-4">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <div className="font-black text-slate-800 text-sm uppercase leading-tight">{getPatient(apt.patientId)?.name}</div>
+                                    <p className="text-[9px] text-lilac-600 font-bold uppercase mt-0.5">{apt.type} compl. {formatDate(apt.date)}</p>
+                                </div>
+                                <div className="p-2 bg-lilac-50 rounded-xl text-lilac-700"><MessageCircle size={18}/></div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => window.open(`tel:${getPatient(apt.patientId)?.phone}`)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 hover:bg-slate-200"><Phone size={10}/> Call</button>
+                                <button 
+                                    onClick={() => onConfirmFollowUp?.(apt.id)}
+                                    className="flex-[2] py-2.5 bg-lilac-600 text-white rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-1 shadow-lg shadow-lilac-600/20 hover:bg-lilac-700 transition-all"
+                                >
+                                    <Heart size={10} fill="currentColor"/> Log Follow-up
+                                </button>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                            <VerifiedIcon size={64} className="text-lilac-400 mb-4" />
+                            <p className="text-[10px] font-black text-lilac-700 uppercase tracking-widest">Follow-ups Current</p>
+                        </div>
+                    )}
+                </div>
+                <div className="mt-2 p-3 bg-white/50 rounded-2xl border border-dashed border-lilac-200">
+                    <p className="text-[8px] font-bold text-lilac-600 uppercase text-center leading-relaxed">Verification confirms absence of post-op swelling or fever (Standard of Care Compliance).</p>
                 </div>
             </div>
           </div>

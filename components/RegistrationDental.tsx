@@ -18,33 +18,27 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label className="label">Previous Dentist</label>
-                <input disabled={readOnly || isMasked} type="text" name="previousDentist" value={isMasked ? "••••••••" : (formData.previousDentist || '')} onChange={handleChange} className="input disabled:bg-slate-100" />
+                <label className="label">Previous Attending Dentist</label>
+                <input disabled={readOnly} type="text" name="previousDentist" value={formData.previousDentist || ''} onChange={handleChange} className="input" />
             </div>
             <div>
-                <label className="label">Last Visit Date</label>
-                <input disabled={readOnly || isMasked} type="date" name="lastVisit" value={isMasked ? "" : (formData.lastVisit || '')} onChange={handleChange} className="input disabled:bg-slate-100" />
+                <label className="label">Approximate Date of Last Visit</label>
+                <input disabled={readOnly} type="date" name="lastVisit" value={formData.lastVisit || ''} onChange={handleChange} className="input" />
             </div>
         </div>
         
         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden">
-            {isMasked && (
-                <div className="absolute inset-0 z-10 bg-slate-100/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-                    <EyeOff size={24} className="text-slate-400"/>
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Clinical History Masked</span>
-                </div>
-            )}
             <label className="label flex items-center gap-2">
                 <FileText size={16} className="text-slate-500" />
-                Dental History & Clinical Notes
+                Detailed Dental History & Patient Concerns
             </label>
             <textarea 
                 name="notes"
-                value={isMasked ? "" : (formData.notes || '')}
+                value={formData.notes || ''}
                 onChange={handleChange}
-                disabled={readOnly || isMasked}
-                placeholder="Include any specific concerns, past treatments, orthodontic history, or dental fears..."
-                className="input h-48 resize-none disabled:bg-slate-100"
+                disabled={readOnly}
+                placeholder="List prior orthodontic work, restorations, extractions, or specific patient fears..."
+                className="input h-48 resize-none bg-white"
             />
         </div>
 
@@ -52,8 +46,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
             <div className="flex items-start gap-3">
                 <AlertCircle className="text-amber-600 shrink-0 mt-1" size={20} />
                 <div className="text-sm text-amber-900">
-                    <p className="font-black uppercase tracking-tight mb-1">Clinical Verification</p>
-                    <p className="text-xs opacity-80 leading-relaxed">By saving this record, you confirm the provided dental history is accurate for clinical documentation.</p>
+                    <p className="font-black uppercase tracking-tight mb-1">Clinical Record Verification</p>
+                    <p className="text-xs opacity-80 leading-relaxed">By saving this form, you certify that the provided clinical history is true and accurate to the best of your knowledge for diagnostic purposes.</p>
                 </div>
             </div>
         </div>

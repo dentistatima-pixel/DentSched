@@ -22,23 +22,18 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
               </div>
               <div className="flex gap-4 shrink-0 whitespace-nowrap">
                     <label className="flex items-center gap-2 cursor-pointer group">
-                        <input disabled={readOnly || isMasked} type="radio" name={name} checked={checked === true} onChange={() => onToggle(true)} className="w-5 h-5 accent-teal-600" />
+                        <input disabled={readOnly} type="radio" name={name} checked={checked === true} onChange={() => onToggle(true)} className="w-5 h-5 accent-teal-600" />
                         <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">Yes</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer group">
-                        <input disabled={readOnly || isMasked} type="radio" name={name} checked={checked === false} onChange={() => onToggle(false)} className="w-5 h-5 accent-teal-600" />
+                        <input disabled={readOnly} type="radio" name={name} checked={checked === false} onChange={() => onToggle(false)} className="w-5 h-5 accent-teal-600" />
                         <span className="text-sm font-bold text-slate-600 group-hover:text-teal-700">No</span>
                     </label>
               </div>
           </div>
-          {checked && children && !isMasked && (
+          {checked && children && (
               <div className="px-2 animate-in slide-in-from-top-2 duration-300">
                   {children}
-              </div>
-          )}
-          {checked && isMasked && (
-              <div className="px-6 py-2 text-[10px] font-black text-slate-300 uppercase tracking-widest italic flex items-center gap-1">
-                  <EyeOff size={10}/> Details Hidden for Privacy
               </div>
           )}
       </div>
@@ -55,192 +50,180 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ formData, han
         <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5">
             <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-teal-50 rounded-xl text-teal-600"><ShieldCheck size={20} /></div>
-                <h3 className="font-bold text-lg text-slate-800">Clinical Data Authorization</h3>
+                <h3 className="font-bold text-lg text-slate-800">Clinical Data Sharing Authorization</h3>
             </div>
-            <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
-                <input disabled={isMasked} type="checkbox" name="thirdPartyDisclosureConsent" checked={formData.thirdPartyDisclosureConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
+            <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.thirdPartyDisclosureConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
+                <input type="checkbox" name="thirdPartyDisclosureConsent" checked={formData.thirdPartyDisclosureConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
                 <div>
                     <span className="font-extrabold text-teal-900 uppercase text-xs">Clinical Coordination Consent *</span>
-                    <p className="text-xs text-slate-600 leading-relaxed mt-1">I authorize this clinic to process my medical data and share relevant details with my physicians for clinical clearance (PDA Rule 4).</p>
+                    <p className="text-xs text-slate-600 leading-relaxed mt-1">I authorize this clinic to process my medical data and share relevant details with external specialists for coordination of care.</p>
                 </div>
             </label>
         </div>
 
         {/* 1. General Assessment */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-2"><Activity size={14} className="text-teal-600"/> General Assessment</h4>
+            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-2"><Activity size={14} className="text-teal-600"/> Health Assessment</h4>
             <div className="space-y-4">
-                <BooleanField label="Are you in good health?" name="goodHealth" checked={formData.goodHealth} onToggle={(v) => handleBoolChange('goodHealth', v)} icon={ShieldCheck} />
+                <BooleanField label="In overall good health?" name="goodHealth" checked={formData.goodHealth} onToggle={(v) => handleBoolChange('goodHealth', v)} icon={ShieldCheck} />
 
-                <BooleanField label="Are you under medical treatment?" name="underMedicalTreatment" checked={formData.underMedicalTreatment} onToggle={(v) => handleBoolChange('underMedicalTreatment', v)} icon={Stethoscope}>
-                    <textarea name="medicalTreatmentDetails" value={formData.medicalTreatmentDetails || ''} onChange={handleChange} className="input h-20 resize-none" placeholder="Describe nature of treatment..." />
+                <BooleanField label="Currently under medical treatment?" name="underMedicalTreatment" checked={formData.underMedicalTreatment} onToggle={(v) => handleBoolChange('underMedicalTreatment', v)} icon={Stethoscope}>
+                    <textarea name="medicalTreatmentDetails" value={formData.medicalTreatmentDetails || ''} onChange={handleChange} className="input h-20 resize-none" placeholder="Details of treatment..." />
                 </BooleanField>
 
-                <BooleanField label="Had any serious illness or operation?" name="seriousIllness" checked={formData.seriousIllness} onToggle={(v) => handleBoolChange('seriousIllness', v)} icon={AlertCircle}>
+                <BooleanField label="Prior serious illness or surgeries?" name="seriousIllness" checked={formData.seriousIllness} onToggle={(v) => handleBoolChange('seriousIllness', v)} icon={AlertCircle}>
                     <div className="space-y-4">
-                        <textarea name="seriousIllnessDetails" value={formData.seriousIllnessDetails || ''} onChange={handleChange} className="input h-20 resize-none" placeholder="Specify illness/surgery and dates..." />
+                        <textarea name="seriousIllnessDetails" value={formData.seriousIllnessDetails || ''} onChange={handleChange} className="input h-20 resize-none" placeholder="Specify history..." />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="label text-[10px]">Date of Last Hospitalization</label><input type="date" name="lastHospitalizationDate" value={formData.lastHospitalizationDate || ''} onChange={handleChange} className="input" /></div>
-                            <div><label className="label text-[10px]">Reason</label><input type="text" name="lastHospitalizationDetails" value={formData.lastHospitalizationDetails || ''} onChange={handleChange} className="input" placeholder="e.g. Minor surgery" /></div>
+                            <div><label className="label text-[10px]">Hospitalization Date</label><input type="date" name="lastHospitalizationDate" value={formData.lastHospitalizationDate || ''} onChange={handleChange} className="input" /></div>
+                            <div><label className="label text-[10px]">Hospitalization Reason</label><input type="text" name="lastHospitalizationDetails" value={formData.lastHospitalizationDetails || ''} onChange={handleChange} className="input" placeholder="e.g. Major surgery" /></div>
                         </div>
                     </div>
                 </BooleanField>
             </div>
         </div>
 
-        {/* 2. STANDALONE MEDICATION SECTION */}
+        {/* 2. Medication Management */}
         <div className="bg-white p-6 rounded-3xl border-2 border-teal-50 shadow-md space-y-6">
-            <h4 className="text-xs font-black uppercase text-teal-600 tracking-widest flex items-center gap-2 mb-2"><Pill size={16} /> Medication Management</h4>
+            <h4 className="text-xs font-black uppercase text-teal-600 tracking-widest flex items-center gap-2 mb-2"><Pill size={16} /> Current Medications</h4>
             
             <BooleanField 
-                label="Are you currently taking any medications, vitamins, or supplements?" 
+                label="Are you taking any medications, vitamins, or supplements?" 
                 name="takingMedications" 
                 checked={formData.takingMedications} 
                 onToggle={(v) => handleBoolChange('takingMedications', v)} 
                 icon={Pill}
             >
-                {!isMasked && (
-                    <div className="space-y-6 pt-2">
-                        <div>
-                            <label className="label font-black text-teal-900 text-[9px] uppercase tracking-widest mb-3">Select Common Medications</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {(fieldSettings.medications || []).map(med => {
-                                    const isSelected = (formData.reportedMedications || []).includes(med.name);
-                                    return (
-                                        <button key={med.id} type="button" onClick={() => handleArrayChange('reportedMedications', med.name)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-sm' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                                            <span className="text-[10px] font-bold leading-tight">{med.name}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <div>
-                            <label className="label font-bold text-teal-800 text-[10px] flex items-center gap-2"><Edit3 size={12}/> Other Medications & Dosage Instructions</label>
-                            <textarea name="medicationDetails" value={formData.medicationDetails || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="List medications not found above, including dosage and frequency..." />
+                <div className="space-y-6 pt-2">
+                    <div>
+                        <label className="label font-black text-teal-900 text-[9px] uppercase tracking-widest mb-3">Common Systemic Medications</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {(fieldSettings.medications || []).map(med => {
+                                const isSelected = (formData.reportedMedications || []).includes(med.name);
+                                return (
+                                    <button key={med.id} type="button" onClick={() => handleArrayChange('reportedMedications', med.name)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-sm' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                                        <span className="text-[10px] font-bold leading-tight">{med.name}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
-                )}
+                    <div>
+                        <label className="label font-bold text-teal-800 text-[10px] flex items-center gap-2"><Edit3 size={12}/> Other Medications & Instructions</label>
+                        <textarea name="medicationDetails" value={formData.medicationDetails || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="List all current drugs and dosages..." />
+                    </div>
+                </div>
             </BooleanField>
         </div>
 
-        {/* 3. Clinical High Risk Checklist - NOW COMPACT */}
+        {/* 3. Clinical High Risk Checklist */}
         <div className="bg-white p-6 rounded-3xl border-2 border-red-100 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-red-500" />
             <div className="flex items-center gap-2 mb-6">
                 <ShieldAlert size={24} className="text-red-600" />
-                <h4 className="font-black text-red-900 uppercase tracking-widest text-sm">Critical Clinical Guardrails</h4>
+                <h4 className="font-black text-red-900 uppercase tracking-widest text-sm">Critical Clinical Red Flags</h4>
             </div>
             
             <div className="space-y-4">
-                <BooleanField label="Are you taking Blood Thinners? (Aspirin, Warfarin, etc.)" name="takingBloodThinners" checked={formData.takingBloodThinners} onToggle={(v) => handleBoolChange('takingBloodThinners', v)} alert={true} icon={Droplet}>
+                <BooleanField label="Taking Blood Thinners? (Aspirin, Warfarin, etc.)" name="takingBloodThinners" checked={formData.takingBloodThinners} onToggle={(v) => handleBoolChange('takingBloodThinners', v)} alert={true} icon={Droplet}>
                     <div className="flex gap-2 items-center px-4 py-3 bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 animate-in zoom-in-95">
                         <AlertTriangle size={14} className="shrink-0"/> 
-                        <span>MANDATORY: Verify INR/bleeding status before surgical procedures.</span>
+                        <span>MANDATORY: Verify INR levels before any surgical extraction.</span>
                     </div>
                 </BooleanField>
 
                 <BooleanField label="Taking Bisphosphonates? (Fosamax, Zometa)" name="takingBisphosphonates" checked={formData.takingBisphosphonates} onToggle={(v) => handleBoolChange('takingBisphosphonates', v)} alert={true} icon={ShieldAlert}>
                     <div className="flex gap-2 items-center px-4 py-3 bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 animate-in zoom-in-95">
                         <AlertTriangle size={14} className="shrink-0"/> 
-                        <span>RISK: Increased risk of BRONJ (Osteonecrosis of the jaw).</span>
+                        <span>RISK: Osteonecrosis alert. Review history before bone surgery.</span>
                     </div>
                 </BooleanField>
 
                 <BooleanField label="History of Heart Valve Issues or Rheumatic Fever?" name="heartValveIssues" checked={formData.heartValveIssues} onToggle={(v) => handleBoolChange('heartValveIssues', v)} alert={true} icon={Heart}>
                     <div className="flex gap-2 items-center px-4 py-3 bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 animate-in zoom-in-95">
                         <AlertTriangle size={14} className="shrink-0"/> 
-                        <span>MANDATORY: Check if antibiotic prophylaxis is required.</span>
+                        <span>PROTOCOL: Confirm if antibiotic prophylaxis is required.</span>
                     </div>
                 </BooleanField>
 
-                <BooleanField label="Abnormal Reaction to Local Anesthesia?" name="anesthesiaReaction" checked={formData.anesthesiaReaction} onToggle={(v) => handleBoolChange('anesthesiaReaction', v)} alert={true} icon={Activity}>
+                <BooleanField label="Allergy to Local Anesthesia?" name="anesthesiaReaction" checked={formData.anesthesiaReaction} onToggle={(v) => handleBoolChange('anesthesiaReaction', v)} alert={true} icon={Activity}>
                     <div className="flex gap-2 items-center px-4 py-3 bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 animate-in zoom-in-95">
                         <AlertTriangle size={14} className="shrink-0"/> 
-                        <span>MANDATORY: Use non-epinephrine or alternate anesthetic.</span>
+                        <span>MANDATORY: Use non-epinephrine substitute if applicable.</span>
                     </div>
                 </BooleanField>
 
-                <BooleanField label="Respiratory Issues? (Asthma, TB, Emphysema)" name="respiratoryIssues" checked={formData.respiratoryIssues} onToggle={(v) => handleBoolChange('respiratoryIssues', v)} alert={true} icon={Thermometer}>
+                <BooleanField label="Respiratory Conditions? (Asthma, TB, COPD)" name="respiratoryIssues" checked={formData.respiratoryIssues} onToggle={(v) => handleBoolChange('respiratoryIssues', v)} alert={true} icon={Thermometer}>
                     <div className="flex gap-2 items-center px-4 py-3 bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 animate-in zoom-in-95">
                         <AlertTriangle size={14} className="shrink-0"/> 
-                        <span>CAUTION: Monitor oxygen levels during chair time.</span>
+                        <span>CAUTION: Use high-volume suction and monitor breathing.</span>
                     </div>
                 </BooleanField>
             </div>
         </div>
 
-        {/* 4. Lifestyle and Social */}
+        {/* 4. Lifestyle */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-teal-600"/> Lifestyle Context</h4>
+            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-teal-600"/> Lifestyle Indicators</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <BooleanField label="Do you smoke or use tobacco?" name="tobaccoUse" checked={formData.tobaccoUse} onToggle={(v) => handleBoolChange('tobaccoUse', v)} />
-                <BooleanField label="Do you consume alcohol / recreational drugs?" name="alcoholDrugsUse" checked={formData.alcoholDrugsUse} onToggle={(v) => handleBoolChange('alcoholDrugsUse', v)} />
+                <BooleanField label="History of smoking or tobacco use?" name="tobaccoUse" checked={formData.tobaccoUse} onToggle={(v) => handleBoolChange('tobaccoUse', v)} />
+                <BooleanField label="Consumption of alcohol / recreational substances?" name="alcoholDrugsUse" checked={formData.alcoholDrugsUse} onToggle={(v) => handleBoolChange('alcoholDrugsUse', v)} />
             </div>
         </div>
 
-        {/* 5. Condition and Allergy Grids */}
-        {!isMasked ? (
-            <>
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                    <div className="flex items-center gap-2 text-orange-800 border-b border-orange-50 pb-3">
-                        <AlertTriangle size={20} />
-                        <h4 className="font-black uppercase text-sm tracking-widest">Medical Condition Registry</h4>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {fieldSettings.medicalConditions.filter(c => c !== 'None').map(condition => {
-                            const isSelected = (formData.medicalConditions || []).includes(condition);
-                            const isHighRisk = ['HIV/AIDS', 'Hepatitis', 'Tuberculosis', 'Heart Disease', 'Bleeding Issues'].includes(condition);
-                            return (
-                                <button key={condition} type="button" onClick={() => handleArrayChange('medicalConditions', condition)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? isHighRisk ? 'bg-red-50 border-red-300 text-red-900 shadow-md' : 'bg-orange-50 border-orange-300 text-orange-900' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? isHighRisk ? 'bg-red-600 text-white border-red-600' : 'bg-orange-500 text-white border-orange-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                                    <span className="text-[10px] font-bold leading-tight">{condition}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <div className="pt-2">
-                        <label className="label text-orange-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Condition Not Listed</label>
-                        <input type="text" name="otherConditions" value={formData.otherConditions || ''} onChange={handleChange} className="input border-orange-100 focus:border-orange-500" placeholder="Specify any rare or specific conditions..." />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                    <div className="flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
-                        <Pill size={20} />
-                        <h4 className="font-black uppercase text-sm tracking-widest">Allergy Registry</h4>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {fieldSettings.allergies.filter(a => a !== 'None').map(allergy => {
-                            const isSelected = (formData.allergies || []).includes(allergy);
-                            return (
-                                <button key={allergy} type="button" onClick={() => handleArrayChange('allergies', allergy)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
-                                    <span className="text-[10px] font-bold leading-tight">{allergy}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <div className="pt-2">
-                        <label className="label text-teal-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Allergy Not Listed</label>
-                        <input type="text" name="otherAllergies" value={formData.otherAllergies || ''} onChange={handleChange} className="input border-teal-100 focus:border-teal-500" placeholder="e.g. Food, Metal, Specific Preservatives..." />
-                    </div>
-                </div>
-            </>
-        ) : (
-            <div className="p-10 bg-slate-100 rounded-3xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-3">
-                <EyeOff size={40} className="text-slate-300"/>
-                <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Medical History Registry Hidden for Privacy</p>
-                <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">Please ask a staff member to unlock this section if updates are required.</p>
+        {/* 5. Condition and Allergy Registry */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 text-orange-800 border-b border-orange-50 pb-3">
+                <AlertTriangle size={20} />
+                <h4 className="font-black uppercase text-sm tracking-widest">Medical History Registry</h4>
             </div>
-        )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {fieldSettings.medicalConditions.filter(c => c !== 'None').map(condition => {
+                    const isSelected = (formData.medicalConditions || []).includes(condition);
+                    const isHighRisk = ['HIV/AIDS', 'Hepatitis', 'Tuberculosis', 'Heart Disease', 'Bleeding Issues'].includes(condition);
+                    return (
+                        <button key={condition} type="button" onClick={() => handleArrayChange('medicalConditions', condition)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? isHighRisk ? 'bg-red-50 border-red-300 text-red-900 shadow-md' : 'bg-orange-50 border-orange-300 text-orange-900' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? isHighRisk ? 'bg-red-600 text-white border-red-600' : 'bg-orange-500 text-white border-orange-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                            <span className="text-[10px] font-bold leading-tight">{condition}</span>
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="pt-2">
+                <label className="label text-orange-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Rare/Chronic Condition</label>
+                <input type="text" name="otherConditions" value={formData.otherConditions || ''} onChange={handleChange} className="input border-orange-100 focus:border-orange-500" placeholder="Specify any specific conditions..." />
+            </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
+                <Pill size={20} />
+                <h4 className="font-black uppercase text-sm tracking-widest">Allergy Watchlist</h4>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {fieldSettings.allergies.filter(a => a !== 'None').map(allergy => {
+                    const isSelected = (formData.allergies || []).includes(allergy);
+                    return (
+                        <button key={allergy} type="button" onClick={() => handleArrayChange('allergies', allergy)} disabled={readOnly} className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 ${isSelected ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-white border-slate-300'}`}>{isSelected && <Check size={12} strokeWidth={4} />}</div>
+                            <span className="text-[10px] font-bold leading-tight">{allergy}</span>
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="pt-2">
+                <label className="label text-teal-800 font-black text-[9px] flex items-center gap-2"><Edit3 size={12}/> Other Allergy</label>
+                <input type="text" name="otherAllergies" value={formData.otherAllergies || ''} onChange={handleChange} className="input border-teal-100 focus:border-teal-500" placeholder="e.g. Latex, Penicillin, specific foods..." />
+            </div>
+        </div>
 
         {/* 6. Chief Complaint */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-4"><Zap size={14} className="text-teal-600"/> Clinical Presentation</h4>
             <div>
-                <label className="label font-bold text-teal-800">Reason for visit (Chief Complaint)</label>
-                <textarea disabled={isMasked} name="chiefComplaint" value={isMasked ? "REDACTED" : formData.chiefComplaint || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="e.g. Pain in molar, bleeding gums, checkup..." />
+                <label className="label font-bold text-teal-800">Reason for visit (Chief Complaint) *</label>
+                <textarea name="chiefComplaint" value={formData.chiefComplaint || ''} onChange={handleChange} className="input h-32 resize-none" placeholder="Describe the current symptoms or reason for the visit..." />
             </div>
         </div>
     </div>
