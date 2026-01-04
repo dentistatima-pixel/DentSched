@@ -30,7 +30,13 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
 
     const isPediatric = (patient.age || 0) < 12;
-    const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
+    
+    // --- PRC AUTHORITY HARD LOCK ---
+    const isPrcExpired = useMemo(() => {
+        if (!currentUser.prcExpiry) return false;
+        return new Date(currentUser.prcExpiry) < new Date();
+    }, [currentUser.prcExpiry]);
+
     const isAuthorityLocked = isPrcExpired; 
 
     // DIAGNOSIS ANCHOR LOGIC
@@ -95,7 +101,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
     const handlePrint = () => {
         if (isAuthorityLocked) {
-            toast.error("CLINICAL AUTHORITY LOCK: Prescription printing is blocked due to an expired PRC License.");
+            toast.error("CLINICAL AUTHORITY LOCK: Prescription issuance is suspended due to an expired PRC License.");
             return;
         }
 

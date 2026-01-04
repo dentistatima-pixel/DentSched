@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, Lock } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, Lock, Bell } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
@@ -61,12 +61,16 @@ const Layout: React.FC<LayoutProps> = ({
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
   const badgeCount = myActiveTasks.length;
 
-  const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
+  const prcExpiryDate = currentUser.prcExpiry ? new Date(currentUser.prcExpiry) : null;
+  const isPrcExpired = prcExpiryDate && prcExpiryDate < new Date();
+  const prcDaysLeft = prcExpiryDate ? Math.ceil((prcExpiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 999;
+  
   const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
   const isAuthorityLocked = isPrcExpired || isMalpracticeExpired;
   const isCoverageValid = !isAuthorityLocked;
-  const isNearExpiry = (currentUser.prcExpiry && new Date(currentUser.prcExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000) || 
-                       (currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry).getTime() - new Date().getTime() < 15 * 24 * 3600000);
+  
+  // 60-Day Countdown logic
+  const isRenewalDue = prcDaysLeft <= 60 && prcDaysLeft > 0;
 
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-4 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
@@ -93,11 +97,20 @@ const Layout: React.FC<LayoutProps> = ({
              
              <div className="flex items-center gap-2">
                  {currentUser.role === UserRole.DENTIST && (
-                    <div 
-                      className={`p-2 rounded-lg transition-all flex items-center gap-2 ${isCoverageValid ? 'bg-teal-500/20 text-teal-300' : (isNearExpiry ? 'bg-amber-500/30 text-amber-400 animate-pulse' : 'bg-red-600 text-white animate-bounce')}`} 
-                      title={isAuthorityLocked ? `Clinical Authority Locked: ${isPrcExpired ? 'PRC Expired' : 'Malpractice Expired'}` : "PRC & Malpractice Valid"}
-                    >
-                        {isAuthorityLocked ? <Lock size={20}/> : <Shield size={20} />}
+                    <div className="flex items-center gap-2">
+                        {isRenewalDue && (
+                            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-400 rounded-xl animate-in slide-in-from-right-4">
+                                <Bell size={14} className="text-amber-400 animate-swing"/>
+                                <span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">PRC RENEWAL: {prcDaysLeft} DAYS REMAINING</span>
+                            </div>
+                        )}
+                        <div 
+                        className={`p-2 rounded-lg transition-all flex items-center gap-2 ${isCoverageValid ? (isRenewalDue ? 'bg-amber-600 text-white shadow-lg' : 'bg-teal-500/20 text-teal-300') : 'bg-red-600 text-white shadow-2xl ring-4 ring-red-500/20 animate-pulse'}`} 
+                        title={isAuthorityLocked ? `Clinical Authority Locked: ${isPrcExpired ? 'PRC Expired' : 'Malpractice Expired'}` : (isRenewalDue ? `PRC Expires in ${prcDaysLeft} days` : "PRC & Malpractice Valid")}
+                        >
+                            {isAuthorityLocked ? <Lock size={20}/> : <Shield size={20} />}
+                            {isAuthorityLocked && <span className="text-[10px] font-black uppercase pr-1">LOCKED</span>}
+                        </div>
                     </div>
                  )}
 

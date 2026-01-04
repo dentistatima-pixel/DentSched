@@ -29,11 +29,12 @@ interface PatientListProps {
   onBookAppointment: (patientId: string) => void;
   fieldSettings?: FieldSettings; 
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  incidents?: ClinicalIncident[];
 }
 
 const PatientList: React.FC<PatientListProps> = ({ 
     patients, appointments, staff = [], currentUser, selectedPatientId, onSelectPatient, onAddPatient, onEditPatient,
-    onQuickUpdatePatient, onBulkUpdatePatients, onDeletePatient, onBookAppointment, fieldSettings, logAction
+    onQuickUpdatePatient, onBulkUpdatePatients, onDeletePatient, onBookAppointment, fieldSettings, logAction, incidents = []
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'chart' | 'perio' | 'plan' | 'ledger' | 'documents' | 'imaging' | 'instructions' | 'certificates'>('info'); 
@@ -45,7 +46,7 @@ const PatientList: React.FC<PatientListProps> = ({
   const [safetyAffirmed, setSafetyAffirmed] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  // Referral State (Rule 18)
+  // Referral State
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralForm, setReferralForm] = useState<Partial<Referral>>({
       referredTo: '', reason: '', question: ''
@@ -70,16 +71,49 @@ const PatientList: React.FC<PatientListProps> = ({
   const isClinicalLocked = useMemo(() => {
       if (!selectedPatient) return false;
       const { status } = getConsentStatus(selectedPatient, 'Clinical');
-      // SYSTEM_ARCHITECT bypasses clinical locks for system integrity verification
       return status === 'Revoked' && !isArchitect;
   }, [selectedPatient, isArchitect]);
 
   const handleChartUpdate = (entry: DentalChartEntry) => {
     if (!selectedPatient) return;
-    const updatedChart = [...(selectedPatient.dentalChart || []), { ...entry, author: currentUser.name, authorRole: currentUser.role }];
+
+    // --- RULE 1: GHOSTING & RULE 3: PEDIATRIC CHECK FOR ALL SAVES ---
+    const todayStr = new Date().toISOString().split('T')[0];
+    const activeApt = appointments.find(a => 
+        a.patientId === selectedPatient.id && 
+        a.date === todayStr && 
+        [AppointmentStatus.ARRIVED, AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)
+    );
+
+    if (!activeApt && !isArchitect) {
+        toast.error("GHOSTING PROTECTION: Clinical records require an active 'Checked-In' appointment for today.");
+        return;
+    }
+
+    if (selectedPatient.age !== undefined && selectedPatient.age < 18 && !isArchitect) {
+        const hasFullGuardian = selectedPatient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
+        const hasSignature = !!activeApt?.signedConsentUrl;
+        if (!hasFullGuardian || !hasSignature) {
+            toast.error("PEDIATRIC CONSENT BLOCK: Valid signature and FULL authority guardian required.");
+            return;
+        }
+    }
+
+    const updatedChart = [...(selectedPatient.dentalChart || []), { 
+        ...entry, 
+        appointmentId: activeApt?.id, 
+        author: currentUser.name, 
+        authorRole: currentUser.role 
+    }];
     onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
     logAction('UPDATE', 'Patient', selectedPatient.id, `Updated dental chart: ${entry.procedure} on tooth #${entry.toothNumber}`);
     toast.success(`Record updated for tooth #${entry.toothNumber}`);
+  };
+
+  const handleChartDelete = (id: string) => {
+      if (!selectedPatient) return;
+      const updatedChart = (selectedPatient.dentalChart || []).filter(e => e.id !== id);
+      onQuickUpdatePatient({ ...selectedPatient, dentalChart: updatedChart });
   };
 
   const handlePerioSave = (newData: PerioMeasurement[]) => {
@@ -201,7 +235,7 @@ const PatientList: React.FC<PatientListProps> = ({
 
   const handleReferralSubmit = () => {
       if (!selectedPatient || !referralForm.referredTo || !referralForm.question) {
-          toast.error("Rule 18: Target specialist and specific clinical question are mandatory.");
+          toast.error("Specialist and clinical question are mandatory.");
           return;
       }
 
@@ -215,7 +249,7 @@ const PatientList: React.FC<PatientListProps> = ({
       doc.text(`TO: ${referralForm.referredTo}`, 15, 47);
       doc.text(`FROM: Dr. ${currentUser.name}`, 15, 54);
       
-      doc.setFont('helvetica', 'bold'); doc.text("MANDATORY CLINICAL QUESTION (Rule 18):", 15, 65);
+      doc.setFont('helvetica', 'bold'); doc.text("CLINICAL QUESTION:", 15, 65);
       doc.setFont('helvetica', 'normal');
       doc.text(doc.splitTextToSize(referralForm.question || '', 170), 20, 72);
       
@@ -227,22 +261,22 @@ const PatientList: React.FC<PatientListProps> = ({
       doc.setFontSize(8); doc.text(`Digitally Signed: Dr. ${currentUser.name}`, 150, 265, { align: 'center' });
       
       doc.save(`Referral_${selectedPatient.surname}_to_${referralForm.referredTo}.pdf`);
-      logAction('CREATE_REFERRAL', 'Referral', selectedPatient.id, `Issued Rule 18 Referral to ${referralForm.referredTo}. Question: ${referralForm.question}`);
+      logAction('CREATE_REFERRAL', 'Referral', selectedPatient.id, `Issued referral to ${referralForm.referredTo}. Question: ${referralForm.question}`);
       
       setShowReferralModal(false);
       setReferralForm({ referredTo: '', reason: '', question: '' });
-      toast.success("Referral Question documented and letter issued.");
+      toast.success("Referral documented and letter issued.");
   };
 
   const handleFileUpload = () => {
       if (!selectedPatient || !uploadJustification.trim()) {
-          toast.error("Rule 9: Clinical indication/justification is mandatory.");
+          toast.error("Clinical indication/justification is mandatory.");
           return;
       }
       
       const isXRay = activeTab === 'imaging';
       if (isXRay && !safetyAffirmed) {
-          toast.error("Rule 9: Safety affirmation is mandatory for X-ray uploads.");
+          toast.error("Radiation safety affirmation is mandatory for X-ray uploads.");
           return;
       }
 
@@ -268,6 +302,13 @@ const PatientList: React.FC<PatientListProps> = ({
 
   const handleGenerateCertificate = (apt: Appointment) => {
       if (!selectedPatient) return;
+      
+      // --- RULE 17 ATTRIBUTION LOGIC ---
+      // We look for the completed chart entry for this appointment to find embedded historical details
+      const chartEntry = selectedPatient.dentalChart?.find(e => e.date === apt.date && e.status === 'Completed');
+      const prc = chartEntry?.authorPrc || currentUser.prcLicense || '---';
+      const ptr = chartEntry?.authorPtr || currentUser.ptrNumber || '---';
+
       toast.info("Generating verified treatment certificate...");
       const doc = new jsPDF();
       doc.setFont('helvetica', 'bold');
@@ -277,10 +318,19 @@ const PatientList: React.FC<PatientListProps> = ({
       doc.text("OFFICIAL CLINICAL RECORD (PDA ETHICS SECTION 17)", 105, 38, { align: 'center' });
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
-      const text = `This is to certify that ${selectedPatient.name} was seen and treated at this clinic on ${formatDate(apt.date)} for ${apt.type}.`;
+      const text = `This is to certify that ${selectedPatient.name} was seen and treated at this clinic on ${formatDate(apt.date)} for ${apt.type}. This treatment was performed by Dr. ${chartEntry?.author || currentUser.name}.`;
       doc.text(doc.splitTextToSize(text, 170), 20, 60);
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Attending Practitioner: Dr. ${chartEntry?.author || currentUser.name}`, 20, 90);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`PRC License: ${prc} (Historical Attribution)`, 20, 95);
+      doc.text(`PTR Number: ${ptr}`, 20, 100);
+      doc.text(`Certificate issued on: ${new Date().toLocaleDateString()}`, 20, 105);
+
       doc.save(`Certificate_${selectedPatient.surname}_${apt.date}.pdf`);
-      logAction('EXPORT_RECORD', 'Patient', selectedPatient.id, `Issued verified certificate.`);
+      logAction('EXPORT_RECORD', 'Patient', selectedPatient.id, `Issued verified certificate. Historical PRC: ${prc}.`);
   };
 
   const handleRevokeConsent = (reason: string, notes: string) => {
@@ -362,7 +412,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                 </div>
                             )}
                             {selectedPatient.medicalConditions && selectedPatient.medicalConditions.length > 0 && selectedPatient.medicalConditions[0] !== 'None' && (
-                                <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-orange-600/20 animate-in zoom-in-95">
+                                <div className="bg-orange-50 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-orange-600/20 animate-in zoom-in-95">
                                     <AlertCircle size={14} fill="currentColor"/> CONDITION: {selectedPatient.medicalConditions.join(', ')}
                                 </div>
                             )}
@@ -417,7 +467,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-fit">
                             <h4 className="font-black text-teal-900 uppercase tracking-widest text-xs mb-6 flex items-center gap-2"><Users size={18} className="text-teal-600"/> Patient Relationship Nexus</h4>
-                            {patients.filter(p => p.referredById === selectedPatient.id).length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified for this record.</div>}
+                            {patients.filter(p => p.referredById === selectedPatient.id).length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified.</div>}
                         </div>
                         <div className="bg-white p-6 rounded-3xl border-2 border-lilac-100 shadow-sm flex flex-col h-fit">
                             <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-xs mb-6"><ShieldCheck size={18} className="text-lilac-600"/> Data Governance Controls</h4>
@@ -459,12 +509,16 @@ const PatientList: React.FC<PatientListProps> = ({
                                     const updated = (selectedPatient.dentalChart || []).map(e => e.id === entry.id ? entry : e);
                                     onQuickUpdatePatient({...selectedPatient, dentalChart: updated});
                                 }}
+                                onDeleteEntry={handleChartDelete}
                                 currentUser={currentUser}
                                 procedures={fieldSettings?.procedures || []}
                                 inventory={fieldSettings?.stockItems || []}
                                 fieldSettings={fieldSettings}
                                 patient={selectedPatient}
+                                appointments={appointments}
                                 readOnly={isClinicalLocked}
+                                logAction={logAction}
+                                incidents={incidents}
                             />
                         </div>
                     </div>
@@ -522,7 +576,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     <div className="space-y-6">
                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center gap-3">
                             <h3 className="font-black text-teal-900 uppercase tracking-widest text-sm flex-1">{activeTab === 'imaging' ? 'Radiographic Imaging' : 'Clinical Documents'}</h3>
-                            <button onClick={handleDataPortabilityExport} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg hover:bg-slate-800 transition-all"><DatabaseBackup size={14}/> Data Portability Bundle</button>
+                            <button onClick={handleDataPortabilityExport} className="bg-teal-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg hover:bg-slate-800 transition-all"><DatabaseBackup size={14}/> Data Portability Bundle</button>
                             <button onClick={() => setShowUploadModal(true)} className="bg-teal-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-600/20"><Upload size={18}/> New Admission</button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -533,7 +587,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                         <div className="flex-1"><h4 className="font-bold text-slate-800">{file.title}</h4><p className="text-[10px] text-slate-400 uppercase font-black">{formatDate(file.uploadedAt)} • BY {file.uploadedBy}</p></div>
                                     </div>
                                     <div className="bg-teal-50/50 p-4 rounded-2xl border border-teal-100">
-                                        <div className="text-[9px] font-black text-teal-600 uppercase mb-1">Clinical Indication (Rule 9)</div>
+                                        <div className="text-[9px] font-black text-teal-600 uppercase mb-1">Clinical Indication</div>
                                         <p className="text-xs text-teal-900 italic">"{file.justification || 'Diagnostic documentation.'}"</p>
                                     </div>
                                 </div>
@@ -545,7 +599,7 @@ const PatientList: React.FC<PatientListProps> = ({
         </div>
       ) : <div className="hidden md:flex flex-[2.5] items-center justify-center text-slate-400 italic">Select Patient Registry Record to View History</div>}
 
-      {/* REFERRAL MODAL (Rule 18) */}
+      {/* REFERRAL MODAL */}
       {showReferralModal && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
               <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
@@ -556,12 +610,12 @@ const PatientList: React.FC<PatientListProps> = ({
                   <div className="flex-1 overflow-y-auto pr-2 space-y-6 no-scrollbar">
                     <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
                         <p className="text-xs text-amber-900 font-bold leading-relaxed">
-                            PDA Ethics Rule 18: "Dentists must indicate the reason and specific clinical question for a second opinion referral to define the consultant's duty."
+                            PDA Ethics Rule 18: "Dentists must indicate the reason and specific clinical question for a second opinion referral."
                         </p>
                     </div>
                     <div><label className="label text-teal-800 font-black">Target Specialist / Clinic *</label><input type="text" className="input" placeholder="e.g. Dr. Santos (Endodontics)" value={referralForm.referredTo} onChange={e => setReferralForm({...referralForm, referredTo: e.target.value})} /></div>
-                    <div><label className="label text-teal-800 font-black">Clinical Question (The "Task") *</label><textarea required className="input h-24" placeholder="e.g. 'Please evaluate #16 for possibility of vertical root fracture...'" value={referralForm.question} onChange={e => setReferralForm({...referralForm, question: e.target.value})} /></div>
-                    <div><label className="label">General Reason / Background</label><textarea className="input h-20" placeholder="Patient history or symptoms leading to this referral..." value={referralForm.reason} onChange={e => setReferralForm({...referralForm, reason: e.target.value})} /></div>
+                    <div><label className="label text-teal-800 font-black">Clinical Question *</label><textarea required className="input h-24" placeholder="e.g. 'Please evaluate #16 for vertical root fracture...'" value={referralForm.question} onChange={e => setReferralForm({...referralForm, question: e.target.value})} /></div>
+                    <div><label className="label">General Reason / Background</label><textarea className="input h-20" placeholder="Patient history or symptoms..." value={referralForm.reason} onChange={e => setReferralForm({...referralForm, reason: e.target.value})} /></div>
                   </div>
                   <div className="flex gap-3 mt-6 pt-6 border-t">
                       <button onClick={() => setShowReferralModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl">Cancel</button>
@@ -580,7 +634,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     {activeTab === 'imaging' && (
                         <label className="flex items-start gap-3 p-4 bg-teal-50 border border-teal-200 rounded-2xl cursor-pointer">
                             <input type="checkbox" checked={safetyAffirmed} onChange={e => setSafetyAffirmed(e.target.checked)} className="w-5 h-5 accent-teal-600 rounded mt-1" />
-                            <div><span className="text-xs font-black text-teal-900 uppercase">Radiation Safety Affirmation (Rule 9)</span><p className="text-[10px] text-teal-700 leading-tight">I certify that Lead shielding was utilized during this exposure.</p></div>
+                            <div><span className="text-xs font-black text-teal-900 uppercase">Radiation Safety Affirmation</span><p className="text-[10px] text-teal-700 leading-tight">I certify that Lead shielding was utilized.</p></div>
                         </label>
                     )}
                     <div className="flex gap-3"><button onClick={() => setShowUploadModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl">Cancel</button><button onClick={handleFileUpload} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-teal-600/20">Acknowledge & Save</button></div>

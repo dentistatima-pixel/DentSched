@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
     DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
@@ -37,7 +36,7 @@ interface FinancialsProps {
   commissionDisputes: CommissionDispute[];
   onUpdatePayrollPeriod: (p: PayrollPeriod) => void;
   onAddPayrollAdjustment: (a: PayrollAdjustment) => void;
-  onApprovePayrollAdjustment: (id: string) => void;
+  onApproveAdjustment: (id: string) => void;
   onAddCommissionDispute: (d: CommissionDispute) => void;
   onResolveCommissionDispute: (id: string) => void;
 }
@@ -331,6 +330,9 @@ const PayrollTab: React.FC<{
 
     const currentDentist = staff.find(s => s.id === selectedDentistId);
     
+    // --- SUB-CONTRACTOR ELIGIBILITY CHECK (Rule 21) ---
+    const isEligibleForSplit = useMemo(() => currentDentist?.role === UserRole.DENTIST, [currentDentist]);
+
     // Find or init current period for dentist
     const period = useMemo(() => {
         const existing = payrollPeriods.find(p => p.providerId === selectedDentistId);
@@ -362,7 +364,7 @@ const PayrollTab: React.FC<{
         .reduce((s, a) => s + a.amount, 0);
     
     const netBase = grossProduction - labFees;
-    const baseCommission = netBase * commissionRate;
+    const baseCommission = isEligibleForSplit ? (netBase * commissionRate) : 0;
     const finalPayout = baseCommission + approvedAdjustmentsTotal;
 
     const handleClosePeriod = () => {
@@ -495,7 +497,7 @@ const PayrollTab: React.FC<{
                     {/* ADJUSTMENT LEDGER */}
                     <div className="pt-8 border-t border-slate-100">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><CreditCard size={18}/> Professional Fee Adjustments</h3>
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><CreditCard size={18}/> Non-Percentage Adjustments</h3>
                             {!isLocked && <button onClick={() => setAdjModal(true)} className="px-3 py-1 bg-teal-50 text-teal-600 text-[10px] font-black uppercase rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add Credit/Debit</button>}
                         </div>
                         <div className="space-y-2">
@@ -525,7 +527,12 @@ const PayrollTab: React.FC<{
                 {/* PAYOUT SUMMARY CARD */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="bg-white p-8 rounded-[2.5rem] border-2 border-teal-500 shadow-xl space-y-6 flex-1 flex flex-col">
-                        <h3 className="font-black text-teal-900 uppercase tracking-tighter text-lg">Split Yield Summary</h3>
+                        <div className="flex justify-between items-start">
+                            <h3 className="font-black text-teal-900 uppercase tracking-tighter text-lg">Payout Summary</h3>
+                            {!isEligibleForSplit && (
+                                <span className="bg-red-50 text-red-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-red-200">Rule 21 Restriction Active</span>
+                            )}
+                        </div>
                         <div className="space-y-4">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Gross Attribution</span>
@@ -541,11 +548,15 @@ const PayrollTab: React.FC<{
                                 <span className="font-black text-slate-900">₱{netBase.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-teal-600 font-black uppercase tracking-widest text-[10px]">Contracted Split ({commissionRate * 100}%)</span>
-                                <span className="font-black text-teal-700">₱{baseCommission.toLocaleString()}</span>
+                                <span className={`font-black uppercase tracking-widest text-[10px] ${isEligibleForSplit ? 'text-teal-600' : 'text-slate-300 italic'}`}>
+                                    {isEligibleForSplit ? `Contracted Split (${commissionRate * 100}%)` : 'Non-eligible for Splits'}
+                                </span>
+                                <span className={`font-black ${isEligibleForSplit ? 'text-teal-700' : 'text-slate-300'}`}>
+                                    ₱{baseCommission.toLocaleString()}
+                                </span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Manual Modifiers (+)</span>
+                                <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Manual Adjustments (+)</span>
                                 <span className={`font-black ${approvedAdjustmentsTotal >= 0 ? 'text-teal-600' : 'text-red-600'}`}>₱{approvedAdjustmentsTotal.toLocaleString()}</span>
                             </div>
                             
@@ -554,6 +565,14 @@ const PayrollTab: React.FC<{
                                 <div className="text-4xl font-black text-teal-900 text-center">₱{finalPayout.toLocaleString()}</div>
                             </div>
                         </div>
+
+                        {!isEligibleForSplit && (
+                            <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                                <p className="text-[9px] text-red-700 font-bold text-center leading-tight uppercase">
+                                    PDA Rule 21 Compliance: Fee-splitting or commission rebates for clinical work to non-dentists are strictly prohibited. Non-dentists are compensated via fixed adjustments only.
+                                </p>
+                            </div>
+                        )}
 
                         {isAdmin && period.status === PayrollStatus.OPEN && (
                             <button onClick={handleClosePeriod} className="w-full py-4 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-lilac-600/20 hover:scale-105 transition-all">Close & Certify Split</button>
@@ -589,6 +608,25 @@ const PayrollTab: React.FC<{
                         <div className="flex gap-3">
                             <button onClick={() => setDisputeModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
                             <button onClick={handleDisputeSubmit} className="flex-[2] py-4 bg-orange-50 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-orange-500/20">Raise Issue</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {adjModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
+                        <div className="flex items-center gap-3 text-teal-600 mb-6">
+                            <Calculator size={32} />
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Manual Adjustment</h3>
+                        </div>
+                        <div className="space-y-4 mb-6">
+                            <div><label className="label">Adjustment Reason</label><input type="text" value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} className="input" placeholder="e.g. Overtime Bonus, Holiday Differential" /></div>
+                            <div><label className="label">Amount (PHP)</label><input type="number" value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} className="input" placeholder="0.00" /></div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setAdjModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl">Cancel</button>
+                            <button onClick={handleAdjSubmit} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl">Queue Adjustment</button>
                         </div>
                     </div>
                 </div>

@@ -171,6 +171,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (s.role === UserRole.DENTIST && s.prcExpiry) {
         const expiry = new Date(s.prcExpiry);
         const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 3600 * 24));
+        // --- RENEWAL COUNTDOWN GATE (60 DAYS) ---
         if (diff <= 60) {
           const alertId = `prc-${s.id}-${s.prcExpiry}`;
           const isAck = fieldSettings?.acknowledgedAlertIds?.includes(alertId) || false;
@@ -179,7 +180,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         }
       }
     });
-    return alerts;
+    return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
   }, [staff, fieldSettings, currentUser]);
 
   const handleAcknowledgeAlert = (alertId: string) => {
@@ -328,16 +329,31 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="xl:col-span-4 bg-slate-900 rounded-[2.5rem] p-6 text-white shadow-xl">
                <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg flex items-center gap-2 text-teal-400"><ShieldCheck size={20}/> Compliance Pulse</h3></div>
-               <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
+               <div className="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar pr-1">
                   {complianceAlerts.map((alert) => (
-                      <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.severity === 'critical' ? 'border-red-600 bg-red-600/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
+                      <div key={alert.id} className={`p-4 border-2 rounded-2xl flex flex-col gap-3 transition-all ${alert.daysLeft <= 0 ? 'border-red-600 bg-red-600/10' : alert.severity === 'high' ? 'border-orange-500 bg-orange-500/10' : 'border-amber-500 bg-amber-500/10'} ${alert.isAcknowledged ? 'opacity-40' : ''}`}>
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-xl bg-white/10 shrink-0"><Award size={20}/></div>
-                          <div className="flex-1"><div className="font-black text-sm">{alert.userName}</div><div className="text-[10px] font-bold uppercase text-white/60">{alert.type} expiring in {alert.daysLeft}d</div></div>
+                          <div className={`p-2 rounded-xl shrink-0 ${alert.daysLeft <= 0 ? 'bg-red-600 text-white animate-pulse' : 'bg-white/10 text-white'}`}>{alert.daysLeft <= 0 ? <Lock size={20}/> : <Award size={20}/>}</div>
+                          <div className="flex-1">
+                            <div className="font-black text-sm">{alert.userName}</div>
+                            <div className="text-[10px] font-bold uppercase text-white/60">
+                                {alert.daysLeft <= 0 
+                                    ? 'LICENSE EXPIRED - CLINICAL BLOCK ACTIVE' 
+                                    : `PRC RENEWAL DUE IN ${alert.daysLeft} DAYS`}
+                            </div>
+                          </div>
                         </div>
-                        {!alert.isAcknowledged && <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-lilac-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg">Acknowledge</button>}
+                        {!alert.isAcknowledged && alert.daysLeft > 0 && (
+                            <button onClick={() => handleAcknowledgeAlert(alert.id)} className="w-full py-2 bg-teal-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg">Acknowledge Countdown</button>
+                        )}
                       </div>
                   ))}
+                  {complianceAlerts.length === 0 && (
+                      <div className="py-20 text-center opacity-20 flex flex-col items-center gap-3">
+                          <ShieldCheck size={48}/>
+                          <p className="text-[10px] font-black uppercase tracking-widest">No Active Compliance Risks</p>
+                      </div>
+                  )}
                </div>
             </div>
         </div>

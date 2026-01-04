@@ -22,7 +22,6 @@ export enum AppointmentStatus {
   NO_SHOW = 'No Show'
 }
 
-// Added TriageLevel type for clinical priority queuing
 export type TriageLevel = 'Level 1: Trauma/Bleeding' | 'Level 2: Acute Pain/Swelling' | 'Level 3: Appliance/Maintenance';
 
 export enum ResourceType {
@@ -57,19 +56,6 @@ export enum LabStatus {
   NONE = 'None',
   PENDING = 'Pending',
   RECEIVED = 'Received'
-}
-
-export enum AppointmentType {
-  CONSULTATION = 'Consultation',
-  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
-  RESTORATION = 'Restoration',
-  EXTRACTION = 'Extraction',
-  ROOT_CANAL = 'Root Canal',
-  PROSTHODONTICS = 'Prosthodontics',
-  ORTHODONTICS = 'Orthodontics',
-  SURGERY = 'Surgery',
-  WHITENING = 'Whitening',
-  DENTURE_ADJUSTMENTS = 'Denture Adjustments'
 }
 
 export interface SyncIntent {
@@ -127,7 +113,7 @@ export interface ReconciliationRecord {
     notes?: string;
     verifiedBy: string;
     verifiedByName?: string;
-    explanation?: string; // Mandatory for variances
+    explanation?: string; 
     timestamp: string;
 }
 
@@ -161,7 +147,7 @@ export interface PayrollAdjustment {
 
 export interface CommissionDispute {
     id: string;
-    itemId: string; // appointmentId
+    itemId: string; 
     note: string;
     status: 'Open' | 'Resolved';
     date: string;
@@ -230,11 +216,11 @@ export interface ClinicalIncident {
     reportedByName?: string;
     npcNotified?: boolean;
     npcRefNumber?: string;
-    sterilizationCycleId?: string; // Forensic link
-    batchId?: string; // Forensic link
-    prcLicense?: string; // Forensic link
+    sterilizationCycleId?: string; 
+    batchId?: string; 
+    prcLicense?: string; 
     autoSealTriggered?: boolean;
-    advisoryCallSigned?: boolean; // Medico-legal witness protocol
+    advisoryCallSigned?: boolean; // Rule 11 Disclosure State
     advisoryLog?: {
         time: string;
         manner: string;
@@ -250,8 +236,8 @@ export interface Referral {
     referredTo: string;
     reason: string;
     status: 'Pending' | 'Sent' | 'Completed';
-    continuityStatementSigned?: boolean; // Rule 2 Transfer of Care
-    question?: string; // Rule 18 Second Opinion Clinical Question
+    continuityStatementSigned?: boolean; 
+    question?: string; 
 }
 
 export interface WasteLogEntry {
@@ -388,6 +374,7 @@ export interface ProcedureItem {
   category?: string;
   traySetup?: string[];
   requiresConsent?: boolean;
+  requiresXray?: boolean;
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
@@ -429,8 +416,8 @@ export interface FeatureToggles {
   enableSmsAutomation: boolean;
   enableMaterialTraceability: boolean; 
   enableBirComplianceMode: boolean;
-  enableStatutoryBirTrack: boolean; // Dual-track Modular toggle
-  enableHmoInsuranceTrack: boolean; // Dual-track Modular toggle
+  enableStatutoryBirTrack: boolean; 
+  enableHmoInsuranceTrack: boolean; 
 }
 
 export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency' | 'Reputation';
@@ -480,7 +467,7 @@ export interface Medication {
     contraindicatedAllergies?: string[];
     interactions?: string[]; 
     pediatricDosage?: string; 
-    maxMgPerKg?: number; // Clinical safety numeric limit
+    maxMgPerKg?: number; 
     isS2Controlled?: boolean;
 }
 
@@ -507,7 +494,7 @@ export interface PurchaseOrder {
 }
 
 export interface FieldSettings {
-  clinicName: string; // Practice Identity
+  clinicName: string; 
   clinicProfile: ClinicProfile;
   suffixes: string[];
   civilStatus: string[];
@@ -557,22 +544,7 @@ export enum TreatmentPlanStatus {
     REJECTED = 'Rejected'
 }
 
-// Added TreatmentStatus for dental charting and procedure tracking states
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
-
-export interface TreatmentPlan {
-    id: string;
-    patientId: string;
-    name: string;
-    createdAt: string;
-    createdBy: string;
-    status: TreatmentPlanStatus;
-    reviewedBy?: string;
-    reviewedAt?: string;
-    reviewNotes?: string;
-    isComplexityDisclosed?: boolean; // PDA Rule 11 Fee Transparency
-    complexityContingencyNote?: string;
-}
 
 export interface DentalChartEntry {
   id: string;
@@ -584,9 +556,11 @@ export interface DentalChartEntry {
   price?: number;
   payment?: number;
   date?: string; 
+  committedAt?: string; // Edit Buffer Protocol
+  voidReason?: string; // Void Protocol
   planId?: string;
   author?: string;
-  authorRole?: UserRole; // Track scoping
+  authorRole?: UserRole; 
   notes?: string;
   subjective?: string;
   objective?: string;
@@ -597,7 +571,7 @@ export interface DentalChartEntry {
   witnessId?: string;
   witnessName?: string;
   materialBatchId?: string;
-  sterilizationCycleId?: string; // Forensic autoclave link
+  sterilizationCycleId?: string; 
   isVoid?: boolean;
   sealedHash?: string;
   sealedAt?: string;
@@ -611,9 +585,18 @@ export interface DentalChartEntry {
     signature?: string;
     risks: string[];
   };
-  boilerplateScore?: number; // Malpractice defense uniqueness score
-  isVerifiedByDentist?: boolean; // RA 9484 Verification
+  boilerplateScore?: number; 
+  isVerifiedByDentist?: boolean; 
   verifiedByDentistName?: string;
+  financialNarrative?: string; // Rule 16 Complexity Variance Reason
+  authorPrc?: string; // Rule 17 Attribution Preservation
+  authorPtr?: string; // Rule 17 Attribution Preservation
+  appointmentId?: string; // Feature: Ghosting Protection
+  needsProfessionalismReview?: boolean;
+  originalPlannedProcedure?: string;
+  deviationNarrative?: string;
+  resourceId?: string;
+  resourceName?: string;
 }
 
 export interface PerioMeasurement {
@@ -679,6 +662,7 @@ export interface User {
   employeeId?: string;
   assignedDoctors?: string[];
   isReadOnly?: boolean;
+  recoveryKeyHash?: string; // Proposed Stage 1: MFA Recovery
 }
 
 export interface PatientFile {
@@ -691,8 +675,8 @@ export interface PatientFile {
     uploadedBy: string;
     uploadedAt: string;
     documentDate?: string; 
-    justification?: string; // Rule 9: Indication for Radiograph/Document
-    safetyAffirmed?: boolean; // Rule 9 Radiation Safety Lead Shield
+    justification?: string; 
+    safetyAffirmed?: boolean; 
 }
 
 export type RecallStatus = 'Due' | 'Contacted' | 'No Response' | 'Booked';
@@ -728,8 +712,8 @@ export interface GuardianProfile {
     linkedPatientId?: string; 
     identityOath?: string;
     forensicFingerprint?: string;
-    visualAnchorHash?: string; // SHA-256 hash of the captured ID snap
-    visualAnchorThumb?: string; // Tiny Base64 thumbnail for visual confirmation
+    visualAnchorHash?: string; 
+    visualAnchorThumb?: string; 
 }
 
 export interface DpaRequestEntry {
@@ -753,8 +737,8 @@ export interface Patient {
   isArchived?: boolean;
   isAnonymized?: boolean; 
   isSeniorDependent?: boolean; 
-  isEmergencyCase?: boolean; // PDA Rule 2
-  primaryDentistId?: string; // PDA Rule 2 (Dentist-of-Record)
+  isEmergencyCase?: boolean; 
+  primaryDentistId?: string; 
   name: string; 
   firstName: string;
   surname: string;
@@ -763,7 +747,7 @@ export interface Patient {
   city?: string;
   dob: string;
   age?: number;
-  weightKg?: number; // Clinical Safety: Pediatric dosing
+  weightKg?: number; 
   phone: string;
   email: string;
   lastVisit: string;
@@ -852,6 +836,21 @@ export interface Patient {
   postOpLogs?: PostOpLog[];
 }
 
+export interface TreatmentPlan {
+    id: string;
+    patientId: string;
+    name: string;
+    createdAt: string;
+    createdBy: string;
+    status: TreatmentPlanStatus;
+    reviewedBy?: string;
+    reviewedAt?: string;
+    reviewNotes?: string;
+    isComplexityDisclosed?: boolean; 
+    complexityContingencyNote?: string;
+    originalQuoteAmount?: number; // Rule 16 Variance Logging
+}
+
 export interface Appointment {
   id: string;
   patientId: string; 
@@ -868,9 +867,9 @@ export interface Appointment {
       shade?: string;
       material?: string;
       vendorId?: string; 
-      materialLotNumber?: string; // Rule 11 Traceability
-      materialCertIssuer?: string; // Rule 11 Traceability
-      materialVerifiedBy?: string; // Staff ID who verified physical intake
+      materialLotNumber?: string; 
+      materialCertIssuer?: string; 
+      materialVerifiedBy?: string; 
   };
   notes?: string;
   sterilizationCycleId?: string;
@@ -879,7 +878,6 @@ export interface Appointment {
   title?: string; 
   signedConsentUrl?: string;
   queuedAt?: string; 
-  // Reference TriageLevel type for emergency queuing and clinical priority
   triageLevel?: TriageLevel; 
   isStale?: boolean; 
   isPendingSync?: boolean; 
@@ -891,8 +889,8 @@ export interface Appointment {
   medHistoryVerifiedAt?: string; 
   postOpVerified?: boolean;
   postOpVerifiedAt?: string;
-  dataTransferId?: string; // NPC Circular 16-01 compliance
-  followUpConfirmed?: boolean; // Post-Op Vigilance
+  dataTransferId?: string; 
+  followUpConfirmed?: boolean; 
   followUpConfirmedAt?: string;
 }
 
@@ -903,4 +901,17 @@ export interface PinboardTask {
     isUrgent: boolean;
     assignedTo?: string;
     createdAt: number;
+}
+
+export enum AppointmentType {
+  CONSULTATION = 'Consultation',
+  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
+  RESTORATION = 'Restoration',
+  EXTRACTION = 'Extraction',
+  ROOT_CANAL = 'Root Canal',
+  PROSTHODONTICS = 'Prosthodontics',
+  ORTHODONTICS = 'Orthodontics',
+  SURGERY = 'Surgery',
+  WHITENING = 'Whitening',
+  DENTURE_ADJUSTMENTS = 'Denture Adjustments'
 }

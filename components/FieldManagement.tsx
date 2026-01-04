@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-// Fixed missing imports: PackageCheck and Beaker from lucide-react
 import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer, ShieldOff, Receipt, ArrowRightLeft, Scale, Stethoscope, UserCheck, Eraser, PackageCheck, Beaker } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
@@ -119,6 +118,67 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             setIncidentForm({ type: 'Complication', date: new Date().toISOString().split('T')[0], description: '', actionTaken: '' });
             toast.success("Duty to Inform satisfied. Adversity witness record sealed.");
         }
+    };
+
+    const generateNpcReport = (inc: ClinicalIncident) => {
+        const doc = new jsPDF();
+        const discoveryDate = new Date(inc.date);
+        const now = new Date();
+        const diffHours = Math.abs(now.getTime() - discoveryDate.getTime()) / 36e5;
+        const isDelayed = diffHours > 72;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text("NPC CIRCULAR 16-03: DATA BREACH NOTIFICATION", 105, 20, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text("STATUTORY REPORT FOR NATIONAL PRIVACY COMMISSION (PHILIPPINES)", 105, 26, { align: 'center' });
+        doc.line(10, 32, 200, 32);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text("SECTION I: CHRONOLOGY & DISCOVERY", 15, 42);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Discovery Date: ${formatDate(inc.date)}`, 20, 50);
+        doc.text(`Report Generated: ${now.toLocaleString()}`, 20, 57);
+        doc.text(`Elapsed Time from Discovery: ${Math.floor(diffHours)} Hours`, 20, 64);
+
+        if (isDelayed) {
+            doc.setTextColor(220, 38, 38); 
+            doc.setFont('helvetica', 'bold');
+            doc.text("WARNING: MANDATORY 72-HOUR NOTIFICATION PERIOD EXCEEDED", 20, 74);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            doc.text("Justification for Delay: Continuous internal risk assessment and technical isolation phase exceeded initial discovery window.", 25, 82, { maxWidth: 170 });
+        }
+
+        let y = isDelayed ? 95 : 75;
+        doc.setFont('helvetica', 'bold');
+        doc.text("SECTION II: NATURE OF BREACH", 15, y);
+        doc.setFont('helvetica', 'normal');
+        const description = doc.splitTextToSize(inc.description, 170);
+        doc.text(description, 20, y + 8);
+        
+        y += (description.length * 5) + 15;
+        doc.setFont('helvetica', 'bold');
+        doc.text("SECTION III: PERSONAL DATA INVOLVED", 15, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Sensitive Personal Information (SPI) including Clinical Assessments, Diagnostic Radiographs, and Patient Contact Identifiers.", 20, y + 8);
+
+        y += 20;
+        doc.setFont('helvetica', 'bold');
+        doc.text("SECTION IV: REMEDIAL ACTIONS TAKEN", 15, y);
+        doc.setFont('helvetica', 'normal');
+        const action = doc.splitTextToSize(inc.actionTaken, 170);
+        doc.text(action, 20, y + 8);
+
+        y = 260;
+        doc.setFont('helvetica', 'bold');
+        doc.line(110, y, 190, y);
+        doc.setFontSize(9);
+        doc.text(`Reporting DPO: ${staff[0]?.name || 'Administrator'}`, 150, y + 5, { align: 'center' });
+        doc.text(`DPO System ID: ${staff[0]?.id || 'DPO-MAIN'}`, 150, y + 10, { align: 'center' });
+
+        doc.save(`NPC_Breach_Report_${inc.id}.pdf`);
+        toast.success("NPC Statutory Report generated.");
     };
 
     const renderCurrentCategory = () => {
@@ -272,6 +332,25 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                                 <div className="bg-slate-50 p-4 rounded-2xl">
                                     <p className="text-xs text-slate-700 font-medium leading-relaxed">{inc.description}</p>
                                 </div>
+                                
+                                {inc.type === 'Data Breach' && (
+                                    <div className="p-4 rounded-2xl border-2 border-lilac-200 bg-lilac-50 flex items-center justify-between animate-in zoom-in-95">
+                                        <div className="flex items-center gap-3">
+                                            <ShieldAlert size={20} className="text-lilac-600"/>
+                                            <div>
+                                                <div className="text-[10px] font-black uppercase tracking-tight">Statutory Reporting Hub</div>
+                                                <p className="text-[9px] font-bold text-slate-500">NPC Circular 16-03 Compliance</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => generateNpcReport(inc)}
+                                            className="px-4 py-2 bg-lilac-600 text-white rounded-xl text-[9px] font-black uppercase shadow-lg flex items-center gap-2 hover:bg-lilac-700 transition-all"
+                                        >
+                                            <DownloadCloud size={14}/> Generate NPC 16-03 Report
+                                        </button>
+                                    </div>
+                                )}
+
                                 {inc.type === 'Complication' && (
                                     <div className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${inc.advisoryCallSigned ? 'bg-teal-50 border-teal-200' : 'bg-red-50 border-red-500 animate-pulse'}`}>
                                         <div className="flex items-center gap-3">
