@@ -1,4 +1,3 @@
-
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource } from './types';
 
 // Generators for mock data
@@ -45,6 +44,17 @@ export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sal
 export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues'];
 
 export const STAFF: User[] = [
+  { 
+      id: 'ARCHITECT_01', 
+      name: 'System Architect (Lead Designer)', 
+      role: UserRole.SYSTEM_ARCHITECT, 
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Architect',
+      specialization: 'Technical Audit & Design Integrity',
+      defaultBranch: 'Makati Branch',
+      allowedBranches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+      colorPreference: '#c026d3', 
+      clinicHours: '24/7 System Audit Mode',
+  },
   { 
       id: 'admin1', 
       name: 'Sarah Connor', 

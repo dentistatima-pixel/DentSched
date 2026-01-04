@@ -315,7 +315,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 animate-in fade-in duration-300" onClick={() => setActiveQuadrant(null)} />
             )}
 
-            {/* PDA BLOCK OVERLAY */}
+            {/* PDA BLOCK OVERLAY - Disabled for SYSTEM_ARCHITECT via readOnly prop check */}
             {readOnly && (
                 <div className="absolute inset-0 z-50 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center p-6 text-center animate-in fade-in duration-300">
                     <div className="bg-white p-8 rounded-3xl shadow-2xl border border-red-100 max-w-sm">

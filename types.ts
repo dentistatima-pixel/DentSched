@@ -1,7 +1,8 @@
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
-  DENTAL_ASSISTANT = 'Dental Assistant'
+  DENTAL_ASSISTANT = 'Dental Assistant',
+  SYSTEM_ARCHITECT = 'System Architect'
 }
 
 export enum SystemStatus {

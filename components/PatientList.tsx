@@ -53,10 +53,7 @@ const PatientList: React.FC<PatientListProps> = ({
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId) || null, [patients, selectedPatientId]);
 
-  const referrals = useMemo(() => {
-    if (!selectedPatient) return [];
-    return patients.filter(p => p.referredById === selectedPatient.id);
-  }, [patients, selectedPatient]);
+  const isArchitect = currentUser.role === UserRole.SYSTEM_ARCHITECT;
 
   const patientAppointments = useMemo(() => {
     if (!selectedPatient) return [];
@@ -69,6 +66,13 @@ const PatientList: React.FC<PatientListProps> = ({
       const latest = [...logs].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       return { status: latest.status, version: latest.version };
   };
+
+  const isClinicalLocked = useMemo(() => {
+      if (!selectedPatient) return false;
+      const { status } = getConsentStatus(selectedPatient, 'Clinical');
+      // SYSTEM_ARCHITECT bypasses clinical locks for system integrity verification
+      return status === 'Revoked' && !isArchitect;
+  }, [selectedPatient, isArchitect]);
 
   const handleChartUpdate = (entry: DentalChartEntry) => {
     if (!selectedPatient) return;
@@ -339,6 +343,13 @@ const PatientList: React.FC<PatientListProps> = ({
       {selectedPatient ? (
         <div className="flex-[2.5] bg-white rounded-2xl shadow-sm border border-slate-100 p-0 relative animate-in slide-in-from-right-10 duration-300 overflow-hidden flex flex-col">
            
+           {isArchitect && (
+               <div className="bg-lilac-600 text-white px-6 py-2 flex items-center justify-center gap-3 shadow-lg z-50">
+                    <Zap size={14} className="animate-pulse"/>
+                    <span className="text-[10px] font-black uppercase tracking-widest">INTEGRITY AUDIT MODE ACTIVE: Clinical restrictions bypassed for system verification.</span>
+               </div>
+           )}
+
            <div className="pt-6 px-6 pb-6 border-b bg-white">
                 <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -406,7 +417,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-fit">
                             <h4 className="font-black text-teal-900 uppercase tracking-widest text-xs mb-6 flex items-center gap-2"><Users size={18} className="text-teal-600"/> Patient Relationship Nexus</h4>
-                            {referrals.length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified for this record.</div>}
+                            {patients.filter(p => p.referredById === selectedPatient.id).length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-10 text-center text-slate-400 italic text-sm">No referral mapping identified for this record.</div>}
                         </div>
                         <div className="bg-white p-6 rounded-3xl border-2 border-lilac-100 shadow-sm flex flex-col h-fit">
                             <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-xs mb-6"><ShieldCheck size={18} className="text-lilac-600"/> Data Governance Controls</h4>
@@ -437,6 +448,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                 chart={selectedPatient.dentalChart || []} 
                                 onToothClick={() => {}} 
                                 onChartUpdate={handleChartUpdate}
+                                readOnly={isClinicalLocked}
                             />
                         </div>
                         <div className="h-full">
@@ -452,7 +464,7 @@ const PatientList: React.FC<PatientListProps> = ({
                                 inventory={fieldSettings?.stockItems || []}
                                 fieldSettings={fieldSettings}
                                 patient={selectedPatient}
-                                readOnly={false}
+                                readOnly={isClinicalLocked}
                             />
                         </div>
                     </div>
@@ -463,7 +475,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         <PerioChart 
                             data={selectedPatient.perioChart || []}
                             onSave={handlePerioSave}
-                            readOnly={false}
+                            readOnly={isClinicalLocked}
                         />
                     </div>
                 )}
@@ -476,7 +488,7 @@ const PatientList: React.FC<PatientListProps> = ({
                         logAction={logAction}
                         featureFlags={fieldSettings?.features}
                         fieldSettings={fieldSettings}
-                        readOnly={false}
+                        readOnly={isClinicalLocked}
                     />
                 )}
 
@@ -484,7 +496,7 @@ const PatientList: React.FC<PatientListProps> = ({
                     <PatientLedger 
                         patient={selectedPatient} 
                         onUpdatePatient={onQuickUpdatePatient} 
-                        readOnly={false} 
+                        readOnly={isClinicalLocked} 
                         fieldSettings={fieldSettings}
                     />
                 )}
