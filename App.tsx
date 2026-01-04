@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -68,7 +69,7 @@ function App() {
   const [stock, setStock] = useState<StockItem[]>([]);
   const [sterilizationCycles, setSterilizationCycles] = useState<SterilizationCycle[]>([]);
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
-  const [tasks, setTasks] = useState<PinboardTask[]>([]);
+  const [tasks, setTask] = useState<PinboardTask[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [isAuditLogVerified, setIsAuditLogVerified] = useState<boolean | null>(null);
   const [incidents, setIncidents] = useState<ClinicalIncident[]>([]);
@@ -319,7 +320,7 @@ function App() {
       setAuditLog(loadedLogs.length > 0 ? loadedLogs : MOCK_AUDIT_LOG);
       setIsAuditLogVerified(verifyAuditTrail(loadedLogs));
 
-      setTasks(load('dentsched_pinboard_tasks', []));
+      setTask(load('dentsched_pinboard_tasks', []));
       setHmoClaims(load('dentsched_hmo_claims', MOCK_CLAIMS));
       setPhilHealthClaims(load('dentsched_philhealth_claims', []));
       setIncidents(load('dentsched_incidents', []));
@@ -536,13 +537,55 @@ function App() {
     }
   };
 
+  /* SUGGESTION 1: Implement BOM-Based Automated Inventory Consumption */
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
       const original = patients.find(p => p.id === updatedPatient.id);
       if (original) {
           updatedPatient.dentalChart?.forEach(entry => {
               const origEntry = original.dentalChart?.find(e => e.id === entry.id);
-              if (entry.sealedHash && !origEntry?.sealedHash && entry.materialBatchId) {
-                  setStock(prev => prev.map(s => s.id === entry.materialBatchId ? { ...s, isLockedForEvidence: true } : s));
+              
+              // Only trigger if this is a newly SEALED record (official consumption event)
+              if (entry.sealedHash && !origEntry?.sealedHash) {
+                  const procedure = fieldSettings.procedures.find(p => p.name === entry.procedure);
+                  
+                  if (procedure?.billOfMaterials && procedure.billOfMaterials.length > 0) {
+                      // Multi-unit BOM consumption
+                      setStock(prev => prev.map(s => {
+                          const bomItem = procedure.billOfMaterials!.find(b => b.stockItemId === s.id);
+                          if (bomItem) {
+                              const newQty = Math.max(0, s.quantity - bomItem.quantity);
+                              return { ...s, isLockedForEvidence: true, quantity: newQty };
+                          }
+                          return s;
+                      }));
+                      
+                      procedure.billOfMaterials.forEach(bomItem => {
+                          const item = stock.find(s => s.id === bomItem.stockItemId);
+                          if (item) {
+                              logAction('UPDATE', 'Stock', item.id, `BOM Consumption: Decremented ${bomItem.quantity} ${item.dispensingUnit || 'unit(s)'} for procedure ${entry.procedure} performed on ${updatedPatient.name}.`);
+                              if (item.quantity - bomItem.quantity <= item.lowStockThreshold) {
+                                  toast.warning(`Low Stock: ${item.name} reached procurement threshold.`);
+                              }
+                          }
+                      });
+                  } else if (entry.materialBatchId) {
+                      // Fallback: Single unit consumption
+                      setStock(prev => prev.map(s => {
+                          if (s.id === entry.materialBatchId) {
+                              const newQty = Math.max(0, s.quantity - 1);
+                              return { ...s, isLockedForEvidence: true, quantity: newQty };
+                          }
+                          return s;
+                      }));
+                      
+                      const stockItem = stock.find(s => s.id === entry.materialBatchId);
+                      if (stockItem) {
+                          logAction('UPDATE', 'Stock', stockItem.id, `Automatic consumption log: Decremented 1 ${stockItem.dispensingUnit || 'unit'} due to usage in clinical note for ${updatedPatient.name}.`);
+                          if (stockItem.quantity - 1 <= stockItem.lowStockThreshold) {
+                              toast.warning(`Low Stock: ${stockItem.name} reached procurement threshold.`);
+                          }
+                      }
+                  }
               }
           });
       }
@@ -605,7 +648,7 @@ function App() {
       }
   };
 
-  const handleUpdatePayrollPeriod = (period: PayrollPeriod) => {
+  const updatePayrollPeriod = (period: PayrollPeriod) => {
       setPayrollPeriods(prev => {
           const existing = prev.find(p => p.id === period.id);
           if (existing) return prev.map(p => p.id === period.id ? period : p);
@@ -669,7 +712,7 @@ function App() {
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={effectiveUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={handlePurgePatient} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} incidents={incidents} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} logAction={logAction} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={handleUpdatePayrollPeriod} onAddPayrollAdjustment={handleAddAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddDispute} onResolveCommissionDispute={handleResolveDispute} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={updatePayrollPeriod} onAddPayrollAdjustment={handleAddAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddDispute} onResolveCommissionDispute={handleResolveDispute} />;
       case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={handleSaveIncident} />;
       default: return null;
     }
@@ -707,7 +750,7 @@ function App() {
       fieldSettings={fieldSettings} 
       onGenerateReport={() => {}} 
       tasks={tasks} 
-      onToggleTask={(id) => setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} 
+      onToggleTask={(id) => setTask(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} 
       onEnterKioskMode={() => setIsInKioskMode(true)}
       isOnline={isOnline}
       pendingSyncCount={offlineQueue.length}
@@ -715,7 +758,7 @@ function App() {
       onSwitchSystemStatus={setSystemStatus}
     >
       {showTamperAlert && (
-          <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-500 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
+          <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
               <ShieldAlert size={32} className="animate-pulse" />
               <div className="text-center">
                   <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>

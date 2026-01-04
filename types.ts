@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -301,6 +302,10 @@ export interface StockItem {
   batchNumber?: string;
   branch?: string;
   isLockedForEvidence?: boolean; 
+  bulkUnit?: string;         
+  dispensingUnit?: string;   
+  conversionFactor?: number; 
+  leadTimeDays?: number;      // Suggestion 2: Estimated delivery buffer
 }
 
 export interface SterilizationCycle {
@@ -310,6 +315,8 @@ export interface SterilizationCycle {
     cycleNumber: string;
     operator: string;
     passed: boolean;
+    sterilizationCapacity?: number; // Suggestion 1: Total items in lot
+    restockedItemId?: string;      // Suggestion 1: Item ID returned to stock
 }
 
 export interface LeaveRequest {
@@ -398,6 +405,7 @@ export interface FeatureToggles {
   enableDentalAssistantFlow: boolean;
   enableHMOClaims: boolean;
   enableInventory: boolean;
+  inventoryComplexity?: 'SIMPLE' | 'ADVANCED';
   enableAnalytics: boolean;
   enablePatientPortal: boolean;
   enableDigitalConsent: boolean;

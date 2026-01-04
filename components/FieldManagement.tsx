@@ -1,6 +1,8 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer, ShieldOff, Receipt, ArrowRightLeft, Scale, Stethoscope, UserCheck, Eraser, PackageCheck, Beaker } from 'lucide-react';
+/* Fix: Added missing 'Package' to lucide-react imports */
+import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer, ShieldOff, Receipt, ArrowRightLeft, Scale, Stethoscope, UserCheck, Eraser, PackageCheck, Beaker, Layout, Package } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 import { jsPDF } from 'jspdf';
@@ -530,6 +532,55 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
 
         return (
             <div className="p-10 bg-slate-50 h-full overflow-y-auto space-y-10">
+                {/* --- MODULE MANAGEMENT --- */}
+                <div className="bg-white p-10 rounded-[3rem] border-2 border-teal-200 shadow-xl ring-8 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="bg-teal-600 p-3 rounded-2xl text-white shadow-lg"><Layout size={24}/></div>
+                        <div>
+                            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Module Management</h3>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure clinic functionality tiers</p>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-6">
+                        <GovernanceToggle 
+                            label="Clinic Inventory Module" 
+                            description="Enable or disable stock tracking, material traceability, and supply chain management."
+                            enabled={settings.features.enableInventory}
+                            icon={Package}
+                            onToggle={() => toggleFeature('enableInventory')}
+                        />
+
+                        {settings.features.enableInventory && (
+                            <div className="bg-lilac-50 p-6 rounded-[2.5rem] border-2 border-lilac-200 shadow-inner space-y-4 animate-in slide-in-from-top-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-lilac-600 text-white p-2 rounded-xl"><Scale size={18}/></div>
+                                        <div>
+                                            <span className="font-black text-lilac-900 uppercase text-xs tracking-widest">Enterprise Supply Chain Mode</span>
+                                            <p className="text-[9px] text-lilac-600 font-bold uppercase mt-0.5">Toggle between Simple stock and Advanced forensics</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => onUpdateSettings({ ...settings, features: { ...settings.features, inventoryComplexity: settings.features.inventoryComplexity === 'ADVANCED' ? 'SIMPLE' : 'ADVANCED' } })}
+                                        className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${settings.features.inventoryComplexity === 'ADVANCED' ? 'bg-lilac-600' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${settings.features.inventoryComplexity === 'ADVANCED' ? 'translate-x-7' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                                <div className="flex gap-4 items-center px-4 py-3 bg-white/60 rounded-2xl border border-lilac-200">
+                                    <ShieldCheck size={20} className="text-lilac-600 shrink-0"/>
+                                    <p className="text-[10px] text-lilac-900 font-bold leading-tight uppercase">
+                                        {settings.features.inventoryComplexity === 'ADVANCED' 
+                                            ? "Advanced Mode: DOH Batch tracking, Sterilization cycles, and Malpractice Evidence Lock active."
+                                            : "Simple Mode: Streamlined item catalog. manual quantity adjustments only."}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-4 mb-8">
                         <div className="bg-teal-600 p-3 rounded-2xl text-white shadow-lg"><Store size={24}/></div>
