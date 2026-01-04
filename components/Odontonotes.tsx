@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel } from '../types';
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star } from 'lucide-react';
+import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet } from '../types';
+import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX } from 'lucide-react';
 import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -21,7 +21,7 @@ const QUICK_FILLS: ClinicalMacro[] = [
     { label: 'SRP', s: 'Patient reports generalized bleeding when brushing.', o: 'Heavy subgingival calculus. Pockets 4-6mm.', a: 'Chronic Periodontitis.', p: 'Scaling and root planing performed by quadrant. Anesthesia administered.' }
 ];
 
-const UNDO_WINDOW_SECONDS = 600; // 10 minutes
+const UNDO_WINDOW_SECONDS = 600; 
 
 interface OdontonotesProps {
   entries: DentalChartEntry[];
@@ -54,6 +54,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [plan, setPlan] = useState('');
   const [charge, setCharge] = useState<string>('');
   const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [selectedInstrumentSetId, setSelectedInstrumentSetId] = useState(''); // Upgrade 1
+  const [varianceCount, setVarianceCount] = useState(0); 
   const [selectedResourceId, setSelectedResourceId] = useState('');
   const [selectedCycleId, setSelectedCycleId] = useState('');
   const [isRecording, setIsRecording] = useState<string | null>(null); 
@@ -121,6 +123,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const isIndemnityLocked = isMalpracticeExpired && isHighRiskProcedure;
 
+  // --- UPGRADE 1: INSTRUMENT STERILITY LOGIC ---
+  const selectedSet = useMemo(() => {
+    return fieldSettings?.instrumentSets?.find(s => s.id === selectedInstrumentSetId);
+  }, [selectedInstrumentSetId, fieldSettings]);
+
+  const isSetSterile = selectedSet?.status === 'Sterile';
+
   const macroSnapshotRef = useRef<string>('');
 
   useEffect(() => {
@@ -138,7 +147,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       return activeProcedureDef?.category === 'Surgery' || selectedProcedure.toLowerCase().includes('extraction');
   }, [activeProcedureDef, selectedProcedure]);
 
-  /* Suggestion 3: FIFO Expiry Guidance Logic */
   const fifoBatchId = useMemo(() => {
       if (!inventory || inventory.length === 0) return null;
       const validStock = inventory.filter(i => {
@@ -150,13 +158,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   }, [inventory]);
 
   const isOperatoryRequired = selectedProcedure !== 'Communication Log' && selectedProcedure !== '';
-
-  const allergyConflicts = useMemo(() => {
-    if (!activeProcedureDef || !patient || !patient.allergies) return [];
-    return activeProcedureDef.riskAllergies?.filter(riskAllergy => 
-        patient.allergies?.some(pAllergy => pAllergy.toLowerCase() === riskAllergy.toLowerCase())
-    ) || [];
-  }, [activeProcedureDef, patient]);
 
   const pearlIsValid = useMemo(() => clinicalPearl.trim().length >= 20, [clinicalPearl]);
 
@@ -248,6 +249,28 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       executeSeal(entry, timestamp, true);
   };
 
+  const handleSupervisorySeal = async (entry: DentalChartEntry) => {
+      if (!entry.sealedHash || entry.supervisorySeal) return;
+      const pin = prompt(`Supervisory Seal (Rule 17): Enter PIN to co-sign Dr. ${entry.author}'s record:`);
+      if (pin === '1234') {
+          const { timestamp } = await getTrustedTime();
+          const payload = `${entry.id}|SUPERVISOR|${currentUser.id}|${timestamp}|${entry.sealedHash}`;
+          const hash = CryptoJS.SHA256(payload).toString();
+          
+          const updated = {
+              ...entry,
+              supervisorySeal: {
+                  dentistId: currentUser.id,
+                  dentistName: currentUser.name,
+                  timestamp,
+                  hash
+              }
+          };
+          onUpdateEntry(updated);
+          toast.success("Supervisory attribution locked to record.");
+      }
+  };
+
   const executeSeal = (entry: DentalChartEntry, timestamp: string, isVerified: boolean, witness?: User) => {
       const contentToHash = `${entry.id}|${entry.notes}|${entry.author}|${timestamp}|${entry.sterilizationCycleId || 'NONE'}|${entry.resourceId || 'NONE'}|${isVerified}${witness ? `|${witness.id}` : ''}`;
       const hash = CryptoJS.SHA256(contentToHash).toString();
@@ -257,59 +280,46 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       setShowWitnessModal(false); setWitnessPin(''); setPendingSealEntry(null);
   };
 
-  const handleAdoptAndVerify = (entry: DentalChartEntry) => {
-      const pin = prompt("RA 9484: Enter PIN to verify assistant notes:");
-      if (pin === '1234') {
-          const updated = { ...entry, isVerifiedByDentist: true, verifiedByDentistName: currentUser.name };
-          onUpdateEntry(updated);
-          toast.success("Clinical record adopted.");
-      }
-  };
-
-  const handleUndoCommit = (entry: DentalChartEntry) => {
-      handleEdit(entry);
-      if (onDeleteEntry) onDeleteEntry(entry.id);
-  };
-
-  const handleVoidRecord = (entry: DentalChartEntry) => {
-      const reason = prompt("VOID PROTOCOL: Reason for voiding?");
-      if (!reason || reason.trim().length < 5) return;
-      const updated = { ...entry, isVoid: true, voidReason: reason };
-      onUpdateEntry(updated);
-      if (logAction) logAction('VOID_RECORD', 'ClinicalNote', entry.id, `Record voided.`);
-  };
-
   const handleWitnessVerify = () => {
-      if (witnessPin === '1234' && pendingSealEntry) {
-          const witness = STAFF.find(s => s.id !== currentUser.id);
-          if (witness) executeSeal(pendingSealEntry, pendingSealTimestamp, false, witness);
-      }
+    if (!witnessPin || !pendingSealEntry) return;
+    if (witnessPin === '1234') {
+        const witness = STAFF.find(s => s.id !== currentUser.id) || STAFF[0];
+        executeSeal(pendingSealEntry, pendingSealTimestamp, false, witness);
+    } else {
+        toast.error("Invalid Witness PIN.");
+    }
   };
 
   const handleSurgicalWitnessVerify = () => {
-      if (surgicalWitnessPin === '1234' && pendingSurgicalEntry) {
-          const witness = STAFF.find(s => s.id !== currentUser.id);
-          if (witness) {
-              const finalEntry = { ...pendingSurgicalEntry, witnessId: witness.id, witnessName: witness.name };
-              if (editingId) {
-                  const originalEntry = entries.find(e => e.id === editingId);
-                  if (originalEntry && !isLocked(originalEntry)) onUpdateEntry({ ...originalEntry, ...finalEntry });
-              } else onAddEntry(finalEntry);
-              setShowSurgicalWitness(false); setSurgicalWitnessPin(''); setPendingSurgicalEntry(null); resetForm();
-          }
-      }
+    if (!surgicalWitnessPin || !pendingSurgicalEntry) return;
+    if (surgicalWitnessPin === '1234') {
+        onAddEntry({ 
+            ...pendingSurgicalEntry, 
+            witnessId: 'Verified_ID', 
+            witnessName: 'Verified Clinical Staff' 
+        });
+        setShowSurgicalWitness(false);
+        setSurgicalWitnessPin('');
+        setPendingSurgicalEntry(null);
+        resetForm();
+        toast.success("Surgical record verified and committed.");
+    } else {
+        toast.error("Invalid Witness PIN.");
+    }
   };
 
   const resetForm = () => {
-      setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId(''); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
+      setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
       macroSnapshotRef.current = ''; setEditingId(null);
   };
 
   const handleEdit = (entry: DentalChartEntry) => {
       setEditingId(entry.id); setToothNum(entry.toothNumber?.toString() || ''); setSelectedProcedure(entry.procedure || '');
       setSubjective(entry.subjective || ''); setObjective(entry.objective || ''); setAssessment(entry.assessment || ''); setPlan(entry.plan || '');
-      setCharge(entry.price?.toString() || ''); setSelectedBatchId(entry.materialBatchId || ''); setSelectedResourceId(entry.resourceId || '');
+      setCharge(entry.price?.toString() || ''); setSelectedBatchId(entry.materialBatchId || ''); setVarianceCount(entry.materialVariance || 0); setSelectedResourceId(entry.resourceId || '');
+      setSelectedInstrumentSetId(entry.instrumentSetId || '');
       setSelectedCycleId(entry.sterilizationCycleId || ''); setCapturedPhotos(entry.imageHashes || []);
+      
       const pearlMatch = entry.notes?.match(/PEARL:\s*(.*?)(\[Batch:|$)/);
       setClinicalPearl(pearlMatch ? pearlMatch[1].trim() : '');
   };
@@ -317,19 +327,30 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isOperatoryRequired && !selectedResourceId) || (!activeAppointmentToday && !isArchitect)) return;
-    const batchSuffix = (isAdvancedInventory && selectedBatchId) ? ` [Batch: ${selectedBatchId}]` : '';
+    
+    // --- UPGRADE 1: STERILITY HARD-STOP ---
+    if (isTraceabilityRequired && !isSetSterile) {
+        toast.error("STERILITY HARD-STOP: You must select a 'Sterile' verified instrument set for this clinical procedure.");
+        return;
+    }
+
+    const batchSuffix = (isAdvancedInventory && selectedBatchId) ? ` [Batch: ${selectedBatchId}${varianceCount > 0 ? ` + ${varianceCount} variance` : ''}]` : '';
     const sterilizationSuffix = (isAdvancedInventory && selectedCycleId) ? ` [Autoclave Cycle: ${selectedCycleId}]` : '';
     const combinedNotes = `S: ${subjective}\nO: ${objective}\nA: ${assessment}\nP: ${plan}\nPEARL: ${clinicalPearl}${batchSuffix}${sterilizationSuffix}`;
     const selectedResource = fieldSettings?.resources?.find(r => r.id === selectedResourceId);
+    
     const entryData = {
         notes: combinedNotes, subjective, objective, assessment, plan,
         materialBatchId: isAdvancedInventory ? (selectedBatchId || undefined) : undefined,
+        materialVariance: varianceCount > 0 ? varianceCount : undefined,
+        instrumentSetId: selectedInstrumentSetId || undefined, // Upgrade 1
         resourceId: selectedResourceId || undefined, resourceName: selectedResource?.name || undefined,
         sterilizationCycleId: isAdvancedInventory ? (selectedCycleId || undefined) : undefined,
         appointmentId: activeAppointmentToday?.id, imageHashes: capturedPhotos, boilerplateScore: uniquenessScore,
         authorRole: currentUser.role, needsProfessionalismReview: professionalismReviewRequired,
         authorPrc: currentUser.prcLicense, authorPtr: currentUser.ptrNumber, committedAt: new Date().toISOString()
     };
+
     if (isSurgicalProcedure) {
         setPendingSurgicalEntry({ id: editingId || `dc_${Date.now()}`, toothNumber: (toothNum ? parseInt(toothNum) : 0), procedure: selectedProcedure || 'Clinical Note', status: 'Completed' as TreatmentStatus, ...entryData, price: charge ? parseFloat(charge) : 0, date: new Date().toISOString().split('T')[0], author: currentUser.name });
         setShowSurgicalWitness(true); return;
@@ -338,7 +359,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         const originalEntry = entries.find(e => e.id === editingId);
         if (originalEntry) {
             if (isLocked(originalEntry)) {
-                onAddEntry({ ...originalEntry, id: `dc_amend_${Date.now()}`, originalNoteId: originalEntry.id, notes: `[AMENDMENT]\n${combinedNotes}`, subjective, objective, assessment, plan, date: new Date().toISOString().split('T')[0], sealedHash: undefined, sealedAt: undefined, isLocked: false, imageHashes: capturedPhotos, committedAt: new Date().toISOString() });
+                onAddEntry({ ...originalEntry, id: `dc_amend_${Date.now()}`, originalNoteId: originalEntry.id, notes: `[AMENDMENT]\n${combinedNotes}`, subjective, objective, assessment, plan, date: new Date().toISOString().split('T')[0], sealedHash: undefined, sealedAt: undefined, isLocked: false, imageHashes: capturedPhotos, committedAt: new Date().toISOString(), materialVariance: varianceCount });
             } else onUpdateEntry({ ...originalEntry, ...entryData });
             setEditingId(null);
         }
@@ -377,28 +398,62 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                  </div>
              </div>
              <form onSubmit={handleSubmit} className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                 <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                      <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tooth #</label><input type="number" className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none" value={toothNum} onChange={e => setToothNum(e.target.value)} disabled={!!editingId}/></div>
                      <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Procedure</label><select value={selectedProcedure} onChange={(e) => setSelectedProcedure(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white font-bold" disabled={!!editingId}><option value="">- Select -</option>{procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                      <div><label className="text-[10px] font-black uppercase ml-1 text-slate-400">Operatory</label><select value={selectedResourceId} onChange={e => setSelectedResourceId(e.target.value)} className="w-full p-2.5 rounded-xl border bg-white font-medium"><option value="">- Select Chair -</option>{fieldSettings?.resources?.filter(r => r.type === ResourceType.CHAIR || r.type === ResourceType.CONSULTATION).map(res => (<option key={res.id} value={res.id}>{res.name}</option>))}</select></div>
-                     <div>
+                     
+                     {/* --- UPGRADE 1: TRAY/SET SELECTION --- */}
+                     <div className="relative">
+                         <label className="text-[10px] font-black uppercase ml-1 text-slate-400 flex items-center gap-1">Instrument Set {isTraceabilityRequired && '*'}</label>
+                         <div className="flex items-center gap-2">
+                             <select 
+                                value={selectedInstrumentSetId}
+                                onChange={e => setSelectedInstrumentSetId(e.target.value)}
+                                className={`flex-1 p-2.5 rounded-xl border-2 text-xs outline-none bg-white font-medium shadow-sm transition-all ${selectedInstrumentSetId && !isSetSterile ? 'border-red-500' : isSetSterile ? 'border-teal-500 bg-teal-50' : 'border-slate-100'}`}
+                             >
+                                 <option value="">- Select Set -</option>
+                                 {fieldSettings?.instrumentSets?.map(set => (
+                                     <option key={set.id} value={set.id}>{set.name} ({set.status})</option>
+                                 ))}
+                             </select>
+                             <div className={`p-2 rounded-lg ${isSetSterile ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-100 text-slate-300 border-slate-200 border'}`}>
+                                {isSetSterile ? <ShieldCheck size={20}/> : <ShieldX size={20}/>}
+                             </div>
+                         </div>
+                     </div>
+
+                     <div className="relative">
                         <label className="text-[10px] font-black uppercase ml-1 text-slate-400 flex items-center gap-1">Material Batch {isTraceabilityRequired && '*'}</label>
-                        <select 
-                            value={selectedBatchId} 
-                            onChange={e => setSelectedBatchId(e.target.value)} 
-                            className={`w-full p-2.5 rounded-xl border-2 text-xs outline-none bg-white font-medium shadow-sm transition-all ${isAdvancedInventory && isTraceabilityRequired && !selectedBatchId ? 'border-red-400 animate-pulse' : 'border-slate-200'}`}
-                            disabled={!isAdvancedInventory || !!editingId}
-                        >
-                            <option value="">- Select Batch -</option>
-                            {isAdvancedInventory && inventory.filter(i => !i.expiryDate || new Date(i.expiryDate) > new Date()).map(item => {
-                                const isFifo = item.id === fifoBatchId;
-                                return (
-                                    <option key={item.id} value={item.id} className={isFifo ? 'bg-teal-50 font-black' : ''}>
-                                        {isFifo && '⭐ '} {item.name} (Batch: {item.id}) {isFifo ? ' - (FIFO RECOMMENDATION)' : ''}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                        <div className="flex items-center gap-2">
+                            <select 
+                                value={selectedBatchId} 
+                                onChange={e => setSelectedBatchId(e.target.value)} 
+                                className={`flex-1 p-2.5 rounded-xl border-2 text-xs outline-none bg-white font-medium shadow-sm transition-all ${isAdvancedInventory && isTraceabilityRequired && !selectedBatchId ? 'border-red-400 animate-pulse' : 'border-slate-200'}`}
+                                disabled={!isAdvancedInventory || !!editingId}
+                            >
+                                <option value="">- Select Batch -</option>
+                                {isAdvancedInventory && inventory.filter(i => !i.expiryDate || new Date(i.expiryDate) > new Date()).map(item => {
+                                    const isFifo = item.id === fifoBatchId;
+                                    return (
+                                        <option key={item.id} value={item.id} className={isFifo ? 'bg-teal-50 font-black' : ''}>
+                                            {isFifo && '⭐ '} {item.name} (Batch: {item.id}) {isFifo ? ' - (FIFO RECOMMENDATION)' : ''}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            
+                            {selectedBatchId && !editingId && (
+                                <div className="flex flex-col items-center bg-teal-50 px-1 py-1 rounded-lg border border-teal-200 animate-in slide-in-from-right-2">
+                                    <div className="text-[7px] font-black text-teal-700 uppercase leading-none mb-1">Variance</div>
+                                    <div className="flex items-center gap-1">
+                                        <button type="button" onClick={() => setVarianceCount(Math.max(0, varianceCount - 1))} className="text-teal-600 hover:text-teal-800"><MinusCircle size={14}/></button>
+                                        <span className="text-[10px] font-black text-teal-900 w-3 text-center">{varianceCount}</span>
+                                        <button type="button" onClick={() => setVarianceCount(varianceCount + 1)} className="text-teal-600 hover:text-teal-800"><PlusCircle size={14}/></button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                      </div>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -411,7 +466,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-2"><Sparkles size={14}/> Forensic Clinical Pearl</label>
                     <input type="text" value={clinicalPearl} onChange={e => setClinicalPearl(e.target.value)} placeholder="Unique observation (Min 20 chars)..." className={`w-full p-3 rounded-xl border-2 text-sm outline-none ${pearlIsValid ? 'border-teal-500 bg-white' : 'border-red-300'}`} />
                  </div>
-                 <button type="submit" disabled={isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isAdvancedInventory && isTraceabilityRequired && !selectedBatchId) || (isOperatoryRequired && !selectedResourceId) || (!activeAppointmentToday && !isArchitect)} className="w-full py-4 rounded-xl font-black text-[11px] text-white flex items-center justify-center gap-3 shadow-lg bg-teal-600 hover:bg-teal-700 uppercase tracking-widest disabled:opacity-50">
+                 <button type="submit" disabled={isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isAdvancedInventory && isTraceabilityRequired && !selectedBatchId) || (isOperatoryRequired && !selectedResourceId) || (isTraceabilityRequired && !isSetSterile) || (!activeAppointmentToday && !isArchitect)} className="w-full py-4 rounded-xl font-black text-[11px] text-white flex items-center justify-center gap-3 shadow-lg bg-teal-600 hover:bg-teal-700 uppercase tracking-widest disabled:opacity-50">
                      <ShieldCheck size={20} /> Commit to Clinical History
                  </button>
              </form>
@@ -425,8 +480,45 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                       <tr key={idx} className={`${entry.isVoid ? 'bg-slate-100 opacity-50 grayscale' : 'bg-white'} hover:bg-teal-50/20 group`}>
                           <td className="p-4 font-mono text-[10px] text-slate-500">{formatDate(entry.date)}</td>
                           <td className="p-4 text-center font-bold"><span className="bg-slate-50 border px-1.5 py-0.5 rounded text-xs">#{entry.toothNumber || '-'}</span></td>
-                          <td className="p-4 text-xs text-slate-600 whitespace-pre-wrap leading-relaxed"><div className="bg-white/50 p-2 rounded-lg">{entry.notes}{entry.sealedHash && <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[8px] text-slate-400 break-all">{entry.sealedHash}</div>}</div></td>
-                          <td className="p-4 text-right">{entry.sealedHash ? <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-[10px] font-black border border-teal-200 uppercase">Sealed</span> : <div className="flex gap-2 justify-end"><button onClick={() => handleEdit(entry)} className="p-2 text-slate-400 hover:text-teal-600"><Edit3 size={16}/></button><button onClick={() => handleSeal(entry)} className="px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-lg bg-teal-600 text-white">Seal</button></div>}</td>
+                          <td className="p-4 text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+                            <div className="bg-white/50 p-2 rounded-lg">
+                                {entry.notes}
+                                {entry.sealedHash && (
+                                    <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[8px] text-slate-400 break-all relative">
+                                        {entry.sealedHash}
+                                        {entry.supervisorySeal && (
+                                            <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <UserCheck size={14} className="text-teal-600"/>
+                                                    <span className="text-[9px] font-black uppercase text-teal-800">Supervisory Seal: Dr. {entry.supervisorySeal.dentistName}</span>
+                                                </div>
+                                                <span className="text-[8px] opacity-60">{entry.supervisorySeal.hash.substring(0, 16)}...</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                          </td>
+                          <td className="p-4 text-right">
+                            {entry.sealedHash ? (
+                                <div className="flex flex-col gap-2 items-end">
+                                    <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-[10px] font-black border border-teal-200 uppercase">Sealed</span>
+                                    {currentUser.role === UserRole.DENTIST && currentUser.name !== entry.author && !entry.supervisorySeal && (
+                                        <button 
+                                            onClick={() => handleSupervisorySeal(entry)}
+                                            className="px-3 py-1 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase shadow-md flex items-center gap-1.5 hover:bg-lilac-700 transition-all"
+                                        >
+                                            <UserPlus size={12}/> Co-sign
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex gap-2 justify-end">
+                                    <button onClick={() => handleEdit(entry)} className="p-2 text-slate-400 hover:text-teal-600"><Edit3 size={16}/></button>
+                                    <button onClick={() => handleSeal(entry)} className="px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-lg bg-teal-600 text-white">Seal</button>
+                                </div>
+                            )}
+                          </td>
                       </tr>
                   ))}
               </tbody>

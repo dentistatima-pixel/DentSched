@@ -11,6 +11,7 @@ import KioskView from './components/KioskView';
 import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import PostOpHandoverModal from './components/PostOpHandoverModal';
+import SafetyTimeoutModal from './components/SafetyTimeoutModal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus } from './types';
 import { useToast } from './components/ToastSystem';
@@ -103,6 +104,7 @@ function App() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
+  const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
 
   useEffect(() => {
       const handleOnline = () => { 
@@ -473,6 +475,15 @@ function App() {
 
       const patient = patients.find(p => p.id === apt.patientId);
 
+      // --- UPGRADE 3: SAFETY TIMEOUT GATE ---
+      if (status === AppointmentStatus.TREATING && patient) {
+          const hasRisk = (patient.medicalConditions?.some(c => c !== 'None')) || (patient.allergies?.some(a => a !== 'None'));
+          if (hasRisk) {
+              setPendingSafetyTimeout({ appointmentId, status, patient });
+              return;
+          }
+      }
+
       if ([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(status)) {
         const isSurgical = ['Surgery', 'Extraction'].includes(apt.type);
         if (isSurgical && patient) {
@@ -503,6 +514,14 @@ function App() {
       }
 
       finalizeUpdateStatus(appointmentId, status);
+  };
+
+  const handleSafetyTimeoutConfirm = () => {
+    if (!pendingSafetyTimeout) return;
+    const { appointmentId, status } = pendingSafetyTimeout;
+    logAction('SECURITY_ALERT', 'ClinicalAlert', appointmentId, "Safety Timeout: Practitioner confirmed review of critical clinical risks before treating.");
+    finalizeUpdateStatus(appointmentId, status);
+    setPendingSafetyTimeout(null);
   };
 
   const handleConfirmPostOp = () => {
@@ -537,19 +556,28 @@ function App() {
     }
   };
 
-  /* SUGGESTION 1: Implement BOM-Based Automated Inventory Consumption */
+  /* UPGRADE 1: Automated Contaminated Status Update */
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
       const original = patients.find(p => p.id === updatedPatient.id);
       if (original) {
           updatedPatient.dentalChart?.forEach(entry => {
               const origEntry = original.dentalChart?.find(e => e.id === entry.id);
               
-              // Only trigger if this is a newly SEALED record (official consumption event)
               if (entry.sealedHash && !origEntry?.sealedHash) {
+                  // --- UPGRADE 1: CONSUME INSTRUMENT SET ---
+                  if (entry.instrumentSetId) {
+                      setFieldSettings(prev => ({
+                          ...prev,
+                          instrumentSets: prev.instrumentSets?.map(set => 
+                              set.id === entry.instrumentSetId ? { ...set, status: 'Contaminated' } : set
+                          )
+                      }));
+                      logAction('UPDATE', 'Inventory', entry.instrumentSetId, `Clinical Note Sealed: Instrument Set "${entry.instrumentSetId}" status promoted to CONTAMINATED.`);
+                  }
+
                   const procedure = fieldSettings.procedures.find(p => p.name === entry.procedure);
                   
                   if (procedure?.billOfMaterials && procedure.billOfMaterials.length > 0) {
-                      // Multi-unit BOM consumption
                       setStock(prev => prev.map(s => {
                           const bomItem = procedure.billOfMaterials!.find(b => b.stockItemId === s.id);
                           if (bomItem) {
@@ -569,7 +597,6 @@ function App() {
                           }
                       });
                   } else if (entry.materialBatchId) {
-                      // Fallback: Single unit consumption
                       setStock(prev => prev.map(s => {
                           if (s.id === entry.materialBatchId) {
                               const newQty = Math.max(0, s.quantity - 1);
@@ -771,6 +798,7 @@ function App() {
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
       {pendingPostOpAppointment && <PostOpHandoverModal isOpen={!!pendingPostOpAppointment} onClose={() => setPendingPostOpAppointment(null)} onConfirm={handleConfirmPostOp} appointment={pendingPostOpAppointment} />}
+      {pendingSafetyTimeout && <SafetyTimeoutModal patient={pendingSafetyTimeout.patient} onConfirm={handleSafetyTimeoutConfirm} />}
     </Layout>
   );
 }

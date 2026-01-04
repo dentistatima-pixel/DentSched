@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
@@ -5,7 +6,7 @@ import {
   Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning, MessageCircle, Heart
+  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning, MessageCircle, Heart, Info, DollarSign as FinanceIcon
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
@@ -93,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   syncConflicts = [], setSyncConflicts, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus, onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp
 }) => {
   const toast = useToast();
-  const [privacyMode, setPrivacyMode] = useState(false);
+  const [activeHuddleId, setActiveHuddleId] = useState<string | null>(null);
   
   const today = new Date().toLocaleDateString('en-CA');
 
@@ -247,18 +248,68 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="lg:col-span-3 bg-slate-100/50 rounded-[2.5rem] p-4 flex flex-col gap-4">
             <div className="flex justify-between items-center px-2"><h4 className="font-black text-slate-500 uppercase tracking-widest text-[10px] flex items-center gap-2"><Clock size={16}/> Queue Monitor</h4></div>
             <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar max-h-[400px]">
-              {receptionPatientFlow.arriving.map(apt => (
-                  <div key={apt.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
-                      <div className="flex justify-between items-center mb-2"><span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span></div>
-                      <div className="font-bold text-slate-800 text-sm truncate">{getPatient(apt.patientId)?.name || 'Unknown'}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
-                      {apt.status === AppointmentStatus.ARRIVED && (
-                          <div className="mt-3 pt-3 border-t border-slate-100">
-                              <button onClick={() => onVerifyMedHistory?.(apt.id)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 transition-all ${apt.medHistoryVerified ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-lilac-600 text-white shadow-lg'}`}>{apt.medHistoryVerified ? <CheckCircle size={10}/> : <Stethoscope size={10}/>} {apt.medHistoryVerified ? 'Verified' : 'Verify History'}</button>
-                          </div>
-                      )}
-                  </div>
-              ))}
+              {receptionPatientFlow.arriving.map(apt => {
+                  const patient = getPatient(apt.patientId);
+                  const isHuddleActive = activeHuddleId === apt.id;
+                  
+                  // Huddle Logic: Readiness Checks
+                  const hasLab = apt.labStatus === LabStatus.RECEIVED;
+                  const balance = patient?.currentBalance || 0;
+                  const hasClearance = patient?.clearanceRequests?.some(r => r.status === 'Approved');
+                  const needsClearance = patient?.medicalConditions?.some(c => ['High BP', 'Heart Disease', 'Diabetes'].includes(c));
+                  
+                  return (
+                    <div key={apt.id} className="relative group">
+                        <div className={`bg-white p-4 rounded-3xl shadow-sm border transition-all ${isHuddleActive ? 'border-teal-500 ring-4 ring-teal-500/10 scale-105 z-20' : 'border-slate-200'}`}>
+                            <div className="flex justify-between items-center mb-2"><span className="font-mono font-black text-teal-600 text-xs">{apt.time}</span></div>
+                            <button 
+                                onClick={() => setActiveHuddleId(isHuddleActive ? null : apt.id)}
+                                className="w-full text-left font-bold text-slate-800 text-sm truncate hover:text-teal-600 transition-colors"
+                            >
+                                {patient?.name || 'Unknown'}
+                            </button>
+                            <div className="text-[9px] text-slate-400 font-bold uppercase mt-1">{apt.type}</div>
+                            
+                            {/* Readiness Huddle Popover */}
+                            {isHuddleActive && (
+                                <div className="mt-4 p-3 bg-slate-50 rounded-2xl border-2 border-dashed border-teal-200 animate-in zoom-in-95">
+                                    <div className="text-[9px] font-black text-teal-700 uppercase tracking-widest mb-2 flex items-center gap-1"><Info size={10}/> Pre-Flight Huddle</div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase">Lab Case</span>
+                                            {apt.labStatus === LabStatus.NONE ? <span className="text-[8px] text-slate-300 font-black uppercase italic">N/A</span> : (
+                                                hasLab ? <CheckCircle size={14} className="text-teal-600"/> : <Clock size={14} className="text-orange-400"/>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase">Ledger Clear</span>
+                                            {balance > 0 ? <div className="flex items-center gap-1 text-red-600 text-[10px] font-black"><FinanceIcon size={10}/> ₱{balance}</div> : <CheckCircle size={14} className="text-teal-600"/>}
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase">MD Clearance</span>
+                                            {!needsClearance ? <span className="text-[8px] text-slate-300 font-black uppercase italic">N/A</span> : (
+                                                hasClearance ? <CheckCircle size={14} className="text-teal-600"/> : <ShieldX size={14} className="text-red-500"/>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => onPatientSelect(apt.patientId)}
+                                        className="w-full mt-3 py-1.5 bg-teal-600 text-white text-[9px] font-black uppercase rounded-lg shadow-md"
+                                    >
+                                        Open Chart
+                                    </button>
+                                </div>
+                            )}
+
+                            {apt.status === AppointmentStatus.ARRIVED && !isHuddleActive && (
+                                <div className="mt-3 pt-3 border-t border-slate-100">
+                                    <button onClick={() => onVerifyMedHistory?.(apt.id)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 transition-all ${apt.medHistoryVerified ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-lilac-600 text-white shadow-lg'}`}>{apt.medHistoryVerified ? <CheckCircle size={10}/> : <Stethoscope size={10}/>} {apt.medHistoryVerified ? 'Verified' : 'Verify History'}</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                  );
+              })}
             </div>
           </div>
 

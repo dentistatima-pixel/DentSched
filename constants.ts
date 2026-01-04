@@ -1,4 +1,5 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource } from './types';
+
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, HMOClaimStatus, PhilHealthClaimStatus, ResourceType, ClinicResource, InstrumentSet } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -284,10 +285,17 @@ export const MOCK_RESOURCES: ClinicResource[] = [
     { id: 'res_chair_q2', name: 'QC Chair 2', type: ResourceType.CHAIR, branch: 'Quezon City Branch' },
 ];
 
+export const MOCK_INSTRUMENT_SETS: InstrumentSet[] = [
+    { id: 'set_alpha_1', name: 'Surgery Set Alpha', status: 'Sterile', branch: 'Makati Branch' },
+    { id: 'set_alpha_2', name: 'Surgery Set Beta', status: 'Contaminated', branch: 'Makati Branch' },
+    { id: 'set_endo_1', name: 'Endo Tray 1', status: 'Sterile', branch: 'Makati Branch' },
+    { id: 'set_exam_1', name: 'Diagnostic Set 1', status: 'Sterile', branch: 'Makati Branch' },
+];
+
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
-    { id: 'cycle_001', date: getPastDateStr(1), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-20-01', operator: 'Asst. Sarah', passed: true },
-    { id: 'cycle_002', date: getTodayStr(), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-21-01', operator: 'Asst. Sarah', passed: true },
-    { id: 'cycle_003', date: getTodayStr(), autoclaveName: 'Autoclave 2', cycleNumber: '2024-05-21-02', operator: 'Asst. Sarah', passed: false },
+    { id: 'cycle_001', date: getPastDateStr(1), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-20-01', operator: 'Asst. Sarah', passed: true, instrumentSetIds: ['set_exam_1'] },
+    { id: 'cycle_002', date: getTodayStr(), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-21-01', operator: 'Asst. Sarah', passed: true, instrumentSetIds: ['set_alpha_1', 'set_endo_1'] },
+    { id: 'cycle_003', date: getTodayStr(), autoclaveName: 'Autoclave 2', cycleNumber: '2024-05-21-02', operator: 'Asst. Sarah', passed: false, instrumentSetIds: [] },
 ];
 
 export const MOCK_EXPENSES: Expense[] = [
@@ -377,7 +385,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableHMOClaims: true,
       enableInventory: true,
       enableAnalytics: true,
-      enablePatientPortal: false, // MANDATORY: PATIENT HAS ZERO REMOTE ACCESS
+      enablePatientPortal: false, 
       enableDigitalConsent: true,
       enableAutomatedRecall: true,
       enableOnlineForms: true,
@@ -394,13 +402,13 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableSmsAutomation: true,
       enableMaterialTraceability: true,
       enableBirComplianceMode: false,
-      // Fixed missing FeatureToggles properties
       enableStatutoryBirTrack: true,
       enableHmoInsuranceTrack: true
   },
   smsTemplates: DEFAULT_SMS,
   stockCategories: Object.values(StockCategory),
   stockItems: MOCK_STOCK,
+  instrumentSets: MOCK_INSTRUMENT_SETS,
   expenseCategories: ['Lab Fee', 'Supplies', 'Utilities', 'Rent', 'Salary', 'Other'],
   documentCategories: ['X-Ray', 'Medical Clearance', 'Consent Form', 'Lab Result', 'Insurance Form', 'Media Consent', 'Other'],
   clinicalProtocolRules: [

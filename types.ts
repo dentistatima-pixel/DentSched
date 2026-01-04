@@ -154,6 +154,12 @@ export interface CommissionDispute {
     date: string;
 }
 
+export interface PractitionerSignOff {
+    timestamp: string;
+    hash: string;
+    ipAddress: string;
+}
+
 export interface PayrollPeriod {
     id: string;
     providerId: string;
@@ -162,6 +168,7 @@ export interface PayrollPeriod {
     status: PayrollStatus;
     closedAt?: string;
     lockedAt?: string;
+    practitionerSignOff?: PractitionerSignOff;
 }
 
 export interface StockTransfer {
@@ -308,6 +315,16 @@ export interface StockItem {
   leadTimeDays?: number;      // Suggestion 2: Estimated delivery buffer
 }
 
+export type InstrumentStatus = 'Sterile' | 'Used' | 'Contaminated';
+
+export interface InstrumentSet {
+    id: string;
+    name: string;
+    status: InstrumentStatus;
+    lastCycleId?: string;
+    branch: string;
+}
+
 export interface SterilizationCycle {
     id: string;
     date: string;
@@ -317,6 +334,7 @@ export interface SterilizationCycle {
     passed: boolean;
     sterilizationCapacity?: number; // Suggestion 1: Total items in lot
     restockedItemId?: string;      // Suggestion 1: Item ID returned to stock
+    instrumentSetIds?: string[];   // Upgrade 1: Linked instrument sets
 }
 
 export interface LeaveRequest {
@@ -517,6 +535,7 @@ export interface FieldSettings {
   smsTemplates: SmsTemplates;
   permissions?: Record<UserRole, RolePermissions>;
   stockItems?: StockItem[];
+  instrumentSets?: InstrumentSet[]; // Upgrade 1: Managed sets
   medications?: Medication[];
   consentFormTemplates?: ConsentFormTemplate[];
   vendors?: Vendor[]; 
@@ -579,10 +598,18 @@ export interface DentalChartEntry {
   witnessId?: string;
   witnessName?: string;
   materialBatchId?: string;
+  materialVariance?: number; 
+  instrumentSetId?: string; // Upgrade 1: Link to set used
   sterilizationCycleId?: string; 
   isVoid?: boolean;
   sealedHash?: string;
   sealedAt?: string;
+  supervisorySeal?: { 
+    dentistId: string;
+    dentistName: string;
+    timestamp: string;
+    hash: string;
+  };
   originalNoteId?: string;
   entryMode?: 'AUTO' | 'MANUAL'; 
   reconciled?: boolean; 
@@ -670,7 +697,7 @@ export interface User {
   employeeId?: string;
   assignedDoctors?: string[];
   isReadOnly?: boolean;
-  recoveryKeyHash?: string; // Proposed Stage 1: MFA Recovery
+  recoveryKeyHash?: string; 
 }
 
 export interface PatientFile {
@@ -864,6 +891,7 @@ export interface Appointment {
   patientId: string; 
   providerId: string;
   resourceId?: string; 
+  usedInstrumentSetId?: string; // Upgrade 1: Link to set
   branch: string; 
   date: string; 
   time: string; 
