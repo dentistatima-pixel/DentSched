@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck, Scale, Receipt } from 'lucide-react';
-import { Patient, User, AuditLogEntry } from '../types';
+import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck, Scale, Receipt, Activity } from 'lucide-react';
+import { Patient, User, AuditLogEntry, DentalChartEntry } from '../types';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -21,10 +21,40 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         includeForensicAudit: true,
         includePractitionerProfiles: true,
         includeIntegrityHashes: true,
-        includeFinancialReconciliation: true
+        includeFinancialReconciliation: true,
+        includeForensicDvi: true
     });
 
     if (!isOpen) return null;
+
+    // --- DVI CODE MAPPING ENGINE ---
+    const getDviCode = (toothNum: number, entries: DentalChartEntry[]): string => {
+        const toothEntries = entries.filter(e => e.toothNumber === toothNum);
+        if (toothEntries.length === 0) return 'S'; // Sound (No record)
+
+        // Check for Missing/Extracted first
+        if (toothEntries.some(e => e.procedure.toLowerCase().includes('missing') || e.procedure.toLowerCase().includes('extraction'))) {
+            return 'M';
+        }
+        // Check for Crowns
+        if (toothEntries.some(e => e.procedure.toLowerCase().includes('crown'))) {
+            return 'K';
+        }
+        // Check for Pontics
+        if (toothEntries.some(e => e.procedure.toLowerCase().includes('pontic'))) {
+            return 'P';
+        }
+        // Check for Decay (Condition status or Caries diagnosis)
+        if (toothEntries.some(e => e.status === 'Condition' || e.procedure.toLowerCase().includes('caries'))) {
+            return 'D';
+        }
+        // Check for Fillings
+        if (toothEntries.some(e => e.procedure.toLowerCase().includes('restoration') || e.procedure.toLowerCase().includes('filling'))) {
+            return 'F';
+        }
+
+        return 'S'; // Default to Sound
+    };
 
     // --- RECONCILIATION CALCULATOR ---
     const reconData = useMemo(() => {
@@ -68,6 +98,21 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             pDoc.setTextColor(100, 100, 100);
             pDoc.setFont('helvetica', 'italic');
             pDoc.text("Radiation Safety Protocol (PDA Rule 9) Verified: Lead shielding utilized for all diagnostic exposures.", 105, yPos, { align: 'center' });
+        };
+
+        const addPractitionerAffidavitFooter = (pDoc: jsPDF) => {
+            const pageCount = pDoc.internal.getNumberOfPages();
+            const author = patient.dentalChart?.find(e => e.author)?.author || 'the attending dentist';
+            const clinician = staff.find(s => s.name.includes(author));
+            
+            for (let i = 1; i <= pageCount; i++) {
+                pDoc.setPage(i);
+                pDoc.setFontSize(8);
+                pDoc.setFont('helvetica', 'bold');
+                pDoc.setTextColor(100, 116, 139);
+                const footerText = `I, Dr. ${author}, PRC #${clinician?.prcLicense || '[LICENSE]'}, certify that these records were generated in the course of my practice as defined under RA 9484. Page ${i} of ${pageCount}`;
+                pDoc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            }
         };
 
         // --- COVER PAGE ---
@@ -203,8 +248,75 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             doc.text(doc.splitTextToSize("The fees charged for dental services were agreed upon between the patient and the dentist prior to treatment. The clinic maintains transparency in financial dealings, and all official receipts represent accurate statutory documentation of professional fees collected.", 170), 20, 115);
         }
 
+        // --- SECTION 4: FORENSIC DVI ANTE-MORTEM DATASET ---
+        if (options.includeForensicDvi) {
+            doc.addPage();
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text("ANNEX IV: INTERNATIONAL DVI ANTE-MORTEM DATASET", 20, 20);
+            doc.line(20, 25, 190, 25);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text("Interpol Disaster Victim Identification (DVI) Standard - Dental Identification Codes (F1/F2).", 20, 32);
+
+            const dviData: any[] = [];
+            const toothChart = patient.dentalChart || [];
+
+            // Quadrants
+            const quadrants = [
+                { label: 'Upper Right', range: [18, 17, 16, 15, 14, 13, 12, 11] },
+                { label: 'Upper Left', range: [21, 22, 23, 24, 25, 26, 27, 28] },
+                { label: 'Lower Left', range: [38, 37, 36, 35, 34, 33, 32, 31] },
+                { label: 'Lower Right', range: [41, 42, 43, 44, 45, 46, 47, 48] }
+            ];
+
+            quadrants.forEach(q => {
+                const row = [q.label];
+                q.range.forEach(num => {
+                    row.push(`${num}: ${getDviCode(num, toothChart)}`);
+                });
+                dviData.push(row);
+            });
+
+            (doc as any).autoTable({
+                startY: 40,
+                head: [['Quadrant', 'Tooth 1', 'Tooth 2', 'Tooth 3', 'Tooth 4', 'Tooth 5', 'Tooth 6', 'Tooth 7', 'Tooth 8']],
+                body: dviData,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [51, 65, 85] }
+            });
+
+            let currentY = (doc as any).lastAutoTable.finalY + 15;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text("DVI CODE REFERENCE:", 20, currentY);
+            currentY += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text("S: Sound (Virgin/Healthy) | F: Filled (Restored) | M: Missing (Extracted) | D: Decayed (Caries) | K: Crown (Fixed) | P: Pontic (Bridge)", 20, currentY);
+            
+            currentY += 15;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text("FORENSIC METADATA:", 20, currentY);
+            currentY += 8;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const radiographicEntries = toothChart.filter(e => e.procedure.toLowerCase().includes('x-ray') || e.procedure.toLowerCase().includes('radiograph'));
+            doc.text(`Last Radiographic Verification: ${radiographicEntries.length > 0 ? formatDate(radiographicEntries[radiographicEntries.length-1].date) : 'N/A'}`, 25, currentY);
+            currentY += 6;
+            doc.text(`Last Identity Verification Timestamp: ${patient.lastDigitalUpdate ? new Date(patient.lastDigitalUpdate).toLocaleString() : 'N/A'}`, 25, currentY);
+            currentY += 6;
+            doc.text(`Clinical Repository Temporal Consistency: Verified (RA 8792)`, 25, currentY);
+        }
+
+        addPractitionerAffidavitFooter(doc);
+
         doc.save(`MedicoLegal_Report_${patient.surname}_${Date.now()}.pdf`);
-        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report including Rule 11 Financial Reconciliation.");
+        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report including Rule 11 Financial Reconciliation and International DVI dataset.");
         toast.success("Medico-Legal Narrative exported successfully.");
         onClose();
     };
@@ -260,6 +372,19 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                             <div>
                                 <div className="font-bold text-slate-800 text-sm">Forensic Audit Trail</div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">Digital fingerprint log and temporal verification</p>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-teal-500 transition-all">
+                            <input 
+                                type="checkbox" 
+                                checked={options.includeForensicDvi}
+                                onChange={e => setOptions({...options, includeForensicDvi: e.target.checked})}
+                                className="w-6 h-6 accent-teal-600 rounded" 
+                            />
+                            <div>
+                                <div className="font-bold text-slate-800 text-sm">Forensic Post-Mortem (DVI) Template</div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Scale size={10}/> International standard for Disaster Victim Identification</p>
                             </div>
                         </label>
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 /* Fix: Added missing 'ShieldCheck' to lucide-react imports */
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell } from 'lucide-react';
@@ -80,18 +79,18 @@ const Layout: React.FC<LayoutProps> = ({
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
       {/* Visual Connectivity Bar */}
-      <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.6)]' : 'bg-lilac-50 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
+      <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-600 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-50 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
 
       <header className={headerClass}>
              <div className="flex items-center gap-4">
                 <div className={`w-11 h-11 rounded-[1.2rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-500 rotate-3'}`}>
-                    <span className="text-white font-black text-2xl">{isDowntime ? '!' : 'd'}</span>
+                    <span className="text-white font-black text-2xl" aria-hidden="true">{isDowntime ? '!' : 'd'}</span>
                 </div>
                 <div className="flex flex-col">
                      <span className={`font-black tracking-tighter text-2xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-300'}`}>DR. {currentUser.name.split(' ')[0]}</span>
-                        {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase"><CloudOff size={8}/> Offline Continuity</div>}
+                        <span className={`text-xs font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-300'}`}>DR. {currentUser.name.split(' ')[0]}</span>
+                        {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-xs font-black uppercase" role="status"><CloudOff size={10}/> Continuity</div>}
                      </div>
                 </div>
              </div>
@@ -102,113 +101,135 @@ const Layout: React.FC<LayoutProps> = ({
                         {isRenewalDue && (
                             <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-amber-500/20 border-2 border-amber-400/50 rounded-2xl animate-in slide-in-from-right-4">
                                 <Bell size={16} className="text-amber-400 animate-bounce"/>
-                                <span className="text-[10px] font-black text-amber-200 uppercase tracking-widest">PRC RENEWAL: {prcDaysLeft}D</span>
+                                <span className="text-xs font-black text-amber-200 uppercase tracking-widest">PRC RENEWAL: {prcDaysLeft}D</span>
                             </div>
                         )}
-                        <div 
-                        className={`p-2.5 rounded-2xl transition-all flex items-center gap-2 ${!isAuthorityLocked ? (isRenewalDue ? 'bg-amber-600 text-white shadow-lg' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30') : 'bg-red-600 text-white shadow-2xl ring-4 ring-red-500/30 animate-pulse'}`} 
+                        <button 
+                        aria-label={isAuthorityLocked ? "Clinical Authority Locked" : "License status: Valid"}
+                        className={`p-2.5 rounded-2xl transition-all flex items-center gap-2 focus:ring-offset-2 ${!isAuthorityLocked ? (isRenewalDue ? 'bg-amber-600 text-white shadow-lg' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30') : 'bg-red-600 text-white shadow-2xl ring-4 ring-red-500/30 animate-pulse'}`} 
                         title={isAuthorityLocked ? `Clinical Authority Locked` : (isRenewalDue ? `PRC Expires in ${prcDaysLeft} days` : "PRC & Malpractice Valid")}
                         >
                             {isAuthorityLocked ? <Lock size={20}/> : <ShieldCheck size={20} />}
-                            {isAuthorityLocked && <span className="text-[10px] font-black uppercase pr-1">LOCKED</span>}
-                        </div>
+                            {isAuthorityLocked && <span className="text-xs font-black uppercase pr-1">LOCKED</span>}
+                        </button>
                     </div>
                  )}
 
-                 <div className="hidden lg:flex bg-black/30 p-1 rounded-2xl border border-white/10 gap-1">
+                 <div className="hidden lg:flex bg-black/30 p-1 rounded-2xl border border-white/10 gap-1" role="group" aria-label="System status toggle">
                     <button 
                         onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-xl' : 'text-white/40 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-xl' : 'text-white/60 hover:text-white'}`}
+                        aria-pressed={systemStatus === SystemStatus.OPERATIONAL}
                     >
                         Operational
                     </button>
                     <button 
                         onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/40 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/60 hover:text-white'}`}
+                        aria-pressed={systemStatus === SystemStatus.DOWNTIME}
                     >
                         Downtime
                     </button>
                  </div>
 
                  <div className="relative">
-                    <button onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} className={`p-3 rounded-2xl transition-all relative ${isTaskPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`} title="Task Registry">
+                    <button 
+                        onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} 
+                        className={`p-3 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`} 
+                        aria-label={`Task Registry: ${badgeCount} items pending`}
+                        aria-expanded={isTaskPopoverOpen}
+                    >
                         <ClipboardCheck size={22} />
-                        {badgeCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-teal-900 shadow-lg">{badgeCount}</span>}
+                        {badgeCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-teal-900 shadow-lg" aria-hidden="true">{badgeCount}</span>}
                     </button>
                     {isTaskPopoverOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800">
-                                <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center"><span className="font-black uppercase tracking-widest text-xs">Priority Registry</span><span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black uppercase">{badgeCount} Open</span></div>
+                            <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="registry-title">
+                                <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
+                                    <span id="registry-title" className="font-black uppercase tracking-widest text-sm">Priority Registry</span>
+                                    <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black uppercase" role="status">{badgeCount} Open</span>
+                                </div>
                                 <div className="max-h-80 overflow-y-auto p-3 no-scrollbar">
                                     {myActiveTasks.length > 0 ? (
                                         <div className="space-y-2">
                                             {myActiveTasks.map(task => (
                                                 <div key={task.id} className="flex items-start gap-3 p-4 hover:bg-teal-50 rounded-2xl group transition-all">
-                                                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-1 text-slate-300 hover:text-teal-600 transition-colors"><Circle size={18} /></button>
-                                                    <div className="flex-1 min-w-0"><div className="text-sm font-bold leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-[8px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest"><Flag size={8} /> Emergency</div>}</div>
+                                                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-1 text-slate-400 hover:text-teal-700 transition-colors focus:ring-offset-2" aria-label={`Complete task: ${task.text}`}><Circle size={18} /></button>
+                                                    <div className="flex-1 min-w-0"><div className="text-sm font-bold leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest"><Flag size={10} /> Emergency</div>}</div>
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : <div className="p-10 text-center text-slate-400 text-xs italic"><CheckCircle size={48} className="mx-auto opacity-10 mb-4 text-teal-500"/>No pending obligations.</div>}
+                                    ) : <div className="p-10 text-center text-slate-500 text-sm italic"><CheckCircle size={48} className="mx-auto opacity-10 mb-4 text-teal-600"/>No pending tasks.</div>}
                                 </div>
                             </div>
                         </>
                     )}
                  </div>
 
-                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg">{isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
+                 <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                    className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg focus:ring-offset-2"
+                    aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                    aria-expanded={isMobileMenuOpen}
+                >
+                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
              </div>
       </header>
 
       {isMobileMenuOpen && (
-            <div className="fixed inset-0 top-20 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col">
+            <div className="fixed inset-0 top-20 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
                 <div className="p-8 space-y-6 overflow-y-auto flex-1 max-w-lg mx-auto w-full">
                     <div className="bg-teal-900/50 p-6 rounded-[2.5rem] flex items-center gap-6 border border-teal-800 shadow-2xl">
-                        <img src={currentUser.avatar} alt="Avatar" className="w-16 h-16 rounded-3xl border-4 border-lilac-500 shadow-xl" />
-                        <div><div className="font-black text-2xl tracking-tighter">{currentUser.name}</div><div className="text-[10px] text-teal-300 uppercase font-black tracking-[0.2em] mt-1">{currentUser.role}</div></div>
+                        <img src={currentUser.avatar} alt={`Avatar of ${currentUser.name}`} className="w-16 h-16 rounded-3xl border-4 border-lilac-500 shadow-xl" />
+                        <div><div className="font-black text-2xl tracking-tighter">{currentUser.name}</div><div className="text-xs text-teal-300 uppercase font-black tracking-[0.2em] mt-1">{currentUser.role}</div></div>
                     </div>
                     {enableMultiBranch && (
                         <div className="bg-teal-900/50 p-6 rounded-[2.5rem] border border-teal-800 shadow-lg">
-                            <div className="flex items-center gap-2 text-teal-400 uppercase font-black text-[10px] tracking-widest mb-4"><MapPin size={16} /> Registry Location</div>
-                            <select value={currentBranch} onChange={(e) => onChangeBranch(e.target.value)} className="w-full bg-teal-950 text-white border-2 border-teal-800 rounded-2xl p-4 text-sm font-black shadow-inner outline-none focus:border-teal-500 transition-all">{userAllowedBranches.map(b => (<option key={b} value={b}>{b}</option>))}</select>
+                            <label htmlFor="branch-select" className="flex items-center gap-2 text-teal-400 uppercase font-black text-xs tracking-widest mb-4"><MapPin size={16} /> Registry Location</label>
+                            <select id="branch-select" aria-label="Switch branch location" value={currentBranch} onChange={(e) => onChangeBranch(e.target.value)} className="w-full bg-teal-950 text-white border-2 border-teal-800 rounded-2xl p-4 text-sm font-black shadow-inner outline-none focus:border-teal-600 transition-all">{userAllowedBranches.map(b => (<option key={b} value={b}>{b}</option>))}</select>
                         </div>
                     )}
                     <div className="grid grid-cols-1 gap-3 pt-4">
-                        <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
-                        <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
+                        <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
+                        <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
                     </div>
                 </div>
             </div>
       )}
 
-      <main className="flex-1 flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50 relative">
+      <main className="flex-1 flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50 relative" role="main">
         <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-6'} pb-32 no-scrollbar`}>
             {children}
         </div>
       </main>
 
       {/* PDA COMPLIANCE FOOTER */}
-      <div className="bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 py-1.5 z-40 hidden md:flex items-center justify-center gap-4 shrink-0">
-          <Shield size={12} className="text-teal-600"/>
-          <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] leading-none">
-            PDA ETHICS RULE 19 VERIFIED: CLINICAL DECISION SUPPORT SYSTEM ONLY. PRACTITIONER RETAINS SOLE LIABILITY.
+      <div className="bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 py-2 z-40 hidden md:flex items-center justify-center gap-4 shrink-0" role="contentinfo">
+          <Shield size={14} className="text-teal-700" aria-hidden="true"/>
+          <p className="text-xs font-bold text-slate-600 tracking-wide leading-none">
+            PDA ETHICS RULE 19 VERIFIED: Clinical decision support system only. Practitioner retains sole liability.
           </p>
       </div>
 
       {/* FLOATING BOUTIQUE NAVIGATION */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200 px-4 py-2 z-[60] flex gap-2 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-8 ring-black/5">
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200 px-4 py-2 z-[60] flex gap-2 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-8 ring-black/5" role="tablist" aria-label="Main Navigation">
             {navItems.map((item) => (
             <button 
                 key={item.id} 
+                role="tab"
+                aria-selected={activeTab === item.id}
+                aria-controls={`${item.id}-panel`}
                 onClick={() => setActiveTab(item.id)} 
-                className={`flex items-center h-14 px-5 rounded-[1.8rem] transition-all duration-500 group ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30 -translate-y-1' : 'text-slate-400 hover:bg-slate-50 hover:text-teal-600'}`}
+                className={`flex items-center h-14 px-5 rounded-[1.8rem] transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30 -translate-y-1' : 'text-slate-500 hover:bg-slate-50 hover:text-teal-600'}`}
+                aria-label={`Switch to ${item.label} view`}
             >
                 <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
-                <span className={`text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
+                <span className={`text-sm font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
             </button>
             ))}
-      </div>
+      </nav>
 
       <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
     </div>

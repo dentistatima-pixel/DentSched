@@ -92,18 +92,18 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                     </div>
                     <div>
                         <h3 className="font-bold text-lg">{isBirMode ? 'Statutory Audit Ledger' : 'Financial Statement'}</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isBirMode ? 'BIR-OR Sync Matching Active' : 'Internal Operational Tracking'}</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{isBirMode ? 'BIR-OR Sync Matching Active' : 'Internal Operational Tracking'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-right">
-                        <span className="block text-[10px] font-bold uppercase text-slate-400">Current Balance</span>
-                        <span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-600' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span>
+                        <span className="block text-[10px] font-bold uppercase text-slate-500">Current Balance</span>
+                        <span className={`text-2xl font-black ${currentBalance > 0 ? 'text-red-700' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span>
                     </div>
                     <div className="flex gap-2">
-                         <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1"><Calendar size={16}/> Plan</button>
-                         <button onClick={() => setMode('add_charge')} className="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl font-bold text-sm transition-colors">Charge</button>
-                         <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 hover:bg-lilac-700' : 'bg-teal-600 hover:bg-teal-700'} text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2`}>
+                         <button onClick={() => setMode('add_installment')} className="bg-lilac-100 hover:bg-lilac-200 text-lilac-700 px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-1 focus:ring-offset-2"><Calendar size={16}/> Plan</button>
+                         <button onClick={() => setMode('add_charge')} className="bg-slate-100 hover:bg-slate-200 border px-4 py-2 rounded-xl font-bold text-sm transition-colors focus:ring-offset-2">Charge</button>
+                         <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 hover:bg-lilac-700' : 'bg-teal-600 hover:bg-teal-700'} text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 focus:ring-offset-2`}>
                              {isBirMode ? <Receipt size={16}/> : <DollarSign size={16}/>} {isBirMode ? 'Issue OR' : 'Payment'}
                          </button>
                     </div>
@@ -112,16 +112,28 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {mode === 'add_charge' && (
-                    <form onSubmit={handleCharge} className="bg-white p-6 rounded-2xl border-2 border-teal-500 space-y-4 animate-in zoom-in-95 shadow-xl">
+                    <form onSubmit={handleCharge} className="bg-white p-6 rounded-2xl border-2 border-teal-600 space-y-4 animate-in zoom-in-95 shadow-xl">
                         <div className="flex justify-between items-center mb-2">
                             <h4 className="font-black text-teal-900 flex items-center gap-2 uppercase tracking-widest text-sm"><DollarSign size={20}/> Record Patient Charge</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Tooth Extraction" className="w-full p-3 rounded-xl border-slate-200 focus:border-teal-500 outline-none" required /></div>
-                            <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Amount (₱)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="w-full p-3 rounded-xl border-slate-200 focus:border-teal-500 outline-none font-bold" required /></div>
-                            <div className="md:col-span-3"><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-xl border-slate-200 outline-none" /></div>
+                            <div className="md:col-span-2">
+                                <label htmlFor="charge-desc" className="text-[10px] font-bold text-slate-500 uppercase ml-1">Description</label>
+                                <input id="charge-desc" type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Tooth Extraction" className="w-full p-3 rounded-xl border border-slate-200 focus:border-teal-700 outline-none" required />
+                            </div>
+                            <div>
+                                <label htmlFor="charge-amount" className="text-[10px] font-bold text-slate-500 uppercase ml-1">Amount (₱)</label>
+                                <input id="charge-amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="w-full p-3 rounded-xl border border-slate-200 focus:border-teal-700 outline-none font-bold" required />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label htmlFor="charge-date" className="text-[10px] font-bold text-slate-500 uppercase ml-1">Date</label>
+                                <input id="charge-date" type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 focus:border-teal-700 outline-none" />
+                            </div>
                         </div>
-                        <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-400">Cancel</button><button type="submit" className="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-teal-600/20">Commit Charge</button></div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-500 focus:ring-offset-2">Cancel</button>
+                            <button type="submit" className="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-teal-600/20 focus:ring-offset-2">Commit Charge</button>
+                        </div>
                     </form>
                 )}
 
@@ -137,8 +149,9 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {isBirMode && (
                                 <div className="md:col-span-2">
-                                    <label className="text-[10px] font-black text-lilac-700 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-1"><Hash size={12}/> Official Receipt (OR) Number *</label>
+                                    <label htmlFor="payment-or" className="text-[10px] font-black text-lilac-700 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-1"><Hash size={12}/> Official Receipt (OR) Number *</label>
                                     <input 
+                                        id="payment-or"
                                         type="text" 
                                         required 
                                         value={orNumber} 
@@ -148,13 +161,13 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                     />
                                 </div>
                             )}
-                            <div className="md:col-span-2"><label className="label">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Cash Payment" className="input" required /></div>
-                            <div><label className="label">Amount (₱)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="input font-bold" required /></div>
-                            <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
+                            <div className="md:col-span-2"><label htmlFor="payment-desc" className="label">Description</label><input id="payment-desc" type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Cash Payment" className="input" required /></div>
+                            <div><label htmlFor="payment-amount" className="label">Amount (₱)</label><input id="payment-amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="input font-bold" required /></div>
+                            <div><label htmlFor="payment-date" className="label">Date</label><input id="payment-date" type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
                         </div>
                         <div className="flex justify-end gap-2 pt-4">
-                            <button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-400">Cancel</button>
-                            <button type="submit" className={`${isBirMode ? 'bg-lilac-600 shadow-lilac-600/20' : 'bg-emerald-600 shadow-emerald-600/20'} text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95`}>
+                            <button type="button" onClick={() => setMode('view')} className="px-4 py-2 font-bold text-slate-500 focus:ring-offset-2">Cancel</button>
+                            <button type="submit" className={`${isBirMode ? 'bg-lilac-600 shadow-lilac-600/20' : 'bg-emerald-600 shadow-emerald-600/20'} text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 focus:ring-offset-2`}>
                                 {isBirMode ? 'Match & Post Receipt' : 'Log Payment'}
                             </button>
                         </div>
@@ -185,14 +198,14 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                             <span className="font-mono font-bold text-lilac-700">{entry.orNumber || '---'}</span>
                                         </td>
                                     )}
-                                    <td className="p-4"><span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${entry.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{entry.type}</span></td>
-                                    <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-600' : 'text-emerald-600'}`}>₱{entry.amount.toLocaleString()}</td>
+                                    <td className="p-4"><span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${entry.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-800'}`}>{entry.type}</span></td>
+                                    <td className={`p-4 text-right font-bold ${entry.type === 'Charge' ? 'text-red-700' : 'text-emerald-800'}`}>₱{entry.amount.toLocaleString()}</td>
                                     <td className="p-4 text-right font-mono font-bold text-slate-600 bg-slate-50/30">₱{entry.balanceAfter.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {ledger.length === 0 && <div className="p-10 text-center text-slate-300 italic">No financial history recorded for this registry.</div>}
+                    {ledger.length === 0 && <div className="p-10 text-center text-slate-400 italic font-bold">No financial history recorded for this registry.</div>}
                 </div>
             </div>
         </div>

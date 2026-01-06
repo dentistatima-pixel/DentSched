@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FieldSettings, User, UserRole, RolePermissions, AuditLogEntry, Patient, ClinicalIncident, LeaveRequest, StaffShift, FeatureToggles, SmsTemplateConfig, SmsCategory, SmsTemplates } from '../types';
-/* Fix: Added missing 'Package' to lucide-react imports */
 import { Plus, Trash2, Edit2, Check, X, Sliders, ChevronRight, DollarSign, ToggleLeft, ToggleRight, Box, Calendar, MapPin, User as UserIcon, MessageSquare, Tag, FileText, Heart, Activity, Key, Shield, HardHat, Store, BookOpen, Pill, FileSignature, ClipboardPaste, Lock, Eye, AlertOctagon, Globe, AlertTriangle, Briefcase, Archive, AlertCircle, CheckCircle, DownloadCloud, Database, UploadCloud, Users, Droplet, Wrench, Clock, Plane, CalendarDays, Smartphone, Zap, Star, ShieldAlert, MonitorOff, Terminal, FileWarning, Link, ShieldCheck, Printer, ShieldOff, Receipt, ArrowRightLeft, Scale, Stethoscope, UserCheck, Eraser, PackageCheck, Beaker, Layout, Package } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
@@ -201,16 +200,18 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
         enabled, 
         icon: Icon, 
         onToggle,
-        alert = false 
+        alert = false,
+        disabled = false
     }: { 
         label: string, 
         description: string, 
         enabled: boolean, 
         icon: any, 
         onToggle: () => void,
-        alert?: boolean
+        alert?: boolean,
+        disabled?: boolean
     }) => (
-        <label className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all cursor-pointer ${enabled ? (alert ? 'bg-amber-50 border-amber-500 shadow-md' : 'bg-teal-50 border-teal-500 shadow-md') : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+        <label className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all ${disabled ? 'bg-slate-200 border-slate-300 cursor-not-allowed grayscale opacity-50' : cursorPointer(enabled, alert)}`}>
             <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                     <Icon size={18} className={enabled ? (alert ? 'text-amber-600' : 'text-teal-600') : 'text-slate-400'}/>
@@ -221,7 +222,8 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             <div className="shrink-0">
                 <button 
                     type="button"
-                    onClick={(e) => { e.preventDefault(); onToggle(); }}
+                    disabled={disabled}
+                    onClick={(e) => { e.preventDefault(); if(!disabled) onToggle(); }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enabled ? (alert ? 'bg-amber-600' : 'bg-teal-600') : 'bg-slate-300'}`}
                 >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -229,6 +231,10 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
             </div>
         </label>
     );
+
+    const cursorPointer = (enabled: boolean, alert: boolean) => {
+        return `cursor-pointer ${enabled ? (alert ? 'bg-amber-50 border-amber-500 shadow-md' : 'bg-teal-50 border-teal-500 shadow-md') : 'bg-slate-50 border-slate-100 opacity-60'}`;
+    }
 
     function renderSmsEngine() {
         const smsCategories: SmsCategory[] = ['Onboarding', 'Safety', 'Logistics', 'Recovery', 'Financial', 'Security', 'Efficiency', 'Reputation'];
@@ -242,7 +248,18 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
 
         const handleUpdateSms = (id: string, text: string) => {
             const { isCompliant } = validateSmsText(text);
-            const updated = { ...settings.smsTemplates, [id]: { ...settings.smsTemplates[id], text, isPdaCompliant: isCompliant } };
+            const updated = { ...settings.smsTemplates, [id]: { ...settings.smsTemplates[id], text, isPdaCompliant: isCompliant, enabled: isCompliant ? settings.smsTemplates[id].enabled : false } };
+            onUpdateSettings({ ...settings, smsTemplates: updated });
+        };
+
+        const toggleSmsTemplate = (id: string) => {
+            const template = settings.smsTemplates[id];
+            const { isCompliant } = validateSmsText(template.text);
+            if (!isCompliant) {
+                toast.error("DIGNITY GATE ACTIVE: Prohibited terms detected. Cannot enable template until professionalism standards are met.");
+                return;
+            }
+            const updated = { ...settings.smsTemplates, [id]: { ...template, enabled: !template.enabled } };
             onUpdateSettings({ ...settings, smsTemplates: updated });
         };
 
@@ -280,9 +297,16 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                                             <p className="text-[9px] text-slate-400 font-bold uppercase">{template.triggerDescription}</p>
                                         </div>
                                     </div>
-                                    {!isCompliant && (
-                                        <div className="bg-red-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter">PDA RULE 15 VIOLATION</div>
-                                    )}
+                                    <div className="flex items-center gap-4">
+                                        <GovernanceToggle 
+                                            label={template.enabled ? "ACTIVE" : "DISABLED"}
+                                            description=""
+                                            enabled={template.enabled}
+                                            disabled={!isCompliant}
+                                            icon={template.enabled ? CheckCircle : MonitorOff}
+                                            onToggle={() => toggleSmsTemplate(template.id)}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="relative">
                                     <textarea 
@@ -290,6 +314,12 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                                         onChange={e => handleUpdateSms(template.id, e.target.value)}
                                         className={`w-full p-4 rounded-2xl text-xs font-bold font-mono leading-relaxed outline-none transition-all h-24 ${isCompliant ? 'bg-slate-50 border border-slate-100 focus:border-teal-500' : 'bg-red-50 border-2 border-red-200 focus:border-red-500'}`}
                                     />
+                                    {!isCompliant && (
+                                        <div className="mt-2 p-3 bg-red-600 text-white rounded-xl flex items-center gap-3 animate-in zoom-in-95">
+                                            <ShieldAlert size={16} />
+                                            <span className="text-[10px] font-black uppercase">Dignity Gate Active: Forbidden terms detected ({violations.join(', ')}).</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -456,7 +486,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({ settings, onUpdateSet
                 )}
 
                 {showIncidentModal && !showAdvisoryModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                         <form onSubmit={handleIncidentSubmit} className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl border-4 border-red-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
                             <div className="bg-red-600 p-6 text-white flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-3"><AlertTriangle size={24}/><h3 className="text-xl font-black uppercase">Report Complication</h3></div>

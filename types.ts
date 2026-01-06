@@ -1,10 +1,11 @@
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
   DENTAL_ASSISTANT = 'Dental Assistant',
   SYSTEM_ARCHITECT = 'System Architect'
 }
+
+export type LicenseCategory = 'DENTIST' | 'HYGIENIST' | 'TECHNOLOGIST';
 
 export enum SystemStatus {
   OPERATIONAL = 'OPERATIONAL',
@@ -404,6 +405,7 @@ export interface ProcedureItem {
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
   riskAllergies?: string[]; 
+  allowedLicenseCategories?: LicenseCategory[];
 }
 
 export interface RolePermissions {
@@ -604,6 +606,7 @@ export interface DentalChartEntry {
   isVoid?: boolean;
   sealedHash?: string;
   sealedAt?: string;
+  isPendingSupervision?: boolean;
   supervisorySeal?: { 
     dentistId: string;
     dentistName: string;
@@ -632,6 +635,7 @@ export interface DentalChartEntry {
   deviationNarrative?: string;
   resourceId?: string;
   resourceName?: string;
+  yellowRxSerial?: string; // PDEA RA 9165 Logbook Serial
 }
 
 export interface PerioMeasurement {
@@ -680,6 +684,7 @@ export interface User {
   tin?: string;
   s2License?: string;
   s2Expiry?: string; 
+  licenseCategory?: LicenseCategory;
   malpracticeExpiry?: string;
   malpracticePolicy?: string;
   specialization?: string;

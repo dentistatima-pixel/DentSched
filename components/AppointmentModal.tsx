@@ -57,7 +57,18 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [procedureType, setProcedureType] = useState<string>(AppointmentType.CONSULTATION);
   const [blockTitle, setBlockTitle] = useState('');
 
-  const dentists = staff.filter(s => s.role === UserRole.DENTIST);
+  const dentists = staff.filter(s => s.role === UserRole.DENTIST || s.role === UserRole.DENTAL_ASSISTANT);
+  
+  const selectedProvider = useMemo(() => staff.find(s => s.id === providerId), [staff, providerId]);
+
+  const filteredProcedures = useMemo(() => {
+    return fieldSettings.procedures.filter(p => {
+        if (!p.allowedLicenseCategories || p.allowedLicenseCategories.length === 0) return true;
+        if (!selectedProvider?.licenseCategory) return true;
+        return p.allowedLicenseCategories.includes(selectedProvider.licenseCategory);
+    });
+  }, [fieldSettings.procedures, selectedProvider]);
+
   const isCriticalProcedure = ['Surgery', 'Root Canal', 'Extraction'].includes(procedureType);
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
@@ -230,7 +241,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 <h2 className="text-xl font-bold">{isDowntime && 'DOWNTIME: '}{existingAppointment ? 'Edit Appointment' : 'New Booking'}</h2>
                 {isDowntime && <div className="bg-white text-red-700 px-2 py-0.5 rounded text-[10px] font-black animate-pulse">OVERRIDE ENABLED</div>}
             </div>
-            <button onClick={onClose}><X size={24}/></button>
+            <button onClick={onClose} aria-label="Close modal" className="focus:ring-offset-2 rounded-lg"><X size={24}/></button>
         </div>
         
         <div className="p-6 space-y-6">
@@ -243,20 +254,23 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <p className="text-xs text-red-800 font-medium mb-4 leading-relaxed">
                         A clinical gate has been triggered (<strong>{pendingOverrideType}</strong>). In Downtime mode, you may bypass this validation. Providing a justification is mandatory for compliance.
                     </p>
+                    <label htmlFor="override-narrative" className="sr-only">Override Justification</label>
                     <textarea 
+                        id="override-narrative"
                         autoFocus
                         required
+                        aria-label="Override justification"
                         value={overrideReason}
                         onChange={e => setOverrideReason(e.target.value)}
                         placeholder="Justify this emergency bypass..."
                         className="w-full p-4 bg-white border-2 border-red-100 rounded-2xl text-sm focus:ring-4 focus:ring-red-500/10 outline-none h-32"
                     />
                     <div className="flex gap-2 mt-6">
-                        <button onClick={() => setShowOverridePrompt(false)} className="flex-1 py-3 font-bold text-slate-500">Back</button>
+                        <button onClick={() => setShowOverridePrompt(false)} className="flex-1 py-3 font-bold text-slate-500 focus:ring-offset-2">Back</button>
                         <button 
                             onClick={execSave}
                             disabled={!overrideReason.trim()}
-                            className="flex-[2] py-3 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-50"
+                            className="flex-[2] py-3 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-600/20 hover:bg-red-700 transition-all focus:ring-offset-2 disabled:opacity-50"
                         >
                             Authorize Bypass
                         </button>
@@ -266,46 +280,46 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 <>
                 {!existingAppointment && (
                     <div className="space-y-4">
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setActiveTab('existing')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'existing' ? 'bg-white shadow text-teal-700' : 'text-slate-500'}`}>Existing Patient</button>
-                            <button onClick={() => setActiveTab('block')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'block' ? 'bg-white shadow text-teal-700' : 'text-slate-500'}`}>Admin Block</button>
+                        <div className="flex bg-slate-100 p-1 rounded-xl" role="tablist" aria-label="Appointment target">
+                            <button onClick={() => setActiveTab('existing')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all focus:ring-offset-2 ${activeTab === 'existing' ? 'bg-white shadow text-teal-700' : 'text-slate-500'}`} role="tab" aria-selected={activeTab === 'existing'}>Existing Patient</button>
+                            <button onClick={() => setActiveTab('block')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all focus:ring-offset-2 ${activeTab === 'block' ? 'bg-white shadow text-teal-700' : 'text-slate-500'}`} role="tab" aria-selected={activeTab === 'block'}>Admin Block</button>
                         </div>
 
                         {activeTab === 'existing' && (
                             <div className="relative">
-                                <label className="label">Search Patient</label>
+                                <label htmlFor="apt-patient-lookup" className="label">Search Patient</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or mobile..." className="input pl-10" />
+                                    <input id="apt-patient-lookup" type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or mobile..." className="input pl-10" aria-label="Search patient registry" />
                                 </div>
                                 {searchTerm && (
                                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-xl z-10 overflow-hidden">
                                         {filteredPatients.map(p => (
-                                            <button key={p.id} onClick={() => { setSelectedPatientId(p.id); setSearchTerm(''); }} className="w-full text-left p-3 hover:bg-teal-50 border-b last:border-0 flex justify-between items-center"><span className="font-bold text-sm">{p.name}</span><span className="text-[10px] text-slate-400">{p.phone}</span></button>
+                                            <button key={p.id} onClick={() => { setSelectedPatientId(p.id); setSearchTerm(''); }} className="w-full text-left p-3 hover:bg-teal-50 border-b last:border-0 flex justify-between items-center"><span className="font-bold text-sm">{p.name}</span><span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{p.phone}</span></button>
                                         ))}
                                     </div>
                                 )}
                                 {selectedPatientId && (
-                                    <div className="mt-3 p-3 bg-teal-50 border border-teal-100 rounded-xl flex justify-between items-center">
+                                    <div className="mt-3 p-3 bg-teal-50 border border-teal-200 rounded-xl flex justify-between items-center">
                                         <span className="font-bold text-teal-900">{patients.find(p => p.id === selectedPatientId)?.name}</span>
-                                        <button onClick={() => setSelectedPatientId('')} className="text-xs font-bold text-teal-600">Change</button>
+                                        <button onClick={() => setSelectedPatientId('')} className="text-xs font-black text-teal-800 uppercase tracking-widest focus:ring-offset-2">Change</button>
                                     </div>
                                 )}
                             </div>
                         )}
 
                         {activeTab === 'block' && (
-                            <div><label className="label">Block Title / Reason</label><input type="text" value={blockTitle} onChange={e => setBlockTitle(e.target.value)} placeholder="e.g. Lunch Break, Staff Meeting" className="input" /></div>
+                            <div><label htmlFor="block-title" className="label">Block Title / Reason</label><input id="block-title" type="text" value={blockTitle} onChange={e => setBlockTitle(e.target.value)} placeholder="e.g. Lunch Break, Staff Meeting" className="input" aria-label="Block title" /></div>
                         )}
                     </div>
                 )}
 
                 {(isReliabilityRisk || (selectedPatient?.currentBalance ?? 0) > 0) && (
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3 animate-in shake duration-500">
-                        <AlertTriangle className="text-red-600 shrink-0" size={20} />
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3 animate-in shake duration-500" role="alert">
+                        <AlertTriangle className="text-red-700 shrink-0" size={20} />
                         <div>
                             <p className="text-xs font-black text-red-900 uppercase tracking-widest">Front-Desk Alert</p>
-                            <p className="text-[11px] text-red-700 leading-tight mt-1">
+                            <p className="text-[11px] font-bold text-red-800 leading-tight mt-1">
                                 {isReliabilityRisk && `High No-Show Risk (${selectedPatient.reliabilityScore}%). `}
                                 {(selectedPatient?.currentBalance ?? 0) > 0 && `Outstanding Balance: ₱${selectedPatient?.currentBalance?.toLocaleString()}. `}
                                 Recommend confirming twice or requesting a reservation deposit.
@@ -315,24 +329,24 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Clinical Provider</label><select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">{dentists.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                    <div><label className="label">Clinical Resource / Chair</label><select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input">{availableResources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}</select></div>
+                    <div><label htmlFor="apt-provider" className="label">Clinical Provider</label><select id="apt-provider" aria-label="Clinical Provider" value={providerId} onChange={e => setProviderId(e.target.value)} className="input">{dentists.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+                    <div><label htmlFor="apt-resource" className="label">Clinical Resource / Chair</label><select id="apt-resource" aria-label="Clinical Resource" value={resourceId} onChange={e => setResourceId(e.target.value)} className="input">{availableResources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}</select></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Procedure</label><select value={procedureType} onChange={e => setProcedureType((e.target as HTMLSelectElement).value)} className="input">{fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-                    <div><label className="label">Duration (Min)</label><select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select></div>
+                    <div><label htmlFor="apt-type" className="label">Procedure</label><select id="apt-type" aria-label="Procedure type" value={procedureType} onChange={e => setProcedureType((e.target as HTMLSelectElement).value)} className="input">{filteredProcedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                    <div><label htmlFor="apt-duration" className="label">Duration (Min)</label><select id="apt-duration" aria-label="Session duration" value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input"><option value={15}>15m</option><option value={30}>30m</option><option value={45}>45m</option><option value={60}>1h</option><option value={90}>1.5h</option><option value={120}>2h</option></select></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
-                    <div><label className="label">Time</label><input type="time" value={time} onChange={e => setTime(e.target.value)} className="input" /></div>
+                    <div><label htmlFor="apt-date" className="label">Date</label><input id="apt-date" aria-label="Session date" type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
+                    <div><label htmlFor="apt-time" className="label">Time</label><input id="apt-time" aria-label="Session time" type="time" value={time} onChange={e => setTime(e.target.value)} className="input" /></div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4" role="region" aria-label="Lab processing details">
                     <div className="flex justify-between items-center">
-                        <label className="label mb-0 flex items-center gap-2"><Beaker size={14}/> Lab Sub-processing</label>
-                        <select value={labStatus} onChange={e => setLabStatus(e.target.value as LabStatus)} className="p-1 text-xs border rounded bg-white">
+                        <label htmlFor="apt-lab-status" className="label mb-0 flex items-center gap-2"><Beaker size={14}/> Lab Sub-processing</label>
+                        <select id="apt-lab-status" aria-label="Lab status" value={labStatus} onChange={e => setLabStatus(e.target.value as LabStatus)} className="p-1 text-xs font-black uppercase border rounded bg-white">
                             <option value={LabStatus.NONE}>No Lab Required</option>
                             <option value={LabStatus.PENDING}>Order Pending</option>
                             <option value={LabStatus.RECEIVED}>Received</option>
@@ -341,23 +355,25 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     {labStatus !== LabStatus.NONE && (
                         <div className="space-y-4 animate-in slide-in-from-top-2">
                             <div className="relative">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Preferred Lab Vendor</label>
+                                <label htmlFor="apt-lab-vendor" className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block">Preferred Lab Vendor</label>
                                 <select 
+                                    id="apt-lab-vendor"
+                                    aria-label="Select lab vendor"
                                     value={labVendorId} 
                                     onChange={e => setLabVendorId(e.target.value)}
-                                    className={`w-full p-2.5 rounded-xl border-2 bg-white text-xs font-bold outline-none transition-all ${labVendorId && !isDsaValid ? 'border-red-400 ring-4 ring-red-500/5' : 'border-slate-100 focus:border-teal-500'}`}
+                                    className={`w-full p-2.5 rounded-xl border-2 bg-white text-xs font-bold outline-none transition-all ${labVendorId && !isDsaValid ? 'border-red-400 ring-4 ring-red-500/5' : 'border-slate-100 focus:border-teal-700'}`}
                                 >
                                     <option value="">- Select Verified Lab -</option>
                                     {labVendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                                 </select>
                                 {labVendorId && (
                                     <div className={`mt-2 flex flex-col gap-2`}>
-                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${isDsaValid ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-red-50 border-red-200 text-red-700 animate-bounce'}`}>
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-black uppercase tracking-widest ${isDsaValid ? 'bg-teal-50 border-teal-200 text-teal-800' : 'bg-red-50 border-red-200 text-red-800 animate-bounce'}`}>
                                             {isDsaValid ? <BadgeCheck size={14}/> : <ShieldX size={14}/>}
                                             {isDsaValid ? 'NPC Compliance: DSA Active' : 'CRITICAL: No DSA on File'}
                                         </div>
                                         {existingAppointment?.dataTransferId && (
-                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-[8px] font-black text-blue-700 uppercase tracking-tighter">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-[11px] font-black text-blue-800 uppercase tracking-tighter">
                                                 <Database size={12}/> DPA Audit ID: {existingAppointment.dataTransferId}
                                             </div>
                                         )}
@@ -365,49 +381,54 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                 )}
                             </div>
 
-                            {/* MATERIAL INTAKE FORM (Logic Point 3) */}
                             {labStatus === LabStatus.RECEIVED && (
-                                <div className="bg-white p-4 rounded-2xl border-2 border-teal-500 shadow-lg space-y-4 animate-in zoom-in-95">
-                                    <div className="flex items-center gap-2 text-teal-700 mb-2">
+                                <div className="bg-white p-4 rounded-2xl border-2 border-teal-600 shadow-lg space-y-4 animate-in zoom-in-95">
+                                    <div className="flex items-center gap-2 text-teal-800 mb-2">
                                         <PackageCheck size={18}/>
                                         <h4 className="text-[11px] font-black uppercase tracking-widest leading-none">Material Forensic Intake</h4>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Lot / Serial # *</label>
+                                            <label htmlFor="apt-mat-lot" className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Lot / Serial # *</label>
                                             <input 
+                                                id="apt-mat-lot"
+                                                aria-label="Material lot number"
                                                 type="text" 
                                                 value={materialLotNumber} 
                                                 onChange={e => setMaterialLotNumber(e.target.value)} 
                                                 placeholder="e.g. SN-88912"
-                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-700 outline-none"
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Cert Issuer *</label>
+                                            <label htmlFor="apt-mat-cert" className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Cert Issuer *</label>
                                             <input 
+                                                id="apt-mat-cert"
+                                                aria-label="Certificate issuer"
                                                 type="text" 
                                                 value={materialCertIssuer} 
                                                 onChange={e => setMaterialCertIssuer(e.target.value)} 
                                                 placeholder="e.g. Ivoclar"
-                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-700 outline-none"
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Verifying Staff *</label>
+                                        <label htmlFor="apt-mat-verifier" className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Verifying Staff *</label>
                                         <select 
+                                            id="apt-mat-verifier"
+                                            aria-label="Verifying staff member"
                                             value={materialVerifiedBy} 
                                             onChange={e => setMaterialVerifiedBy(e.target.value)}
-                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-500 outline-none"
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-teal-700 outline-none"
                                         >
                                             <option value="">- Select Verifier -</option>
                                             {staff.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
                                         </select>
                                     </div>
                                     <div className="p-2 bg-teal-50 rounded-xl border border-teal-100 flex items-center gap-2">
-                                        <UserCheck size={14} className="text-teal-600"/>
-                                        <span className="text-[8px] font-black text-teal-800 uppercase leading-tight">Identity of staff who physically verified the material certification will be permanently logged.</span>
+                                        <UserCheck size={14} className="text-teal-700"/>
+                                        <span className="text-[11px] font-black text-teal-900 uppercase leading-tight">Identity of verifying staff will be permanently logged.</span>
                                     </div>
                                 </div>
                             )}
@@ -417,23 +438,31 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
                 {isCriticalProcedure && (
                     <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200 space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-bold text-blue-800"><Shield size={18}/> Clinical Infection Control</div>
-                        <select value={sterilizationCycleId} onChange={e => setSterilizationCycleId(e.target.value)} className="w-full p-2 border rounded-lg bg-white text-sm">
+                        <div className="flex items-center gap-2 text-sm font-bold text-blue-900 uppercase tracking-tight"><Shield size={18}/> Clinical Infection Control</div>
+                        <label htmlFor="apt-steril-cycle" className="sr-only">Sterilization Cycle</label>
+                        <select id="apt-steril-cycle" aria-label="Sterilization cycle" value={sterilizationCycleId} onChange={e => setSterilizationCycleId(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white text-sm font-bold">
                             <option value="">- Select Passed Autoclave Cycle -</option>
                             {sterilizationCycles.filter(c => c.passed).map(c => <option key={c.id} value={c.id}>{c.cycleNumber} ({c.autoclaveName})</option>)}
                         </select>
+                        <label className="flex items-center gap-2 cursor-pointer p-1">
+                            <input type="checkbox" checked={sterilizationVerified} onChange={e => setSterilizationVerified(e.target.checked)} className="w-5 h-5 accent-blue-700 rounded" />
+                            <span className="text-[11px] font-black uppercase text-blue-950">Verified at Chairside</span>
+                        </label>
                     </div>
                 )}
                 
-                <textarea placeholder="Internal Notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input h-20 resize-none" />
+                <div>
+                    <label htmlFor="apt-notes" className="label">Internal Session Notes</label>
+                    <textarea id="apt-notes" aria-label="Internal session notes" placeholder="Clinical context, patient fears, specific requests..." value={notes} onChange={e => setNotes(e.target.value)} className="input h-20 resize-none" />
+                </div>
                 </>
             )}
         </div>
         
         {!showOverridePrompt && (
             <div className="p-4 border-t flex gap-3 bg-white md:rounded-b-3xl sticky bottom-0">
-                <button onClick={onClose} className="flex-1 py-3 bg-slate-100 rounded-xl font-bold">Cancel</button>
-                <button onClick={handleSave} className={`flex-[2] py-3 text-white rounded-xl font-bold flex items-center justify-center gap-2 ${isDowntime ? 'bg-red-600 hover:bg-red-700' : 'bg-teal-600 hover:bg-teal-700'}`}><Save size={20} />{existingAppointment ? 'Update' : 'Confirm'}</button>
+                <button onClick={onClose} className="flex-1 py-4 bg-slate-50 text-slate-600 font-black uppercase tracking-widest text-[11px] rounded-2xl focus:ring-offset-2">Cancel</button>
+                <button onClick={handleSave} className={`flex-[2] py-4 text-white font-black uppercase tracking-widest text-[11px] rounded-2xl flex items-center justify-center gap-2 shadow-xl focus:ring-offset-2 ${isDowntime ? 'bg-red-600 shadow-red-600/20 hover:bg-red-700' : 'bg-teal-600 shadow-teal-600/20 hover:bg-teal-700'}`}><Save size={20} />{existingAppointment ? 'Update Registry' : 'Confirm Session'}</button>
             </div>
         )}
       </div>

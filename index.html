@@ -53,16 +53,16 @@
         background-color: #ffffff; 
         border: 2px solid #fae8ff; /* lilac-100 */
         border-radius: 1rem; 
-        font-size: 0.875rem; 
+        font-size: 1rem; 
         font-weight: 600;
         color: #1e293b; 
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         outline: none;
       }
       .input:focus { 
-        border-color: #14b8a6; /* teal-500 */
+        border-color: #0d9488; /* teal-600 */
         background-color: #ffffff;
-        box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.1);
+        box-shadow: 0 0 0 5px rgba(13, 148, 136, 0.15);
       }
       .input:disabled {
         background-color: #f8fafc;
@@ -77,13 +77,27 @@
 
       .label {
         display: block;
-        font-size: 0.65rem;
+        font-size: 1rem; /* Increased to 16px for elderly accessibility */
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.075em;
         color: #0f766e; /* teal-700 */
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.5rem;
         margin-left: 0.5rem;
+      }
+
+      /* Kiosk Overrides for Cognitive Accessibility */
+      .kiosk-mode .label {
+        text-transform: none; /* Revert to sentence case for dyslexia/cognitive clarity */
+        letter-spacing: normal;
+        font-weight: 700;
+      }
+
+      /* Enhanced focus management for keyboard/elderly users */
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+        outline: 4px solid #0d9488; /* teal-600 */
+        outline-offset: 4px;
+        box-shadow: 0 0 0 8px rgba(13, 148, 136, 0.1);
       }
 
       /* Utilities */

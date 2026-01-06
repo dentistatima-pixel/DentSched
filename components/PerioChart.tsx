@@ -53,9 +53,9 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                     value={m.pocketDepths[i] ?? ''}
                                     onFocus={() => onFocusSite(tooth, i)}
                                     onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                    className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold transition-all
-                                        ${isFocused ? 'scale-110 border-teal-500 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
-                                        ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700'}
+                                    className={`w-10 h-10 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
+                                        ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
+                                        ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-300 bg-red-50' : 'text-slate-800'}
                                     `}
                                     placeholder="-"
                                     disabled={readOnly}
@@ -68,8 +68,9 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                             </div>
                             <button 
                                 onClick={() => onBleedingToggle(tooth, i)}
-                                className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
-                                title="BOP"
+                                className={`w-6 h-6 rounded-full border-2 shadow-sm transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800' : 'bg-white border-slate-300 hover:border-red-400'}`}
+                                title="Bleeding on Probing (BOP)"
+                                aria-label={`Toggle bleeding for tooth ${tooth} site ${i + 1}`}
                                 disabled={readOnly}
                             />
                         </div>
@@ -77,11 +78,12 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                 })}
             </div>
 
-            <div className="py-1 flex justify-center border-y border-slate-100 bg-slate-100/50">
+            <div className="py-2 flex justify-center border-y border-slate-200 bg-slate-100/50">
                     <select 
                     value={m.mobility ?? ''}
+                    aria-label={`Mobility for tooth ${tooth}`}
                     onChange={(e) => onMobilityChange(tooth, e.target.value)}
-                    className="text-xs bg-transparent font-bold text-center outline-none cursor-pointer text-blue-700 w-full appearance-none uppercase"
+                    className="text-xs bg-transparent font-black text-center outline-none cursor-pointer text-blue-800 w-full appearance-none uppercase"
                     disabled={readOnly}
                     >
                         <option value="">Mob: -</option>
@@ -100,8 +102,9 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                         <div key={`L-${i}`} className="flex flex-col items-center gap-1">
                         <button 
                             onClick={() => onBleedingToggle(tooth, i)}
-                            className={`w-3 h-3 rounded-full border ${m.bleeding[i] ? 'bg-red-500 border-red-500' : 'bg-white border-slate-300 hover:border-red-300'}`}
-                            title="BOP"
+                            className={`w-6 h-6 rounded-full border-2 shadow-sm transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800' : 'bg-white border-slate-300 hover:border-red-400'}`}
+                            title="Bleeding on Probing (BOP)"
+                            aria-label={`Toggle bleeding for tooth ${tooth} site ${i + 1}`}
                             disabled={readOnly}
                         />
                         <div className="relative">
@@ -111,9 +114,9 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                 value={m.pocketDepths[i] ?? ''}
                                 onFocus={() => onFocusSite(tooth, i)}
                                 onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                className={`w-8 h-8 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold transition-all
-                                    ${isFocused ? 'scale-110 border-teal-500 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
-                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-600 border-red-300 bg-red-50' : 'text-slate-700'}
+                                className={`w-10 h-10 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
+                                    ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
+                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-300 bg-red-50' : 'text-slate-800'}
                                 `}
                                 placeholder="-"
                                 disabled={readOnly}
@@ -153,13 +156,13 @@ const PerioProgressionGraph: React.FC<{ data: PerioMeasurement[] }> = ({ data })
 
     return (
         <div className="bg-white p-6 rounded-2xl border border-teal-100 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-6">
-            <div className="flex items-center gap-2 text-teal-800 font-bold mb-6">
-                <LineChart size={20} className="text-teal-600"/>
+            <div className="flex items-center gap-2 text-teal-800 font-black mb-6">
+                <LineChart size={20} className="text-teal-700"/>
                 Healing Progression: Average Pocket Depth Trend
             </div>
-            <div className="h-40 flex items-end gap-2 relative border-b border-l border-slate-200 ml-8 mb-8 px-4 pt-4">
+            <div className="h-40 flex items-end gap-2 relative border-b border-l border-slate-200 ml-10 mb-10 px-4 pt-4">
                 {/* Y-Axis Labels */}
-                <div className="absolute -left-8 top-0 bottom-0 flex flex-col justify-between text-[10px] font-bold text-slate-400 py-1">
+                <div className="absolute -left-10 top-0 bottom-0 flex flex-col justify-between text-[10px] font-black text-slate-500 py-1">
                     <span>{maxAvg.toFixed(1)}mm</span>
                     <span>{(maxAvg/2).toFixed(1)}mm</span>
                     <span>0mm</span>
@@ -170,14 +173,14 @@ const PerioProgressionGraph: React.FC<{ data: PerioMeasurement[] }> = ({ data })
                     return (
                         <div key={i} className="flex-1 flex flex-col items-center group relative">
                             <div 
-                                className="w-full bg-teal-500/20 rounded-t-lg transition-all duration-1000 border-t-4 border-teal-600 hover:bg-teal-500/40 relative" 
+                                className="w-full bg-teal-700/20 rounded-t-lg transition-all duration-1000 border-t-4 border-teal-700 hover:bg-teal-700/40 relative" 
                                 style={{ height: `${height}%` }}
                             >
-                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-teal-800 bg-white px-1 rounded border border-teal-100 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-teal-900 bg-white px-1 rounded border border-teal-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                     {s.avg.toFixed(1)}mm
                                 </div>
                             </div>
-                            <div className="absolute -bottom-6 text-[9px] font-bold text-slate-500 whitespace-nowrap rotate-45 origin-left">
+                            <div className="absolute -bottom-8 text-[10px] font-black text-slate-600 whitespace-nowrap rotate-45 origin-left">
                                 {s.date}
                             </div>
                         </div>
@@ -354,15 +357,15 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                 <div className="flex items-center gap-3">
                     <div className="bg-lilac-100 p-2 rounded-xl text-lilac-700"><Activity size={24} /></div>
                     <div>
-                        <h3 className="font-bold text-slate-800">Periodontal Attachment Tracking</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Hygiene comparison & diagnostic progression</p>
+                        <h3 className="font-black text-slate-800">Periodontal Attachment Tracking</h3>
+                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Hygiene comparison & diagnostic progression</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
                     <button 
                         onClick={() => setShowGraph(!showGraph)}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs border transition-all flex items-center gap-1
-                            ${showGraph ? 'bg-teal-50 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-500 hover:border-teal-300'}
+                        className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1
+                            ${showGraph ? 'bg-teal-50 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-500 hover:border-teal-400'}
                         `}
                     >
                         <LineChart size={14}/> {showGraph ? 'Hide Trends' : 'Show Trends'}
@@ -370,8 +373,8 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     {!readOnly && (
                         <button 
                             onClick={toggleVoice}
-                            className={`px-3 py-1.5 rounded-xl font-bold text-xs border transition-all flex items-center gap-2
-                                ${isVoiceActive ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-white text-slate-500 border-slate-200 hover:border-teal-300'}
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-2
+                                ${isVoiceActive ? 'bg-red-600 text-white animate-pulse border-red-700' : 'bg-white text-slate-500 border-slate-200 hover:border-teal-400'}
                             `}
                         >
                             {isVoiceActive ? <MicOff size={16}/> : <Mic size={16}/>}
@@ -381,8 +384,8 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     {previousDate && (
                         <button 
                             onClick={() => setCompareMode(!compareMode)}
-                            className={`px-3 py-1.5 rounded-xl font-bold text-xs border transition-all flex items-center gap-1
-                                ${compareMode ? 'bg-lilac-600 text-white border-lilac-400' : 'bg-white text-slate-500 border-slate-200 hover:border-lilac-300'}
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1
+                                ${compareMode ? 'bg-lilac-600 text-white border-lilac-400' : 'bg-white text-slate-500 border-slate-200 hover:border-lilac-400'}
                             `}
                         >
                             <ArrowRightLeft size={14}/> {compareMode ? 'Hide Comparison' : `Compare vs ${previousDate}`}
@@ -391,7 +394,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     {!readOnly && (
                         <button 
                             onClick={saveAll}
-                            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-teal-600/20 transition-all"
+                            className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-teal-700/20 transition-all"
                         >
                             <Save size={18} /> Save Exam
                         </button>
@@ -403,16 +406,16 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                 {showGraph && <PerioProgressionGraph data={data} />}
 
                 {!readOnly && (
-                    <div className="bg-teal-50 border border-teal-100 p-3 rounded-2xl flex items-center justify-between mb-4 shadow-sm animate-in slide-in-from-top-1">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-teal-500 text-white p-2 rounded-xl"><FastForward size={18}/></div>
+                    <div className="bg-teal-50 border-2 border-teal-100 p-4 rounded-2xl flex items-center justify-between mb-4 shadow-sm animate-in slide-in-from-top-1">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-teal-700 text-white p-2.5 rounded-xl shadow-md"><FastForward size={20}/></div>
                             <div>
-                                <div className="text-sm font-bold text-teal-900">Auto-Advance Active</div>
-                                <div className="text-xs text-teal-600">Enter a single digit to automatically jump to the next site.</div>
+                                <div className="text-sm font-black text-teal-900 uppercase">Auto-Advance Active</div>
+                                <div className="text-xs text-teal-700 font-bold">Enter a single digit to jump to the next site. Dots are 24x24px for ease of access.</div>
                             </div>
                         </div>
                         {focusedSite && (
-                            <div className="bg-white border border-teal-200 px-4 py-2 rounded-xl font-mono font-bold text-teal-700 shadow-sm">
+                            <div className="bg-white border-2 border-teal-200 px-5 py-2.5 rounded-xl font-mono font-black text-teal-700 shadow-sm text-lg">
                                 TOOTH: #{focusedSite.tooth} | SITE: {focusedSite.index + 1}
                             </div>
                         )}
@@ -420,26 +423,26 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                 )}
 
                 {compareMode && previousDate && (
-                    <div className="bg-white p-4 rounded-xl border border-lilac-100 shadow-sm animate-in slide-in-from-top-2 duration-500">
-                        <div className="flex items-center gap-2 text-lilac-700 font-bold text-xs uppercase mb-3"><History size={14}/> Progress Summary</div>
+                    <div className="bg-white p-4 rounded-xl border-2 border-lilac-100 shadow-sm animate-in slide-in-from-top-2 duration-500">
+                        <div className="flex items-center gap-2 text-lilac-700 font-black text-xs uppercase mb-3"><History size={14}/> Progress Summary</div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
-                                <div className="text-[9px] font-bold text-slate-400 uppercase">Hygiene Improvement</div>
-                                <div className="text-lg font-black text-teal-600 flex items-center justify-center gap-1"><TrendingDown size={18}/> 12% BOP Reduction</div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase">Hygiene Improvement</div>
+                                <div className="text-lg font-black text-teal-700 flex items-center justify-center gap-1"><TrendingDown size={18}/> 12% BOP Reduction</div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                <div className="flex gap-4 mb-4 text-[10px] text-slate-500 justify-center font-bold uppercase tracking-widest">
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 bg-white border border-slate-300 shadow-sm"></span> Normal</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 bg-red-50 border border-red-300 shadow-sm"></span> 5mm+ Depth</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></span> Bleeding (BOP)</div>
+                <div className="flex gap-6 mb-4 text-[11px] text-slate-600 justify-center font-black uppercase tracking-widest">
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-white border-2 border-slate-300 shadow-sm"></span> Normal</div>
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-red-50 border-2 border-red-300 shadow-sm"></span> 5mm+ Depth</div>
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-red-600 rounded-full shadow-sm"></span> Bleeding (BOP)</div>
                 </div>
 
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 font-bold text-slate-400 uppercase text-xs tracking-wider ml-1">
-                        <ChevronUp size={16} className="text-teal-600"/> Maxillary Arch (FDI 18-28)
+                    <div className="flex items-center gap-2 font-black text-slate-500 uppercase text-xs tracking-wider ml-1">
+                        <ChevronUp size={16} className="text-teal-700"/> Maxillary Arch (FDI 18-28)
                     </div>
                     <div className="flex border border-slate-200 rounded-2xl overflow-hidden shadow-xl w-max bg-white">
                         {TEETH_UPPER.map(t => (
@@ -460,9 +463,9 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     </div>
                 </div>
 
-                <div className="space-y-4 pb-10">
-                    <div className="flex items-center gap-2 font-bold text-slate-400 uppercase text-xs tracking-wider ml-1">
-                        <ChevronDown size={16} className="text-lilac-600"/> Mandibular Arch (FDI 48-38)
+                <div className="space-y-4 pb-16">
+                    <div className="flex items-center gap-2 font-black text-slate-500 uppercase text-xs tracking-wider ml-1">
+                        <ChevronDown size={16} className="text-lilac-700"/> Mandibular Arch (FDI 48-38)
                     </div>
                     <div className="flex border border-slate-200 rounded-2xl overflow-hidden shadow-xl w-max bg-white">
                         {TEETH_LOWER.map(t => (

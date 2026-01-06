@@ -135,11 +135,11 @@ const PatientList: React.FC<PatientListProps> = ({
   const ReferralNode: React.FC<{ patient: Patient; allPatients: Patient[]; level?: number }> = ({ patient, allPatients, level = 0 }) => {
     const children = allPatients.filter(p => p.referredById === patient.id);
     return (
-        <div className="ml-6 border-l-4 border-slate-100 pl-4 py-1">
-            <div className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${level === 0 ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100 hover:border-teal-300 shadow-sm'}`}>
-                {level === 0 ? <Activity size={18} className="text-teal-600" /> : <div className="w-2 h-2 rounded-full bg-teal-400" />}
+        <div className="ml-6 border-l-4 border-slate-200 pl-4 py-1">
+            <div className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${level === 0 ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-200 hover:border-teal-400 shadow-sm'}`}>
+                {level === 0 ? <Activity size={18} className="text-teal-600" /> : <div className="w-2 h-2 rounded-full bg-teal-500" />}
                 <div className="flex-1 min-w-0">
-                    <span className="font-black text-slate-800 text-xs uppercase tracking-tight truncate block">{patient.name}</span>
+                    <span className="font-black text-slate-800 text-sm uppercase tracking-tight truncate block">{patient.name}</span>
                 </div>
             </div>
             {children.map(child => <ReferralNode key={child.id} patient={child} allPatients={allPatients} level={level + 1} />)}
@@ -154,25 +154,25 @@ const PatientList: React.FC<PatientListProps> = ({
       <div className={`w-full md:w-96 bg-white rounded-[3rem] shadow-xl border-2 border-white flex flex-col shrink-0 ${selectedPatientId ? 'hidden lg:flex' : 'flex'}`}>
            <div className="p-8 border-b border-slate-100 flex flex-col gap-6">
                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><Users size={24}/></div>
+                  <div className="w-12 h-12 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg" aria-hidden="true"><Users size={24}/></div>
                   <h2 className="text-2xl font-black tracking-tighter uppercase leading-none">Registry</h2>
                </div>
                <div className="relative group">
-                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-500 transition-colors" size={20} />
-                   <input type="text" placeholder="Identity lookup..." className="w-full bg-slate-50 p-4 pl-12 rounded-2xl text-sm font-bold border-2 border-slate-50 focus:border-teal-500 outline-none transition-all shadow-inner" />
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-teal-600 transition-colors" size={20} />
+                   <input type="text" placeholder="Identity lookup..." aria-label="Search patients by name or ID" className="w-full bg-slate-50 p-4 pl-12 rounded-2xl text-sm font-bold border-2 border-slate-100 focus:border-teal-500 outline-none transition-all shadow-inner" />
                </div>
-               <button onClick={onAddPatient} className="w-full bg-lilac-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-lilac-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+               <button onClick={onAddPatient} className="w-full bg-lilac-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-lilac-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3" aria-label="Register new patient admission">
                    <UserPlus size={18}/> New Admission
                </button>
            </div>
-           <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-2">
+           <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-2" role="list" aria-label="Patient list">
                {patients.map(p => (
-                   <button key={p.id} onClick={() => onSelectPatient(p.id)} className={`w-full text-left p-6 rounded-[2rem] transition-all flex justify-between items-center group ${selectedPatientId === p.id ? 'bg-teal-600 text-white shadow-2xl scale-105 z-10' : 'hover:bg-slate-50'}`}>
+                   <button key={p.id} role="listitem" onClick={() => onSelectPatient(p.id)} className={`w-full text-left p-6 rounded-[2rem] transition-all flex justify-between items-center group ${selectedPatientId === p.id ? 'bg-teal-600 text-white shadow-2xl scale-105 z-10' : 'hover:bg-slate-50'}`} aria-label={`Select patient ${p.name}`}>
                        <div className="flex-1 min-w-0">
                            <div className="font-black text-sm uppercase tracking-tighter truncate">{p.name}</div>
-                           <div className={`text-[9px] uppercase font-black flex items-center gap-2 mt-1 tracking-widest ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-400'}`}>UID: {p.id.slice(-8)}</div>
+                           <div className={`text-xs uppercase font-black flex items-center gap-2 mt-1 tracking-widest ${selectedPatientId === p.id ? 'text-teal-100' : 'text-slate-500'}`}>UID: {p.id.slice(-8)}</div>
                        </div>
-                       <ChevronRight size={18} className={selectedPatientId === p.id ? 'text-white' : 'text-slate-200 group-hover:text-teal-500 group-hover:translate-x-1 transition-all'} />
+                       <ChevronRight size={18} className={selectedPatientId === p.id ? 'text-white' : 'text-slate-300 group-hover:text-teal-500 group-hover:translate-x-1 transition-all'} />
                    </button>
                ))}
            </div>
@@ -184,7 +184,7 @@ const PatientList: React.FC<PatientListProps> = ({
            {isArchitect && (
                <div className="bg-lilac-600 text-white px-8 py-3 flex items-center justify-center gap-4 shadow-xl z-50">
                     <Zap size={16} className="animate-pulse"/>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Clinical Integrity Audit: Governance Restrictions Disabled</span>
+                    <span className="text-xs font-black uppercase tracking-[0.2em]">Clinical Integrity Audit: Governance Restrictions Disabled</span>
                </div>
            )}
 
@@ -194,27 +194,27 @@ const PatientList: React.FC<PatientListProps> = ({
                         <div className="flex items-center gap-4 flex-wrap mb-4">
                             <h2 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">{selectedPatient.name.toUpperCase()}</h2>
                             <div className="h-6 w-px bg-slate-200 mx-2" />
-                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">PATIENT_ID: {selectedPatient.id}</span>
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">PATIENT_ID: {selectedPatient.id}</span>
                         </div>
                         
-                        <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-3 flex-wrap" role="status" aria-label="Patient clinical status alerts">
                             {selectedPatient.allergies && selectedPatient.allergies.length > 0 && selectedPatient.allergies[0] !== 'None' && (
-                                <div className="bg-red-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-red-600/20 animate-in zoom-in-95 ring-4 ring-red-50">
+                                <div className="bg-red-600 text-white px-4 py-1.5 rounded-full text-xs font-black uppercase flex items-center gap-2 shadow-lg shadow-red-600/20 animate-in zoom-in-95 ring-4 ring-red-50">
                                     <ShieldAlert size={14}/> ALLERGY: {selectedPatient.allergies.join(', ')}
                                 </div>
                             )}
                             {selectedPatient.medicalConditions && selectedPatient.medicalConditions.length > 0 && selectedPatient.medicalConditions[0] !== 'None' && (
-                                <div className="bg-orange-50 text-orange-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 shadow-sm border border-orange-200 animate-in zoom-in-95">
+                                <div className="bg-orange-50 text-orange-800 px-4 py-1.5 rounded-full text-xs font-black uppercase flex items-center gap-2 shadow-sm border border-orange-200 animate-in zoom-in-95">
                                     <AlertCircle size={14}/> {selectedPatient.medicalConditions.join(', ')}
                                 </div>
                             )}
                             {selectedPatient.takingBloodThinners && (
-                                <div className="bg-red-50 text-red-700 border-2 border-red-100 px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 animate-pulse">
+                                <div className="bg-red-50 text-red-800 border-2 border-red-200 px-4 py-1.5 rounded-full text-xs font-black uppercase flex items-center gap-2 animate-pulse">
                                     <Droplet size={14}/> BLOOD THINNER VIGILANCE
                                 </div>
                             )}
                             {(selectedPatient.currentBalance || 0) > 0 && (
-                                <div className="bg-amber-50 text-amber-800 border-2 border-amber-100 px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2">
+                                <div className="bg-amber-50 text-amber-900 border-2 border-amber-200 px-4 py-1.5 rounded-full text-xs font-black uppercase flex items-center gap-2">
                                     <DollarSign size={14}/> LEDGER: ₱{selectedPatient.currentBalance?.toLocaleString()}
                                 </div>
                             )}
@@ -222,28 +222,30 @@ const PatientList: React.FC<PatientListProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        <button onClick={() => setRevocationTarget({ category: 'Clinical' })} className="px-6 py-3 bg-red-50 text-red-600 border-2 border-red-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">
+                        <button onClick={() => setRevocationTarget({ category: 'Clinical' })} className="px-6 py-3 bg-red-50 text-red-600 border-2 border-red-200 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all" aria-label="Revoke clinical data processing consent">
                            Lock Access
                         </button>
-                        <button onClick={() => onBookAppointment(selectedPatient.id)} className="px-6 py-3 bg-lilac-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all">
+                        <button onClick={() => onBookAppointment(selectedPatient.id)} className="px-6 py-3 bg-lilac-600 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all" aria-label="Book new session for this patient">
                             <CalendarPlus size={18}/> New Session
                         </button>
                     </div>
                 </div>
            </div>
 
-           <div className="bg-slate-50/50 px-8 border-b border-slate-100 flex gap-1 shrink-0 z-0 overflow-x-auto no-scrollbar scroll-smooth">
+           <div className="bg-slate-50/50 px-8 border-b border-slate-200 flex gap-1 shrink-0 z-0 overflow-x-auto no-scrollbar scroll-smooth" role="tablist" aria-label="Patient chart navigation">
                {['info', 'medical', 'chart', 'imaging', 'perio', 'plan', 'ledger', 'documents', 'certificates'].map(t => {
                    const isCare = ['info', 'plan', 'ledger'].includes(t);
-                   const isClinical = ['medical', 'chart', 'imaging', 'perio', 'documents', 'certificates'].includes(t);
                    return (
                        <button 
                         key={t} 
+                        role="tab"
+                        aria-selected={activeTab === t}
+                        aria-controls={`${t}-panel`}
                         onClick={() => setActiveTab(t as any)} 
-                        className={`py-6 px-6 font-black text-[10px] uppercase tracking-[0.2em] border-b-4 transition-all whitespace-nowrap flex items-center gap-2 ${
+                        className={`py-6 px-6 font-black text-xs uppercase tracking-[0.2em] border-b-4 transition-all whitespace-nowrap flex items-center gap-2 ${
                             activeTab === t 
                                 ? (isCare ? 'border-lilac-600 text-lilac-900 bg-white' : 'border-teal-600 text-teal-900 bg-white shadow-inner shadow-teal-500/5') 
-                                : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-white/50'
+                                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-white/50'
                         }`}
                        >
                            {t}
@@ -252,29 +254,29 @@ const PatientList: React.FC<PatientListProps> = ({
                })}
            </div>
 
-           <div className="flex-1 overflow-y-auto p-10 bg-slate-50/20">
+           <div className="flex-1 overflow-y-auto p-10 bg-slate-50/20" id={`${activeTab}-panel`}>
                 {activeTab === 'info' && (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-900/5 flex flex-col h-fit">
-                            <h4 className="font-black text-slate-800 uppercase tracking-[0.2em] text-xs mb-10 flex items-center gap-4"><Users size={24} className="text-lilac-600"/> Care Nexus Mapping</h4>
-                            {patients.filter(p => p.referredById === selectedPatient.id).length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-20 text-center text-slate-300 italic text-sm">No secondary referral associations identified in registry.</div>}
+                            <h4 className="font-black text-slate-800 uppercase tracking-[0.2em] text-sm mb-10 flex items-center gap-4"><Users size={24} className="text-lilac-600"/> Care Nexus Mapping</h4>
+                            {patients.filter(p => p.referredById === selectedPatient.id).length > 0 ? <ReferralNode patient={selectedPatient} allPatients={patients} /> : <div className="p-20 text-center text-slate-500 italic text-sm">No secondary referral associations identified in registry.</div>}
                         </div>
                         <div className="bg-white p-10 rounded-[3rem] border-2 border-lilac-50 shadow-xl shadow-lilac-600/5 flex flex-col h-fit">
-                            <h4 className="font-black text-slate-800 flex items-center gap-4 uppercase tracking-[0.2em] text-xs mb-10"><ShieldCheck size={24} className="text-teal-600"/> Data Governance Engine</h4>
+                            <h4 className="font-black text-slate-800 flex items-center gap-4 uppercase tracking-[0.2em] text-sm mb-10"><ShieldCheck size={24} className="text-teal-600"/> Data Governance Engine</h4>
                             <div className="space-y-6">
                                 {(['Clinical', 'Marketing', 'ThirdParty'] as ConsentCategory[]).map(cat => {
                                     const { status } = getConsentStatus(selectedPatient, cat);
                                     return (
-                                        <div key={cat} className={`p-6 rounded-[2rem] border-2 transition-all duration-500 ${status === 'Revoked' ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100 hover:border-teal-500 shadow-sm'}`}>
+                                        <div key={cat} className={`p-6 rounded-[2rem] border-2 transition-all duration-500 ${status === 'Revoked' ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200 hover:border-teal-600 shadow-sm'}`}>
                                             <div className="flex justify-between items-center mb-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{cat} TRACK</span>
+                                                    <span className="text-xs font-black uppercase text-slate-500 tracking-widest mb-1">{cat} TRACK</span>
                                                     <span className="font-black text-slate-800 text-sm uppercase">Processing Authority</span>
                                                 </div>
-                                                <span className={`text-[10px] font-black uppercase px-4 py-1.5 rounded-full shadow-sm ${status === 'Revoked' ? 'bg-red-600 text-white' : 'bg-teal-600 text-white'}`}>{status.toUpperCase()}</span>
+                                                <span className={`text-xs font-black uppercase px-4 py-1.5 rounded-full shadow-sm ${status === 'Revoked' ? 'bg-red-600 text-white' : 'bg-teal-600 text-white'}`}>{status.toUpperCase()}</span>
                                             </div>
-                                            <div className="flex justify-end items-center mt-4 pt-4 border-t border-slate-50">
-                                                {status === 'Revoked' ? <button onClick={() => {}} className="text-[10px] font-black text-teal-600 uppercase flex items-center gap-2 hover:underline tracking-widest">Restore Processing Rights</button> : <button onClick={() => setRevocationTarget({ category: cat })} className="text-[10px] font-black text-red-500 uppercase flex items-center gap-2 hover:underline tracking-widest">Withdraw Consent</button>}
+                                            <div className="flex justify-end items-center mt-4 pt-4 border-t border-slate-100">
+                                                {status === 'Revoked' ? <button onClick={() => {}} className="text-xs font-black text-teal-700 uppercase flex items-center gap-2 hover:underline tracking-widest">Restore Processing Rights</button> : <button onClick={() => setRevocationTarget({ category: cat })} className="text-xs font-black text-red-600 uppercase flex items-center gap-2 hover:underline tracking-widest">Withdraw Consent</button>}
                                             </div>
                                         </div>
                                     );
@@ -286,7 +288,7 @@ const PatientList: React.FC<PatientListProps> = ({
 
                 {activeTab === 'chart' && (
                     <div className="flex flex-col h-full min-h-[700px] gap-10">
-                        <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-900/5">
+                        <div className="bg-white p-10 rounded-[3.5rem] border border-slate-200 shadow-xl shadow-slate-900/5">
                             <Odontogram 
                                 chart={selectedPatient.dentalChart || []} 
                                 onToothClick={() => {}} 
@@ -319,7 +321,7 @@ const PatientList: React.FC<PatientListProps> = ({
 
                 {/* Other tabs remain functionally identical but benefit from the [3.5rem] and high-end wrapper */}
                 {['medical', 'perio', 'plan', 'ledger', 'imaging', 'documents', 'certificates'].includes(activeTab) && (
-                    <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-900/5 overflow-hidden h-full min-h-[600px] animate-in slide-in-from-bottom-6 duration-500">
+                    <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-2xl shadow-slate-900/5 overflow-hidden h-full min-h-[600px] animate-in slide-in-from-bottom-6 duration-500">
                         {activeTab === 'medical' && <RegistrationMedical formData={selectedPatient} handleChange={() => {}} handleArrayChange={() => {}} readOnly={true} fieldSettings={fieldSettings!} />}
                         {activeTab === 'perio' && <PerioChart data={selectedPatient.perioChart || []} onSave={handlePerioSave} readOnly={isClinicalLocked} />}
                         {activeTab === 'plan' && <TreatmentPlan patient={selectedPatient} currentUser={currentUser} onUpdatePatient={onQuickUpdatePatient} logAction={logAction} featureFlags={fieldSettings?.features} fieldSettings={fieldSettings} readOnly={isClinicalLocked} />}
@@ -330,29 +332,29 @@ const PatientList: React.FC<PatientListProps> = ({
                                     <div className="p-4 bg-teal-50 text-teal-600 rounded-3xl"><FileCheck size={32}/></div>
                                     <div>
                                         <h3 className="text-2xl font-black uppercase tracking-tight">Verified Clinical Certificates</h3>
-                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">PDA Rule 17 Statutory Records</p>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">PDA Rule 17 Statutory Records</p>
                                     </div>
                                 </div>
                                 {patientAppointments.map(apt => (
                                     <div key={apt.id} className="bg-slate-50/50 p-8 rounded-[2.5rem] border-2 border-white shadow-xl flex items-center justify-between group hover:border-teal-500 transition-all">
                                         <div className="flex items-center gap-6">
-                                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-slate-200 group-hover:text-teal-600 transition-colors shadow-inner"><Calendar size={28}/></div>
+                                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 group-hover:text-teal-600 transition-colors shadow-inner"><Calendar size={28}/></div>
                                             <div>
                                                 <div className="font-black text-slate-800 uppercase text-lg tracking-tight">{apt.type}</div>
-                                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{formatDate(apt.date)} • Forensic Witness Record Seal</div>
+                                                <div className="text-xs text-slate-500 font-black uppercase tracking-widest">{formatDate(apt.date)} • Forensic Witness Record Seal</div>
                                             </div>
                                         </div>
-                                        <button onClick={() => {}} className="px-10 py-4 bg-teal-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><FileCheck size={18}/> Issue verified Cert</button>
+                                        <button onClick={() => {}} className="px-10 py-4 bg-teal-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><FileCheck size={18}/> Issue Cert</button>
                                     </div>
                                 ))}
-                                {patientAppointments.length === 0 && <div className="p-20 text-center text-slate-300 italic">No completed session records eligible for certification.</div>}
+                                {patientAppointments.length === 0 && <div className="p-20 text-center text-slate-500 italic">No completed session records eligible for certification.</div>}
                             </div>
                         )}
                     </div>
                 )}
            </div>
         </div>
-      ) : <div className="hidden md:flex-1 md:flex flex-col items-center justify-center text-slate-300 space-y-6 opacity-40">
+      ) : <div className="hidden md:flex-1 md:flex flex-col items-center justify-center text-slate-400 space-y-6 opacity-40">
             <Users size={120} strokeWidth={1} />
             <p className="text-xl font-black uppercase tracking-[0.3em]">Patient Identity Hub</p>
             <p className="text-sm font-medium tracking-widest">Select a registry entry to begin clinical processing</p>
@@ -364,6 +366,7 @@ const PatientList: React.FC<PatientListProps> = ({
               <button 
                   onClick={() => setIsLegalExportOpen(true)}
                   className="bg-slate-900 text-white px-8 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:-translate-y-2 transition-all active:scale-95 group border-2 border-slate-800"
+                  aria-label="Export medico-legal clinical records"
               >
                   <ShieldCheck size={20} className="text-teal-400 group-hover:animate-pulse"/> Action Medico-Legal Export
               </button>

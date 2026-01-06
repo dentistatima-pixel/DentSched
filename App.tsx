@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -710,6 +709,14 @@ function App() {
       const patient = patients.find(p => p.id === patientId);
       if (!patient) return;
 
+      // --- STATUTORY RECORD RETENTION LOCK (MEDICO-LEGAL HOLD) ---
+      const hasActiveIncident = incidents.some(inc => inc.patientId === patientId);
+      if (hasActiveIncident) {
+          toast.error("MEDICO-LEGAL HOLD ACTIVE: This record cannot be purged. A clinical incident or dispute is linked to this identity. Forensic records must be preserved for judicial review under RA 9484.");
+          logAction('SECURITY_ALERT', 'DataArchive', patientId, "Purge request denied: Medico-legal hold active due to linked clinical incident.");
+          return;
+      }
+
       const lastVisitStr = patient.lastVisit === 'First Visit' ? new Date().toLocaleDateString('en-CA') : patient.lastVisit;
       const lastVisitDate = new Date(lastVisitStr);
       const tenYearsAgo = new Date();
@@ -764,42 +771,44 @@ function App() {
   }
 
   return (
-    <Layout 
-      activeTab={activeTab} 
-      setActiveTab={handleTabChange} 
-      onAddAppointment={() => setIsAppointmentModalOpen(true)} 
-      currentUser={effectiveUser} 
-      onSwitchUser={setCurrentUser} 
-      staff={staff} 
-      currentBranch={currentBranch} 
-      availableBranches={fieldSettings.branches} 
-      onChangeBranch={setCurrentBranch} 
-      fieldSettings={fieldSettings} 
-      onGenerateReport={() => {}} 
-      tasks={tasks} 
-      onToggleTask={(id) => setTask(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} 
-      onEnterKioskMode={() => setIsInKioskMode(true)}
-      isOnline={isOnline}
-      pendingSyncCount={offlineQueue.length}
-      systemStatus={systemStatus}
-      onSwitchSystemStatus={setSystemStatus}
-    >
-      {showTamperAlert && (
-          <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
-              <ShieldAlert size={32} className="animate-pulse" />
-              <div className="text-center">
-                  <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>
-                  <p className="text-xs font-bold text-red-400">Primary audit log wiped while forensic shadow logs remain. Mandatory 72-hour NPC reporting protocol active.</p>
-              </div>
-              <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black text-xs">Acknowledge</button>
-          </div>
-      )}
-      {isInKioskMode ? <KioskView patients={patients} onUpdatePatient={handleSavePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} /> : renderContent()}
-      <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
-      <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
-      {pendingPostOpAppointment && <PostOpHandoverModal isOpen={!!pendingPostOpAppointment} onClose={() => setPendingPostOpAppointment(null)} onConfirm={handleConfirmPostOp} appointment={pendingPostOpAppointment} />}
-      {pendingSafetyTimeout && <SafetyTimeoutModal patient={pendingSafetyTimeout.patient} onConfirm={handleSafetyTimeoutConfirm} />}
-    </Layout>
+    <div className={isInKioskMode ? "kiosk-mode h-full" : "h-full"}>
+        <Layout 
+        activeTab={activeTab} 
+        setActiveTab={handleTabChange} 
+        onAddAppointment={() => setIsAppointmentModalOpen(true)} 
+        currentUser={effectiveUser} 
+        onSwitchUser={setCurrentUser} 
+        staff={staff} 
+        currentBranch={currentBranch} 
+        availableBranches={fieldSettings.branches} 
+        onChangeBranch={setCurrentBranch} 
+        fieldSettings={fieldSettings} 
+        onGenerateReport={() => {}} 
+        tasks={tasks} 
+        onToggleTask={(id) => setTask(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} 
+        onEnterKioskMode={() => setIsInKioskMode(true)}
+        isOnline={isOnline}
+        pendingSyncCount={offlineQueue.length}
+        systemStatus={systemStatus}
+        onSwitchSystemStatus={setSystemStatus}
+        >
+        {showTamperAlert && (
+            <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
+                <ShieldAlert size={32} className="animate-pulse" />
+                <div className="text-center">
+                    <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>
+                    <p className="text-xs font-bold text-red-400">Primary audit log wiped while forensic shadow logs remain. Mandatory 72-hour NPC reporting protocol active.</p>
+                </div>
+                <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black text-xs">Acknowledge</button>
+            </div>
+        )}
+        {isInKioskMode ? <KioskView patients={patients} onUpdatePatient={handleSavePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} /> : renderContent()}
+        <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
+        <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
+        {pendingPostOpAppointment && <PostOpHandoverModal isOpen={!!pendingPostOpAppointment} onClose={() => setPendingPostOpAppointment(null)} onConfirm={handleConfirmPostOp} appointment={pendingPostOpAppointment} />}
+        {pendingSafetyTimeout && <SafetyTimeoutModal patient={pendingSafetyTimeout.patient} onConfirm={handleSafetyTimeoutConfirm} />}
+        </Layout>
+    </div>
   );
 }
 
