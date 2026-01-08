@@ -147,6 +147,8 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
     { id: 'al1', timestamp: new Date().toISOString(), userId: 'admin1', userName: 'Sarah Connor', action: 'LOGIN', entity: 'System', entityId: 'System', details: 'System Initialized.' }
 ];
 
+export const MOCK_AUDIT_LOG_INITIALIZED: AuditLogEntry[] = MOCK_AUDIT_LOG;
+
 export const MOCK_VENDORS: Vendor[] = [
     { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2025-01-15' }
 ];
@@ -163,11 +165,11 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   editBufferWindowMinutes: 60,
   suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Jr', 'Sr', 'III'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated'],
+  sex: ['Male', 'Female'],
   insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard'],
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
   nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'British'],
   religions: ['None', 'Roman Catholic', 'Christian', 'Islam', 'Iglesia ni Cristo'],
-  // Fix: Removed duplicate relationshipTypes property (previously on line 171/172)
   relationshipTypes: ['Mother', 'Father', 'Legal Guardian', 'Spouse', 'Self'],
   habitRegistry: ['Tobacco Use', 'Alcohol Consumption', 'Vaping', 'Bruxism'],
   documentCategories: ['X-Ray', 'Medical Clearance', 'Lab Result', 'Consent Form'],
@@ -189,9 +191,9 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     { id: 'religion', label: 'Religion', type: 'dropdown', section: 'IDENTITY', registryKey: 'religions', width: 'half' },
     { id: 'nationality', label: 'Nationality', type: 'dropdown', section: 'IDENTITY', registryKey: 'nationalities', width: 'half' },
     { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', width: 'half' },
-    { id: 'homeNumber', label: 'Home Num', type: 'tel', section: 'CONTACT', width: 'quarter' },
-    { id: 'officeNumber', label: 'Office Num', type: 'tel', section: 'CONTACT', width: 'quarter' },
-    { id: 'faxNumber', label: 'Fax Num', type: 'tel', section: 'CONTACT', width: 'quarter' },
+    { id: 'homeNumber', label: 'Home Num', type: 'tel', section: 'CONTACT', width: 'third' },
+    { id: 'officeNumber', label: 'Office Num', type: 'tel', section: 'CONTACT', width: 'third' },
+    { id: 'faxNumber', label: 'Fax Num', type: 'tel', section: 'CONTACT', width: 'third' },
     { id: 'dentalInsurance', label: 'Dental Insurance', type: 'text', section: 'INSURANCE', width: 'half' },
     { id: 'insuranceEffectiveDate', label: 'Insurance Effective Date', type: 'date', section: 'INSURANCE', width: 'half' },
     { id: 'chiefComplaint', label: 'Reason for dental consultation', type: 'textarea', section: 'DENTAL', width: 'full' },
@@ -205,7 +207,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       suffix: 'Suffix',
       dob: 'Birth Date',
       age: 'Age',
-      sex: 'Sex (M/F)',
+      sex: 'Sex',
+      civilStatus: 'Civil Status',
       bloodGroup: 'Blood Type',
       homeAddress: 'Home Address',
       city: 'City',
@@ -218,7 +221,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   },
   identityLayoutOrder: [
       'core_firstName', 'core_middleName', 'core_surname', 'core_suffix',
-      'core_dob', 'core_age', 'core_sex', 'field_nickname',
+      'core_dob', 'core_age', 'core_sex', 'core_civilStatus', 'field_nickname',
       'field_religion', 'field_nationality', 'field_occupation',
       'core_homeAddress', 'core_city', 'core_barangay',
       'field_homeNumber', 'field_officeNumber', 'field_faxNumber', 'core_phone', 'core_email',
@@ -235,6 +238,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Are you taking any prescription/non-prescription medication?*',
       'Do you use tobacco products?',
       'Do you use alcohol, cocaine or other dangerous drugs?',
+      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+      'Taking Bisphosphonates? (Fosamax, Zometa)',
       'core_bloodGroup', 'core_bloodPressure',
       'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex', 'field_otherAllergies'
   ],
@@ -245,7 +250,9 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Have you ever been hospitalized?*',
     'Are you taking any prescription/non-prescription medication?*',
     'Do you use tobacco products?',
-    'Do you use alcohol, cocaine or other dangerous drugs?'
+    'Do you use alcohol, cocaine or other dangerous drugs?',
+    'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+    'Taking Bisphosphonates? (Fosamax, Zometa)'
   ],
   femaleQuestionRegistry: [
     'Are you pregnant?',
@@ -253,16 +260,14 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Are you taking birth control pills?'
   ],
   medicalRiskRegistry: [
-    '[RISK] Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
-    '[RISK] Taking Bisphosphonates? (Fosamax, Zometa)',
-    '[RISK] History of Heart Valve Issues or Rheumatic Fever?',
-    '[RISK] Allergy to Local Anesthesia?',
-    '[RISK] Respiratory Conditions? (Asthma, TB, COPD)'
+    // Unique questions moved to identityQuestionRegistry above. 
+    // Duplicates moved to Allergies/Conditions dynamic logic.
   ],
   dentalHistoryRegistry: [
     'Previous Attending Dentist',
     'Approximate Date of Last Visit'
   ],
+  criticalRiskRegistry: [],
   procedures: [
       { id: 'p1', name: 'Consultation', price: 500, category: 'General', allowedLicenseCategories: ['DENTIST'] },
       { id: 'p2', name: 'Restoration', price: 1500, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] }
@@ -309,5 +314,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   currentPrivacyVersion: '1.0',
   acknowledgedAlertIds: [],
   retentionPolicy: { archivalYears: 10, purgeYears: 15 },
-  kioskSettings: { welcomeMessage: 'Welcome to Ivory Dental', privacyNotice: 'We process your data for clinical care.' }
+  get kioskSettings(): { welcomeMessage: string; privacyNotice: string; } {
+      return { welcomeMessage: 'Welcome to Ivory Dental', privacyNotice: 'We process your data for clinical care.' };
+  }
 };

@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
-import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
+import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
 
 interface PatientRegistrationModalProps {
@@ -22,12 +22,15 @@ interface PatientRegistrationModalProps {
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false, patients = [] }) => {
   const toast = useToast();
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
   
   const initialFormState: Partial<Patient> = {
     id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     takingBloodThinners: false, takingBisphosphonates: false, heartValveIssues: false, tookBpMedicationToday: true, anesthesiaReaction: false, respiratoryIssues: false,
     isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
-    dentalChart: []
+    dentalChart: [],
+    registrationSignature: '',
+    registrationSignatureTimestamp: ''
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -44,13 +47,19 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     }
   }, [isOpen, initialData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
     const { name, value, type } = e.target;
     setFormData(prev => {
         const newData = { ...prev };
-        if (type === 'checkbox') { const checked = (e.target as HTMLInputElement).checked; (newData as any)[name] = checked; } 
-        else { (newData as any)[name] = value; }
+        if (type === 'checkbox') { 
+            const checked = (e.target as HTMLInputElement).checked; 
+            (newData as any)[name] = checked; 
+        } 
+        else { 
+            (newData as any)[name] = value; 
+        }
+        
         if (name === 'dob' && value) {
             const [year, month, day] = value.split('-').map(Number);
             const birthDate = new Date(year, month - 1, day);
@@ -62,49 +71,70 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         }
         return newData;
     });
-  };
+  }, [readOnly]);
 
-  const handleUpdateChart = (entry: DentalChartEntry) => {
-      setFormData(prev => ({
-          ...prev,
-          dentalChart: [...(prev.dentalChart || []), entry]
-      }));
-  };
-
-  const handleArrayChange = (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => {
+  const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
-      if (value === 'None') { const wasSelected = (prev[category] || []).includes('None'); return { ...prev, [category]: wasSelected ? [] : ['None'] }; }
-      let currentList = prev[category] || [];
-      if (currentList.includes('None')) currentList = [];
-      if (currentList.includes(value)) return { ...prev, [category]: currentList.filter(item => item !== value) };
-      else return { ...prev, [category]: [...currentList, value] };
+        const currentArray = (prev[category] as string[]) || [];
+        const nextArray = currentArray.includes(value)
+            ? currentArray.filter(item => item !== value)
+            : [...currentArray, value];
+        return { ...prev, [category]: nextArray };
     });
-  };
+  }, [readOnly]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
     
-    if (!formData.dpaConsent) { 
-        toast.error("Privacy Compliance: You must accept the Data Privacy Consent."); 
-        return; 
+    if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+        document.activeElement.blur();
     }
 
-    if (!formData.firstName || !formData.surname || !formData.phone) { 
-        toast.error("Required: First Name, Surname, and Mobile are mandatory."); 
-        return; 
-    }
+    setTimeout(() => {
+        setFormData(current => {
+            if (!current.dpaConsent) { 
+                toast.error("Compliance Error: You must accept the Data Privacy Consent."); 
+                return current; 
+            }
 
-    const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...formData, name: fullName });
+            if (!current.firstName) { toast.error("Missing Field: First Name is mandatory."); return current; }
+            if (!current.surname) { toast.error("Missing Field: Surname is mandatory."); return current; }
+            if (!current.phone) { toast.error("Missing Field: Mobile Number is mandatory."); return current; }
+
+            if (!current.registrationSignature) {
+              setShowSignaturePad(true);
+              return current;
+            }
+
+            savePatientRecord(current);
+            return current;
+        });
+    }, 100);
+  };
+
+  const savePatientRecord = (data: Partial<Patient>) => {
+    const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
+    onSave({ ...data, name: fullName });
     onClose();
+  };
+
+  const handleSignatureCaptured = (sig: string, hash: string) => {
+    const timestamp = new Date().toISOString();
+    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp };
+    setFormData(updatedData);
+    setShowSignaturePad(false);
+    toast.success("Identity Anchor Linked. Record Verified.");
+    
+    // Auto-save after signature
+    setTimeout(() => savePatientRecord(updatedData), 500);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4"}>
+    <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-end md:items-center p-0 md:p-4"}>
       <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
         
         {/* PDA Branding Header */}
@@ -131,11 +161,18 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
         {/* Mega-Form Body */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 no-scrollbar">
-            <div className="max-w-4xl mx-auto space-y-12 pb-20">
+            <div className="max-w-4xl mx-auto space-y-12 pb-48">
                 
                 {/* Section Gate: Data Privacy */}
                 <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm">
-                    <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Statutory Consent</h3></div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Statutory Consent</h3></div>
+                      {formData.registrationSignature && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-[10px] font-black uppercase border border-teal-200">
+                          <CheckCircle size={14} /> Signature Verified
+                        </div>
+                      )}
+                    </div>
                     <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-200'}`}>
                         <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
                         <div><span className="font-extrabold text-teal-900 uppercase text-xs">Primary Data Processing Consent *</span><p className="text-xs text-slate-600 mt-1 leading-relaxed">I authorize the Philippine Dental Association standard processing of my personal and sensitive personal information for clinical care and diagnosis.</p></div>
@@ -160,15 +197,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         </div>
                         <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
                     </div>
-
-                    {/* Section IV: Dental History Registry */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 border-b-4 border-slate-400 pb-2">
-                            <FileText size={24} className="text-slate-600"/>
-                            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Section III & IV. Dental History & Referral</h3>
-                        </div>
-                        <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} />
-                    </div>
                 </div>
             </div>
         </div>
@@ -178,12 +206,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             <button onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-xs tracking-widest">Cancel</button>
             {!readOnly && (
                 <button onClick={handleSubmit} className="flex items-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all">
-                    <Save size={20} /> Save PDA Registry Entry
+                    <Save size={20} /> {formData.registrationSignature ? 'Save PDA Registry Entry' : 'Verify & Sign'}
                 </button>
             )}
         </div>
       </div>
       <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
+      <SignatureCaptureOverlay 
+        isOpen={showSignaturePad} 
+        onClose={() => setShowSignaturePad(false)} 
+        onSave={handleSignatureCaptured}
+        title="PDA Statutory Digital Sign-off"
+        instruction="By signing below, you provide statutory consent for data processing and clinical care under RA 10173."
+        themeColor="teal"
+      />
     </div>
   );
 };

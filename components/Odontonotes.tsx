@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet } from '../types';
-/* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint } from 'lucide-react';
 import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 import { useToast } from './ToastSystem';
 import EPrescriptionModal from './EPrescriptionModal';
+import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import CryptoJS from 'crypto-js';
 import { getTrustedTime } from '../services/timeService';
 
@@ -64,6 +65,10 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
+  const [requireSignOff, setRequireSignOff] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [pendingEntryData, setPendingEntryData] = useState<any>(null);
+  
   const recognitionRef = useRef<any>(null);
 
   const [showWitnessModal, setShowWitnessModal] = useState(false);
@@ -278,11 +283,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const handleSurgicalWitnessVerify = () => {
     if (!surgicalWitnessPin || !pendingSurgicalEntry) return;
     if (surgicalWitnessPin === '1234') {
-        onAddEntry({ 
-            ...pendingSurgicalEntry, 
-            witnessId: 'Verified_ID', 
-            witnessName: 'Verified Clinical Staff' 
-        });
+        commitEntry(pendingSurgicalEntry);
         setShowSurgicalWitness(false);
         setSurgicalWitnessPin('');
         setPendingSurgicalEntry(null);
@@ -295,7 +296,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const resetForm = () => {
       setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
-      macroSnapshotRef.current = ''; setEditingId(null);
+      macroSnapshotRef.current = ''; setEditingId(null); setRequireSignOff(false);
   };
 
   const handleEdit = (entry: DentalChartEntry) => {
@@ -336,25 +337,56 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         appointmentId: activeAppointmentToday?.id, imageHashes: capturedPhotos, boilerplateScore: uniquenessScore,
         authorRole: currentUser.role, needsProfessionalismReview: professionalismReviewRequired,
         authorPrc: currentUser.prcLicense, authorPtr: currentUser.ptrNumber, committedAt: new Date().toISOString(),
-        isPendingSupervision: isAssistant
+        isPendingSupervision: isAssistant,
+        id: editingId || `dc_${Date.now()}`,
+        toothNumber: (toothNum ? parseInt(toothNum) : 0),
+        procedure: selectedProcedure || 'Clinical Note',
+        status: 'Completed' as TreatmentStatus,
+        price: charge ? parseFloat(charge) : 0,
+        date: new Date().toISOString().split('T')[0],
+        author: currentUser.name
     };
 
-    if (isSurgicalProcedure) {
-        setPendingSurgicalEntry({ id: editingId || `dc_${Date.now()}`, toothNumber: (toothNum ? parseInt(toothNum) : 0), procedure: selectedProcedure || 'Clinical Note', status: 'Completed' as TreatmentStatus, ...entryData, price: charge ? parseFloat(charge) : 0, date: new Date().toISOString().split('T')[0], author: currentUser.name });
-        setShowSurgicalWitness(true); return;
+    if (requireSignOff) {
+      setPendingEntryData(entryData);
+      setShowSignaturePad(true);
+      return;
     }
+
+    if (isSurgicalProcedure) {
+        setPendingSurgicalEntry(entryData);
+        setShowSurgicalWitness(true); 
+        return;
+    }
+
+    commitEntry(entryData);
+  };
+
+  const commitEntry = (data: any) => {
     if (editingId) {
         const originalEntry = entries.find(e => e.id === editingId);
         if (originalEntry) {
             if (isLocked(originalEntry)) {
-                onAddEntry({ ...originalEntry, id: `dc_ammend_${Date.now()}`, originalNoteId: originalEntry.id, notes: `[AMENDMENT]\n${combinedNotes}`, subjective, objective, assessment, plan, date: new Date().toISOString().split('T')[0], sealedHash: undefined, sealedAt: undefined, isLocked: false, imageHashes: capturedPhotos, committedAt: new Date().toISOString(), materialVariance: varianceCount });
-            } else onUpdateEntry({ ...originalEntry, ...entryData });
+                onAddEntry({ ...data, id: `dc_ammend_${Date.now()}`, originalNoteId: originalEntry.id, notes: `[AMENDMENT]\n${data.notes}` });
+            } else onUpdateEntry(data);
             setEditingId(null);
         }
     } else {
-        onAddEntry({ id: `dc_${Date.now()}`, toothNumber: (toothNum ? parseInt(toothNum) : 0), procedure: selectedProcedure || 'Clinical Note', status: 'Completed' as TreatmentStatus, ...entryData, price: charge ? parseFloat(charge) : 0, date: new Date().toISOString().split('T')[0], author: currentUser.name });
+        onAddEntry(data);
     }
     resetForm();
+  };
+
+  const handlePatientSignatureCaptured = (sig: string, hash: string) => {
+    const updatedData = { ...pendingEntryData, patientSignature: sig, patientSignatureTimestamp: new Date().toISOString() };
+    setShowSignaturePad(false);
+    
+    if (isSurgicalProcedure) {
+      setPendingSurgicalEntry(updatedData);
+      setShowSurgicalWitness(true);
+    } else {
+      commitEntry(updatedData);
+    }
   };
 
   const SoapField = ({ label, value, onChange, field, placeholder, disabled, watermark }: { label: string, value: string, onChange: (v: string) => void, field: 's'|'o'|'a'|'p', placeholder: string, disabled?: boolean, watermark?: string }) => (
@@ -429,10 +461,17 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                 )}
 
                 <div className="md:col-span-2 flex justify-between items-center bg-slate-50 p-4 rounded-[2rem] border border-slate-200">
-                    <div className="flex gap-4">
+                    <div className="flex gap-6 items-center">
                         <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Uniqueness</span><span className={`text-lg font-black ${isAuthenticNarrative ? 'text-teal-700' : 'text-red-600'}`}>{uniquenessScore}%</span></div>
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input type="checkbox" checked={requireSignOff} onChange={e => setRequireSignOff(e.target.checked)} className="w-6 h-6 accent-lilac-600 rounded shadow-sm" />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase text-slate-600 group-hover:text-lilac-700 transition-colors">Require Patient Sign-off</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">Forensic non-repudiation</span>
+                          </div>
+                        </label>
                     </div>
-                    <button type="submit" disabled={!pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile)} className={`px-12 py-5 rounded-3xl font-black uppercase tracking-widest text-sm shadow-2xl transition-all flex items-center gap-4 ${pearlIsValid && isAuthenticNarrative ? 'bg-teal-600 text-white shadow-teal-600/20 hover:scale-105 active:scale-95' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><CheckCircle2 size={24}/> Commit Forensic Record</button>
+                    <button type="submit" disabled={!pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile)} className={`px-12 py-5 rounded-3xl font-black uppercase tracking-widest text-sm shadow-2xl transition-all flex items-center gap-4 ${pearlIsValid && isAuthenticNarrative ? 'bg-teal-600 text-white shadow-teal-600/20 hover:scale-105 active:scale-95' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><CheckCircle2 size={24}/> {requireSignOff ? 'Sign & Commit' : 'Commit Forensic Record'}</button>
                 </div>
              </form>
           </div>
@@ -451,7 +490,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">By: {entry.author} • {formatDate(entry.date)}</p>
                          </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
+                         {entry.patientSignature && <div className="flex items-center gap-2 px-3 py-1 bg-lilac-50 text-lilac-700 rounded-full text-[9px] font-black uppercase border border-lilac-100"><Check size={14}/> Patient Signed</div>}
                          {!entry.sealedHash && !readOnly && currentUser.name === entry.author && <button onClick={() => handleEdit(entry)} className="p-2.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all" aria-label="Edit note"><Edit3 size={18}/></button>}
                          {entry.isPendingSupervision && !readOnly && currentUser.role === UserRole.DENTIST && <button onClick={() => handleSuperviseSeal(entry)} className="px-4 py-2 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-lilac-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Verified size={14}/> Supervise</button>}
                          {!entry.sealedHash && !readOnly && (currentUser.name === entry.author || isArchitect) && <button onClick={() => handleSeal(entry)} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-teal-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Lock size={14}/> Seal Record</button>}
@@ -498,6 +538,15 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
               </div>
           </div>
       )}
+
+      <SignatureCaptureOverlay 
+        isOpen={showSignaturePad}
+        onClose={() => setShowSignaturePad(false)}
+        onSave={handlePatientSignatureCaptured}
+        title="Odontonotes Patient Verification"
+        instruction={`By signing, you confirm that the procedure "${pendingEntryData?.procedure}" performed today has been explained to you and correctly recorded.`}
+        themeColor="lilac"
+      />
     </div>
   );
 };

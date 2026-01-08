@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   FieldSettings, User, UserRole, AuditLogEntry, Patient, ClinicalIncident, 
@@ -9,7 +10,7 @@ import {
   ShieldAlert, ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
   Sparkles, Zap, Monitor, Wrench, ClipboardList, 
   Stethoscope, Save, UserCheck, Armchair, FileText, 
-  Info, ArrowUp, ArrowDown, Layout, HelpCircle, X, ChevronLeft, LayoutPanelLeft, Move, Trash, PanelLeftClose, PanelLeftOpen
+  Info, ArrowUp, ArrowDown, Layout, HelpCircle, X, ChevronLeft, LayoutPanelLeft, Move, Trash, PanelLeftClose, PanelLeftOpen, GripVertical, CheckCircle2, Circle
 } from 'lucide-react';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -28,24 +29,26 @@ interface FieldManagementProps {
   onSaveIncident: (i: ClinicalIncident) => void;
 }
 
-type AddType = 'FIELD' | 'QUESTION_GEN' | 'QUESTION_FEM' | 'ALLERGY' | 'CONDITION';
-
 const FieldManagement: React.FC<FieldManagementProps> = ({ 
   settings, onUpdateSettings, auditLogVerified, staff 
 }) => {
     const toast = useToast();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
     const [isAdding, setIsAdding] = useState(false);
-    const [addType, setAddType] = useState<AddType>('FIELD');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Visual Builder States
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL' | 'DENTAL'>('IDENTITY');
 
-    // Form states for complex objects
-    const [formName, setFormName] = useState('');
-    const [formPrice, setFormPrice] = useState('');
+    // Structured "New Entry" form state
+    const [newEntryForm, setNewEntryForm] = useState<Partial<RegistrationField>>({
+        label: '',
+        type: 'text',
+        section: 'IDENTITY',
+        width: 'half',
+        isCritical: false
+    });
 
     const sidebarGroups = [
         { key: 'core', label: 'Practice Identity', icon: Activity, items: [
@@ -69,9 +72,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         ]}
     ];
 
+    // --- CORE TO REGISTRY MAPPING ---
+    const coreToRegistryMap: Record<string, string> = {
+        'core_suffix': 'suffixes',
+        'core_sex': 'sex',
+        'core_bloodGroup': 'bloodGroups',
+        'core_civilStatus': 'civilStatus'
+    };
+
     const handleFieldClick = (id: string, type: string) => {
         setSelectedField({ id, type });
-        setIsSidebarCollapsed(false); // Auto-expand when a field is clicked to show the inspector
+        setIsSidebarCollapsed(false);
     };
 
     const handleUpdateLabelMap = (id: string, newTitle: string) => {
@@ -84,7 +95,39 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         const cleanId = id.startsWith('field_') ? id.replace('field_', '') : id;
         const newFields = settings.identityFields.map(f => f.id === cleanId ? { ...f, ...updates } : f);
         onUpdateSettings({ ...settings, identityFields: newFields });
-        toast.success("Field metadata updated.");
+    };
+
+    const toggleCriticalStatus = (id: string) => {
+        const currentRegistry = settings.criticalRiskRegistry || [];
+        const isCurrentlyCritical = currentRegistry.includes(id);
+        let nextRegistry: string[];
+
+        if (isCurrentlyCritical) {
+            nextRegistry = currentRegistry.filter(i => i !== id);
+            toast.info("Priority flag removed.");
+        } else {
+            nextRegistry = [...currentRegistry, id];
+            toast.success("Marked as Critical Risk.");
+        }
+
+        onUpdateSettings({ ...settings, criticalRiskRegistry: nextRegistry });
+    };
+
+    const handleUpdateRegistryOptions = (key: string, nextOptions: string[]) => {
+        onUpdateSettings({ ...settings, [key]: nextOptions });
+        toast.success("Option list synchronized.");
+    };
+
+    const handleAddRegistryOption = (key: string) => {
+        const val = prompt("Enter new dropdown option:");
+        if (!val) return;
+        const current = (settings as any)[key] as string[];
+        handleUpdateRegistryOptions(key, [...current, val]);
+    };
+
+    const handleRemoveRegistryOption = (key: string, option: string) => {
+        const current = (settings as any)[key] as string[];
+        handleUpdateRegistryOptions(key, current.filter(o => o !== option));
     };
 
     const moveElement = (direction: 'up' | 'down') => {
@@ -106,7 +149,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     const handleRemoveSelected = () => {
         if (!selectedField) return;
         if (selectedField.id.startsWith('core_')) {
-            toast.error("Core fields are required for clinical record integrity and cannot be removed.");
+            toast.error("Core fields cannot be removed.");
             return;
         }
 
@@ -131,53 +174,42 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     };
 
     const handleSaveNewEntry = () => {
-        if (!formName.trim()) return;
-        let newSettings = { ...settings };
+        if (!newEntryForm.label?.trim()) return;
         
-        if (addType === 'FIELD') {
+        let newSettings = { ...settings };
+        const label = newEntryForm.label;
+        const type = newEntryForm.type;
+        const section = newEntryForm.section;
+        const width = newEntryForm.width;
+
+        if (type === 'header') {
+            const id = `header_${Date.now()}`;
+            newSettings.identityFields.push({ id, label, type: 'header', section: section as any, width: 'full' });
+            if (section === 'MEDICAL') newSettings.medicalLayoutOrder.push(`field_${id}`);
+            else newSettings.identityLayoutOrder.push(`field_${id}`);
+        } else if (section === 'MEDICAL') {
+            if (type === 'boolean') {
+                newSettings.identityQuestionRegistry.push(label);
+                newSettings.medicalLayoutOrder.push(label);
+            } else if (type === 'text') {
+                // In medical, free text is usually an 'Allergy' or 'Condition' with narrative
+                newSettings.medicalConditions.push(label);
+                newSettings.medicalLayoutOrder.push(label);
+            }
+        } else {
             const id = `dyn_${Date.now()}`;
-            newSettings.identityFields.push({ id, label: formName, type: 'text', section: 'IDENTITY', width: 'half' });
+            newSettings.identityFields.push({ id, label, type: type as any, section: section as any, width: width as any });
             newSettings.identityLayoutOrder.push(`field_${id}`);
-        } else if (addType === 'QUESTION_GEN') {
-            newSettings.identityQuestionRegistry.push(formName);
-            newSettings.medicalLayoutOrder.push(formName);
-        } else if (addType === 'QUESTION_FEM') {
-            newSettings.femaleQuestionRegistry.push(formName);
-        } else if (addType === 'ALLERGY') {
-            newSettings.allergies.push(formName);
-            newSettings.medicalLayoutOrder.push(formName);
-        } else if (addType === 'CONDITION') {
-            newSettings.medicalConditions.push(formName);
-            newSettings.medicalLayoutOrder.push(formName);
+        }
+
+        if (newEntryForm.isCritical) {
+            newSettings.criticalRiskRegistry = [...(newSettings.criticalRiskRegistry || []), label];
         }
 
         onUpdateSettings(newSettings);
         setIsAdding(false);
-        setFormName('');
+        setNewEntryForm({ label: '', type: 'text', section: 'IDENTITY', width: 'half', isCritical: false });
         toast.success("Form element registered.");
-    };
-
-    const handleRenameNarrative = (newName: string) => {
-        if (!selectedField) return;
-        const oldId = selectedField.id;
-        let newSettings = { ...settings };
-        
-        if (settings.identityQuestionRegistry.includes(oldId)) {
-            newSettings.identityQuestionRegistry = settings.identityQuestionRegistry.map(q => q === oldId ? newName : q);
-        } else if (settings.femaleQuestionRegistry.includes(oldId)) {
-            newSettings.femaleQuestionRegistry = settings.femaleQuestionRegistry.map(q => q === oldId ? newName : q);
-        } else if (settings.allergies.includes(oldId)) {
-            newSettings.allergies = settings.allergies.map(a => a === oldId ? newName : a);
-        } else if (settings.medicalConditions.includes(oldId)) {
-            newSettings.medicalConditions = settings.medicalConditions.filter(c => c !== selectedField.id);
-        }
-
-        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : 'medicalLayoutOrder';
-        newSettings[orderKey] = newSettings[orderKey].map(id => id === oldId ? newName : id);
-
-        onUpdateSettings(newSettings);
-        setSelectedField({ id: newName, type: selectedField.type });
-        toast.success("Label updated.");
     };
 
     const renderFormBuilder = () => {
@@ -185,8 +217,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         const isCore = selectedId?.startsWith('core_');
         const isDyn = selectedId?.startsWith('field_');
         const cleanId = isCore ? selectedId!.replace('core_', '') : (isDyn ? selectedId!.replace('field_', '') : selectedId);
+        
         const coreFieldLabel = (isCore || isDyn) ? (settings.fieldLabels[cleanId!] || cleanId) : null;
         const dynamicField = isDyn ? settings.identityFields.find(f => f.id === cleanId) : null;
+        
+        const registryKey = isDyn ? dynamicField?.registryKey : (isCore ? coreToRegistryMap[selectedId!] : null);
+        const registryOptions = registryKey ? (settings as any)[registryKey] as string[] : null;
+        const isCritical = (settings.criticalRiskRegistry || []).includes(selectedId!);
 
         return (
             <div className="flex h-full animate-in fade-in duration-500 overflow-hidden bg-slate-50/50 relative">
@@ -247,11 +284,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                     </div>
                 </div>
 
-                {/* Mobile Overlay for Sidebar */}
-                {!isSidebarCollapsed && (
-                    <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={() => setIsSidebarCollapsed(true)} />
-                )}
-
                 <div className={`
                     fixed md:relative right-0 top-0 bottom-0 z-50
                     bg-white border-l border-slate-200 shadow-2xl flex flex-col shrink-0 transition-all duration-500
@@ -262,8 +294,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                             <button onClick={() => setIsSidebarCollapsed(false)} className="p-3 text-lilac-600 bg-lilac-50 rounded-xl hover:bg-lilac-100 transition-all shadow-sm">
                                 <PanelLeftOpen size={24}/>
                             </button>
-                            <div className="h-px w-8 bg-slate-100" />
-                            <div className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Field Inspector Collapsed</div>
                         </div>
                     ) : (
                         <>
@@ -280,31 +310,58 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                         <div className="p-6 space-y-8 flex-1 overflow-y-auto no-scrollbar">
                             {!selectedField ? (
                                 <div className="py-20 text-center space-y-4 opacity-40">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                        <Move size={32} className="text-slate-300"/>
-                                    </div>
-                                    <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed px-4">Click any field in the form preview to rearrange or rename it.</p>
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto shadow-inner"><Move size={32} className="text-slate-300"/></div>
+                                    <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed px-4">Click any field in the form preview to edit.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-6 animate-in slide-in-from-right-2">
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Clinical Priority</span>
+                                            <button 
+                                                onClick={() => toggleCriticalStatus(selectedId!)}
+                                                className={`w-12 h-6 rounded-full p-1 transition-colors flex items-center ${isCritical ? 'bg-red-600 justify-end' : 'bg-slate-300 justify-start'}`}
+                                            >
+                                                <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                                            </button>
+                                        </div>
+                                        <div className="text-[9px] text-slate-400 font-bold uppercase leading-tight">If active, this field generates an automated alert in the Clinical Command Center.</div>
+                                    </div>
+
                                     <div>
-                                        <label className="label text-[10px] font-black">Edit Narrative / Label</label>
+                                        <label className="label text-[10px] font-black">Display Narrative</label>
                                         <input 
                                             type="text" 
                                             value={isDyn ? (dynamicField?.label || '') : (coreFieldLabel !== null ? coreFieldLabel : selectedId)}
                                             onChange={e => {
                                                 if (isDyn) handleUpdateDynamicField(selectedId!, { label: e.target.value });
                                                 else if (isCore) handleUpdateLabelMap(selectedId!, e.target.value);
-                                                else handleRenameNarrative(e.target.value);
                                             }}
                                             className="input text-sm font-bold shadow-inner"
-                                            placeholder="Enter new title..."
+                                            placeholder="Enter label..."
                                         />
                                     </div>
 
+                                    {registryOptions && registryKey && (
+                                        <div className="bg-white rounded-2xl border-2 border-teal-100 p-4 space-y-4 animate-in zoom-in-95">
+                                            <div className="flex justify-between items-center border-b border-teal-50 pb-2 mb-2">
+                                                <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest">Registry Options</span>
+                                                <button onClick={() => handleAddRegistryOption(registryKey)} className="text-[10px] font-black text-teal-600 hover:text-teal-800 uppercase flex items-center gap-1"><Plus size={10}/> Add Option</button>
+                                            </div>
+                                            <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
+                                                {registryOptions.map(opt => (
+                                                    <div key={opt} className="flex items-center justify-between p-2 bg-teal-50/50 rounded-lg group/opt">
+                                                        <span className="text-xs font-bold text-teal-900">{opt}</span>
+                                                        <button onClick={() => handleRemoveRegistryOption(registryKey, opt)} className="opacity-0 group-hover/opt:opacity-100 text-red-400 hover:text-red-600 transition-all"><Trash size={12}/></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {isDyn && dynamicField && (
-                                        <div className="animate-in fade-in zoom-in-95">
-                                            <label className="label text-[10px] font-black">Adaptive Width</label>
+                                        <div>
+                                            <label className="label text-[10px] font-black">Layout Width</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {(['quarter', 'half', 'full'] as const).map(w => (
                                                     <button 
@@ -320,13 +377,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                     )}
 
                                     <div>
-                                        <label className="label text-[10px] font-black">Layout Hierarchy</label>
+                                        <label className="label text-[10px] font-black">Hierarchy</label>
                                         <div className="flex gap-2">
-                                            <button onClick={() => moveElement('up')} className="flex-1 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center hover:bg-teal-50 hover:border-teal-500 transition-all shadow-sm group">
-                                                <ArrowUp size={24} className="text-slate-400 group-hover:text-teal-600 group-hover:-translate-y-1 transition-all"/>
+                                            <button onClick={() => moveElement('up')} className="flex-1 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center hover:bg-teal-50 hover:border-teal-500 transition-all group">
+                                                <ArrowUp size={24} className="text-slate-400 group-hover:text-teal-600 transition-all"/>
                                             </button>
-                                            <button onClick={() => moveElement('down')} className="flex-1 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center hover:bg-teal-50 hover:border-teal-500 transition-all shadow-sm group">
-                                                <ArrowDown size={24} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-y-1 transition-all"/>
+                                            <button onClick={() => moveElement('down')} className="flex-1 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center hover:bg-teal-50 hover:border-teal-500 transition-all group">
+                                                <ArrowDown size={24} className="text-slate-400 group-hover:text-teal-600 transition-all"/>
                                             </button>
                                         </div>
                                     </div>
@@ -334,7 +391,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                     {!isCore && (
                                         <div className="pt-6 border-t border-slate-100">
                                             <button onClick={handleRemoveSelected} className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                                                <Trash size={14}/> Remove from Registry
+                                                <Trash size={14}/> Remove Element
                                             </button>
                                         </div>
                                     )}
@@ -343,7 +400,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                         </div>
 
                         <div className="p-6 border-t bg-slate-50">
-                            <button onClick={() => setIsAdding(true)} className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-teal-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"><Plus size={16}/> Register Form Entry</button>
+                            <button onClick={() => setIsAdding(true)} className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-teal-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"><Plus size={16}/> New Entry Wizard</button>
                         </div>
                         </>
                     )}
@@ -359,34 +416,20 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                 bg-teal-900 text-white flex flex-col shrink-0 shadow-2xl z-40 overflow-y-auto no-scrollbar transition-all duration-500
             `}>
                 <div className="p-8 border-b border-white/10 shrink-0">
-                    {isSidebarCollapsed && activeRegistry === 'patient_registry_form' ? (
-                        <Settings size={24} className="mx-auto text-teal-400 opacity-50"/>
-                    ) : (
-                        <h2 className="text-sm font-black uppercase tracking-[0.3em] text-teal-400">Settings Hub</h2>
-                    )}
+                    <h2 className={`text-sm font-black uppercase tracking-[0.3em] text-teal-400 ${isSidebarCollapsed && activeRegistry === 'patient_registry_form' ? 'hidden' : ''}`}>Settings Hub</h2>
+                    {isSidebarCollapsed && activeRegistry === 'patient_registry_form' && <Settings size={24} className="mx-auto text-teal-400 opacity-50"/>}
                 </div>
                 <div className="p-4 space-y-8">
                     {sidebarGroups.map(group => (
                         <div key={group.key} className="space-y-2">
-                            {(!isSidebarCollapsed || activeRegistry !== 'patient_registry_form') && (
-                                <h4 className="px-4 text-[10px] font-black text-teal-500 uppercase tracking-widest">{group.label}</h4>
-                            )}
+                            <h4 className={`px-4 text-[10px] font-black text-teal-500 uppercase tracking-widest ${isSidebarCollapsed && activeRegistry === 'patient_registry_form' ? 'hidden' : ''}`}>{group.label}</h4>
                             {group.items.map(item => (
-                                <button 
-                                    key={item.id} 
-                                    onClick={() => setActiveRegistry(item.id)} 
-                                    title={item.label}
-                                    className={`w-full text-left px-4 py-3 rounded-2xl flex items-center justify-between transition-all ${activeRegistry === item.id ? 'bg-white text-teal-900 font-bold shadow-xl' : 'hover:bg-white/5 text-teal-100'}`}
-                                >
+                                <button key={item.id} onClick={() => setActiveRegistry(item.id)} className={`w-full text-left px-4 py-3 rounded-2xl flex items-center justify-between transition-all ${activeRegistry === item.id ? 'bg-white text-teal-900 font-bold shadow-xl' : 'hover:bg-white/5 text-teal-100'}`}>
                                     <div className="flex items-center gap-3">
                                         <item.icon size={20} className="shrink-0"/>
-                                        {(!isSidebarCollapsed || activeRegistry !== 'patient_registry_form') && (
-                                            <span className="text-xs font-black uppercase tracking-widest truncate">{item.label}</span>
-                                        )}
+                                        <span className={`text-xs font-black uppercase tracking-widest truncate ${isSidebarCollapsed && activeRegistry === 'patient_registry_form' ? 'hidden' : ''}`}>{item.label}</span>
                                     </div>
-                                    {(!isSidebarCollapsed || activeRegistry !== 'patient_registry_form') && (
-                                        <ChevronRight size={14} className={activeRegistry === item.id ? 'rotate-90' : ''}/>
-                                    )}
+                                    <ChevronRight size={14} className={`${activeRegistry === item.id ? 'rotate-90' : ''} ${isSidebarCollapsed && activeRegistry === 'patient_registry_form' ? 'hidden' : ''}`}/>
                                 </button>
                             ))}
                         </div>
@@ -408,36 +451,64 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             </div>
 
             {isAdding && (
-                <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-300">
+                <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAdding(false)}/>
                     <div className="relative w-full max-w-lg bg-white h-full shadow-2xl border-l-8 border-lilac-500 flex flex-col animate-in slide-in-from-right-full">
                         <div className="p-10 border-b bg-lilac-50">
-                            <h4 className="text-2xl font-black text-lilac-900 uppercase tracking-tight">New Form Entry</h4>
+                            <h4 className="text-2xl font-black text-lilac-900 uppercase tracking-tight">New Form Entry Wizard</h4>
                             <p className="text-[10px] font-black text-lilac-600 uppercase tracking-widest mt-1">Registry Context: Builder Interface</p>
                         </div>
-                        <div className="p-10 space-y-8 flex-1">
-                            <div>
-                                <label className="label text-xs">Entry Category</label>
-                                <select 
-                                    value={addType} 
-                                    onChange={e => setAddType(e.target.value as AddType)}
-                                    className="input font-bold"
-                                >
-                                    <option value="FIELD">Identity Field (e.g. Nickname, Religion)</option>
-                                    <option value="QUESTION_GEN">Medical Question (General)</option>
-                                    <option value="QUESTION_FEM">Medical Question (Female-Only)</option>
-                                    <option value="ALLERGY">Immunological Allergy</option>
-                                    <option value="CONDITION">Diagnostic Condition</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="label text-xs">Entry Label / Narrative *</label>
-                                <textarea autoFocus value={formName} onChange={e => setFormName(e.target.value)} className="input text-xl font-black h-32" placeholder="Enter label or question text..." />
+                        <div className="p-10 space-y-8 flex-1 overflow-y-auto no-scrollbar">
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="label text-[10px]">Element Label *</label>
+                                    <input autoFocus type="text" value={newEntryForm.label} onChange={e => setNewEntryForm({...newEntryForm, label: e.target.value})} className="input text-lg font-black" placeholder="e.g. Current Medications" />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="label text-[10px]">Registry Section</label>
+                                        <select value={newEntryForm.section} onChange={e => setNewEntryForm({...newEntryForm, section: e.target.value as any})} className="input text-sm font-bold">
+                                            <option value="IDENTITY">Section I: Identity</option>
+                                            <option value="CONTACT">Section II: Contact</option>
+                                            <option value="MEDICAL">Section V: Medical</option>
+                                            <option value="DENTAL">Section IV: Dental</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="label text-[10px]">Input Interaction</label>
+                                        <select value={newEntryForm.type} onChange={e => setNewEntryForm({...newEntryForm, type: e.target.value as any})} className="input text-sm font-bold">
+                                            <option value="text">Short Text</option>
+                                            <option value="textarea">Narrative (Long Text)</option>
+                                            <option value="dropdown">Registry Dropdown</option>
+                                            <option value="boolean">Yes/No Toggle</option>
+                                            <option value="header">Section Card Header</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-xl ${newEntryForm.isCritical ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-400'}`}>
+                                                <ShieldAlert size={18}/>
+                                            </div>
+                                            <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Clinical Risk Flag</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => setNewEntryForm({...newEntryForm, isCritical: !newEntryForm.isCritical})}
+                                            className={`w-12 h-6 rounded-full p-1 transition-colors flex items-center ${newEntryForm.isCritical ? 'bg-red-600 justify-end' : 'bg-slate-300 justify-start'}`}
+                                        >
+                                            <div className="w-4 h-4 bg-white rounded-full" />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Marking as critical will automatically register positive findings in the clinical alert registry.</p>
+                                </div>
                             </div>
                         </div>
                         <div className="p-10 border-t bg-white flex gap-3">
                             <button onClick={() => setIsAdding(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button>
-                            <button onClick={handleSaveNewEntry} className="flex-[2] py-5 bg-teal-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl hover:scale-[1.02] transition-all">Add to Form</button>
+                            <button onClick={handleSaveNewEntry} className="flex-[2] py-5 bg-teal-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl hover:scale-[1.02] transition-all">Add to Registry</button>
                         </div>
                     </div>
                 </div>

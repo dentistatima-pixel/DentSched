@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -312,12 +313,10 @@ export interface StockItem {
   leadTimeDays?: number;
 }
 
-export type InstrumentStatus = 'Sterile' | 'Used' | 'Contaminated';
-
 export interface InstrumentSet {
     id: string;
     name: string;
-    status: InstrumentStatus;
+    status: 'Sterile' | 'Used' | 'Contaminated';
     lastCycleId?: string;
     branch: string;
 }
@@ -418,10 +417,11 @@ export interface RolePermissions {
 export interface RegistrationField {
   id: string;
   label: string;
-  type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea';
-  section: 'IDENTITY' | 'CONTACT' | 'INSURANCE' | 'FAMILY' | 'DENTAL';
+  type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea' | 'boolean' | 'header';
+  section: 'IDENTITY' | 'CONTACT' | 'INSURANCE' | 'FAMILY' | 'DENTAL' | 'MEDICAL';
   registryKey?: string; 
-  width?: 'full' | 'half' | 'quarter';
+  width?: 'full' | 'half' | 'third' | 'quarter';
+  isCritical?: boolean;
 }
 
 export interface FeatureToggles {
@@ -492,120 +492,226 @@ export interface Vendor {
 
 export type ClinicProfile = 'boutique' | 'corporate';
 
-export interface Medication {
-    id: string;
-    genericName: string;
-    brandName?: string;
-    dosage: string;
-    instructions: string;
-    contraindicatedAllergies?: string[];
-    interactions?: string[]; 
-    pediatricDosage?: string; 
-    maxMgPerKg?: number; 
-    isS2Controlled?: boolean;
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  licenseCategory?: LicenseCategory;
+  avatar: string;
+  specialization?: string;
+  prcLicense?: string;
+  prcExpiry?: string;
+  s2License?: string;
+  s2Expiry?: string;
+  ptrNumber?: string;
+  tin?: string;
+  malpracticeExpiry?: string;
+  malpracticePolicy?: string;
+  defaultBranch: string;
+  allowedBranches: string[];
+  colorPreference: string;
+  clinicHours?: string;
+  roster?: Record<string, string>;
+  defaultConsultationFee?: number;
+  cpdEntries?: CpdEntry[];
+  requiredCpdUnits?: number;
+  commissionRate?: number;
 }
 
-export interface ConsentFormTemplate {
-    id: string;
-    name: string;
-    content: string;
+export enum AppointmentType {
+  CONSULTATION = 'Consultation',
+  ROOT_CANAL = 'Root Canal',
+  EXTRACTION = 'Extraction',
+  SURGERY = 'Surgery',
+  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
+  WHITENING = 'Whitening'
 }
 
-export interface PurchaseOrderItem {
-    id: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-}
-
-export interface PurchaseOrder {
-    id: string;
+export interface Appointment {
+  id: string;
+  patientId: string;
+  providerId: string;
+  resourceId?: string;
+  branch: string;
+  date: string;
+  time: string;
+  durationMinutes: number;
+  type: string | AppointmentType;
+  status: AppointmentStatus;
+  isBlock?: boolean;
+  title?: string;
+  notes?: string;
+  labStatus?: LabStatus;
+  labDetails?: {
     vendorId: string;
-    date: string;
-    items: PurchaseOrderItem[];
-    status: 'Pending' | 'Ordered' | 'Received';
-    totalAmount: number;
+    materialLotNumber?: string;
+    materialCertIssuer?: string;
+    materialVerifiedBy?: string;
+  };
+  sterilizationCycleId?: string;
+  sterilizationVerified?: boolean;
+  isWaitlistOverride?: boolean;
+  authorizedManagerId?: string;
+  medHistoryVerified?: boolean;
+  medHistoryVerifiedAt?: string;
+  followUpConfirmed?: boolean;
+  followUpConfirmedAt?: string;
+  postOpVerified?: boolean;
+  postOpVerifiedAt?: string;
+  entryMode?: 'AUTO' | 'MANUAL';
+  reconciled?: boolean;
+  isPendingSync?: boolean;
+  dataTransferId?: string;
+  queuedAt?: string;
+  isStale?: boolean;
+  signedConsentUrl?: string;
+  triageLevel?: string;
 }
 
-export interface SmartPhrase {
-    id: string;
-    label: string;
-    text: string;
-    category: string;
-}
-
-export interface HospitalAffiliation {
-    id: string;
-    name: string;
-    contact: string;
-    emergencyHotline: string;
-}
-
-export interface FieldSettings {
-  clinicName: string; 
-  clinicProfile: ClinicProfile;
-  strictMode: boolean;
-  editBufferWindowMinutes: number;
-  suffixes: string[];
-  civilStatus: string[];
-  insuranceProviders: string[];
-  bloodGroups: string[];
-  nationalities: string[];
-  religions: string[];
-  relationshipTypes: string[];
-  habitRegistry: string[];
-  documentCategories: string[];
-  allergies: string[];
-  medicalConditions: string[];
-  // DYNAMIC REGISTRIES
-  identityFields: RegistrationField[];
-  fieldLabels: Record<string, string>; // Maps ID to Custom Title
-  identityQuestionRegistry: string[];
-  femaleQuestionRegistry: string[]; // specifically for gender-restricted questions
-  medicalRiskRegistry: string[];
-  dentalHistoryRegistry: string[];
-  // LAYOUT ORDER
-  identityLayoutOrder: string[]; // List of IDs (core_firstName, core_surname, field_nickname, etc.)
-  medicalLayoutOrder: string[];
-  procedures: ProcedureItem[]; 
-  medications: Medication[];
-  shadeGuides: string[];
-  restorativeMaterials: string[];
-  branches: string[];
-  resources: ClinicResource[]; 
-  assets: MaintenanceAsset[];
-  vendors: Vendor[];
-  hospitalAffiliations: HospitalAffiliation[];
-  smsTemplates: SmsTemplates;
-  consentFormTemplates: ConsentFormTemplate[];
-  smartPhrases: SmartPhrase[];
-  paymentModes: string[];
-  taxConfig: {
-      vatRate: number;
-      withholdingRate: number;
-      nextOrNumber: number;
+export interface Patient {
+  id: string;
+  name: string;
+  firstName: string;
+  surname: string;
+  middleName?: string;
+  suffix?: string;
+  dob: string;
+  age?: number;
+  sex?: string;
+  civilStatus?: string;
+  bloodGroup?: string;
+  bloodPressure?: string;
+  phone: string;
+  email: string;
+  homeAddress?: string;
+  city?: string;
+  barangay?: string;
+  occupation?: string;
+  insuranceProvider?: string;
+  insuranceNumber?: string;
+  lastVisit: string;
+  nextVisit: string | null;
+  chiefComplaint?: string;
+  notes?: string;
+  currentBalance?: number;
+  recallStatus: RecallStatus;
+  attendanceStats?: {
+    totalBooked: number;
+    completedCount: number;
+    noShowCount: number;
+    lateCancelCount: number;
   };
-  features: FeatureToggles;
-  permissions: Record<UserRole, RolePermissions>;
-  currentPrivacyVersion: string; 
-  acknowledgedAlertIds: string[];
-  retentionPolicy: {
-      archivalYears: number;
-      purgeYears: number;
+  reliabilityScore?: number;
+  treatmentPlans?: TreatmentPlan[];
+  dentalChart?: DentalChartEntry[];
+  perioChart?: PerioMeasurement[];
+  ledger?: LedgerEntry[];
+  files?: PatientFile[];
+  clearanceRequests?: ClearanceRequest[];
+  consentLogs?: ConsentLogEntry[];
+  guardianProfile?: {
+    legalName: string;
+    relationship: string;
+    mobile: string;
+    occupation?: string;
+    idType?: string;
+    idNumber?: string;
+    authorityLevel: AuthorityLevel;
+    visualAnchorThumb?: string;
+    visualAnchorHash?: string;
   };
-  kioskSettings: {
-      welcomeMessage: string;
-      privacyNotice: string;
-  };
-  stockItems?: StockItem[];
-  instrumentSets?: InstrumentSet[];
+  isPwd?: boolean;
+  isSeniorDependent?: boolean;
+  marketingConsent?: boolean;
+  practiceCommConsent?: boolean;
+  dpaConsent?: boolean;
+  lastDigitalUpdate?: string;
+  weightKg?: number;
+  medicationDetails?: string;
+  allergies?: string[];
+  medicalConditions?: string[];
+  takingBloodThinners?: boolean;
+  registryAnswers?: Record<string, any>;
+  isAnonymized?: boolean;
+  referredById?: string;
+  orthoHistory?: OrthoAdjustment[];
+  installmentPlans?: InstallmentPlan[];
+  guardian?: string;
+  guardianMobile?: string;
+  goodHealth?: boolean;
+  reportedMedications?: string[];
+  responsibleParty?: string;
+  fatherName?: string;
+  fatherOccupation?: string;
+  motherName?: string;
+  motherOccupation?: string;
+  mobile2?: string;
+  previousDentist?: string;
+  otherAllergies?: string;
+  otherConditions?: string;
+  medicalTreatmentDetails?: string;
+  seriousIllnessDetails?: string;
+  lastHospitalizationDetails?: string;
+  lastHospitalizationDate?: string;
+  medicationDetails_old?: string;
+  underMedicalTreatment?: boolean;
+  seriousIllness?: boolean;
+  takingMedications?: boolean;
+  tobaccoUse?: boolean;
+  alcoholDrugsUse?: boolean;
+  pregnant?: boolean;
+  nursing?: boolean;
+  birthControl?: boolean;
+  clinicalMediaConsent?: boolean;
+  thirdPartyDisclosureConsent?: boolean;
+  thirdPartyAttestation?: boolean;
+  takingBisphosphonates?: boolean;
+  heartValveIssues?: boolean;
+  tookBpMedicationToday?: boolean;
+  anesthesiaReaction?: boolean;
+  respiratoryIssues?: boolean;
+  guardianIdType?: string;
+  guardianIdNumber?: string;
+  relationshipToPatient?: string;
+  physicianName?: string;
+  physicianSpecialty?: string;
+  physicianAddress?: string;
+  physicianNumber?: string;
+  philHealthPIN?: string;
+  philHealthCategory?: string;
+  philHealthMemberStatus?: string;
+  registrationSignature?: string;
+  registrationSignatureTimestamp?: string;
 }
 
 export enum TreatmentPlanStatus {
-    DRAFT = 'Draft',
-    PENDING_REVIEW = 'Pending Review',
-    APPROVED = 'Approved & Locked',
-    REJECTED = 'Rejected'
+  DRAFT = 'Draft',
+  PENDING_REVIEW = 'Pending Review',
+  APPROVED = 'Approved',
+  COMPLETED = 'Completed',
+  REJECTED = 'Rejected'
+}
+
+export interface TreatmentPlan {
+  id: string;
+  patientId: string;
+  name: string;
+  createdAt: string;
+  createdBy: string;
+  status: TreatmentPlanStatus;
+  reviewNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  originalQuoteAmount?: number;
+  isComplexityDisclosed?: boolean;
+}
+
+export interface PinboardTask {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+  isUrgent: boolean;
+  assignedTo: string;
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
@@ -615,371 +721,190 @@ export interface DentalChartEntry {
   toothNumber: number;
   procedure: string;
   status: TreatmentStatus;
-  isBaseline?: boolean; 
   surfaces?: string;
+  date: string;
   price?: number;
-  payment?: number;
-  date?: string; 
-  committedAt?: string;
-  voidReason?: string;
-  planId?: string;
+  appointmentId?: string;
   author?: string;
-  authorRole?: UserRole; 
+  authorRole?: string;
+  authorPrc?: string;
+  authorPtr?: string;
+  sealedHash?: string;
+  sealedAt?: string;
+  isLocked?: boolean;
   notes?: string;
   subjective?: string;
   objective?: string;
   assessment?: string;
   plan?: string;
-  isLocked?: boolean;
-  isVerifiedTime?: boolean; 
+  materialBatchId?: string;
+  materialVariance?: number;
+  instrumentSetId?: string;
+  resourceId?: string;
+  resourceName?: string;
+  sterilizationCycleId?: string;
+  imageHashes?: string[];
+  boilerplateScore?: number;
+  needsProfessionalismReview?: boolean;
+  isVerifiedTime?: boolean;
   witnessId?: string;
   witnessName?: string;
-  materialBatchId?: string;
-  materialVariance?: number; 
-  instrumentSetId?: string;
-  sterilizationCycleId?: string; 
-  isVoid?: boolean;
-  sealedHash?: string;
-  sealedAt?: string;
   isPendingSupervision?: boolean;
-  supervisorySeal?: { 
+  supervisorySeal?: {
     dentistId: string;
     dentistName: string;
     timestamp: string;
     hash: string;
   };
   originalNoteId?: string;
-  entryMode?: 'AUTO' | 'MANUAL'; 
-  reconciled?: boolean; 
-  imageHashes?: string[]; 
+  isBaseline?: boolean;
   informedRefusal?: {
     reason: string;
-    timestamp: string;
-    signature?: string;
     risks: string[];
+    timestamp: string;
+    signature: string;
   };
-  boilerplateScore?: number; 
-  isVerifiedByDentist?: boolean; 
-  verifiedByDentistName?: string;
-  financialNarrative?: string;
-  authorPrc?: string;
-  authorPtr?: string;
-  appointmentId?: string;
-  needsProfessionalismReview?: boolean;
   originalPlannedProcedure?: string;
   deviationNarrative?: string;
-  resourceId?: string;
-  resourceName?: string;
-  yellowRxSerial?: string;
+  financialNarrative?: string;
+  planId?: string;
+  patientSignature?: string;
+  patientSignatureTimestamp?: string;
 }
 
 export interface PerioMeasurement {
-  id?: string;
   date?: string;
   toothNumber: number;
-  pocketDepths: (number | null)[]; 
-  recession: (number | null)[];    
-  bleeding: boolean[];             
-  mobility: 0 | 1 | 2 | 3 | null;
+  pocketDepths: (number | null)[];
+  recession: (number | null)[];
+  bleeding: boolean[];
+  mobility: number | null;
+}
+
+export interface PatientFile {
+  id: string;
+  name: string;
+  category: string;
+  url: string;
+  date: string;
 }
 
 export interface LedgerEntry {
   id: string;
   date: string;
   description: string;
-  type: 'Charge' | 'Payment' | 'Adjustment';
+  type: 'Charge' | 'Payment';
   amount: number;
   balanceAfter: number;
-  discountType?: string; 
-  idNumber?: string;          
-  branch?: string;
-  procedureId?: string;
-  entryMode?: 'AUTO' | 'MANUAL'; 
-  reconciled?: boolean; 
-  orNumber?: string; 
-  orDate?: string;   
+  orNumber?: string;
+  orDate?: string;
 }
-
-export interface User {
-  id: string;
-  name: string;
-  role: UserRole;
-  avatar: string;
-  email?: string;
-  prcLicense?: string;
-  prcExpiry?: string;    
-  ptrNumber?: string;
-  tin?: string;
-  s2License?: string;
-  s2Expiry?: string; 
-  licenseCategory?: LicenseCategory;
-  malpracticeExpiry?: string;
-  malpracticePolicy?: string;
-  specialization?: string;
-  defaultBranch?: string; 
-  allowedBranches?: string[]; 
-  colorPreference?: string; 
-  defaultConsultationFee?: number; 
-  commissionRate?: number;
-  cpdEntries?: CpdEntry[]; 
-  requiredCpdUnits?: number;
-  clinicHours?: string;
-  roster?: Record<string, string>;
-  employeeId?: string;
-  assignedDoctors?: string[];
-  isReadOnly?: boolean;
-}
-
-export interface PatientFile {
-    id: string;
-    patientId: string;
-    title: string;
-    category: string;
-    fileType: string;
-    url: string;
-    uploadedBy: string;
-    uploadedAt: string;
-    documentDate?: string; 
-    justification?: string; 
-    safetyAffirmed?: boolean; 
-}
-
-export type RecallStatus = 'Due' | 'Contacted' | 'No Response' | 'Booked';
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
-export type ConsentStatus = 'Granted' | 'Revoked';
 
 export interface ConsentLogEntry {
-    id: string;
-    category: ConsentCategory;
-    status: ConsentStatus;
-    version: string;
-    timestamp: string;
-    reason?: string;
-    staffId: string;
-    staffName: string;
+  category: ConsentCategory;
+  status: 'Given' | 'Revoked';
+  timestamp: string;
+  version: string;
 }
 
 export enum AuthorityLevel {
-    FULL = 'FULL',
-    FINANCIAL_ONLY = 'FINANCIAL_ONLY',
-    CLINICAL_ONLY = 'CLINICAL_ONLY'
+  FULL = 'Full Medical and Financial',
+  FINANCIAL_ONLY = 'Financial Only',
+  LIMITED = 'Limited'
 }
 
-export interface GuardianProfile {
-    legalName: string;
-    mobile: string;
-    email: string;
-    idType: string;
-    idNumber: string;
-    relationship: string;
-    authorityLevel: AuthorityLevel;
-    linkedPatientId?: string; 
-    identityOath?: string;
-    forensicFingerprint?: string;
-    visualAnchorHash?: string; 
-    visualAnchorThumb?: string; 
-    occupation?: string; // Explicitly added for PDA PDF compliance
-}
+export type RecallStatus = 'Due' | 'Booked' | 'Overdue' | 'Contacted';
 
-export interface Patient {
+export interface ConsentFormTemplate {
   id: string;
-  provisional?: boolean; 
-  isArchived?: boolean;
-  isAnonymized?: boolean; 
-  isSeniorDependent?: boolean; 
-  isEmergencyCase?: boolean; 
-  primaryDentistId?: string; 
-  name: string; 
-  firstName: string;
-  surname: string;
-  homeAddress?: string;
-  barangay?: string;
-  city?: string;
-  dob: string;
-  age?: number;
-  weightKg?: number; 
-  phone: string;
-  email: string;
-  lastVisit: string;
-  nextVisit: string | null;
-  notes: string;
-  referredById?: string; 
-  dentalChart?: DentalChartEntry[];
-  perioChart?: PerioMeasurement[];
-  ledger?: LedgerEntry[];
-  installmentPlans?: InstallmentPlan[]; 
-  currentBalance?: number;
-  allergies?: string[];
-  medicalConditions?: string[];
-  reportedMedications?: string[]; 
-  // DYNAMIC ANSWERS
-  registryAnswers?: Record<string, boolean | string>;
-  treatmentPlans?: TreatmentPlan[];
-  dpaConsent?: boolean;
-  biometricConsent?: boolean;
-  marketingConsent?: boolean;
-  practiceCommConsent?: boolean; 
-  clinicalMediaConsent?: boolean; 
-  thirdPartyDisclosureConsent?: boolean;
-  thirdPartyAttestation?: boolean; 
-  orthoHistory?: OrthoAdjustment[];
-  clearanceRequests?: ClearanceRequest[];
-  insuranceProvider?: string;
-  sex?: 'Male' | 'Female';
-  seriousIllness?: boolean;
-  underMedicalTreatment?: boolean;
-  chiefComplaint?: string;
-  occupation?: string;
-  insuranceNumber?: string;
-  seriousIllnessDetails?: string;
-  medicalTreatmentDetails?: string;
-  lastHospitalizationDetails?: string;
-  lastHospitalizationDate?: string;
-  medicationDetails?: string;
-  takingMedications?: boolean;
-  tobaccoUse?: boolean;
-  alcoholDrugsUse?: boolean;
-  pregnant?: boolean;
-  nursing?: boolean;
-  birthControl?: boolean;
-  takingBloodThinners?: boolean;
-  takingBisphosphonates?: boolean;
-  heartValveIssues?: boolean;
-  tookBpMedicationToday?: boolean;
-  anesthesiaReaction?: boolean;
-  respiratoryIssues?: boolean;
-  middleName?: string;
-  suffix?: string;
-  responsibleParty?: string;
-  fatherName?: string;
-  fatherOccupation?: string;
-  motherName?: string;
-  motherOccupation?: string;
-  guardian?: string;
-  guardianMobile?: string;
-  previousDentist?: string;
-  otherAllergies?: string;
-  otherConditions?: string;
-  bloodGroup?: string;
-  files?: PatientFile[];
-  recallStatus?: RecallStatus; 
-  goodHealth?: boolean;
-  mobile2?: string;
-  isPwd?: boolean;
-  guardianIdType?: string;
-  guardianIdNumber?: string;
-  relationshipToPatient?: string;
-  philHealthCategory?: 'Direct' | 'Indirect' | 'Lifetime' | 'Senior Citizen' | 'PWD';
-  philHealthMemberStatus?: 'Member' | 'Dependent';
-  philHealthPIN?: string;
-  lastDigitalUpdate?: string;
-  attendanceStats?: {
-      totalBooked: number;
-      completedCount: number;
-      noShowCount: number;
-      lateCancelCount: number;
-  };
-  reliabilityScore?: number;
-  consentLogs?: ConsentLogEntry[]; 
-  guardianProfile?: GuardianProfile; 
-  // ADDED DYNAMIC PDA FIELDS
-  nickname?: string;
-  religion?: string;
-  nationality?: string;
-  homeNumber?: string;
-  officeNumber?: string;
-  faxNumber?: string;
-  insuranceEffectiveDate?: string;
-  bleedingTime?: string;
-  bloodPressure?: string;
-  // PHYSICIAN FIELDS
-  physicianName?: string;
-  physicianSpecialty?: string;
-  physicianAddress?: string;
-  physicianNumber?: string;
-  // DENTAL HISTORY
-  lastDentalVisit?: string;
-  referralSource?: string;
+  name: string;
+  content: string;
 }
 
-export interface TreatmentPlan {
-    id: string;
-    patientId: string;
-    name: string;
-    createdAt: string;
-    createdBy: string;
-    status: TreatmentPlanStatus;
-    reviewedBy?: string;
-    reviewedAt?: string;
-    reviewNotes?: string;
-    isComplexityDisclosed?: boolean; 
-    complexityContingencyNote?: string;
-    originalQuoteAmount?: number;
-}
-
-export interface Appointment {
+export interface PurchaseOrder {
   id: string;
-  patientId: string; 
-  providerId: string;
-  resourceId?: string; 
-  usedInstrumentSetId?: string;
-  branch: string; 
-  date: string; 
-  time: string; 
-  durationMinutes: number;
-  type: string; 
-  status: AppointmentStatus;
-  labStatus?: LabStatus;
-  labDetails?: {
-      shade?: string;
-      material?: string;
-      vendorId?: string; 
-      materialLotNumber?: string; 
-      materialCertIssuer?: string; 
-      materialVerifiedBy?: string; 
+  vendorId: string;
+  date: string;
+  items: PurchaseOrderItem[];
+  status: 'Draft' | 'Sent' | 'Received';
+}
+
+export interface PurchaseOrderItem {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface FieldSettings {
+  clinicName: string;
+  clinicProfile: ClinicProfile;
+  strictMode: boolean;
+  editBufferWindowMinutes: number;
+  suffixes: string[];
+  civilStatus: string[];
+  sex: string[];
+  insuranceProviders: string[];
+  bloodGroups: string[];
+  nationalities: string[];
+  religions: string[];
+  relationshipTypes: string[];
+  habitRegistry: string[];
+  documentCategories: string[];
+  allergies: string[];
+  medicalConditions: string[];
+  identityFields: RegistrationField[];
+  fieldLabels: Record<string, string>;
+  identityLayoutOrder: string[];
+  medicalLayoutOrder: string[];
+  identityQuestionRegistry: string[];
+  femaleQuestionRegistry: string[];
+  medicalRiskRegistry: string[];
+  dentalHistoryRegistry: string[];
+  criticalRiskRegistry: string[];
+  procedures: ProcedureItem[];
+  medications: Medication[];
+  shadeGuides: string[];
+  restorativeMaterials: string[];
+  branches: string[];
+  resources: ClinicResource[];
+  assets: any[];
+  vendors: Vendor[];
+  hospitalAffiliations: any[];
+  smsTemplates: SmsTemplates;
+  consentFormTemplates: ConsentFormTemplate[];
+  smartPhrases: any[];
+  paymentModes: string[];
+  taxConfig: {
+    vatRate: number;
+    withholdingRate: number;
+    nextOrNumber: number;
   };
-  notes?: string;
-  sterilizationCycleId?: string;
-  sterilizationVerified?: boolean; 
-  isBlock?: boolean; 
-  title?: string; 
-  signedConsentUrl?: string;
-  queuedAt?: string; 
-  triageLevel?: TriageLevel; 
-  isStale?: boolean; 
-  isPendingSync?: boolean; 
-  entryMode?: 'AUTO' | 'MANUAL'; 
-  reconciled?: boolean; 
-  isWaitlistOverride?: boolean; 
-  authorizedManagerId?: string; 
-  medHistoryVerified?: boolean; 
-  medHistoryVerifiedAt?: string; 
-  postOpVerified?: boolean;
-  postOpVerifiedAt?: string;
-  dataTransferId?: string; 
-  followUpConfirmed?: boolean; 
-  followUpConfirmedAt?: string;
+  features: FeatureToggles;
+  permissions: Record<string, RolePermissions>;
+  currentPrivacyVersion: string;
+  acknowledgedAlertIds: string[];
+  retentionPolicy: {
+    archivalYears: number;
+    purgeYears: number;
+  };
+  kioskSettings: {
+    welcomeMessage: string;
+    privacyNotice: string;
+  };
+  instrumentSets?: InstrumentSet[];
+  stockItems?: StockItem[];
 }
 
-export interface PinboardTask {
+export interface Medication {
     id: string;
-    text: string;
-    isCompleted: boolean;
-    isUrgent: boolean;
-    assignedTo?: string;
-    createdAt: number;
-}
-
-export enum AppointmentType {
-  CONSULTATION = 'Consultation',
-  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
-  RESTORATION = 'Restoration',
-  EXTRACTION = 'Extraction',
-  ROOT_CANAL = 'Root Canal',
-  PROSTHODONTICS = 'Prosthodontics',
-  ORTHODONTICS = 'Orthodontics',
-  SURGERY = 'Surgery',
-  WHITENING = 'Whitening',
-  DENTURE_ADJUSTMENTS = 'Denture Adjustments'
+    genericName: string;
+    brandName?: string;
+    dosage: string;
+    instructions: string;
+    maxMgPerKg?: number;
+    contraindicatedAllergies?: string[];
+    interactions?: string[];
+    isS2Controlled?: boolean;
 }

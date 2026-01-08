@@ -1,56 +1,144 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+/* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings } from '../types';
-// Added missing Droplet and ShieldAlert imports
-import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet } from 'lucide-react';
+import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
-interface RegistrationMedicalProps {
-  formData: Partial<Patient>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  handleArrayChange: (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => void;
-  readOnly?: boolean;
-  fieldSettings: FieldSettings; 
-  isMasked?: boolean;
-  designMode?: boolean;
-  onFieldClick?: (fieldId: string, type: 'question' | 'condition' | 'allergy' | 'physician') => void;
-  selectedFieldId?: string;
-}
+/**
+ * Isolated Textarea Component to prevent global state re-renders on every keystroke.
+ * Syncs back to the parent form data only on Blur.
+ */
+const IsolatedTextarea: React.FC<{
+  name: string;
+  value: string;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+  onChange: (e: any) => void;
+}> = ({ name, value, placeholder, className, disabled, onChange }) => {
+  const [localValue, setLocalValue] = useState(value || '');
 
-const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
-    formData, handleChange, handleArrayChange, readOnly, fieldSettings,
-    designMode = false, onFieldClick, selectedFieldId
-}) => {
-  
-  const DesignWrapper = ({ id, type, children, className = "" }: { id: string, type: 'question' | 'condition' | 'allergy' | 'physician', children?: React.ReactNode, className?: string, key?: React.Key }) => {
-    const isSelected = selectedFieldId === id;
-    if (!designMode) return <div className={className}>{children}</div>;
-    
-    return (
-        <div 
-            onClick={(e) => { e.stopPropagation(); onFieldClick?.(id, type); }}
-            className={`${className} relative group cursor-pointer transition-all duration-300 rounded-2xl border-2 ${isSelected ? 'border-lilac-500 bg-lilac-50/30 ring-4 ring-lilac-500/10' : 'border-transparent hover:border-teal-400 hover:bg-teal-50/20'}`}
-        >
-            <div className="absolute inset-0 z-20 cursor-pointer" />
-            <div className="relative z-10 pointer-events-none">{children}</div>
-            <div className={`absolute -top-3 -right-2 bg-lilac-600 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-30 ${isSelected ? 'opacity-100' : ''}`}>
-                <Edit3 size={12}/>
-            </div>
-        </div>
-    );
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue !== value) {
+      onChange({ target: { name, value: localValue } });
+    }
   };
 
-  const BooleanField = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false }: { label: string, q: string, icon?: React.ElementType, alert?: boolean, type?: any, key?: React.Key, className?: string, placeholder?: string, showDate?: boolean }) => {
+  return (
+    <textarea
+      name={name}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+const IsolatedInput: React.FC<{
+  name: string;
+  value: string;
+  type?: string;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+  onChange: (e: any) => void;
+}> = ({ name, value, type = "text", placeholder, className, disabled, onChange }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue !== value) {
+      onChange({ target: { name, value: localValue, type } });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBlur();
+    }
+  };
+
+  return (
+    <input
+      name={name}
+      type={type}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+// FIXED: Added key?: React.Key to the props interface to resolve build errors when used in lists
+const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'question' | 'condition' | 'allergy' | 'physician', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
+  const isSelected = selectedFieldId === id;
+  if (!designMode) return <div className={className}>{children}</div>;
+  
+  return (
+      <div 
+          onClick={(e) => { e.stopPropagation(); onFieldClick?.(id, type); }}
+          className={`${className} relative group transition-all duration-300 rounded-2xl border-2 ${isSelected ? 'border-lilac-500 bg-lilac-50/30 ring-4 ring-lilac-500/10' : 'border-transparent hover:border-teal-400 hover:bg-teal-50/20'} p-1`}
+      >
+          <div className="relative z-10">{children}</div>
+          <div className={`absolute top-2 right-2 bg-lilac-600 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none ${isSelected ? 'opacity-100' : ''}`}>
+              <Edit3 size={12}/>
+          </div>
+      </div>
+  );
+};
+
+interface BooleanFieldProps {
+    label: string;
+    q: string;
+    icon?: React.ElementType;
+    alert?: boolean;
+    // FIXED: Narrowed 'type' prop to supported literal union to ensure clinical registry safety
+    type?: 'question' | 'condition' | 'allergy' | 'physician';
+    className?: string;
+    placeholder?: string;
+    showDate?: boolean;
+    formData: Partial<Patient>;
+    handleChange: any;
+    readOnly?: boolean;
+    fieldSettings: FieldSettings;
+    designMode: boolean;
+    selectedFieldId?: string;
+    onFieldClick?: any;
+}
+
+const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, formData, handleChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
     const val = formData.registryAnswers?.[q];
     const isYes = val === 'Yes' || (typeof val === 'boolean' && val === true);
     const subVal = (formData.registryAnswers?.[`${q}_details`] as string) || '';
     const dateVal = (formData.registryAnswers?.[`${q}_date`] as string) || '';
     const needsDetails = q.includes('*');
+    const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(q);
     
+    // FIXED: Explicitly cast 'type' to resolve string assignment error on line 130
+    const resolvedType = type as 'question' | 'condition' | 'allergy' | 'physician';
+
     return (
-        <DesignWrapper id={q} type={type} key={q} className={className}>
+        <DesignWrapper id={q} type={resolvedType} key={q} className={className} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
             <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 ${alert && isYes ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
                 <div className="flex items-center gap-3 pr-4">
                     {Icon && <Icon size={18} className={alert && isYes ? 'text-red-600' : 'text-slate-500'}/>}
-                    <span className={`font-black text-sm leading-tight uppercase tracking-tight ${alert && isYes ? 'text-red-800' : 'text-slate-800'}`}>{label}</span>
+                    <span className={`font-black text-sm leading-tight uppercase tracking-tight flex items-center gap-2 ${alert && isYes ? 'text-red-800' : 'text-slate-800'}`}>
+                        {label}
+                        {isCritical && <ShieldAlert size={14} className="text-red-600 animate-pulse"/>}
+                    </span>
                 </div>
                 <div className="flex gap-3 shrink-0">
                     <button 
@@ -83,7 +171,8 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                         )}
                         <div>
                             <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Clinical Specification Narrative *</label>
-                            <textarea 
+                            <IsolatedTextarea 
+                                name={`${q}_details`}
                                 value={subVal} 
                                 onChange={(e) => !readOnly && handleChange({ target: { name: 'registryAnswers', value: { ...(formData.registryAnswers || {}), [`${q}_details`]: e.target.value } } } as any)}
                                 placeholder={placeholder}
@@ -95,18 +184,37 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             </div>
         </DesignWrapper>
     );
-  };
+};
 
+interface RegistrationMedicalProps {
+  formData: Partial<Patient>;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleArrayChange: (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => void;
+  readOnly?: boolean;
+  fieldSettings: FieldSettings; 
+  isMasked?: boolean;
+  designMode?: boolean;
+  onFieldClick?: (fieldId: string, type: 'question' | 'condition' | 'allergy' | 'physician') => void;
+  selectedFieldId?: string;
+}
+
+const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
+    formData, handleChange, handleArrayChange, readOnly, fieldSettings,
+    designMode = false, onFieldClick, selectedFieldId
+}) => {
+  
   const renderSection = (id: string) => {
+    const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(id);
+
     if (id === 'core_physicianName') {
         return (
-            <DesignWrapper id={id} type="physician" key={id} className="md:col-span-12 bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+            <DesignWrapper id={id} type="physician" key={id} className="md:col-span-12 bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <h4 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 mb-2"><UserCircle size={14}/> Physician Identification</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="label text-[10px]">Physician Name</label><input type="text" value={formData.physicianName || ''} name="physicianName" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><Award size={12} className="inline mr-1"/> Specialty</label><input type="text" value={formData.physicianSpecialty || ''} name="physicianSpecialty" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><MapPin size={12} className="inline mr-1"/> Office Address</label><input type="text" value={formData.physicianAddress || ''} name="physicianAddress" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><Phone size={12} className="inline mr-1"/> Office Number</label><input type="tel" value={formData.physicianNumber || ''} name="physicianNumber" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]">Physician Name</label><IsolatedInput type="text" value={formData.physicianName || ''} name="physicianName" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><Award size={12} className="inline mr-1"/> Specialty</label><IsolatedInput type="text" value={formData.physicianSpecialty || ''} name="physicianSpecialty" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><MapPin size={12} className="inline mr-1"/> Office Address</label><IsolatedInput type="text" value={formData.physicianAddress || ''} name="physicianAddress" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><Phone size={12} className="inline mr-1"/> Office Number</label><IsolatedInput type="tel" value={formData.physicianNumber || ''} name="physicianNumber" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </div>
             </DesignWrapper>
         );
@@ -114,21 +222,25 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
 
     if (id === 'core_bloodGroup') {
         return (
-            <DesignWrapper id={id} type="question" key={id} className="md:col-span-6 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Blood Type</span>
-                <select name="bloodGroup" value={formData.bloodGroup || ''} onChange={handleChange} disabled={readOnly} className="w-32 p-2 text-center border rounded-xl bg-white font-black text-xs focus:ring-2 focus:ring-teal-500 outline-none">
-                    <option value="">Unknown</option>
-                    {fieldSettings.bloodGroups.map(bg => <option key={bg} value={bg}>{bg}</option>)}
-                </select>
+            <DesignWrapper id={id} type="question" key={id} className="md:col-span-6" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <div>
+                    <label className="label flex items-center gap-1">Blood Type {isCritical && <Shield size={12} className="text-red-500"/>}</label>
+                    <select name="bloodGroup" value={formData.bloodGroup || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                        <option value="">Select Blood Type</option>
+                        {fieldSettings.bloodGroups.map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                    </select>
+                </div>
             </DesignWrapper>
         );
     }
 
     if (id === 'core_bloodPressure') {
         return (
-            <DesignWrapper id={id} type="question" key={id} className="md:col-span-6 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Blood Pressure</span>
-                <input type="text" value={formData.bloodPressure || ''} name="bloodPressure" onChange={handleChange} disabled={readOnly} className="w-24 p-2 text-center border rounded-xl bg-white font-mono text-sm" placeholder="120/80" />
+            <DesignWrapper id={id} type="question" key={id} className="md:col-span-6" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <div>
+                    <label className="label flex items-center gap-1">Blood Pressure {isCritical && <Shield size={12} className="text-red-500"/>}</label>
+                    <IsolatedInput type="text" value={formData.bloodPressure || ''} name="bloodPressure" onChange={handleChange} disabled={readOnly} className="input bg-white font-mono" placeholder="120/80" />
+                </div>
             </DesignWrapper>
         );
     }
@@ -150,14 +262,14 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             placeholder = "Specify medication";
         }
 
-        return <BooleanField key={id} label={label} q={id} icon={Stethoscope} placeholder={placeholder} showDate={showDate} />;
+        return <BooleanField key={id} label={label} q={id} icon={Stethoscope} placeholder={placeholder} showDate={showDate} formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} designMode={designMode} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} />;
     }
 
     if (id.startsWith('al_')) {
         const allergy = id.replace('al_', '');
         const isSelected = (formData.allergies || []).includes(allergy);
         return (
-            <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-4">
+            <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <button 
                     type="button" 
                     onClick={() => !readOnly && handleArrayChange('allergies', allergy)}
@@ -166,7 +278,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                     <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
                         {isSelected && <Check size={12} className="text-red-600"/>}
                     </div>
-                    <span className={`text-[10px] font-black uppercase tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-600'}`}>{allergy}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-600'}`}>{allergy} {isCritical && "🛡️"}</span>
                 </button>
             </DesignWrapper>
         );
@@ -174,10 +286,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
 
     if (id === 'field_otherAllergies') {
         return (
-            <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-12">
+            <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
-                    <label className="label text-[10px] flex items-center gap-2"><FileText size={12}/> Other Allergies (Question #8)</label>
-                    <input 
+                    <label className="label text-[10px] flex items-center gap-2"><FileText size={12}/> Other Allergies (Question #8) {isCritical && <ShieldAlert size={10} className="text-red-500"/>}</label>
+                    <IsolatedInput 
                         type="text" 
                         name="otherAllergies" 
                         value={formData.otherAllergies || ''} 
@@ -191,23 +303,63 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
         );
     }
 
+    // Dynamic field headers or other types
+    if (id.startsWith('field_')) {
+        const fieldId = id.replace('field_', '');
+        const field = fieldSettings.identityFields.find(f => f.id === fieldId);
+        if (field?.type === 'header') {
+            return (
+                <DesignWrapper id={id} type="question" key={id} className="md:col-span-12 pt-6" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div className="flex items-center gap-3 border-b border-slate-200 pb-2 mb-4">
+                        <HeartPulse size={18} className="text-teal-600"/>
+                        <h5 className="font-black text-slate-800 uppercase tracking-widest text-xs">{field.label}</h5>
+                    </div>
+                </DesignWrapper>
+            );
+        }
+    }
+
     return null;
   };
 
-  const mainMedicalOrder = fieldSettings.medicalLayoutOrder.filter(id => 
+  const mainMedicalOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => 
     !id.startsWith('al_') && 
     id !== 'field_otherAllergies' && 
     id !== 'core_bloodGroup' && 
     id !== 'core_bloodPressure'
-  );
+  ), [fieldSettings.medicalLayoutOrder]);
 
-  const bloodAndPressureOrder = fieldSettings.medicalLayoutOrder.filter(id => 
+  const bloodAndPressureOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => 
     id === 'core_bloodGroup' || id === 'core_bloodPressure'
-  );
+  ), [fieldSettings.medicalLayoutOrder]);
 
-  const allergiesOrder = fieldSettings.medicalLayoutOrder.filter(id => 
+  const allergiesOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => 
     id.startsWith('al_') || id === 'field_otherAllergies'
-  );
+  ), [fieldSettings.medicalLayoutOrder]);
+
+  const dynamicRedFlags = useMemo(() => {
+    const flags: { label: string; details?: string; icon: any }[] = [];
+    const critRegistry = fieldSettings.criticalRiskRegistry || [];
+    
+    (formData.allergies || []).filter(a => a !== 'None').forEach(a => {
+        if (critRegistry.includes(`al_${a}`) || critRegistry.includes(a)) flags.push({ label: `ALLERGY: ${a}`, icon: Pill });
+    });
+    
+    (formData.medicalConditions || []).filter(c => c !== 'None').forEach(c => {
+        if (critRegistry.includes(c)) flags.push({ label: `CONDITION: ${c}`, icon: Activity });
+    });
+
+    fieldSettings.identityQuestionRegistry.forEach(q => {
+        const val = formData.registryAnswers?.[q];
+        const isYes = val === 'Yes' || (typeof val === 'boolean' && val === true);
+        if (isYes && (q.includes('*') || critRegistry.includes(q))) {
+            const details = formData.registryAnswers?.[`${q}_details`] as string;
+            flags.push({ label: `ALERT: ${q.replace('*', '')}`, details: details || "Positive Finding", icon: ShieldAlert });
+        }
+    });
+
+    return flags;
+  }, [formData, fieldSettings]);
 
   return (
     <div className="space-y-8 pb-10">
@@ -267,8 +419,9 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {fieldSettings.medicalConditions.map(condition => {
                     const isSelected = (formData.medicalConditions || []).includes(condition);
+                    const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(condition);
                     return (
-                        <DesignWrapper key={condition} id={condition} type="condition">
+                        <DesignWrapper key={condition} id={condition} type="condition" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                             <button 
                                 type="button" 
                                 onClick={() => !readOnly && handleArrayChange('medicalConditions', condition)}
@@ -277,7 +430,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                                 <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
                                     {isSelected && <Check size={12} className="text-teal-600"/>}
                                 </div>
-                                <span className={`text-xs font-black uppercase tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-600'}`}>{condition}</span>
+                                <span className={`text-xs font-black uppercase tracking-tight leading-none flex items-center gap-2 ${isSelected ? 'text-white' : 'text-slate-600'}`}>
+                                    {condition}
+                                    {isCritical && <ShieldAlert size={14} className={isSelected ? "text-white" : "text-red-500"}/>}
+                                </span>
                             </button>
                         </DesignWrapper>
                     );
@@ -285,22 +441,40 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             </div>
         </div>
 
-        <div className="bg-white p-10 rounded-[3rem] border-2 border-red-100 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-2 h-full bg-red-600" />
-            <div className="flex items-center gap-3 mb-8">
-                <ShieldAlert size={32} className="text-red-700" />
-                <h4 className="font-black text-red-900 uppercase tracking-tight text-xl">Critical Clinical Red Flags</h4>
+        {/* DYNAMIC CRITICAL RED FLAGS SECTION (Hidden in Design Mode) */}
+        {!designMode && (
+            <div className="bg-white p-10 rounded-[3rem] border-2 border-red-100 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-2 h-full bg-red-600" />
+                <div className="flex items-center gap-3 mb-8">
+                    <ShieldAlert size={32} className="text-red-700" />
+                    <h4 className="font-black text-red-900 uppercase tracking-tight text-xl">Critical Clinical Red Flags</h4>
+                </div>
+                
+                {dynamicRedFlags.length > 0 ? (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-2">
+                        {dynamicRedFlags.map((flag, idx) => (
+                            <div key={idx} className="p-5 rounded-2xl bg-red-50 border border-red-100 flex items-start gap-4">
+                                <div className="p-2 bg-red-100 rounded-xl text-red-700"><flag.icon size={20}/></div>
+                                <div className="flex-1">
+                                    <span className="font-black text-sm uppercase text-red-900 tracking-tight">{flag.label}</span>
+                                    {flag.details && (
+                                        <div className="mt-2 text-xs font-bold text-red-700 bg-white/50 p-3 rounded-xl border border-red-100 italic">
+                                            Narrative: {flag.details}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-10 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        No critical markers identified based on current registry answers.
+                    </div>
+                )}
             </div>
-            <div className="space-y-4">
-                {fieldSettings.medicalRiskRegistry.map(q => {
-                    const isRisk = q.startsWith('[RISK]');
-                    const label = q.replace('[RISK] ', '').replace('*', '');
-                    return <BooleanField key={q} label={label} q={q} alert={isRisk} icon={isRisk ? ShieldAlert : Activity} />;
-                })}
-            </div>
-        </div>
+        )}
     </div>
   );
 };
 
-export default RegistrationMedical;
+export default React.memo(RegistrationMedical);

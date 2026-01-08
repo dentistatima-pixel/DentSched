@@ -213,8 +213,8 @@ const Layout: React.FC<LayoutProps> = ({
           </p>
       </div>
 
-      {/* FLOATING BOUTIQUE NAVIGATION */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200 px-4 py-2 z-[60] flex gap-2 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-8 ring-black/5" role="tablist" aria-label="Main Navigation">
+      {/* DOCKED BOUTIQUE NAVIGATION - FIXED Z-INDEX */}
+      <nav className="fixed bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-200 px-6 py-4 z-40 flex gap-3 justify-center rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] transition-all ring-8 ring-black/5" role="tablist" aria-label="Main Navigation">
             {navItems.map((item) => (
             <button 
                 key={item.id} 
@@ -222,7 +222,7 @@ const Layout: React.FC<LayoutProps> = ({
                 aria-selected={activeTab === item.id}
                 aria-controls={`${item.id}-panel`}
                 onClick={() => setActiveTab(item.id)} 
-                className={`flex items-center h-14 px-5 rounded-[1.8rem] transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30 -translate-y-1' : 'text-slate-500 hover:bg-slate-50 hover:text-teal-600'}`}
+                className={`flex items-center h-14 px-6 rounded-2xl transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30' : 'text-slate-500 hover:bg-slate-50 hover:text-teal-600'}`}
                 aria-label={`Switch to ${item.label} view`}
             >
                 <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>

@@ -2,6 +2,103 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
 
+/**
+ * Isolated Input Component to prevent global state re-renders on every keystroke.
+ * Syncs back to the parent form data only on Blur or Enter.
+ */
+const IsolatedInput: React.FC<{
+  name: string;
+  value: string;
+  type?: string;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+  onChange: (e: any) => void;
+}> = ({ name, value, type = "text", placeholder, className, disabled, onChange }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue !== value) {
+      onChange({ target: { name, value: localValue, type } });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBlur();
+    }
+  };
+
+  return (
+    <input
+      name={name}
+      type={type}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+const IsolatedTextarea: React.FC<{
+  name: string;
+  value: string;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+  onChange: (e: any) => void;
+}> = ({ name, value, placeholder, className, disabled, onChange }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue !== value) {
+      onChange({ target: { name, value: localValue, type: 'textarea' } });
+    }
+  };
+
+  return (
+    <textarea
+      name={name}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+// FIXED: Added key?: React.Key to the props interface to resolve build errors when used in lists
+const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'identity' | 'question', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
+  const isSelected = selectedFieldId === id;
+  if (!designMode) return <div className={className}>{children}</div>;
+  
+  return (
+      <div 
+          onClick={(e) => { e.stopPropagation(); onFieldClick?.(id, type); }}
+          className={`${className} relative group transition-all duration-300 rounded-2xl border-2 ${isSelected ? 'border-lilac-500 bg-lilac-50/30 ring-4 ring-lilac-500/10' : 'border-transparent hover:border-teal-400 hover:bg-teal-50/20'} p-1`}
+      >
+          <div className="relative z-10">{children}</div>
+          <div className={`absolute top-2 right-2 bg-lilac-600 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none ${isSelected ? 'opacity-100' : ''}`}>
+              <Edit3 size={12}/>
+          </div>
+      </div>
+  );
+};
+
 interface RegistrationBasicInfoProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
@@ -28,127 +125,107 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
 
   const getLabel = (id: string, def: string) => fieldSettings.fieldLabels[id] || def;
 
-  const DesignWrapper = ({ id, type, children, className = "" }: { id: string, type: 'identity' | 'question', children?: React.ReactNode, className?: string, key?: React.Key }) => {
-    const isSelected = selectedFieldId === id;
-    if (!designMode) return <div className={className}>{children}</div>;
-    
-    return (
-        <div 
-            onClick={(e) => { e.stopPropagation(); onFieldClick?.(id, type); }}
-            className={`${className} relative group cursor-pointer transition-all duration-300 rounded-2xl border-2 ${isSelected ? 'border-lilac-500 bg-lilac-50/30 ring-4 ring-lilac-500/10' : 'border-transparent hover:border-teal-400 hover:bg-teal-50/20'} p-1`}
-        >
-            <div className="absolute inset-0 z-20 cursor-pointer" />
-            <div className="relative z-10">{children}</div>
-            <div className={`absolute -top-3 -right-2 bg-lilac-600 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-30 ${isSelected ? 'opacity-100' : ''}`}>
-                <Edit3 size={12}/>
-            </div>
-        </div>
-    );
-  };
-
-  const BooleanField = ({ label, q, icon: Icon, alert = false, className = "md:col-span-12" }: { label: string, q: string, icon?: React.ElementType, alert?: boolean, key?: React.Key, className?: string }) => {
-    const val = formData.registryAnswers?.[q];
-    const isYes = val === 'Yes' || (typeof val === 'boolean' && val === true);
-    
-    return (
-        <DesignWrapper id={q} type="question" key={q} className={className}>
-            <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 ${alert && isYes ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
-                <div className="flex items-center gap-3">
-                    {Icon && <Icon size={18} className={alert && isYes ? 'text-red-600' : 'text-slate-500'}/>}
-                    <span className={`font-black text-sm leading-tight uppercase tracking-tight ${alert && isYes ? 'text-red-800' : 'text-slate-800'}`}>{label}</span>
-                </div>
-                <div className="flex gap-3">
-                    <button 
-                        type="button" 
-                        onClick={() => !readOnly && handleChange({ target: { name: 'registryAnswers', value: { ...(formData.registryAnswers || {}), [q]: 'Yes' } } } as any)} 
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}
-                    >
-                        Yes
-                    </button>
-                    <button 
-                        type="button" 
-                        onClick={() => !readOnly && handleChange({ target: { name: 'registryAnswers', value: { ...(formData.registryAnswers || {}), [q]: 'No' } } } as any)} 
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${val === 'No' ? 'bg-slate-600 border-slate-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}
-                    >
-                        No
-                    </button>
-                </div>
-            </div>
-        </DesignWrapper>
-    );
+  const femaleFieldMap: Record<string, string> = {
+    'Are you pregnant?': 'pregnant',
+    'Are you nursing?': 'nursing',
+    'Are you taking birth control pills?': 'birthControl'
   };
 
   const renderFieldById = (id: string) => {
+      const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(id);
+
       if (id.startsWith('core_')) {
           const coreId = id.replace('core_', '');
           const label = getLabel(coreId, coreId);
           
           if (coreId === 'firstName' || coreId === 'middleName' || coreId === 'surname') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-4" key={id}>
+                <DesignWrapper id={id} type="identity" className="md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
-                      <label className="label">{label} *</label>
-                      <input name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
+                      <label className="label flex items-center gap-2">{label} * {isCritical && <ShieldAlert size={12} className="text-red-500"/>}</label>
+                      <IsolatedInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
                   </div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'suffix') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-3" key={id}>
+                <DesignWrapper id={id} type="identity" className="md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
                       <label className="label">{label}</label>
-                      <select name="suffix" value={formData.suffix || ''} onChange={handleChange} disabled={readOnly} className="input bg-white"><option value="">None</option>{fieldSettings.suffixes.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                      <select name="suffix" value={formData.suffix || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                        <option value="">Select {label}</option>
+                        {fieldSettings.suffixes.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                   </div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'dob') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-4" key={id}>
+                <DesignWrapper id={id} type="identity" className="md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label font-bold">{label}</label><input name="dob" type="date" value={formData.dob || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'age') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-2" key={id}>
+                <DesignWrapper id={id} type="identity" className="md:col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{formData.age ?? '--'}</div></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'sex') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-3" key={id}>
-                    <div><label className="label font-bold">{label}</label><select name="sex" value={formData.sex || ''} onChange={handleChange} disabled={readOnly} className="input bg-white"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                <DesignWrapper id={id} type="identity" className="md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div>
+                        <label className="label font-bold">{label}</label>
+                        <select name="sex" value={formData.sex || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                            <option value="">Select {label}</option>
+                            {fieldSettings.sex.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
                 </DesignWrapper>
               );
           }
+          if (coreId === 'civilStatus') {
+            return (
+              <DesignWrapper id={id} type="identity" className="md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                  <div>
+                      <label className="label">{label}</label>
+                      <select name="civilStatus" value={formData.civilStatus || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                          <option value="">Select {label}</option>
+                          {fieldSettings.civilStatus.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                  </div>
+              </DesignWrapper>
+            );
+          }
           if (coreId === 'homeAddress') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-12" key={id}>
-                    <div><label className="label">{label}</label><input name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
+                <DesignWrapper id={id} type="identity" className="md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div><label className="label">{label}</label><IsolatedInput name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'city' || coreId === 'barangay') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id}>
-                    <div><label className="label">{label}</label><input name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div><label className="label">{label}</label><IsolatedInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'phone') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id}>
-                    <div><label className="label font-bold">{label} *</label><input name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
+                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div><label className="label font-bold">{label} *</label><IsolatedInput name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'email') {
               return (
-                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id}>
-                    <div><label className="label">{label}</label><input name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
+                <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div><label className="label">{label}</label><IsolatedInput name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
@@ -158,21 +235,37 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
           const fieldId = id.replace('field_', '');
           const field = fieldSettings.identityFields.find(f => f.id === fieldId);
           if (!field) return null;
+
+          if (field.type === 'header') {
+            return (
+                <DesignWrapper id={id} type="identity" className="md:col-span-12 pt-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div className="flex items-center gap-3 border-b border-slate-200 pb-2 mb-4">
+                        <FileText size={18} className="text-lilac-600"/>
+                        <h5 className="font-black text-slate-800 uppercase tracking-widest text-xs">{field.label}</h5>
+                    </div>
+                </DesignWrapper>
+            );
+          }
+
           const val = (formData as any)[field.id] || '';
-          const colSpan = field.width === 'full' ? 'md:col-span-12' : field.width === 'quarter' ? 'md:col-span-3' : 'md:col-span-6';
+          const colSpan = field.width === 'full' ? 'md:col-span-12' : field.width === 'third' ? 'md:col-span-4' : field.width === 'quarter' ? 'md:col-span-3' : 'md:col-span-6';
+          const isCriticalDyn = isCritical || field.isCritical;
           
           return (
-              <DesignWrapper id={id} type="identity" className={colSpan} key={id}>
-                  <label className="label">{field.label}</label>
+              <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                  <label className="label flex items-center gap-2">
+                    {field.label} 
+                    {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
+                  </label>
                   {field.type === 'dropdown' && field.registryKey ? (
                       <select name={field.id} value={val} onChange={handleChange} disabled={readOnly} className="input bg-white">
                           <option value="">Select {field.label}</option>
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <textarea name={field.id} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
+                      <IsolatedTextarea name={field.id} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
                   ) : (
-                      <input name={field.id} type={field.type} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
+                      <IsolatedInput name={field.id} type={field.type as any} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
                   )}
               </DesignWrapper>
           );
@@ -180,18 +273,17 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
       return null;
   };
 
-  const identityFields = fieldSettings.identityLayoutOrder.filter(id => {
-      const coreId = id.replace('core_', '');
+  const identityFields = useMemo(() => fieldSettings.identityLayoutOrder.filter(id => {
       const fieldId = id.replace('field_', '');
       const field = fieldSettings.identityFields.find(f => f.id === fieldId);
       return !field || (field.section !== 'DENTAL' && field.section !== 'FAMILY');
-  });
+  }), [fieldSettings.identityLayoutOrder, fieldSettings.identityFields]);
 
-  const dentalFields = fieldSettings.identityLayoutOrder.filter(id => {
+  const dentalFields = useMemo(() => fieldSettings.identityLayoutOrder.filter(id => {
       const fieldId = id.replace('field_', '');
       const field = fieldSettings.identityFields.find(f => f.id === fieldId);
       return field && field.section === 'DENTAL';
-  });
+  }), [fieldSettings.identityLayoutOrder, fieldSettings.identityFields]);
 
   return (
     <div className="space-y-12">
@@ -235,9 +327,38 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                     {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase">Visible in Design Mode</span>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    {fieldSettings.femaleQuestionRegistry.map(q => (
-                        <BooleanField key={q} q={q} label={q} icon={Check} />
-                    ))}
+                    {fieldSettings.femaleQuestionRegistry.map(q => {
+                        const fieldName = femaleFieldMap[q];
+                        const isYes = (formData as any)[fieldName] === true;
+                        const isNo = (formData as any)[fieldName] === false;
+
+                        return (
+                        <DesignWrapper key={q} id={q} type="question" className="md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                            <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 bg-slate-50 border-slate-100`}>
+                                <div className="flex items-center gap-3">
+                                    <Check size={18} className="text-slate-500"/>
+                                    <span className={`font-black text-sm leading-tight uppercase tracking-tight text-slate-800`}>{q}</span>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: true, type: 'checkbox', checked: true } } as any)}
+                                        className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-teal-200'}`}
+                                    >
+                                        Yes
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: false, type: 'checkbox', checked: false } } as any)}
+                                        className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isNo ? 'bg-lilac-600 border-lilac-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-lilac-200'}`}
+                                    >
+                                        No
+                                    </button>
+                                </div>
+                            </div>
+                        </DesignWrapper>
+                        );
+                    })}
                 </div>
             </div>
         )}
@@ -262,9 +383,9 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                     {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="label text-xs">Full Legal Name *</label><input type="text" value={formData.guardianProfile?.legalName || ''} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
-                    <div><label className="label text-xs">Mobile Number *</label><input type="tel" value={formData.guardianProfile?.mobile || ''} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
-                    <div><label className="label text-xs">Occupation</label><input type="text" value={formData.guardianProfile?.occupation || ''} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
+                    <div><label className="label text-xs">Full Legal Name *</label><IsolatedInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
+                    <div><label className="label text-xs">Mobile Number *</label><IsolatedInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
+                    <div><label className="label text-xs">Occupation</label><IsolatedInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
                 </div>
             </div>
         )}
@@ -272,4 +393,4 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
   );
 };
 
-export default RegistrationBasicInfo;
+export default React.memo(RegistrationBasicInfo);
