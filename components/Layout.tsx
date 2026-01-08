@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-/* Fix: Added missing 'ShieldCheck' to lucide-react imports */
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
 
@@ -64,78 +63,56 @@ const Layout: React.FC<LayoutProps> = ({
 
   const prcExpiryDate = currentUser.prcExpiry ? new Date(currentUser.prcExpiry) : null;
   const isPrcExpired = prcExpiryDate && prcExpiryDate < new Date();
-  const prcDaysLeft = prcExpiryDate ? Math.ceil((prcExpiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 999;
   
   const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
   const isAuthorityLocked = isPrcExpired || isMalpracticeExpired;
-  
-  const isRenewalDue = prcDaysLeft <= 60 && prcDaysLeft > 0;
 
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
-    : "h-20 bg-teal-900 text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 transition-colors duration-500";
+    : "h-24 bg-teal-900/95 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-teal-800/50 transition-all duration-500";
 
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
       {/* Visual Connectivity Bar */}
-      <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-600 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-50 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
+      <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-400 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
 
       <header className={headerClass}>
-             <div className="flex items-center gap-4">
-                <div className={`w-11 h-11 rounded-[1.2rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-500 rotate-3'}`}>
+             <div className="flex items-center gap-6">
+                <div className={`w-12 h-12 rounded-[1.4rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-500 rotate-3 ring-4 ring-white/10'}`}>
                     <span className="text-white font-black text-2xl" aria-hidden="true">{isDowntime ? '!' : 'd'}</span>
                 </div>
                 <div className="flex flex-col">
-                     <span className={`font-black tracking-tighter text-2xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded' : 'text-white'}`}>{isDowntime ? 'DOWNTIME ACTIVE' : 'dentsched'}</span>
-                     <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-300'}`}>DR. {currentUser.name.split(' ')[0]}</span>
-                        {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-xs font-black uppercase" role="status"><CloudOff size={10}/> Continuity</div>}
+                     <span className={`font-black tracking-[0.3em] text-2xl leading-none uppercase ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
+                     <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-[10px] font-black uppercase tracking-[0.4em] leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Authenticated: Dr. {currentUser.name.split(' ')[0]}</span>
+                        {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase tracking-widest" role="status"><CloudOff size={8}/> Offline Continuity Mode</div>}
                      </div>
                 </div>
              </div>
              
              <div className="flex items-center gap-4">
-                 {currentUser.role === UserRole.DENTIST && (
-                    <div className="flex items-center gap-3">
-                        {isRenewalDue && (
-                            <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-amber-500/20 border-2 border-amber-400/50 rounded-2xl animate-in slide-in-from-right-4">
-                                <Bell size={16} className="text-amber-400 animate-bounce"/>
-                                <span className="text-xs font-black text-amber-200 uppercase tracking-widest">PRC RENEWAL: {prcDaysLeft}D</span>
-                            </div>
-                        )}
-                        <button 
-                        aria-label={isAuthorityLocked ? "Clinical Authority Locked" : "License status: Valid"}
-                        className={`p-2.5 rounded-2xl transition-all flex items-center gap-2 focus:ring-offset-2 ${!isAuthorityLocked ? (isRenewalDue ? 'bg-amber-600 text-white shadow-lg' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30') : 'bg-red-600 text-white shadow-2xl ring-4 ring-red-500/30 animate-pulse'}`} 
-                        title={isAuthorityLocked ? `Clinical Authority Locked` : (isRenewalDue ? `PRC Expires in ${prcDaysLeft} days` : "PRC & Malpractice Valid")}
-                        >
-                            {isAuthorityLocked ? <Lock size={20}/> : <ShieldCheck size={20} />}
-                            {isAuthorityLocked && <span className="text-xs font-black uppercase pr-1">LOCKED</span>}
-                        </button>
-                    </div>
-                 )}
-
-                 <div className="hidden lg:flex bg-black/30 p-1 rounded-2xl border border-white/10 gap-1" role="group" aria-label="System status toggle">
+                 <div className="hidden lg:flex bg-black/20 p-1 rounded-2xl border border-white/10 gap-1" role="group" aria-label="System status toggle">
                     <button 
                         onClick={() => onSwitchSystemStatus?.(SystemStatus.OPERATIONAL)}
-                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-xl' : 'text-white/60 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-xl' : 'text-white/60 hover:text-white'}`}
                         aria-pressed={systemStatus === SystemStatus.OPERATIONAL}
                     >
                         Operational
                     </button>
                     <button 
                         onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
-                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/60 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/60 hover:text-white'}`}
                         aria-pressed={systemStatus === SystemStatus.DOWNTIME}
                     >
-                        Downtime
+                        Emergency
                     </button>
                  </div>
 
                  <div className="relative">
                     <button 
                         onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} 
-                        className={`p-3 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`} 
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`} 
                         aria-label={`Task Registry: ${badgeCount} items pending`}
                         aria-expanded={isTaskPopoverOpen}
                     >
@@ -145,10 +122,10 @@ const Layout: React.FC<LayoutProps> = ({
                     {isTaskPopoverOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="registry-title">
+                            <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="registry-title">
                                 <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
-                                    <span id="registry-title" className="font-black uppercase tracking-widest text-sm">Priority Registry</span>
-                                    <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black uppercase" role="status">{badgeCount} Open</span>
+                                    <span id="registry-title" className="font-black uppercase tracking-widest text-[10px]">Priority Registry</span>
+                                    <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black uppercase" role="status">{badgeCount} Open</span>
                                 </div>
                                 <div className="max-h-80 overflow-y-auto p-3 no-scrollbar">
                                     {myActiveTasks.length > 0 ? (
@@ -156,7 +133,7 @@ const Layout: React.FC<LayoutProps> = ({
                                             {myActiveTasks.map(task => (
                                                 <div key={task.id} className="flex items-start gap-3 p-4 hover:bg-teal-50 rounded-2xl group transition-all">
                                                     <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-1 text-slate-400 hover:text-teal-700 transition-colors focus:ring-offset-2" aria-label={`Complete task: ${task.text}`}><Circle size={18} /></button>
-                                                    <div className="flex-1 min-w-0"><div className="text-sm font-bold leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest"><Flag size={10} /> Emergency</div>}</div>
+                                                    <div className="flex-1 min-w-0"><div className="text-sm font-bold leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest"><Flag size={10} /> Emergency</div>}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -169,7 +146,7 @@ const Layout: React.FC<LayoutProps> = ({
 
                  <button 
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg focus:ring-offset-2"
+                    className="p-3.5 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg focus:ring-offset-2"
                     aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
                     aria-expanded={isMobileMenuOpen}
                 >
@@ -179,11 +156,11 @@ const Layout: React.FC<LayoutProps> = ({
       </header>
 
       {isMobileMenuOpen && (
-            <div className="fixed inset-0 top-20 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
+            <div className="fixed inset-0 top-24 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
                 <div className="p-8 space-y-6 overflow-y-auto flex-1 max-w-lg mx-auto w-full">
                     <div className="bg-teal-900/50 p-6 rounded-[2.5rem] flex items-center gap-6 border border-teal-800 shadow-2xl">
                         <img src={currentUser.avatar} alt={`Avatar of ${currentUser.name}`} className="w-16 h-16 rounded-3xl border-4 border-lilac-500 shadow-xl" />
-                        <div><div className="font-black text-2xl tracking-tighter">{currentUser.name}</div><div className="text-xs text-teal-300 uppercase font-black tracking-[0.2em] mt-1">{currentUser.role}</div></div>
+                        <div><div className="font-black text-2xl tracking-tighter uppercase">{currentUser.name}</div><div className="text-xs text-teal-300 uppercase font-black tracking-[0.2em] mt-1">{currentUser.role}</div></div>
                     </div>
                     {enableMultiBranch && (
                         <div className="bg-teal-900/50 p-6 rounded-[2.5rem] border border-teal-800 shadow-lg">
@@ -199,7 +176,7 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
       )}
 
-      <main className="flex-1 flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50 relative" role="main">
+      <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-slate-50 relative" role="main">
         <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-6'} pb-32 no-scrollbar`}>
             {children}
         </div>
@@ -208,12 +185,11 @@ const Layout: React.FC<LayoutProps> = ({
       {/* PDA COMPLIANCE FOOTER */}
       <div className="bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 py-2 z-40 hidden md:flex items-center justify-center gap-4 shrink-0" role="contentinfo">
           <Shield size={14} className="text-teal-700" aria-hidden="true"/>
-          <p className="text-xs font-bold text-slate-600 tracking-wide leading-none">
-            PDA ETHICS RULE 19 VERIFIED: Clinical decision support system only. Practitioner retains sole liability.
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
+            PDA ETHICS RULE 19 VERIFIED: Practitioner retains sole clinical liability for decision support output.
           </p>
       </div>
 
-      {/* DOCKED BOUTIQUE NAVIGATION - FIXED Z-INDEX */}
       <nav className="fixed bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-200 px-6 py-4 z-40 flex gap-3 justify-center rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] transition-all ring-8 ring-black/5" role="tablist" aria-label="Main Navigation">
             {navItems.map((item) => (
             <button 
@@ -226,7 +202,7 @@ const Layout: React.FC<LayoutProps> = ({
                 aria-label={`Switch to ${item.label} view`}
             >
                 <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
-                <span className={`text-sm font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
+                <span className={`text-xs font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
             </button>
             ))}
       </nav>

@@ -1,4 +1,4 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -115,7 +115,7 @@ export const PATIENTS: Patient[] = [
         email: 'm.scott@dunder.com',
         occupation: 'Regional Manager',
         lastVisit: getPastDateStr(2),
-        nextVisit: getTomorrowStr(),
+        nextVisit: getPastDateStr(-1),
         chiefComplaint: 'Checkup on my bridges.',
         notes: 'Very talkative. Loves jokes. Gag reflex.',
         currentBalance: 5000,
@@ -159,6 +159,8 @@ export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
     { id: 'cycle_001', date: getPastDateStr(1), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-20-01', operator: 'Asst. Sarah', passed: true, instrumentSetIds: ['set_alpha_1'] }
 ];
 
+export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = MOCK_STERILIZATION_CYCLES;
+
 export const MOCK_EXPENSES: Expense[] = [
     { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Main', staffId: 'doc1' }
 ];
@@ -175,7 +177,39 @@ export const MOCK_VENDORS: Vendor[] = [
 
 const DEFAULT_SMS: SmsTemplates = {
     welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to dentsched, {PatientName}! Your digital health record is now active.', enabled: true, category: 'Onboarding', triggerDescription: 'New patient registration.' },
-    booking: { id: 'booking', label: 'Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor}.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment scheduled.' }
+    update_registration: { id: 'update_registration', label: 'Registration Updated', text: 'Hi {PatientName}, we have successfully updated your patient profile and medical records. Thank you for keeping your data current.', enabled: true, category: 'Efficiency', triggerDescription: 'Existing patient data update.' },
+    booking: { id: 'booking', label: 'Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor}.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment scheduled.' },
+    reschedule: { id: 'reschedule', label: 'Reschedule Alert', text: 'Your session has been moved. New Slot: {Date} @ {Time}. See you then!', enabled: true, category: 'Logistics', triggerDescription: 'Appointment date/time changed.' },
+    cancellation: { id: 'cancellation', label: 'Cancellation Confirmation', text: 'Your appointment for {Date} has been cancelled. We look forward to seeing you in the future.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment status set to Cancelled.' },
+    treatment_signed: { id: 'treatment_signed', label: 'Clinical Note Receipt', text: 'Clinical Record Sealed: Your signature has been bound to today\'s session record for {Procedure}.', enabled: true, category: 'Safety', triggerDescription: 'Patient signs a clinical note.' },
+    followup_1w: { id: 'followup_1w', label: '7-Day Post-Op Check', text: 'Hi {PatientName}, it has been a week since your {Procedure}. We hope you are healing well! Text us if you have any discomfort.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-week follow-up after signed treatment.' },
+    followup_1m: { id: 'followup_1m', label: '1-Month Wellness Check', text: 'Checking in: It has been a month since your {Procedure}. Don\'t forget to maintain good hygiene for lasting results!', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-month follow-up.' },
+    followup_3m: { id: 'followup_3m', label: '3-Month Recall Preparation', text: 'Time flies! It has been 3 months since your last major procedure. We recommend a cleaning soon to protect your investment.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 3-month follow-up.' },
+    medical_clearance: { id: 'medical_clearance', label: 'Medical Clearance Request', text: 'Action Required: Your dentist requests medical clearance from your {Provider} specialist for your upcoming procedure.', enabled: true, category: 'Safety', triggerDescription: 'Practitioner requests physician clearance.' },
+    referral_thanks: { id: 'referral_thanks', label: 'Referral Thank You', text: 'Thank you {PatientName}! We noticed you referred a new patient to our practice. We appreciate your trust!', enabled: true, category: 'Reputation', triggerDescription: 'New patient lists this patient as referral source.' },
+    philhealth_status: { id: 'philhealth_status', label: 'PhilHealth Claim Update', text: 'PhilHealth Update: Your claim for {Procedure} is now {Provider}.', enabled: true, category: 'Financial', triggerDescription: 'PhilHealth claim status transition.' },
+    lab_delay: { id: 'lab_delay', label: 'Laboratory Set Delay', text: 'Service Update: The lab set for your {Procedure} has been delayed. Please await further notice before visiting.', enabled: true, category: 'Logistics', triggerDescription: 'Lab status set to Delayed.' }
+};
+
+const DEFAULT_HOURS: OperationalHours = {
+    monday: { start: '08:00', end: '18:00', isClosed: false },
+    tuesday: { start: '08:00', end: '18:00', isClosed: false },
+    wednesday: { start: '08:00', end: '18:00', isClosed: false },
+    thursday: { start: '08:00', end: '18:00', isClosed: false },
+    friday: { start: '08:00', end: '18:00', isClosed: false },
+    saturday: { start: '08:00', end: '16:00', isClosed: false },
+    sunday: { start: '09:00', end: '12:00', isClosed: true }
+};
+
+const DEFAULT_SMS_CONFIG: SmsConfig = {
+    mode: 'LOCAL',
+    gatewayUrl: 'http://192.168.1.188:8080/send',
+    apiKey: '9EWSEOt4',
+    cloudUrl: '',
+    username: '',
+    password: '',
+    deviceId: '',
+    isPollingEnabled: false
 };
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
@@ -366,6 +400,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'h2', name: 'Makati Medical Center', location: 'Makati', hotline: '02-8888-8999' }
   ],
   smsTemplates: DEFAULT_SMS,
+  smsConfig: DEFAULT_SMS_CONFIG,
+  operationalHours: DEFAULT_HOURS,
   consentFormTemplates: [
       { id: 'c1', name: 'General Consent', content: 'I, {PatientName}, authorize treatment.' }
   ],

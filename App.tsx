@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import PatientList from './components/PatientList';
-import AppointmentModal from './components/AppointmentModal';
+import { AppointmentModal } from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
@@ -12,19 +12,18 @@ import Financials from './components/Financials';
 import PostOpHandoverModal from './components/PostOpHandoverModal';
 import SafetyTimeoutModal from './components/SafetyTimeoutModal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
 const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
 const GHOST_LOG_KEY = '_ds_ext_sys_0x1'; 
-const TERMS_VERSION = '1.0-2024'; 
 const PBKDF2_ITERATIONS = 600000; 
 const EMERGENCY_STALE_THRESHOLD = 60 * 60 * 1000; 
 
@@ -45,6 +44,21 @@ const generateDiff = (oldObj: any, newObj: any): string => {
         }
     });
     return changes.length === 0 ? 'Updated complex fields' : changes.join('; ');
+};
+
+const verifyAuditTrail = (logs: AuditLogEntry[]): boolean => {
+    if (logs.length <= 1) return true;
+    const logsSorted = [...logs].reverse();
+    for (let i = 1; i < logsSorted.length; i++) {
+        const current = logsSorted[i];
+        const prev = logsSorted[i - 1];
+        const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
+        const expectedHash = CryptoJS.SHA256(payload).toString();
+        if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
+            return false;
+        }
+    }
+    return true;
 };
 
 function App() {
@@ -84,6 +98,8 @@ function App() {
   
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
+  
+  const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
 
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const idleTimerRef = useRef<any>(null);
@@ -91,7 +107,7 @@ function App() {
 
   const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
   const [isInKioskMode, setIsInKioskMode] = useState(false);
-  const [currentBranch, setCurrentBranch] = useState<string>('Makati Branch');
+  const [currentBranch, setCurrentBranch] = useState<string>('Makati Main');
 
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState<string | undefined>(undefined);
@@ -104,6 +120,110 @@ function App() {
 
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
+
+  const handleManualOverride = (gateId: string, reason: string) => {
+    logAction('SECURITY_ALERT', 'SystemGate', gateId, `Manual Override Executed. Reason: ${reason}`);
+    toast.warning(`Manual override logged for gate ${gateId}.`);
+  };
+
+  const triggerSms = useCallback(async (templateId: string, patient: Patient, extras: Record<string, string> = {}) => {
+      if (!isOnline || systemStatus === SystemStatus.DOWNTIME) return; 
+      if (!fieldSettings.features.enableSmsAutomation) return;
+      
+      const config = fieldSettings.smsTemplates[templateId];
+      if (!config || !config.enabled) return;
+
+      const marketingCategories = ['Onboarding', 'Efficiency', 'Reputation'];
+      if (marketingCategories.includes(config.category) && !patient.marketingConsent) {
+          return;
+      }
+
+      let message = config.text;
+      const doctor = extras.doctor || 'your dentist';
+      const procedure = extras.procedure || 'your appointment';
+      const date = extras.date || 'your scheduled date';
+      const time = extras.time || 'your scheduled time';
+      const branch = extras.branch || currentBranch;
+      const amount = extras.amount || '0.00';
+      const provider = extras.provider || 'your insurer';
+
+      message = message
+          .replace(/{PatientName}/g, patient.firstName)
+          .replace(/{Doctor}/g, doctor)
+          .replace(/{Procedure}/g, procedure)
+          .replace(/{Date}/g, date)
+          .replace(/{Time}/g, time)
+          .replace(/{Branch}/g, branch)
+          .replace(/{Amount}/g, amount)
+          .replace(/{Provider}/g, provider)
+          .replace(/{PortalLink}/g, 'Offline issuance only')
+          .replace(/{BookingLink}/g, 'dentsched.ph/book');
+
+      const smsCfg = fieldSettings.smsConfig;
+      if (smsCfg.mode === 'LOCAL' && smsCfg.gatewayUrl) {
+          try {
+              const res = await fetch(smsCfg.gatewayUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      to: patient.phone,
+                      message: message,
+                      key: smsCfg.apiKey
+                  })
+              });
+              if (res.ok) {
+                  logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}" via Capcom Direct: ${message}`);
+              } else {
+                  throw new Error("Gateway error");
+              }
+          } catch (err) {
+              logAction('SECURITY_ALERT', 'SmsQueue', patient.id, `Capcom Direct Failure for "${config.label}": ${err}`);
+              toast.error("SMS Gateway unreachable.");
+          }
+      } else if (smsCfg.mode === 'CLOUD' && smsCfg.cloudUrl) {
+          try {
+              const res = await fetch(smsCfg.cloudUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      username: smsCfg.username,
+                      password: smsCfg.password,
+                      device_id: smsCfg.deviceId,
+                      to: patient.phone,
+                      message: message
+                  })
+              });
+              if (res.ok) {
+                  logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}" via Cloud Server: ${message}`);
+              } else {
+                  throw new Error("Cloud Gateway error");
+              }
+          } catch (err) {
+              logAction('SECURITY_ALERT', 'SmsQueue', patient.id, `Cloud Gateway Failure for "${config.label}": ${err}`);
+              toast.error("SMS Cloud Gateway unreachable.");
+          }
+      } else {
+          logAction('SEND_SMS', 'SmsQueue', patient.id, `Simulated send for "${config.label}" (${smsCfg.mode}): ${message}`);
+      }
+  }, [fieldSettings, currentBranch, isOnline, systemStatus]);
+
+  useEffect(() => {
+    if (isAuthenticated && scheduledSms.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const due = scheduledSms.filter(s => s.status === 'Pending' && s.dueDate <= today);
+      
+      if (due.length > 0) {
+        toast.info(`Auto-Processing ${due.length} scheduled caring messages...`);
+        due.forEach(msg => {
+          const patient = patients.find(p => p.id === msg.patientId);
+          if (patient) {
+            triggerSms(msg.templateId, patient, msg.data);
+          }
+        });
+        setScheduledSms(prev => prev.map(s => (s.dueDate <= today ? { ...s, status: 'Sent' } : s)));
+      }
+    }
+  }, [isAuthenticated, patients, triggerSms]);
 
   useEffect(() => {
       const handleOnline = () => { 
@@ -198,62 +318,6 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleManualOverride = (gateId: string, reason: string) => {
-      logAction('DOWNTIME_BYPASS', 'System', gateId, `Manual clinical override. Reason: ${reason}`);
-      toast.info("Validation bypassed. Logged for review.");
-  };
-
-  const verifyAuditTrail = useCallback((logs: AuditLogEntry[]) => {
-      if (logs.length <= 1) return true;
-      const sorted = [...logs].reverse();
-      for (let i = 1; i < sorted.length; i++) {
-          const current = sorted[i];
-          const prev = sorted[i-1];
-          const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
-          const expectedHash = CryptoJS.SHA256(payload).toString();
-          if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
-              return false;
-          }
-      }
-      return true;
-  }, []);
-
-  const triggerSms = useCallback((templateId: string, patient: Patient, extras: Record<string, string> = {}) => {
-      if (!isOnline || systemStatus === SystemStatus.DOWNTIME) return; 
-      if (!fieldSettings.features.enableSmsAutomation) return;
-      
-      const config = fieldSettings.smsTemplates[templateId];
-      if (!config || !config.enabled) return;
-
-      const marketingCategories = ['Onboarding', 'Efficiency', 'Reputation'];
-      if (marketingCategories.includes(config.category) && !patient.marketingConsent) {
-          return;
-      }
-
-      let message = config.text;
-      const doctor = extras.doctor || 'your dentist';
-      const procedure = extras.procedure || 'your appointment';
-      const date = extras.date || 'your scheduled date';
-      const time = extras.time || 'your scheduled time';
-      const branch = extras.branch || currentBranch;
-      const amount = extras.amount || '0.00';
-      const provider = extras.provider || 'your insurer';
-
-      message = message
-          .replace(/{PatientName}/g, patient.firstName)
-          .replace(/{Doctor}/g, doctor)
-          .replace(/{Procedure}/g, procedure)
-          .replace(/{Date}/g, date)
-          .replace(/{Time}/g, time)
-          .replace(/{Branch}/g, branch)
-          .replace(/{Amount}/g, amount)
-          .replace(/{Provider}/g, provider)
-          .replace(/{PortalLink}/g, 'Offline issuance only')
-          .replace(/{BookingLink}/g, 'dentsched.ph/book');
-
-      logAction('SEND_SMS', 'SmsQueue', patient.id, `Queued "${config.label}" for ${patient.phone}: ${message}`);
-  }, [fieldSettings, currentBranch, isOnline, systemStatus]);
-
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
@@ -307,6 +371,7 @@ function App() {
       setStaff(load('dentsched_staff', STAFF));
       setStock(load('dentsched_stock', MOCK_STOCK));
       setSterilizationCycles(load('dentsched_sterilization', MOCK_STERILIZATION_CYCLES));
+      setScheduledSms(load('dentsched_scheduled_sms', []));
       
       const loadedLogs = load('dentsched_auditlog', []);
       
@@ -371,7 +436,8 @@ function App() {
       save('dentsched_offline_queue', offlineQueue);
       save('dentsched_sync_conflicts', syncConflicts);
       save('dentsched_system_status', systemStatus);
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, isAuthenticated, encryptionKey]);
+      save('dentsched_scheduled_sms', scheduledSms);
+  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, scheduledSms, isAuthenticated, encryptionKey]);
 
   const resetIdleTimer = () => {
       if (isSessionLocked || !isAuthenticated) return;
@@ -397,6 +463,8 @@ function App() {
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
     const isManual = systemStatus === SystemStatus.DOWNTIME;
+    const existing = appointments.find(a => a.id === newAppointment.id);
+    
     const aptWithSync = { 
         ...newAppointment, 
         branch: newAppointment.branch || currentBranch, 
@@ -404,13 +472,30 @@ function App() {
         entryMode: isManual ? 'MANUAL' : 'AUTO',
         reconciled: !isManual
     } as Appointment;
+    
     const patient = patients.find(p => p.id === newAppointment.patientId);
+
+    if (existing && patient) {
+        if (existing.date !== newAppointment.date || existing.time !== newAppointment.time) {
+            triggerSms('reschedule', patient, { date: newAppointment.date, time: newAppointment.time, procedure: newAppointment.type });
+        }
+    }
 
     if (!isOnline) {
         setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'CREATE_APPOINTMENT', payload: aptWithSync, timestamp: new Date().toISOString() }]);
         toast.info("Appointment queued for offline sync.");
     }
     
+    if (aptWithSync.labStatus === LabStatus.RECEIVED && (!editingAppointment || editingAppointment.labStatus !== LabStatus.RECEIVED)) {
+        const vendor = fieldSettings.vendors.find(v => v.id === aptWithSync.labDetails?.vendorId);
+        logAction('CREATE', 'Financials', 'Expense', `Automated Lab Expense Entry: Lab set "${aptWithSync.id}" received from ${vendor?.name || 'Lab'}.`);
+        toast.info("Automated Lab Expense entry generated.");
+    }
+    
+    if (aptWithSync.labStatus === LabStatus.DELAYED && (!existing || existing.labStatus !== LabStatus.DELAYED)) {
+        if (patient) triggerSms('lab_delay', patient, { procedure: aptWithSync.type });
+    }
+
     setAppointments(prev => {
         const existingIndex = prev.findIndex(a => a.id === aptWithSync.id);
         if (existingIndex >= 0) {
@@ -431,20 +516,6 @@ function App() {
     });
   };
 
-  const handleVerifyMedHistory = (appointmentId: string) => {
-    const timestamp = new Date().toISOString();
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, medHistoryVerified: true, medHistoryVerifiedAt: timestamp } : a));
-    logAction('VIEW_RECORD', 'Appointment', appointmentId, "Chair-side Safety Protocol: Re-verified patient medical history before treatment.");
-    toast.success("Medical history verified for session safety.");
-  };
-
-  const handleConfirmFollowUp = (appointmentId: string) => {
-      const timestamp = new Date().toISOString();
-      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, followUpConfirmed: true, followUpConfirmedAt: timestamp } : a));
-      logAction('UPDATE', 'Appointment', appointmentId, "Standard of Care Compliance: Executed 24h Post-Op Vigilance contact. Patient stabilized.");
-      toast.success("Post-op follow-up documented.");
-  };
-
   const finalizeUpdateStatus = (id: string, status: AppointmentStatus) => {
     const apt = appointments.find(a => a.id === id);
     if (!apt) return;
@@ -462,6 +533,10 @@ function App() {
         const denominator = newStats.completedCount + newStats.noShowCount + newStats.lateCancelCount;
         const score = denominator > 0 ? Math.round((newStats.completedCount / denominator) * 100) : 100;
         setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, attendanceStats: newStats, reliabilityScore: score } : p));
+        
+        if (status === AppointmentStatus.CANCELLED) {
+            triggerSms('cancellation', patient, { date: apt.date });
+        }
     }
 
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status, isPendingSync: !isOnline } : a));
@@ -474,7 +549,6 @@ function App() {
 
       const patient = patients.find(p => p.id === apt.patientId);
 
-      // --- UPGRADE 3: SAFETY TIMEOUT GATE ---
       if (status === AppointmentStatus.TREATING && patient) {
           const hasRisk = (patient.medicalConditions?.some(c => c !== 'None')) || (patient.allergies?.some(a => a !== 'None'));
           if (hasRisk) {
@@ -515,239 +589,80 @@ function App() {
       finalizeUpdateStatus(appointmentId, status);
   };
 
-  const handleSafetyTimeoutConfirm = () => {
-    if (!pendingSafetyTimeout) return;
-    const { appointmentId, status } = pendingSafetyTimeout;
-    logAction('SECURITY_ALERT', 'ClinicalAlert', appointmentId, "Safety Timeout: Practitioner confirmed review of critical clinical risks before treating.");
-    finalizeUpdateStatus(appointmentId, status);
-    setPendingSafetyTimeout(null);
-  };
-
-  const handleConfirmPostOp = () => {
-      if (!pendingPostOpAppointment) return;
-      const id = pendingPostOpAppointment.id;
-      const timestamp = new Date().toISOString();
-      
-      setAppointments(prev => prev.map(a => a.id === id ? { ...a, postOpVerified: true, postOpVerifiedAt: timestamp } : a));
-      logAction('UPDATE', 'Appointment', id, "Post-Op Handover Shield: Verified that oral/written instructions were received and understood by the patient.");
-      
-      finalizeUpdateStatus(id, AppointmentStatus.COMPLETED);
-      setPendingPostOpAppointment(null);
-      toast.success("Post-op verification logged. Treatment finalized.");
-  };
-
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
     const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
+    const existing = patients.find(p => p.id === newPatientData.id);
+
     if (!isOnline) {
-        setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'UPDATE_PATIENT', payload: dataWithTimestamp, timestamp: new Date().toISOString() }]);
+        setOfflineQueue(prev => [...prev, { id: `intent_${Date.now()}`, action: 'REGISTER_PATIENT', payload: dataWithTimestamp, timestamp: new Date().toISOString() }]);
         toast.info("Patient update queued for offline sync.");
     }
 
-    if (editingPatient) {
-        const updatedPatient = { ...editingPatient, ...dataWithTimestamp } as Patient;
-        logAction('UPDATE', 'Patient', editingPatient.id, 'Updated patient registration details', editingPatient, updatedPatient);
+    if (existing) {
+        const updatedPatient = { ...existing, ...dataWithTimestamp } as Patient;
+        logAction('UPDATE', 'Patient', existing.id, 'Updated patient registration details', existing, updatedPatient);
         setPatients(prev => prev.map(p => p.id === newPatientData.id ? updatedPatient : p));
+        triggerSms('update_registration', updatedPatient);
         setEditingPatient(null);
     } else {
         const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '', recallStatus: 'Due' };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
+        
+        if (newPatient.referredById) {
+            const referrer = patients.find(p => p.id === newPatient.referredById);
+            if (referrer) triggerSms('referral_thanks', referrer);
+        }
+
         setPatients(prev => [...prev, newPatient]);
+        triggerSms('welcome', newPatient);
     }
   };
 
-  /* UPGRADE 1: Automated Contaminated Status Update */
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
       const original = patients.find(p => p.id === updatedPatient.id);
       if (original) {
           updatedPatient.dentalChart?.forEach(entry => {
               const origEntry = original.dentalChart?.find(e => e.id === entry.id);
               
-              if (entry.sealedHash && !origEntry?.sealedHash) {
-                  // --- UPGRADE 1: CONSUME INSTRUMENT SET ---
-                  if (entry.instrumentSetId) {
-                      setFieldSettings(prev => ({
-                          ...prev,
-                          instrumentSets: prev.instrumentSets?.map(set => 
-                              set.id === entry.instrumentSetId ? { ...set, status: 'Contaminated' } : set
-                          )
-                      }));
-                      logAction('UPDATE', 'Inventory', entry.instrumentSetId, `Clinical Note Sealed: Instrument Set "${entry.instrumentSetId}" status promoted to CONTAMINATED.`);
-                  }
-
-                  const procedure = fieldSettings.procedures.find(p => p.name === entry.procedure);
+              if (entry.patientSignature && !origEntry?.patientSignature) {
+                  triggerSms('treatment_signed', updatedPatient, { procedure: entry.procedure });
                   
-                  if (procedure?.billOfMaterials && procedure.billOfMaterials.length > 0) {
-                      setStock(prev => prev.map(s => {
-                          const bomItem = procedure.billOfMaterials!.find(b => b.stockItemId === s.id);
-                          if (bomItem) {
-                              const newQty = Math.max(0, s.quantity - bomItem.quantity);
-                              return { ...s, isLockedForEvidence: true, quantity: newQty };
-                          }
-                          return s;
-                      }));
-                      
-                      procedure.billOfMaterials.forEach(bomItem => {
-                          const item = stock.find(s => s.id === bomItem.stockItemId);
-                          if (item) {
-                              logAction('UPDATE', 'Stock', item.id, `BOM Consumption: Decremented ${bomItem.quantity} ${item.dispensingUnit || 'unit(s)'} for procedure ${entry.procedure} performed on ${updatedPatient.name}.`);
-                              if (item.quantity - bomItem.quantity <= item.lowStockThreshold) {
-                                  toast.warning(`Low Stock: ${item.name} reached procurement threshold.`);
-                              }
-                          }
-                      });
-                  } else if (entry.materialBatchId) {
-                      setStock(prev => prev.map(s => {
-                          if (s.id === entry.materialBatchId) {
-                              const newQty = Math.max(0, s.quantity - 1);
-                              return { ...s, isLockedForEvidence: true, quantity: newQty };
-                          }
-                          return s;
-                      }));
-                      
-                      const stockItem = stock.find(s => s.id === entry.materialBatchId);
-                      if (stockItem) {
-                          logAction('UPDATE', 'Stock', stockItem.id, `Automatic consumption log: Decremented 1 ${stockItem.dispensingUnit || 'unit'} due to usage in clinical note for ${updatedPatient.name}.`);
-                          if (stockItem.quantity - 1 <= stockItem.lowStockThreshold) {
-                              toast.warning(`Low Stock: ${stockItem.name} reached procurement threshold.`);
-                          }
-                      }
-                  }
+                  const getOffsetDate = (days: number) => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      return d.toISOString().split('T')[0];
+                  };
+
+                  const followUps: ScheduledSms[] = [
+                      { id: `sch_${Date.now()}_1`, patientId: updatedPatient.id, templateId: 'followup_1w', dueDate: getOffsetDate(7), data: { procedure: entry.procedure }, status: 'Pending' },
+                      { id: `sch_${Date.now()}_2`, patientId: updatedPatient.id, templateId: 'followup_1m', dueDate: getOffsetDate(30), data: { procedure: entry.procedure }, status: 'Pending' },
+                      { id: `sch_${Date.now()}_3`, patientId: updatedPatient.id, templateId: 'followup_3m', dueDate: getOffsetDate(90), data: { procedure: entry.procedure }, status: 'Pending' }
+                  ];
+                  setScheduledSms(prev => [...prev, ...followUps]);
+                  toast.info("Patient Care follow-ups scheduled for T+7, T+30, and T+90 days.");
               }
           });
       }
       setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
   };
 
-  const handleSaveIncident = async (incident: ClinicalIncident) => {
-      const newIncident = { ...incident, id: incident.id || `inc_${Date.now()}` };
-      setIncidents(prev => [newIncident, ...prev]);
-      logAction('LOG_INCIDENT', 'Incident', newIncident.id, `Reported ${incident.type}: ${incident.description}`);
-
-      if (incident.patientId && incident.type === 'Complication') {
-          const patient = patients.find(p => p.id === incident.patientId);
-          if (patient && patient.dentalChart) {
-              const chart = [...patient.dentalChart];
-              const { timestamp } = await getTrustedTime();
-              let sealCount = 0;
-              
-              for (let i = chart.length - 1; i >= 0 && sealCount < 3; i--) {
-                  if (!chart[i].sealedHash) {
-                      const payload = `${chart[i].id}|AUTO_SEAL_INCIDENT|${newIncident.id}|${timestamp}`;
-                      chart[i].sealedHash = CryptoJS.SHA256(payload).toString();
-                      chart[i].sealedAt = timestamp;
-                      chart[i].isLocked = true;
-                      chart[i].notes = `[AUTO-SEALED FORENSIC LOCK: INCIDENT ${newIncident.id}]\n${chart[i].notes}`;
-                      sealCount++;
-                  }
-              }
-              
-              if (sealCount > 0) {
-                  setPatients(prev => prev.map(p => p.id === incident.patientId ? { ...p, dentalChart: chart } : p));
-                  logAction('SECURITY_ALERT', 'Patient', incident.patientId, `Forensic Auto-Seal active: Frozen ${sealCount} notes following reported complication.`);
-                  toast.warning(`Clinical Shield: Preceding ${sealCount} notes have been forensically frozen.`);
-              }
-          }
+  const handleUpdatePhilHealthClaim = (updated: PhilHealthClaim) => {
+      const existing = philHealthClaims.find(c => c.id === updated.id);
+      setPhilHealthClaims(prev => prev.map(c => c.id === updated.id ? updated : c));
+      if (existing && existing.status !== updated.status) {
+          const patient = patients.find(p => p.id === updated.patientId);
+          if (patient) triggerSms('philhealth_status', patient, { procedure: updated.procedureName, provider: updated.status });
       }
-      
-      toast.success("Incident logged successfully.");
-  };
-
-  const handleSaveReconciliation = (record: ReconciliationRecord) => {
-      setReconciliations(prev => [record, ...prev]);
-      logAction('DAILY_RECONCILE', 'CashBox', currentBranch, `Finalized daily reconciliation. Discrepancy: ${record.discrepancy}`);
-  };
-
-  const handleSaveCashSession = (session: CashSession) => {
-      setCashSessions(prev => {
-          const idx = prev.findIndex(s => s.id === session.id);
-          if (idx >= 0) {
-              const next = [...prev];
-              next[idx] = session;
-              return next;
-          }
-          return [session, ...prev];
-      });
-      if (session.status === 'Open') {
-          logAction('OPEN_CASH_DRAWER', 'CashBox', session.id, `Opened cash drawer for shift with float: ${session.openingBalance}`);
-      } else {
-          logAction('CLOSE_CASH_DRAWER', 'CashBox', session.id, `Closed cash drawer for shift.`);
-      }
-  };
-
-  const updatePayrollPeriod = (period: PayrollPeriod) => {
-      setPayrollPeriods(prev => {
-          const existing = prev.find(p => p.id === period.id);
-          if (existing) return prev.map(p => p.id === period.id ? period : p);
-          return [period, ...prev];
-      });
-  };
-
-  const handleAddAdjustment = (adj: PayrollAdjustment) => setPayrollAdjustments(prev => [adj, ...prev]);
-  const handleApproveAdjustment = (adjId: string) => setPayrollAdjustments(prev => prev.map(a => a.id === adjId ? { ...a, status: 'Approved', verifiedBy: currentUser.id } : a));
-  const handleAddDispute = (dispute: CommissionDispute) => setCommissionDisputes(prev => [dispute, ...prev]);
-  const handleResolveDispute = (disputeId: string) => setCommissionDisputes(prev => prev.map(d => d.id === disputeId ? { ...d, status: 'Resolved' } : d));
-
-  const anonymizePatient = (p: Patient): Patient => ({
-      ...p,
-      name: '[REDACTED-DPA]',
-      firstName: 'REDACTED',
-      surname: 'REDACTED',
-      middleName: '',
-      email: 'redacted@dentsched.ph',
-      phone: '000-0000',
-      homeAddress: 'REDACTED',
-      barangay: 'REDACTED',
-      city: 'REDACTED',
-      occupation: 'REDACTED',
-      guardian: 'REDACTED',
-      guardianMobile: 'REDACTED',
-      isAnonymized: true,
-      dob: '0000-00-00',
-  });
-
-  const handlePurgePatient = (patientId: string) => {
-      const patient = patients.find(p => p.id === patientId);
-      if (!patient) return;
-
-      // --- STATUTORY RECORD RETENTION LOCK (MEDICO-LEGAL HOLD) ---
-      const hasActiveIncident = incidents.some(inc => inc.patientId === patientId);
-      if (hasActiveIncident) {
-          toast.error("MEDICO-LEGAL HOLD ACTIVE: This record cannot be purged. A clinical incident or dispute is linked to this identity. Forensic records must be preserved for judicial review under RA 9484.");
-          logAction('SECURITY_ALERT', 'DataArchive', patientId, "Purge request denied: Medico-legal hold active due to linked clinical incident.");
-          return;
-      }
-
-      const lastVisitStr = patient.lastVisit === 'First Visit' ? new Date().toLocaleDateString('en-CA') : patient.lastVisit;
-      const lastVisitDate = new Date(lastVisitStr);
-      const tenYearsAgo = new Date();
-      tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
-
-      if (lastVisitDate > tenYearsAgo) {
-          const identityToken = CryptoJS.SHA256(patient.name + patient.dob).toString();
-          const anonymized = anonymizePatient(patient);
-          setPatients(prev => prev.map(p => p.id === patientId ? anonymized : p));
-          logAction('DESTRUCTION_CERTIFICATE', 'Patient', patientId, `PDA Right to Erasure exercised. Record anonymized. Identity Token Hash: ${identityToken.substring(0, 16)}...`);
-          toast.warning("DOH Compliance: Record scrubbed for DPA but clinical history preserved for mandatory 10-year period.");
-      } else {
-          setPatients(prev => prev.filter(p => p.id !== patientId));
-          setAppointments(prev => prev.filter(a => a.patientId !== patientId));
-          logAction('DESTRUCTION_CERTIFICATE', 'DataArchive', patientId, `Purged inactive record (>10 years).`);
-          toast.success("Inactive record permanently destroyed.");
-      }
-  };
-
-  const handleTabChange = (tab: string) => {
-      setActiveTab(tab);
   };
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={setSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onVerifyDowntimeEntry={(id) => setAppointments(prev => prev.map(a => a.id === id ? {...a, entryMode: 'AUTO', reconciled: true} : a))} onVerifyMedHistory={handleVerifyMedHistory} onConfirmFollowUp={handleConfirmFollowUp} />;
+      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={setSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus} onVerifyDowntimeEntry={(id) => setAppointments(prev => prev.map(a => a.id === id ? {...a, entryMode: 'AUTO', reconciled: true} : a))} onVerifyMedHistory={() => {}} onConfirmFollowUp={() => {}} />;
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => setAppointments(prev => prev.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a))} currentUser={effectiveUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
-      case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={handlePurgePatient} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} incidents={incidents} />;
+      case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={() => {}} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} incidents={incidents} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} logAction={logAction} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={updatePayrollPeriod} onAddPayrollAdjustment={handleAddAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddDispute} onResolveCommissionDispute={handleResolveDispute} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={handleSaveIncident} appointments={appointments} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={() => {}} onSaveCashSession={() => {}} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={() => {}} onAddPayrollAdjustment={() => {}} onApproveAdjustment={() => {}} onAddCommissionDispute={() => {}} onResolveCommissionDispute={() => {}} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} />;
       default: return null;
     }
   };
@@ -774,7 +689,7 @@ function App() {
     <div className={isInKioskMode ? "kiosk-mode h-full" : "h-full"}>
         <Layout 
         activeTab={activeTab} 
-        setActiveTab={handleTabChange} 
+        setActiveTab={setActiveTab} 
         onAddAppointment={() => setIsAppointmentModalOpen(true)} 
         currentUser={effectiveUser} 
         onSwitchUser={setCurrentUser} 
@@ -799,7 +714,6 @@ function App() {
                     <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>
                     <p className="text-xs font-bold text-red-400">Primary audit log wiped while forensic shadow logs remain. Mandatory 72-hour NPC reporting protocol active.</p>
                 </div>
-                {/* Fix: Added missing closing tag for button and completed truncated JSX in App.tsx */}
                 <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black">Dismiss</button>
             </div>
         )}
@@ -841,7 +755,7 @@ function App() {
             <PostOpHandoverModal 
                 isOpen={!!pendingPostOpAppointment} 
                 onClose={() => setPendingPostOpAppointment(null)} 
-                onConfirm={handleConfirmPostOp} 
+                onConfirm={finalizeUpdateStatus} 
                 appointment={pendingPostOpAppointment} 
             />
         )}
@@ -849,7 +763,7 @@ function App() {
         {pendingSafetyTimeout && (
             <SafetyTimeoutModal 
                 patient={pendingSafetyTimeout.patient} 
-                onConfirm={handleSafetyTimeoutConfirm} 
+                onConfirm={() => finalizeUpdateStatus(pendingSafetyTimeout.appointmentId, pendingSafetyTimeout.status)} 
             />
         )}
 
@@ -879,5 +793,4 @@ function App() {
   );
 }
 
-{/* Fix: Added missing export default App; to resolve build error in index.tsx */}
 export default App;

@@ -58,7 +58,8 @@ export enum PhilHealthClaimStatus {
 export enum LabStatus {
   NONE = 'None',
   PENDING = 'Pending',
-  RECEIVED = 'Received'
+  RECEIVED = 'Received',
+  DELAYED = 'Delayed'
 }
 
 export interface SyncIntent {
@@ -478,6 +479,15 @@ export interface SmsTemplateConfig {
 
 export type SmsTemplates = Record<string, SmsTemplateConfig>;
 
+export interface ScheduledSms {
+  id: string;
+  patientId: string;
+  templateId: string;
+  dueDate: string;
+  data: Record<string, string>;
+  status: 'Pending' | 'Sent';
+}
+
 export interface ClinicalProtocolRule {
     id: string;
     name: string;
@@ -508,6 +518,33 @@ export interface HospitalAffiliation {
 }
 
 export type ClinicProfile = 'boutique' | 'corporate';
+
+export interface DaySchedule {
+    start: string;
+    end: string;
+    isClosed: boolean;
+}
+
+export interface OperationalHours {
+    monday: DaySchedule;
+    tuesday: DaySchedule;
+    wednesday: DaySchedule;
+    thursday: DaySchedule;
+    friday: DaySchedule;
+    saturday: DaySchedule;
+    sunday: DaySchedule;
+}
+
+export interface SmsConfig {
+    mode: 'LOCAL' | 'CLOUD';
+    gatewayUrl: string;
+    apiKey: string;
+    cloudUrl?: string;
+    username?: string;
+    password?: string;
+    deviceId?: string;
+    isPollingEnabled: boolean;
+}
 
 export interface User {
   id: string;
@@ -750,6 +787,7 @@ export interface DentalChartEntry {
   sealedHash?: string;
   sealedAt?: string;
   isLocked?: boolean;
+  isPrinted?: boolean;
   notes?: string;
   subjective?: string;
   objective?: string;
@@ -858,6 +896,7 @@ export interface PurchaseOrderItem {
 export interface FieldSettings {
   clinicName: string;
   clinicProfile: ClinicProfile;
+  clinicLogo?: string;
   strictMode: boolean;
   editBufferWindowMinutes: number;
   suffixes: string[];
@@ -891,6 +930,8 @@ export interface FieldSettings {
   vendors: Vendor[];
   hospitalAffiliations: HospitalAffiliation[];
   smsTemplates: SmsTemplates;
+  smsConfig: SmsConfig;
+  operationalHours: OperationalHours;
   consentFormTemplates: ConsentFormTemplate[];
   smartPhrases: any[];
   paymentModes: string[];
