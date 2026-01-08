@@ -1,4 +1,4 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -46,8 +46,8 @@ export const STAFF: User[] = [
       role: UserRole.SYSTEM_ARCHITECT, 
       avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Architect',
       specialization: 'Technical Audit & Design Integrity',
-      defaultBranch: 'Makati Branch',
-      allowedBranches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
       colorPreference: '#c026d3', 
       clinicHours: '24/7 System Audit Mode',
   },
@@ -60,11 +60,11 @@ export const STAFF: User[] = [
       prcLicense: 'ADMIN-001', 
       ptrNumber: 'PTR-MAIN-001',
       tin: '123-111-222-000',
-      defaultBranch: 'Makati Branch',
-      allowedBranches: ['Makati Branch', 'Quezon City Branch', 'BGC Branch', 'Alabang Branch'],
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
       colorPreference: '#ef4444', 
       clinicHours: 'Mon-Sat 8:00AM - 6:00PM',
-      roster: { 'Mon': 'Makati Branch', 'Tue': 'Makati Branch', 'Wed': 'Makati Branch', 'Thu': 'Makati Branch', 'Fri': 'Makati Branch' }
+      roster: { 'Mon': 'Makati Main', 'Tue': 'Makati Main', 'Wed': 'Makati Main', 'Thu': 'Makati Main', 'Fri': 'Makati Main' }
   },
   { 
       id: 'doc1', 
@@ -79,11 +79,25 @@ export const STAFF: User[] = [
       s2Expiry: getFutureDateStr(200),
       malpracticeExpiry: getFutureDateStr(90),
       malpracticePolicy: 'MP-2024-8891',
-      defaultBranch: 'Makati Branch',
-      allowedBranches: ['Makati Branch', 'Quezon City Branch'], 
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite'], 
       colorPreference: '#14b8a6', 
       defaultConsultationFee: 500.00,
-      roster: { 'Mon': 'Makati Branch', 'Wed': 'Makati Branch', 'Fri': 'Makati Branch', 'Tue': 'Quezon City Branch' }
+      roster: { 'Mon': 'Makati Main', 'Wed': 'Makati Main', 'Fri': 'Makati Main', 'Tue': 'Quezon City Satellite' },
+      commissionRate: 0.40
+  },
+  { 
+      id: 'doc2', 
+      name: 'Dr. Maria Clara', 
+      role: UserRole.DENTIST, 
+      licenseCategory: 'DENTIST',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maria',
+      specialization: 'Pediatric Dentistry',
+      prcLicense: '0654321',
+      defaultBranch: 'Quezon City Satellite',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite'], 
+      colorPreference: '#c026d3', 
+      commissionRate: 0.30
   }
 ];
 
@@ -115,11 +129,11 @@ export const PATIENTS: Patient[] = [
 ];
 
 export const APPOINTMENTS: Appointment[] = [
-    { id: 'apt_today_01', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Branch', date: getTodayStr(), time: '09:00', durationMinutes: 60, type: AppointmentType.CONSULTATION, status: AppointmentStatus.SCHEDULED }
+    { id: 'apt_today_01', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Main', date: getTodayStr(), time: '09:00', durationMinutes: 60, type: 'Initial Consultation & Treatment Planning', status: AppointmentStatus.SCHEDULED }
 ];
 
 export const MOCK_CLAIMS: HMOClaim[] = [
-    { id: 'claim_1', patientId: 'p_heavy_01', ledgerEntryId: 'l1', hmoProvider: 'Maxicare', procedureName: 'Restoration', amountClaimed: 2000, status: 0 as any, dateSubmitted: getPastDateStr(1) }
+    { id: 'claim_1', patientId: 'p_heavy_01', ledgerEntryId: 'l1', hmoProvider: 'Maxicare', procedureName: 'Composite Restoration (1 Surface)', amountClaimed: 1500, status: 0 as any, dateSubmitted: getPastDateStr(1) }
 ];
 
 export const MOCK_STOCK: StockItem[] = [
@@ -127,12 +141,18 @@ export const MOCK_STOCK: StockItem[] = [
 ];
 
 export const MOCK_RESOURCES: ClinicResource[] = [
-    { id: 'res_chair_01', name: 'Chair A', type: ResourceType.CHAIR, branch: 'Makati Branch' },
-    { id: 'res_chair_02', name: 'Chair B', type: ResourceType.CHAIR, branch: 'Makati Branch' }
+    { id: 'res_chair_01', name: 'Operatory Chair A', type: ResourceType.CHAIR, branch: 'Makati Main', colorCode: '#14b8a6' },
+    { id: 'res_chair_02', name: 'Operatory Chair B (Surg)', type: ResourceType.CHAIR, branch: 'Makati Main', colorCode: '#c026d3' },
+    { id: 'res_xray_01', name: 'Imaging Suite 1', type: ResourceType.XRAY, branch: 'Makati Main', colorCode: '#3b82f6' }
+];
+
+export const MOCK_ASSETS: MaintenanceAsset[] = [
+    { id: 'ast_1', name: 'Autoclave unit 01', brand: 'W&H', serialNumber: 'WH-88912-A', lastService: getPastDateStr(45), frequencyMonths: 6, status: 'Ready', branch: 'Makati Main' },
+    { id: 'ast_2', name: 'Intraoral Scanner', brand: 'iTero', serialNumber: 'IT-552-XP', lastService: getPastDateStr(180), frequencyMonths: 12, status: 'Service Due', branch: 'Makati Main' }
 ];
 
 export const MOCK_INSTRUMENT_SETS: InstrumentSet[] = [
-    { id: 'set_alpha_1', name: 'Surgery Set Alpha', status: 'Sterile', branch: 'Makati Branch' }
+    { id: 'set_alpha_1', name: 'Surgery Set Alpha', status: 'Sterile', branch: 'Makati Main' }
 ];
 
 export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
@@ -140,7 +160,7 @@ export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
 ];
 
 export const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Branch' }
+    { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Main', staffId: 'doc1' }
 ];
 
 export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
@@ -259,30 +279,91 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Are you nursing?',
     'Are you taking birth control pills?'
   ],
-  medicalRiskRegistry: [
-    // Unique questions moved to identityQuestionRegistry above. 
-    // Duplicates moved to Allergies/Conditions dynamic logic.
-  ],
+  medicalRiskRegistry: [],
   dentalHistoryRegistry: [
     'Previous Attending Dentist',
     'Approximate Date of Last Visit'
   ],
   criticalRiskRegistry: [],
   procedures: [
-      { id: 'p1', name: 'Consultation', price: 500, category: 'General', allowedLicenseCategories: ['DENTIST'] },
-      { id: 'p2', name: 'Restoration', price: 1500, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] }
+      { id: 'p1', name: 'Initial Consultation & Treatment Planning', price: 500, category: 'General', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p2', name: 'Oral Examination & Digital Charting', price: 800, category: 'General', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p3', name: 'Digital Periapical X-Ray', price: 500, category: 'Imaging', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p4', name: 'Panoramic Radiograph (External Referral)', price: 1500, category: 'Imaging', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p5', name: 'Oral Prophylaxis (Light/Routine)', price: 1200, category: 'General', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+      { id: 'p6', name: 'Oral Prophylaxis (Heavy/Stain Removal)', price: 1800, category: 'General', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+      { id: 'p7', name: 'Deep Scaling & Root Planing (per quadrant)', price: 2500, category: 'Periodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p8', name: 'Topical Fluoride Application', price: 1000, category: 'General', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+      { id: 'p9', name: 'Pit and Fissure Sealant (per tooth)', price: 1000, category: 'Preventive', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p10', name: 'Composite Restoration (1 Surface)', price: 1500, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p11', name: 'Composite Restoration (2 Surfaces)', price: 2000, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p12', name: 'Composite Restoration (3+ Surfaces/Build-up)', price: 3000, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p13', name: 'Temporary Filling (IRM/GIC)', price: 800, category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p14', name: 'Simple Extraction (Erupted Tooth)', price: 1500, category: 'Surgery', allowedLicenseCategories: ['DENTIST'], requiresWitness: true },
+      { id: 'p15', name: 'Complicated Extraction (Bone Removal)', price: 3500, category: 'Surgery', allowedLicenseCategories: ['DENTIST'], requiresWitness: true },
+      { id: 'p16', name: 'Surgical Extraction (Impacted/Wisdom Tooth)', price: 7500, category: 'Surgery', allowedLicenseCategories: ['DENTIST'], requiresWitness: true },
+      { id: 'p17', name: 'Incision and Drainage (Abscess)', price: 2000, category: 'Surgery', allowedLicenseCategories: ['DENTIST'], requiresWitness: true },
+      { id: 'p18', name: 'Root Canal Treatment (Anterior Tooth)', price: 8000, category: 'Endodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p19', name: 'Root Canal Treatment (Premolar)', price: 10000, category: 'Endodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p20', name: 'Root Canal Treatment (Molar)', price: 15000, category: 'Endodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p21', name: 'Zirconia Crown (High Translucency)', price: 20000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'], requiresXray: true },
+      { id: 'p22', name: 'PFM (Porcelain Fused to Metal) Crown', price: 12000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'], requiresXray: true },
+      { id: 'p23', name: 'IPS e.max (Lithium Disilicate) Veneer', price: 18000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p24', name: 'Full Upper/Lower Denture (Acrylic)', price: 15000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+      { id: 'p25', name: 'Denture Repair/Relining', price: 3500, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] }
   ], 
   medications: [
-      { id: 'med1', genericName: 'Amoxicillin', dosage: '500mg', instructions: '1 capsule every 8h for 7 days.' }
+      { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days' },
+      { id: 'm2', genericName: 'Clindamycin', brandName: 'Dalacin C', dosage: '300mg', instructions: '1 capsule every 8 hours for 5 days' },
+      { id: 'm3', genericName: 'Co-Amoxiclav', brandName: 'Augmentin', dosage: '625mg', instructions: '1 tablet every 12 hours for 7 days' },
+      { id: 'm4', genericName: 'Mefenamic Acid', brandName: 'Ponstan', dosage: '500mg', instructions: '1 capsule every 8 hours as needed for pain' },
+      { id: 'm5', genericName: 'Ibuprofen', brandName: 'Advil', dosage: '400mg', instructions: '1 tablet every 6 hours as needed for pain' },
+      { id: 'm6', genericName: 'Celecoxib', brandName: 'Celebrex', dosage: '200mg', instructions: '1 capsule every 12 hours for 3 to 5 days' },
+      { id: 'm7', genericName: 'Paracetamol', brandName: 'Biogesic', dosage: '500mg', instructions: '1-2 tablets every 4 hours for fever/mild pain' },
+      { id: 'm8', genericName: 'Chlorhexidine Gluconate', brandName: 'Orahex', dosage: '0.12%', instructions: 'Swish 15ml for 30 seconds twice daily' },
+      { id: 'm9', genericName: 'Tranexamic Acid', brandName: 'Hemostan', dosage: '500mg', instructions: '1 capsule every 8 hours (for bleeding control)' }
   ],
-  shadeGuides: ['Vita Classical', 'Vita 3D Master', 'Ivoclar'],
-  restorativeMaterials: ['Composite', 'Zirconia', 'IPS e.max', 'PFM'],
-  branches: ['Makati Branch', 'Quezon City Branch'],
+  shadeGuides: [
+      'A1', 'A2', 'A3', 'A3.5', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'D2', 'D3', 'D4',
+      '1M1', '1M2', '2M1', '2M2', '2M3', '3M1', '3M2', '3M3', '4M1', '4M2', '4M3', '5M1', '5M2', '5M3',
+      'BL1', 'BL2', 'BL3', 'BL4', 'Chromascop System'
+  ],
+  restorativeMaterials: [
+      'Composite (Light-Cure Micro-Hybrid)',
+      'Glass Ionomer Cement (GIC Type IX)',
+      'Zirconia (Multi-layered/High Translucency)',
+      'IPS e.max (Lithium Disilicate)',
+      'PFM (Non-Precious/Semi-Precious)',
+      'Acrylic Resin (Heat-Cured)',
+      'Flexible Denture Material (Valplast)'
+  ],
+  payrollAdjustmentTemplates: [
+      { id: 'adj1', label: 'Performance Bonus', type: 'Credit', category: 'Incentives' },
+      { id: 'adj2', label: 'Lab Fee Reimbursement', type: 'Credit', category: 'Operational' },
+      { id: 'adj3', label: 'Referral Incentive', type: 'Credit', category: 'Incentives' },
+      { id: 'adj4', label: 'Continuing Education Subsidy', type: 'Credit', category: 'Incentives' },
+      { id: 'adj5', label: 'Late Penalty', type: 'Debit', category: 'Attendance' },
+      { id: 'adj6', label: 'Material Waste Charge', type: 'Debit', category: 'Operational' },
+      { id: 'adj7', label: 'Statutory SSS/PhilHealth/Pag-IBIG', type: 'Debit', category: 'Statutory' },
+      { id: 'adj8', label: 'Withholding Tax (10%)', type: 'Debit', category: 'Statutory', defaultAmount: 0.10 }
+  ],
+  expenseCategories: [
+      'Dental Supplies (Consumables)',
+      'Laboratory Fees (External)',
+      'Medical Waste Disposal',
+      'Equipment Maintenance',
+      'Rent & Utilities',
+      'Marketing & Advertising',
+      'Software Subscriptions',
+      'Staff Salaries & Benefits'
+  ],
+  branches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
   resources: MOCK_RESOURCES,
-  assets: [],
+  assets: MOCK_ASSETS,
   vendors: MOCK_VENDORS,
   hospitalAffiliations: [
-      { id: 'h1', name: 'St. Lukes Medical Center', contact: '02-8789-7700', emergencyHotline: '02-8789-7700' }
+      { id: 'h1', name: 'St. Lukes Medical Center', location: 'Global City', hotline: '02-8789-7700' },
+      { id: 'h2', name: 'Makati Medical Center', location: 'Makati', hotline: '02-8888-8999' }
   ],
   smsTemplates: DEFAULT_SMS,
   consentFormTemplates: [
@@ -291,7 +372,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   smartPhrases: [
       { id: 'sp1', label: 'Routine Checkup', text: 'Patient in for routine prophylaxis. No acute pain.', category: 'SOAP' }
   ],
-  paymentModes: ['Cash', 'GCash', 'Credit Card', 'Check'],
+  paymentModes: ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Credit Card', 'HMO Direct Payout', 'Check'],
   taxConfig: { vatRate: 12, withholdingRate: 10, nextOrNumber: 1001 },
   features: {
       enableLabTracking: true, enableComplianceAudit: true, enableMultiBranch: true,

@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -39,6 +38,7 @@ export interface ClinicResource {
   name: string;
   type: ResourceType;
   branch: string;
+  colorCode?: string;
 }
 
 export enum HMOClaimStatus {
@@ -99,9 +99,11 @@ export interface MaintenanceAsset {
     id: string;
     name: string;
     brand?: string;
+    serialNumber?: string;
     lastService: string;
     frequencyMonths: number;
     status: 'Ready' | 'Service Due' | 'Down';
+    branch: string;
 }
 
 export interface ReconciliationRecord {
@@ -146,6 +148,14 @@ export interface PayrollAdjustment {
     status: 'Pending' | 'Approved';
     verifiedBy?: string;
     date: string;
+}
+
+export interface PayrollAdjustmentTemplate {
+    id: string;
+    label: string;
+    type: 'Credit' | 'Debit';
+    defaultAmount?: number;
+    category: 'Incentives' | 'Operational' | 'Attendance' | 'Statutory' | 'Other';
 }
 
 export interface CommissionDispute {
@@ -356,7 +366,7 @@ export interface StaffShift {
 export interface Expense {
   id: string;
   date: string;
-  category: 'Lab Fee' | 'Supplies' | 'Utilities' | 'Rent' | 'Salary' | 'Other';
+  category: string;
   description: string;
   amount: number;
   branch: string;
@@ -490,6 +500,13 @@ export interface Vendor {
     notes?: string;
 }
 
+export interface HospitalAffiliation {
+    id: string;
+    name: string;
+    location: string;
+    hotline: string;
+}
+
 export type ClinicProfile = 'boutique' | 'corporate';
 
 export interface User {
@@ -516,6 +533,7 @@ export interface User {
   cpdEntries?: CpdEntry[];
   requiredCpdUnits?: number;
   commissionRate?: number;
+  payoutHandle?: string;
 }
 
 export enum AppointmentType {
@@ -869,9 +887,9 @@ export interface FieldSettings {
   restorativeMaterials: string[];
   branches: string[];
   resources: ClinicResource[];
-  assets: any[];
+  assets: MaintenanceAsset[];
   vendors: Vendor[];
-  hospitalAffiliations: any[];
+  hospitalAffiliations: HospitalAffiliation[];
   smsTemplates: SmsTemplates;
   consentFormTemplates: ConsentFormTemplate[];
   smartPhrases: any[];
@@ -895,6 +913,8 @@ export interface FieldSettings {
   };
   instrumentSets?: InstrumentSet[];
   stockItems?: StockItem[];
+  payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
+  expenseCategories: string[];
 }
 
 export interface Medication {

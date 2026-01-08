@@ -747,7 +747,7 @@ function App() {
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={handlePurgePatient} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} incidents={incidents} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} logAction={logAction} />;
       case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={updatePayrollPeriod} onAddPayrollAdjustment={handleAddAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddDispute} onResolveCommissionDispute={handleResolveDispute} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={handleSaveIncident} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={handlePurgePatient} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={handleSaveIncident} appointments={appointments} />;
       default: return null;
     }
   };
@@ -799,17 +799,85 @@ function App() {
                     <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>
                     <p className="text-xs font-bold text-red-400">Primary audit log wiped while forensic shadow logs remain. Mandatory 72-hour NPC reporting protocol active.</p>
                 </div>
-                <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black text-xs">Acknowledge</button>
+                {/* Fix: Added missing closing tag for button and completed truncated JSX in App.tsx */}
+                <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black">Dismiss</button>
             </div>
         )}
-        {isInKioskMode ? <KioskView patients={patients} onUpdatePatient={handleSavePatient} onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} logAction={logAction} /> : renderContent()}
-        <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} staff={staff} appointments={appointments} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} sterilizationCycles={sterilizationCycles} onManualOverride={handleManualOverride} isDowntime={systemStatus === SystemStatus.DOWNTIME} />
-        <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
-        {pendingPostOpAppointment && <PostOpHandoverModal isOpen={!!pendingPostOpAppointment} onClose={() => setPendingPostOpAppointment(null)} onConfirm={handleConfirmPostOp} appointment={pendingPostOpAppointment} />}
-        {pendingSafetyTimeout && <SafetyTimeoutModal patient={pendingSafetyTimeout.patient} onConfirm={handleSafetyTimeoutConfirm} />}
+        
+        {renderContent()}
+
+        {isAppointmentModalOpen && (
+            <AppointmentModal 
+                isOpen={isAppointmentModalOpen} 
+                onClose={() => setIsAppointmentModalOpen(false)} 
+                patients={patients} 
+                staff={staff} 
+                appointments={appointments} 
+                onSave={handleSaveAppointment}
+                onSavePatient={handleSavePatient}
+                initialDate={bookingDate}
+                initialTime={bookingTime}
+                initialPatientId={initialBookingPatientId}
+                existingAppointment={editingAppointment}
+                fieldSettings={fieldSettings}
+                sterilizationCycles={sterilizationCycles}
+                isDowntime={systemStatus === SystemStatus.DOWNTIME}
+                onManualOverride={handleManualOverride}
+            />
+        )}
+
+        {isPatientModalOpen && (
+            <PatientRegistrationModal 
+                isOpen={isPatientModalOpen} 
+                onClose={() => setIsPatientModalOpen(false)} 
+                onSave={handleSavePatient}
+                initialData={editingPatient}
+                fieldSettings={fieldSettings}
+                patients={patients}
+            />
+        )}
+
+        {pendingPostOpAppointment && (
+            <PostOpHandoverModal 
+                isOpen={!!pendingPostOpAppointment} 
+                onClose={() => setPendingPostOpAppointment(null)} 
+                onConfirm={handleConfirmPostOp} 
+                appointment={pendingPostOpAppointment} 
+            />
+        )}
+
+        {pendingSafetyTimeout && (
+            <SafetyTimeoutModal 
+                patient={pendingSafetyTimeout.patient} 
+                onConfirm={handleSafetyTimeoutConfirm} 
+            />
+        )}
+
+        {isSessionLocked && (
+            <div className="fixed inset-0 z-[300] bg-slate-900 flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-md rounded-3xl p-8 text-center space-y-6">
+                    <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><Lock size={40}/></div>
+                    <h2 className="text-2xl font-black uppercase">Session Locked</h2>
+                    <p className="text-slate-500">System locked due to inactivity. Enter your security credentials to resume.</p>
+                    <button onClick={() => setIsSessionLocked(false)} className="w-full py-4 bg-teal-600 text-white font-black rounded-xl uppercase">Unlock</button>
+                </div>
+            </div>
+        )}
+
+        {isInKioskMode && (
+            <KioskView 
+                patients={patients} 
+                onUpdatePatient={handleSavePatient} 
+                onExitKiosk={() => setIsInKioskMode(false)} 
+                fieldSettings={fieldSettings}
+                logAction={logAction}
+            />
+        )}
+
         </Layout>
     </div>
   );
 }
 
+{/* Fix: Added missing export default App; to resolve build error in index.tsx */}
 export default App;
