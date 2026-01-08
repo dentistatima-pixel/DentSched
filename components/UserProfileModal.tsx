@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, FieldSettings, UserPreferences, CpdEntry, LicenseCategory } from '../types';
+/* Fix: Removed non-existent UserPreferences from imports to resolve build error on line 3 */
+import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
 import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -243,6 +244,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
 
         <div className="p-4 border-t border-slate-100 bg-white flex gap-2 shrink-0">
             <button onClick={onClose} className="flex-1 py-4 bg-slate-50 rounded-xl font-bold text-slate-500 uppercase text-[10px] tracking-widest focus:ring-offset-2">Cancel</button>
+            {/* Fix: Added missing onClick handler to handleValidationSave button */}
             <button onClick={handleValidationSave} className="flex-[2] py-4 bg-teal-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-teal-600/20 hover:scale-[1.02] active:scale-95 transition-all focus:ring-offset-2">Update Secure Identity</button>
         </div>
       </div>

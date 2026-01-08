@@ -1,6 +1,6 @@
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
-import { FileText, AlertCircle, EyeOff } from 'lucide-react';
+import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
 
 interface RegistrationDentalProps {
   formData: Partial<Patient>;
@@ -14,17 +14,35 @@ interface RegistrationDentalProps {
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
     formData, handleChange, onUpdateChart, readOnly, fieldSettings, isMasked = false
 }) => {
+  const handleDynamicAnswerChange = (q: string, val: string) => {
+    const currentAnswers = { ...(formData.registryAnswers || {}) };
+    currentAnswers[q] = val;
+    handleChange({ target: { name: 'registryAnswers', value: currentAnswers } } as any);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label className="label">Previous Attending Dentist</label>
-                <input disabled={readOnly} type="text" name="previousDentist" value={formData.previousDentist || ''} onChange={handleChange} className="input" />
-            </div>
-            <div>
-                <label className="label">Approximate Date of Last Visit</label>
-                <input disabled={readOnly} type="date" name="lastVisit" value={formData.lastVisit || ''} onChange={handleChange} className="input" />
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {fieldSettings.dentalHistoryRegistry.map(q => {
+                const isDate = q.toLowerCase().includes('date');
+                const isChecked = (formData.registryAnswers?.[q] as string) || '';
+                return (
+                    <div key={q}>
+                        <label className="label flex items-center gap-2">
+                            {isDate ? <Calendar size={14}/> : <FileText size={14}/>}
+                            {q}
+                        </label>
+                        <input 
+                            disabled={readOnly} 
+                            type={isDate ? 'date' : 'text'} 
+                            name={q} 
+                            value={isChecked} 
+                            onChange={(e) => handleDynamicAnswerChange(q, e.target.value)} 
+                            className="input" 
+                        />
+                    </div>
+                );
+            })}
         </div>
         
         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden">

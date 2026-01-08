@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, User, Phone, FileText, Heart, Shield, Check, ToggleLeft, ToggleRight, Zap, Lock, BookOpen, Users, Search, ChevronRight, AlertCircle, Baby, ShieldCheck, Eye, EyeOff, Key } from 'lucide-react';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import { useToast } from './ToastSystem';
-import Fuse from 'fuse.js';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -21,16 +21,10 @@ interface PatientRegistrationModalProps {
 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, fieldSettings, isKiosk = false, patients = [] }) => {
   const toast = useToast();
-  const [activeSection, setActiveSection] = useState<string>('basic');
-  const [isQuickReg, setIsQuickReg] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   
-  const basicRef = useRef<HTMLDivElement>(null);
-  const medicalRef = useRef<HTMLDivElement>(null);
-  const dentalRef = useRef<HTMLDivElement>(null);
-
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], treatments: [], firstName: '', middleName: '', surname: '', suffix: '', treatmentDetails: {}, dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
+    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     takingBloodThinners: false, takingBisphosphonates: false, heartValveIssues: false, tookBpMedicationToday: true, anesthesiaReaction: false, respiratoryIssues: false,
     isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
     dentalChart: []
@@ -38,23 +32,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
 
-  const isPediatric = useMemo(() => formData.age !== undefined && formData.age < 18, [formData.age]);
-  const requiresGuardian = useMemo(() => isPediatric || formData.isPwd, [isPediatric, formData.isPwd]);
-
   useEffect(() => {
     if (isOpen) {
         if (initialData) { 
             setFormData({ ...initialData }); 
-            setIsQuickReg(false); 
         } 
         else { 
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
             setFormData({ ...initialFormState, id: generatedId }); 
-            setIsQuickReg(false); 
         }
-        setActiveSection('basic');
     }
-  }, [isOpen, initialData, isKiosk]);
+  }, [isOpen, initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -83,7 +71,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       }));
   };
 
-  const handleArrayChange = (category: 'allergies' | 'medicalConditions' | 'treatments', value: string) => {
+  const handleArrayChange = (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
       if (value === 'None') { const wasSelected = (prev[category] || []).includes('None'); return { ...prev, [category]: wasSelected ? [] : ['None'] }; }
@@ -100,29 +88,16 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     
     if (!formData.dpaConsent) { 
         toast.error("Privacy Compliance: You must accept the Data Privacy Consent."); 
-        setActiveSection('basic');
         return; 
     }
 
-    if (!formData.thirdPartyAttestation && (formData.fatherName || formData.motherName || formData.guardian)) {
-        toast.error("PDA Compliance: Please certify consent for the family/guardian details provided.");
-        setActiveSection('basic');
-        return;
-    }
-
-    if (requiresGuardian && (!formData.guardian || !formData.relationshipToPatient)) {
-        toast.error("Guardian details are mandatory for Minors/PWD.");
-        setActiveSection('basic');
-        return;
-    }
-    
     if (!formData.firstName || !formData.surname || !formData.phone) { 
-        toast.error("Required fields: First Name, Surname, and Mobile."); 
+        toast.error("Required: First Name, Surname, and Mobile are mandatory."); 
         return; 
     }
 
     const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...formData, name: fullName, provisional: isQuickReg });
+    onSave({ ...formData, name: fullName });
     onClose();
   };
 
@@ -131,64 +106,81 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   return (
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-end md:items-center p-0 md:p-4"}>
       <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
-        <div className={`flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
-          <div className="flex items-center gap-3">
-            <div className="bg-lilac-500 p-2 rounded-xl shadow-lg shadow-lilac-500/20"><User size={24} className="text-white" /></div>
+        
+        {/* PDA Branding Header */}
+        <div className={`flex flex-col md:flex-row justify-between items-center p-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
+          <div className="flex items-center gap-4 mb-4 md:mb-0">
+            <div className="bg-white p-2 rounded-xl shadow-lg border-2 border-teal-500">
+                <Award size={32} className="text-teal-900" />
+            </div>
             <div>
-                <h2 className="text-xl font-bold">{isKiosk ? 'My Information' : (initialData ? 'Edit Patient Record' : 'Registry Registration')}</h2>
-                <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-700 text-teal-100 uppercase tracking-widest border border-teal-600">Clinical Admission Gate</span>
-                </div>
+                <h1 className="text-xl font-black uppercase tracking-tighter leading-tight">Philippine Dental Association</h1>
+                <h2 className="text-xs font-black text-teal-300 uppercase tracking-[0.3em]">Standard Patient Information Record</h2>
             </div>
           </div>
-          {!isKiosk && <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>}
+          {!isKiosk && (
+            <div className="flex items-center gap-4">
+                <div className="text-right hidden md:block">
+                    <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">DENTAL CHART</p>
+                    <p className="text-[10px] font-black text-teal-100 uppercase tracking-widest">RA 9484 ARTICLE IV COMPLIANT</p>
+                </div>
+                <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 scroll-smooth no-scrollbar">
-            <div className="max-w-4xl mx-auto space-y-8 pb-10">
+        {/* Mega-Form Body */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 no-scrollbar">
+            <div className="max-w-4xl mx-auto space-y-12 pb-20">
                 
-                <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm ring-4 ring-teal-500/5 animate-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Protocol & Privacy Acknowledgment</h3></div>
-                    <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 grayscale opacity-80'}`}>
+                {/* Section Gate: Data Privacy */}
+                <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm">
+                    <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Statutory Consent</h3></div>
+                    <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-200'}`}>
                         <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
-                        <div><div className="flex items-center gap-2 mb-1"><span className="font-extrabold text-teal-900 uppercase text-xs">Primary Clinical Consent *</span><button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyPolicy(true); }} className="text-[10px] font-bold bg-white text-teal-600 border border-teal-200 px-2 py-0.5 rounded-full hover:bg-teal-500 hover:text-white">Review R.A. 10173</button></div><p className="text-xs text-slate-600 leading-relaxed">I consent to the collection of my Sensitive Personal Information, including detailed medical and dental history, for clinical diagnosis and treatment purposes.</p></div>
+                        <div><span className="font-extrabold text-teal-900 uppercase text-xs">Primary Data Processing Consent *</span><p className="text-xs text-slate-600 mt-1 leading-relaxed">I authorize the Philippine Dental Association standard processing of my personal and sensitive personal information for clinical care and diagnosis.</p></div>
                     </label>
                 </div>
 
-                <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-200 sticky top-0 z-20 overflow-x-auto no-scrollbar">
-                    <button onClick={() => setActiveSection('basic')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeSection === 'basic' ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><User size={16}/> Profile</button>
-                    <button onClick={() => setActiveSection('medical')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeSection === 'medical' ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><Heart size={16}/> Medical</button>
-                    <button onClick={() => setActiveSection('dental')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeSection === 'dental' ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><FileText size={16}/> Dental History</button>
-                </div>
+                <div className="space-y-16">
+                    {/* Section I: Identity & II: Guardianship Integration */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-teal-600 pb-2">
+                            <Users size={24} className="text-teal-700"/>
+                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">Section I & II. Patient Identity & Guardianship</h3>
+                        </div>
+                        <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
+                    </div>
 
-                <form id="patientForm" onSubmit={handleSubmit} className="space-y-8">
-                    {activeSection === 'basic' && (
-                        <div ref={basicRef} className="animate-in slide-in-from-left-4 duration-300">
-                             <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} isMasked={false} />
+                    {/* Section III-V: Medical/Physician */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-lilac-600 pb-2">
+                            <Heart size={24} className="text-lilac-700"/>
+                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Section V & VI. Clinical Medical History</h3>
                         </div>
-                    )}
-                    {activeSection === 'medical' && (
-                        <div ref={medicalRef} className="animate-in slide-in-from-right-4 duration-300">
-                            <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={false} />
+                        <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
+                    </div>
+
+                    {/* Section IV: Dental History Registry */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-slate-400 pb-2">
+                            <FileText size={24} className="text-slate-600"/>
+                            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Section III & IV. Dental History & Referral</h3>
                         </div>
-                    )}
-                    {activeSection === 'dental' && (
-                        <div ref={dentalRef} className="animate-in slide-in-from-bottom-4 duration-300">
-                            <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} isMasked={false} />
-                        </div>
-                    )}
-                </form>
+                        <RegistrationDental formData={formData} handleChange={handleChange} onUpdateChart={handleUpdateChart} readOnly={readOnly} fieldSettings={fieldSettings} />
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div className={`p-4 border-t border-slate-200 bg-white shrink-0 flex justify-between items-center z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ${!isKiosk && 'md:rounded-b-3xl'}`}>
-            <div className="hidden md:block">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Section {activeSection.toUpperCase()} in progress</span>
-            </div>
-            <div className="flex gap-2 w-full md:w-auto">
-                <button onClick={onClose} className="flex-1 md:flex-none px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm uppercase">Cancel</button>
-                {!readOnly && (<button onClick={handleSubmit} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:bg-teal-700 transition-all"><Save size={20} /> Save Registry</button>)}
-            </div>
+        {/* Fixed Footer */}
+        <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0 z-50">
+            <button onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-xs tracking-widest">Cancel</button>
+            {!readOnly && (
+                <button onClick={handleSubmit} className="flex items-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all">
+                    <Save size={20} /> Save PDA Registry Entry
+                </button>
+            )}
         </div>
       </div>
       <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />

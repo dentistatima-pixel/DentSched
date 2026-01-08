@@ -216,7 +216,7 @@ export interface WaitlistEntry {
 export interface ClinicalIncident {
     id: string;
     date: string;
-    type: 'Injury' | 'Equipment Failure' | 'Allergic Reaction' | 'Data Breach' | 'Complication' | 'Other';
+    type: string;
     patientId?: string;
     patientName?: string;
     description: string;
@@ -225,11 +225,7 @@ export interface ClinicalIncident {
     reportedByName?: string;
     npcNotified?: boolean;
     npcRefNumber?: string;
-    sterilizationCycleId?: string; 
-    batchId?: string; 
-    prcLicense?: string; 
-    autoSealTriggered?: boolean;
-    advisoryCallSigned?: boolean; // Rule 11 Disclosure State
+    advisoryCallSigned?: boolean;
     advisoryLog?: {
         time: string;
         manner: string;
@@ -313,7 +309,7 @@ export interface StockItem {
   bulkUnit?: string;         
   dispensingUnit?: string;   
   conversionFactor?: number; 
-  leadTimeDays?: number;      // Suggestion 2: Estimated delivery buffer
+  leadTimeDays?: number;
 }
 
 export type InstrumentStatus = 'Sterile' | 'Used' | 'Contaminated';
@@ -333,16 +329,16 @@ export interface SterilizationCycle {
     cycleNumber: string;
     operator: string;
     passed: boolean;
-    sterilizationCapacity?: number; // Suggestion 1: Total items in lot
-    restockedItemId?: string;      // Suggestion 1: Item ID returned to stock
-    instrumentSetIds?: string[];   // Upgrade 1: Linked instrument sets
+    sterilizationCapacity?: number;
+    restockedItemId?: string;
+    instrumentSetIds?: string[];
 }
 
 export interface LeaveRequest {
   id: string;
   staffId: string;
   staffName: string;
-  type: 'Sick' | 'Vacation' | 'Conference' | 'Emergency';
+  type: 'Sick' | ' Vacation' | 'Conference' | 'Emergency';
   startDate: string;
   endDate: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -374,8 +370,8 @@ export interface AuditLogEntry {
   isVerifiedTimestamp?: boolean; 
   userId: string;
   userName: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'VIEW' | 'SUBMIT_PLAN' | 'APPROVE_PLAN' | 'REJECT_PLAN' | 'OVERRIDE_ALERT' | 'EXPORT_RECORD' | 'AMEND_RECORD' | 'VOID_RECORD' | 'SIGN_OFF_RECORD' | 'VIEW_RECORD' | 'SECURITY_ALERT' | 'DESTRUCTION_CERTIFICATE' | 'LOG_INCIDENT' | 'CREATE_REFERRAL' | 'ORTHO_ADJUSTMENT' | 'CREATE_PO' | 'UPDATE_ROSTER' | 'SEND_SMS' | 'DAILY_RECONCILE' | 'STOCK_TRANSFER' | 'MD_CLEARANCE_REQUEST' | 'SEAL_RECORD' | 'NPC_BREACH_REPORT' | 'WORKFLOW_ANOMALY' | 'RESOURCE_CONFLICT' | 'EMERGENCY_CONSUMPTION_BYPASS' | 'OPEN_CASH_DRAWER' | 'CLOSE_CASH_DRAWER' | 'RAISE_COMMISSION_DISPUTE' | 'APPROVE_COMMISSION_ADJUSTMENT' | 'LOCK_PAYROLL_PERIOD' | 'DOWNTIME_BYPASS' | 'LAB_DATA_TRANSFER' | 'VERIFY_ASSISTANT_NOTE';
-  entity: 'Patient' | 'Appointment' | 'Ledger' | 'Claim' | 'Stock' | 'TreatmentPlan' | 'ClinicalAlert' | 'Inventory' | 'ClinicalNote' | 'Kiosk' | 'System' | 'DataArchive' | 'Incident' | 'Referral' | 'OrthoRecord' | 'Procurement' | 'StaffRoster' | 'SmsQueue' | 'CashBox' | 'Credential' | 'Resource' | 'Payroll';
+  action: string;
+  entity: string;
   entityId: string;
   details: string;
   hash?: string;          
@@ -401,6 +397,7 @@ export interface ProcedureItem {
   traySetup?: string[];
   requiresConsent?: boolean;
   requiresXray?: boolean;
+  requiresWitness?: boolean;
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
@@ -416,6 +413,15 @@ export interface RolePermissions {
     canOverrideMandatoryMedical: boolean;
     canOverrideClinicalSafety?: boolean;
     canManageInventory: boolean;
+}
+
+export interface RegistrationField {
+  id: string;
+  label: string;
+  type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea';
+  section: 'IDENTITY' | 'CONTACT' | 'INSURANCE' | 'FAMILY' | 'DENTAL';
+  registryKey?: string; 
+  width?: 'full' | 'half' | 'quarter';
 }
 
 export interface FeatureToggles {
@@ -521,49 +527,78 @@ export interface PurchaseOrder {
     totalAmount: number;
 }
 
+export interface SmartPhrase {
+    id: string;
+    label: string;
+    text: string;
+    category: string;
+}
+
+export interface HospitalAffiliation {
+    id: string;
+    name: string;
+    contact: string;
+    emergencyHotline: string;
+}
+
 export interface FieldSettings {
   clinicName: string; 
   clinicProfile: ClinicProfile;
+  strictMode: boolean;
+  editBufferWindowMinutes: number;
   suffixes: string[];
   civilStatus: string[];
   insuranceProviders: string[];
-  boundaryAlerts?: boolean;
   bloodGroups: string[];
+  nationalities: string[];
+  religions: string[];
+  relationshipTypes: string[];
+  habitRegistry: string[];
+  documentCategories: string[];
   allergies: string[];
   medicalConditions: string[];
+  // DYNAMIC REGISTRIES
+  identityFields: RegistrationField[];
+  fieldLabels: Record<string, string>; // Maps ID to Custom Title
+  identityQuestionRegistry: string[];
+  femaleQuestionRegistry: string[]; // specifically for gender-restricted questions
+  medicalRiskRegistry: string[];
+  dentalHistoryRegistry: string[];
+  // LAYOUT ORDER
+  identityLayoutOrder: string[]; // List of IDs (core_firstName, core_surname, field_nickname, etc.)
+  medicalLayoutOrder: string[];
   procedures: ProcedureItem[]; 
+  medications: Medication[];
+  shadeGuides: string[];
+  restorativeMaterials: string[];
   branches: string[];
-  features: FeatureToggles;
+  resources: ClinicResource[]; 
+  assets: MaintenanceAsset[];
+  vendors: Vendor[];
+  hospitalAffiliations: HospitalAffiliation[];
   smsTemplates: SmsTemplates;
-  permissions?: Record<UserRole, RolePermissions>;
-  stockItems?: StockItem[];
-  instrumentSets?: InstrumentSet[]; // Upgrade 1: Managed sets
-  medications?: Medication[];
-  consentFormTemplates?: ConsentFormTemplate[];
-  vendors?: Vendor[]; 
-  leaveRequests?: LeaveRequest[];
-  shifts?: StaffShift[];
-  reputationSettings?: {
-      googleReviewLink?: string;
-      npsThreshold: number;
+  consentFormTemplates: ConsentFormTemplate[];
+  smartPhrases: SmartPhrase[];
+  paymentModes: string[];
+  taxConfig: {
+      vatRate: number;
+      withholdingRate: number;
+      nextOrNumber: number;
   };
-  retentionPolicy?: {
+  features: FeatureToggles;
+  permissions: Record<UserRole, RolePermissions>;
+  currentPrivacyVersion: string; 
+  acknowledgedAlertIds: string[];
+  retentionPolicy: {
       archivalYears: number;
       purgeYears: number;
   };
-  assets?: MaintenanceAsset[];
-  stockCategories?: StockCategory[];
-  expenseCategories?: string[];
-  documentCategories?: string[];
-  clinicalProtocolRules?: ClinicalProtocolRule[];
-  postOpTemplates?: Record<string, string>;
-  clinicalNoteTemplates?: any[];
-  mediaConsentTemplate?: ConsentFormTemplate;
-  complianceOfficerId?: string; 
-  acknowledgedAlertIds?: string[]; 
-  resources: ClinicResource[]; 
-  currentPrivacyVersion: string; 
-  lastHardExportDate?: string; 
+  kioskSettings: {
+      welcomeMessage: string;
+      privacyNotice: string;
+  };
+  stockItems?: StockItem[];
+  instrumentSets?: InstrumentSet[];
 }
 
 export enum TreatmentPlanStatus {
@@ -585,8 +620,8 @@ export interface DentalChartEntry {
   price?: number;
   payment?: number;
   date?: string; 
-  committedAt?: string; // Edit Buffer Protocol
-  voidReason?: string; // Void Protocol
+  committedAt?: string;
+  voidReason?: string;
   planId?: string;
   author?: string;
   authorRole?: UserRole; 
@@ -601,7 +636,7 @@ export interface DentalChartEntry {
   witnessName?: string;
   materialBatchId?: string;
   materialVariance?: number; 
-  instrumentSetId?: string; // Upgrade 1: Link to set used
+  instrumentSetId?: string;
   sterilizationCycleId?: string; 
   isVoid?: boolean;
   sealedHash?: string;
@@ -626,16 +661,16 @@ export interface DentalChartEntry {
   boilerplateScore?: number; 
   isVerifiedByDentist?: boolean; 
   verifiedByDentistName?: string;
-  financialNarrative?: string; // Rule 16 Complexity Variance Reason
-  authorPrc?: string; // Rule 17 Attribution Preservation
-  authorPtr?: string; // Rule 17 Attribution Preservation
-  appointmentId?: string; // Feature: Ghosting Protection
+  financialNarrative?: string;
+  authorPrc?: string;
+  authorPtr?: string;
+  appointmentId?: string;
   needsProfessionalismReview?: boolean;
   originalPlannedProcedure?: string;
   deviationNarrative?: string;
   resourceId?: string;
   resourceName?: string;
-  yellowRxSerial?: string; // PDEA RA 9165 Logbook Serial
+  yellowRxSerial?: string;
 }
 
 export interface PerioMeasurement {
@@ -665,13 +700,6 @@ export interface LedgerEntry {
   orDate?: string;   
 }
 
-export interface UserPreferences {
-    showFinancials: boolean;
-    showTraySetup: boolean;
-    showPatientFlow: boolean;
-    showLabAlerts: boolean;
-}
-
 export interface User {
   id: string;
   name: string;
@@ -693,8 +721,6 @@ export interface User {
   colorPreference?: string; 
   defaultConsultationFee?: number; 
   commissionRate?: number;
-  immunizations?: any[];
-  preferences?: UserPreferences;
   cpdEntries?: CpdEntry[]; 
   requiredCpdUnits?: number;
   clinicHours?: string;
@@ -702,7 +728,6 @@ export interface User {
   employeeId?: string;
   assignedDoctors?: string[];
   isReadOnly?: boolean;
-  recoveryKeyHash?: string; 
 }
 
 export interface PatientFile {
@@ -754,21 +779,7 @@ export interface GuardianProfile {
     forensicFingerprint?: string;
     visualAnchorHash?: string; 
     visualAnchorThumb?: string; 
-}
-
-export interface DpaRequestEntry {
-    timestamp: string;
-    requestor: string;
-    type: string;
-    fulfillmentDate: string;
-}
-
-export interface PostOpLog {
-    id: string;
-    timestamp: string;
-    templateId: string;
-    content: string;
-    status: 'Delivered' | 'Failed';
+    occupation?: string; // Explicitly added for PDA PDF compliance
 }
 
 export interface Patient {
@@ -802,10 +813,11 @@ export interface Patient {
   allergies?: string[];
   medicalConditions?: string[];
   reportedMedications?: string[]; 
+  // DYNAMIC ANSWERS
+  registryAnswers?: Record<string, boolean | string>;
   treatmentPlans?: TreatmentPlan[];
   dpaConsent?: boolean;
   biometricConsent?: boolean;
-  dpaRequestLog?: DpaRequestEntry[];
   marketingConsent?: boolean;
   practiceCommConsent?: boolean; 
   clinicalMediaConsent?: boolean; 
@@ -839,7 +851,6 @@ export interface Patient {
   respiratoryIssues?: boolean;
   middleName?: string;
   suffix?: string;
-  treatmentDetails?: Record<string, string>;
   responsibleParty?: string;
   fatherName?: string;
   fatherOccupation?: string;
@@ -854,7 +865,6 @@ export interface Patient {
   files?: PatientFile[];
   recallStatus?: RecallStatus; 
   goodHealth?: boolean;
-  treatments?: string[];
   mobile2?: string;
   isPwd?: boolean;
   guardianIdType?: string;
@@ -873,7 +883,24 @@ export interface Patient {
   reliabilityScore?: number;
   consentLogs?: ConsentLogEntry[]; 
   guardianProfile?: GuardianProfile; 
-  postOpLogs?: PostOpLog[];
+  // ADDED DYNAMIC PDA FIELDS
+  nickname?: string;
+  religion?: string;
+  nationality?: string;
+  homeNumber?: string;
+  officeNumber?: string;
+  faxNumber?: string;
+  insuranceEffectiveDate?: string;
+  bleedingTime?: string;
+  bloodPressure?: string;
+  // PHYSICIAN FIELDS
+  physicianName?: string;
+  physicianSpecialty?: string;
+  physicianAddress?: string;
+  physicianNumber?: string;
+  // DENTAL HISTORY
+  lastDentalVisit?: string;
+  referralSource?: string;
 }
 
 export interface TreatmentPlan {
@@ -888,7 +915,7 @@ export interface TreatmentPlan {
     reviewNotes?: string;
     isComplexityDisclosed?: boolean; 
     complexityContingencyNote?: string;
-    originalQuoteAmount?: number; // Rule 16 Variance Logging
+    originalQuoteAmount?: number;
 }
 
 export interface Appointment {
@@ -896,7 +923,7 @@ export interface Appointment {
   patientId: string; 
   providerId: string;
   resourceId?: string; 
-  usedInstrumentSetId?: string; // Upgrade 1: Link to set
+  usedInstrumentSetId?: string;
   branch: string; 
   date: string; 
   time: string; 
