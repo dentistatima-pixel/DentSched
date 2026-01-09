@@ -498,7 +498,28 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments.filter(a => a.branch === currentBranch)} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={currentUser} patients={patients} onAddPatient={() => setIsPatientModalOpen(true)} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} currentBranch={currentBranch} onSaveConsent={(aid, url) => setAppointments(prev => prev.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a))} />;
+      case 'dashboard': return (
+        <Dashboard 
+            appointments={appointments.filter(a => a.branch === currentBranch)} 
+            allAppointments={appointments}
+            patientsCount={patients.length} 
+            staffCount={staff.length} 
+            staff={staff} 
+            currentUser={currentUser} 
+            patients={patients} 
+            onAddPatient={() => setIsPatientModalOpen(true)} 
+            onPatientSelect={setSelectedPatientId} 
+            onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} 
+            onUpdateAppointmentStatus={handleUpdateAppointmentStatus} 
+            fieldSettings={fieldSettings} 
+            currentBranch={currentBranch}
+            stock={stock}
+            sterilizationCycles={sterilizationCycles}
+            hmoClaims={hmoClaims}
+            philHealthClaims={philHealthClaims}
+            auditLog={auditLog}
+        />
+      );
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={currentUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => setIsPatientModalOpen(true)} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleSavePatient} onDeletePatient={() => {}} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={currentUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, c])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} fieldSettings={fieldSettings} appointments={appointments} />;

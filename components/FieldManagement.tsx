@@ -1,25 +1,24 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  FieldSettings, User, UserRole, AuditLogEntry, Patient, ClinicalIncident, 
-  RegistrationField, ProcedureItem, Medication, HospitalAffiliation, PayrollAdjustmentTemplate, ClinicResource, MaintenanceAsset, ResourceType, Appointment, DaySchedule, SmsTemplateConfig, DentalChartEntry
-} from '../types';
-import { 
-  Plus, Trash2, Edit2, Sliders, Settings, ChevronRight, DollarSign, 
+  Plus, Sliders, ChevronRight, DollarSign, 
   Box, MapPin, User as UserIcon, Pill, 
-  ShieldAlert, ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
-  Sparkles, Zap, Monitor, Wrench, ClipboardList, 
-  Armchair, FileText, 
-  ArrowUp, ArrowDown, X, LayoutPanelLeft, Move, PanelLeftClose, PanelLeftOpen, CheckCircle2, Pencil, Droplets, FlaskConical, Hash, HeartPulse, Building2, CreditCard, Percent, Banknote, Phone, AlertTriangle, Fingerprint, Search, ShieldCheck as VerifiedIcon, Scale, Globe, Lock, ShieldQuestion, FileSignature, Clock, RefreshCw, AlertCircle, Download, ArrowRight, Link, Smartphone, MessageSquare,
-  MousePointer2, PlusCircle, Cloud, Server, Key, Printer, FileWarning, BarChart3, GraduationCap,
-  Camera, Stethoscope, FileBox
+  ShieldCheck, Shield, Receipt, Activity, 
+  Sparkles, Zap, Wrench, FileText, X, 
+  LayoutPanelLeft, Banknote, ShieldAlert, 
+  Search, Scale, Lock, Smartphone, Printer,
+  LayoutGrid, ToggleRight, ToggleLeft
 } from 'lucide-react';
+import { 
+  FieldSettings, User, AuditLogEntry, Patient, 
+  RegistrationField, ProcedureItem, Medication, 
+  DaySchedule, Appointment, DashboardConfig
+} from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import CryptoJS from 'crypto-js';
 
 interface FieldManagementProps {
   settings: FieldSettings;
@@ -30,8 +29,8 @@ interface FieldManagementProps {
   onPurgePatient: (id: string) => void;
   auditLogVerified: boolean | null;
   encryptionKey: string | null;
-  incidents: ClinicalIncident[];
-  onSaveIncident: (i: ClinicalIncident) => void;
+  incidents: any[];
+  onSaveIncident: (i: any) => void;
   appointments: Appointment[];
 }
 
@@ -41,13 +40,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     const toast = useToast();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
     const [isAdding, setIsAdding] = useState(false);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [auditSearchTerm, setAuditSearchTerm] = useState('');
-    const [isVerifyingLogs, setIsVerifyingLogs] = useState(false);
-
-    const pendingArchiveCount = useMemo(() => {
-        return patients.filter(p => p.dentalChart?.some(e => e.status === 'Completed' && !e.isPrinted)).length;
-    }, [patients]);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL' | 'DENTAL'>('IDENTITY');
@@ -62,6 +55,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     const sidebarGroups = [
         { key: 'core', label: 'Practice Identity', icon: Activity, items: [
             { id: 'branding', label: 'Practice Identity', icon: Sparkles },
+            { id: 'dashboard_config', label: 'Dashboard Config', icon: LayoutGrid },
             { id: 'sms_hub', label: 'SMS & Comms Hub', icon: Smartphone },
             { id: 'printouts_hub', label: 'Printouts & Report Hub', icon: Printer }
         ]},
@@ -86,7 +80,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
 
     const handleFieldClick = (id: string, type: string) => {
         setSelectedField({ id, type });
-        setIsSidebarCollapsed(false);
     };
 
     const handleUpdateLabelMap = (id: string, newTitle: string) => {
@@ -95,115 +88,77 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         onUpdateSettings({ ...settings, fieldLabels: newMap });
     };
 
-    const handleUpdateDynamicField = (id: string, updates: Partial<RegistrationField>) => {
-        const cleanId = id.startsWith('field_') ? id.replace('field_', '') : id;
-        const newFields = settings.identityFields.map(f => f.id === cleanId ? { ...f, ...updates } : f);
-        onUpdateSettings({ ...settings, identityFields: newFields });
+    const toggleDashboardWidget = (key: keyof DashboardConfig) => {
+        const next = { ...settings.dashboardConfig, [key]: !settings.dashboardConfig[key] };
+        onUpdateSettings({ ...settings, dashboardConfig: next });
+        toast.success(`Dashboard widget updated.`);
     };
 
-    const toggleCriticalStatus = (id: string) => {
-        const currentRegistry = settings.criticalRiskRegistry || [];
-        const isCurrentlyCritical = currentRegistry.includes(id);
-        let nextRegistry: string[];
-        if (isCurrentlyCritical) {
-            nextRegistry = currentRegistry.filter(i => i !== id);
-            toast.info("Priority flag removed.");
-        } else {
-            nextRegistry = [...currentRegistry, id];
-            toast.success("Marked as Critical Risk.");
-        }
-        onUpdateSettings({ ...settings, criticalRiskRegistry: nextRegistry });
-    };
+    const renderDashboardConfig = () => {
+        const configGroups = [
+            { label: 'High-Level Metrics', items: [
+                { key: 'showYield', label: 'Practice Yield (YTD)', sub: 'Display gross clinical production' },
+                { key: 'showRegulatoryHealth', label: 'Regulatory Health', sub: 'Audit scores and license tracking' },
+                { key: 'showLogisticsIntegrity', label: 'Logistics Integrity', sub: 'Sterile sets and supply variance' },
+                { key: 'showVelocity', label: 'Shift Velocity', sub: 'Daily completion percentages' }
+            ]},
+            { label: 'Clinical Operations', items: [
+                { key: 'showSafetyRail', label: 'Safety Red Flag Rail', sub: 'High-visibility critical medical alerts' },
+                { key: 'showIntakeQueue', label: 'Patient Intake Queue', sub: 'Real-time patient flow monitor' },
+                { key: 'showWaitlistAlerts', label: 'Cancellation Recovery', sub: 'Waitlist gap-fill alerts' }
+            ]},
+            { label: 'Facility Logistics', items: [
+                { key: 'showSterilizationShield', label: 'Sterilization Shield', sub: 'Biological trust and load success' },
+                { key: 'showSupplyRisks', label: 'Supply Chain Watch', sub: 'Predictive lead-time risk alerts' },
+                { key: 'showLabInFlow', label: 'Laboratory Tracker', sub: 'Expected prosthetic case arrivals' }
+            ]},
+            { label: 'Revenue & Compliance', items: [
+                { key: 'showRevenueBridge', label: 'Revenue Bridge', sub: 'BIR Statutory match rate tracker' },
+                { key: 'showInsurancePipeline', label: 'Insurance Pipeline', sub: 'Pending PhilHealth/HMO claims' },
+                { key: 'showComplianceAlerts', label: 'Governance Watchdog', sub: 'License expiries and unsealed notes' }
+            ]},
+            { label: 'Post-Treatment Loop', items: [
+                { key: 'showPostOpWellness', label: 'Surgical Follow-Up', sub: 'Post-op recovery call queue' },
+                { key: 'showSessionStatus', label: 'Cash Session Guard', sub: 'Branch session open/closed status' }
+            ]}
+        ];
 
-    const moveElement = (direction: 'up' | 'down') => {
-        if (!selectedField) return;
-        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : 'medicalLayoutOrder';
-        const order = [...settings[orderKey]];
-        const index = order.indexOf(selectedField.id);
-        if (index === -1) return;
-        if (direction === 'up' && index > 0) { [order[index], order[index - 1]] = [order[index - 1], order[index]]; } 
-        else if (direction === 'down' && index < order.length - 1) { [order[index], order[index + 1]] = [order[index + 1], order[index]]; } 
-        else return;
-        onUpdateSettings({ ...settings, [orderKey]: order });
-    };
+        return (
+            <div className="space-y-10 animate-in fade-in duration-500 max-w-5xl mx-auto">
+                <div>
+                    <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Dashboard configuration</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Select intelligence modules to surface on the command center</p>
+                </div>
 
-    const handleRemoveSelected = () => {
-        if (!selectedField) return;
-        if (selectedField.id.startsWith('core_')) { toast.error("Core fields cannot be removed."); return; }
-        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : 'medicalLayoutOrder';
-        const newOrder = settings[orderKey].filter(id => id !== selectedField.id);
-        let newSettings = { ...settings, [orderKey]: newOrder };
-        if (selectedField.id.startsWith('field_')) {
-            newSettings.identityFields = settings.identityFields.filter(f => `field_${f.id}` !== selectedField.id);
-        }
-        onUpdateSettings(newSettings);
-        setSelectedField(null);
-        toast.success("Element removed.");
-    };
-
-    const handleSaveNewEntry = () => {
-        if (!newEntryForm.label?.trim()) return;
-        let newSettings = { ...settings };
-        const label = newEntryForm.label;
-        const type = newEntryForm.type;
-        const section = newEntryForm.section;
-        const width = newEntryForm.width;
-        if (type === 'header') {
-            const id = `header_${Date.now()}`;
-            newSettings.identityFields.push({ id, label, type: 'header', section: section as any, width: 'full' });
-            if (section === 'MEDICAL') newSettings.medicalLayoutOrder.push(`field_${id}`);
-            else newSettings.identityLayoutOrder.push(`field_${id}`);
-        } else {
-            const id = `dyn_${Date.now()}`;
-            newSettings.identityFields.push({ id, label, type: type as any, section: section as any, width: width as any });
-            newSettings.identityLayoutOrder.push(`field_${id}`);
-        }
-        onUpdateSettings(newSettings);
-        setIsAdding(false);
-        setNewEntryForm({ label: '', type: 'text', section: 'IDENTITY', width: 'half', isCritical: false });
-        toast.success("Form element registered.");
-    };
-
-    const handleUpdateHours = (day: string, updates: Partial<DaySchedule>) => {
-        const next = { ...settings.operationalHours, [day]: { ...settings.operationalHours[day as keyof typeof settings.operationalHours], ...updates } };
-        onUpdateSettings({ ...settings, operationalHours: next });
-    };
-
-    const handleSaveProcedure = () => {
-        if (!editingProcedure?.name) return;
-        const next = editingProcedure.id 
-            ? settings.procedures.map(p => p.id === editingProcedure.id ? editingProcedure as ProcedureItem : p)
-            : [...settings.procedures, { ...editingProcedure, id: `p_${Date.now()}` } as ProcedureItem];
-        onUpdateSettings({ ...settings, procedures: next });
-        setEditingProcedure(null);
-    };
-
-    const handleSaveMedication = () => {
-        if (!editingMedication?.genericName) return;
-        const next = editingMedication.id
-            ? settings.medications.map(m => m.id === editingMedication.id ? editingMedication as Medication : m)
-            : [...settings.medications, { ...editingMedication, id: `med_${Date.now()}` } as Medication];
-        onUpdateSettings({ ...settings, medications: next });
-        setEditingMedication(null);
-    };
-
-    const handleBatchPrint = () => {
-        const targets = patients.filter(p => p.dentalChart?.some(e => e.status === 'Completed' && !e.isPrinted));
-        if (targets.length === 0) { toast.info("No unprinted completions identified."); return; }
-        toast.info(`Generating ${targets.length} separate Patient Archive Files...`);
-        targets.forEach(p => {
-            const doc = new jsPDF();
-            doc.setFontSize(18); doc.text("PATIENT TREATMENT ARCHIVE", 105, 20, { align: 'center' });
-            doc.setFontSize(10); doc.text(`Patient: ${p.name.toUpperCase()} (ID: ${p.id})`, 20, 35);
-            const entries = p.dentalChart?.filter(e => e.status === 'Completed' && !e.isPrinted) || [];
-            (doc as any).autoTable({
-                startY: 45, head: [['Date', 'Tooth', 'Procedure', 'Clinical Narrative']],
-                body: entries.map(e => [formatDate(e.date), e.toothNumber, e.procedure, e.notes || '']),
-                theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: [15, 118, 110] }
-            });
-            doc.save(`Archive_${p.surname}_${Date.now()}.pdf`);
-        });
-        toast.success("Batch Print Complete.");
+                <div className="grid grid-cols-1 gap-12">
+                    {configGroups.map(group => (
+                        <div key={group.label} className="space-y-6">
+                            <h4 className="font-black text-lilac-800 uppercase text-[11px] tracking-[0.3em] border-b border-lilac-100 pb-2">{group.label}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {group.items.map(item => {
+                                    const isActive = settings.dashboardConfig[item.key as keyof DashboardConfig];
+                                    return (
+                                        <button 
+                                            key={item.key}
+                                            onClick={() => toggleDashboardWidget(item.key as keyof DashboardConfig)}
+                                            className={`p-6 rounded-[2.5rem] border-2 text-left flex items-center justify-between transition-all group ${isActive ? 'bg-white border-teal-500 shadow-xl shadow-teal-500/5' : 'bg-slate-50 border-slate-100 opacity-60'}`}
+                                        >
+                                            <div className="flex-1 min-w-0 pr-4">
+                                                <div className={`font-black text-sm uppercase tracking-tight mb-1 ${isActive ? 'text-slate-800' : 'text-slate-400'}`}>{item.label}</div>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">{item.sub}</p>
+                                            </div>
+                                            <div className={`shrink-0 transition-transform duration-500 ${isActive ? 'text-teal-600 scale-125 rotate-0' : 'text-slate-300 scale-100 rotate-0'}`}>
+                                                {isActive ? <ToggleRight size={32} strokeWidth={2.5}/> : <ToggleLeft size={32} strokeWidth={2}/>}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
     };
 
     const renderFormBuilder = () => {
@@ -234,54 +189,13 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                         </div>
                     </div>
                 </div>
-                <div className={`
-                    ${selectedField ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}
-                    fixed bottom-0 left-0 right-0 2xl:static 2xl:translate-y-0 2xl:opacity-100 2xl:pointer-events-auto
-                    2xl:w-72 2xl:h-full bg-white border-t 2xl:border-t-0 2xl:border-l border-slate-200 flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.1)] 2xl:shadow-2xl z-50 transition-all duration-500 ease-in-out
-                    h-[60vh] 2xl:max-h-full
-                `}>
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                        <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Element Properties</h4>
-                        <button onClick={() => setSelectedField(null)} className="p-2 bg-white rounded-xl shadow-sm text-slate-400 hover:text-red-500 transition-colors"><X size={18}/></button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
-                        {selectedField ? (
-                            <div className="space-y-6">
-                                <div className="bg-teal-50 p-4 rounded-2xl border border-teal-100">
-                                    <div className="text-[10px] font-black text-teal-700 uppercase tracking-widest mb-1">Target Element</div>
-                                    <div className="text-sm font-black text-teal-900 uppercase truncate">{selectedField.id}</div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="label text-[10px]">Display Label</label>
-                                        <input type="text" className="input bg-slate-50" value={selectedField.id.startsWith('core_') ? settings.fieldLabels[selectedField.id.replace('core_', '')] || '' : settings.identityFields.find(f => `field_${f.id}` === selectedField.id)?.label || (selectedField.type === 'question' ? selectedField.id : '')} onChange={(e) => { if (selectedField.id.startsWith('core_')) handleUpdateLabelMap(selectedField.id, e.target.value); else handleUpdateDynamicField(selectedField.id, { label: e.target.value }); }} />
-                                    </div>
-                                    <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
-                                        <button onClick={() => toggleCriticalStatus(selectedField.id)} className={`w-full py-3 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${settings.criticalRiskRegistry?.includes(selectedField.id) ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-slate-100 text-slate-400 hover:border-red-200'}`}>
-                                            {settings.criticalRiskRegistry?.includes(selectedField.id) ? '🚩 Critical Priority' : 'Mark as Priority'}
-                                        </button>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button onClick={() => moveElement('up')} className="p-3 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition-all"><ArrowUp size={18}/></button>
-                                            <button onClick={() => moveElement('down')} className="p-3 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition-all"><ArrowDown size={18}/></button>
-                                        </div>
-                                        <button onClick={handleRemoveSelected} className="w-full py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Remove Element</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
-                    <div className="p-6 bg-teal-900 shrink-0 pb-safe">
-                        <button onClick={() => setIsAdding(true)} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-teal-950/50 flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all">
-                            <Plus size={18}/> New Form Element
-                        </button>
-                    </div>
-                </div>
             </div>
         );
     };
 
     const renderCatalogContent = () => {
         switch (activeRegistry) {
+            case 'dashboard_config': return renderDashboardConfig();
             case 'branding':
                 return (
                     <div className="p-4 md:p-8 lg:p-10 space-y-12 overflow-y-auto h-full animate-in fade-in duration-500 no-scrollbar">
@@ -292,36 +206,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                 <div><label className="label text-xs">Module Toggles</label><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{(Object.entries(settings.features) as any).map(([k, v]: any) => (
                                     <button key={k} onClick={() => onUpdateSettings({...settings, features: {...settings.features, [k]: !v}})} className={`p-4 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${v ? 'bg-teal-50 border-teal-500 text-teal-900' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{k.replace(/([A-Z])/g, ' $1')}</button>
                                 ))}</div></div>
-                            </div>
-
-                            <div className="bg-white p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border-2 border-lilac-100 shadow-sm space-y-6">
-                                <h4 className="font-black text-lilac-900 uppercase text-xs tracking-[0.2em] border-b border-lilac-50 pb-4 mb-2">Global Operational Hours</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4">
-                                    {Object.entries(settings.operationalHours).map(([day, sched]: [string, any]) => (
-                                        <div key={day} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 group transition-all hover:bg-white hover:border-lilac-300 flex flex-col gap-4">
-                                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                                <div className="font-black uppercase text-xs text-teal-800 tracking-widest">{day}</div>
-                                                <button 
-                                                    onClick={() => handleUpdateHours(day, {isClosed: !sched.isClosed})}
-                                                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${sched.isClosed ? 'bg-red-50 border-red-500 text-red-700' : 'bg-teal-50 border-teal-500 text-teal-700'}`}
-                                                >
-                                                    {sched.isClosed ? 'Closed' : 'Open'}
-                                                </button>
-                                            </div>
-                                            <div className="flex gap-4 items-center w-full">
-                                                <div className="flex-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Start Time</label>
-                                                    <input type="time" disabled={sched.isClosed} value={sched.start} onChange={e => handleUpdateHours(day, {start: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 outline-none disabled:opacity-30" />
-                                                </div>
-                                                <div className="pt-4 text-slate-300 font-black">-</div>
-                                                <div className="flex-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">End Time</label>
-                                                    <input type="time" disabled={sched.isClosed} value={sched.end} onChange={e => handleUpdateHours(day, {end: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 outline-none disabled:opacity-30" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                     </div>

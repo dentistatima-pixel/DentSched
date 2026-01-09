@@ -1,4 +1,4 @@
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, DashboardConfig } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -210,6 +210,24 @@ const DEFAULT_SMS_CONFIG: SmsConfig = {
     password: '',
     deviceId: '',
     isPollingEnabled: false
+};
+
+const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
+  showYield: true,
+  showRegulatoryHealth: true,
+  showLogisticsIntegrity: true,
+  showVelocity: true,
+  showSafetyRail: true,
+  showIntakeQueue: true,
+  showWaitlistAlerts: true,
+  showSterilizationShield: true,
+  showSupplyRisks: true,
+  showLabInFlow: true,
+  showRevenueBridge: true,
+  showInsurancePipeline: true,
+  showComplianceAlerts: true,
+  showPostOpWellness: true,
+  showSessionStatus: true
 };
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
@@ -431,6 +449,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   currentPrivacyVersion: '1.0',
   acknowledgedAlertIds: [],
   retentionPolicy: { archivalYears: 10, purgeYears: 15 },
+  dashboardConfig: DEFAULT_DASHBOARD_CONFIG,
   get kioskSettings(): { welcomeMessage: string; privacyNotice: string; } {
       return { welcomeMessage: 'Welcome to Ivory Dental', privacyNotice: 'We process your data for clinical care.' };
   }

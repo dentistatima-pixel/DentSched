@@ -546,6 +546,24 @@ export interface SmsConfig {
     isPollingEnabled: boolean;
 }
 
+export interface DashboardConfig {
+  showYield: boolean;
+  showRegulatoryHealth: boolean;
+  showLogisticsIntegrity: boolean;
+  showVelocity: boolean;
+  showSafetyRail: boolean;
+  showIntakeQueue: boolean;
+  showWaitlistAlerts: boolean;
+  showSterilizationShield: boolean;
+  showSupplyRisks: boolean;
+  showLabInFlow: boolean;
+  showRevenueBridge: boolean;
+  showInsurancePipeline: boolean;
+  showComplianceAlerts: boolean;
+  showPostOpWellness: boolean;
+  showSessionStatus: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -956,6 +974,7 @@ export interface FieldSettings {
   stockItems?: StockItem[];
   payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
   expenseCategories: string[];
+  dashboardConfig: DashboardConfig;
 }
 
 export interface Medication {
