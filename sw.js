@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dentsched-cache-v2';
+const CACHE_NAME = 'dentsched-cache-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -31,7 +31,6 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Navigation Fallback: Redirect all page navigation requests to index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('/index.html').then(response => {
@@ -40,8 +39,6 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
-
-  // Standard Cache-First for static assets
   event.respondWith(
     caches.match(event.request).then(response => {
       return response || fetch(event.request);
