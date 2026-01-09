@@ -61,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
   const badgeCount = myActiveTasks.length;
 
-  const headerHeight = isDowntime ? "h-16" : "h-16 md:h-16"; // Uniform compact header
+  const headerHeight = isDowntime ? "h-16" : "h-16 md:h-16"; 
   const headerClass = isDowntime 
     ? `h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-4 md:px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600`
     : `h-16 bg-teal-900/95 backdrop-blur-xl text-white flex items-center justify-between px-4 md:px-8 shadow-xl z-50 sticky top-0 shrink-0 border-b border-teal-800/50 transition-all duration-300`;
@@ -69,13 +69,13 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-row overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
-      {/* Sidebar - Desktop/Tablet Side Rail */}
-      <aside className="hidden md:flex w-20 lg:w-64 bg-teal-950 flex-col shrink-0 z-50 border-r border-teal-900 transition-all duration-300">
-          <div className="p-4 flex items-center gap-3 lg:px-6 lg:py-6 shrink-0">
-             <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-lilac-500 flex items-center justify-center shadow-lg shrink-0">
-                <span className="text-white font-black text-xl lg:text-2xl">d</span>
+      {/* Sidebar - Optimized for Tablet Landscape: Rail mode extended to xl screens */}
+      <aside className="hidden md:flex w-20 xl:w-20 2xl:w-56 bg-teal-950 flex-col shrink-0 z-50 border-r border-teal-900 transition-all duration-300">
+          <div className="p-4 flex items-center gap-3 xl:px-4 xl:py-6 shrink-0">
+             <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-xl bg-lilac-500 flex items-center justify-center shadow-lg shrink-0">
+                <span className="text-white font-black text-xl xl:text-2xl">d</span>
              </div>
-             <span className="hidden lg:block font-black text-xl tracking-tighter text-white uppercase truncate">{fieldSettings?.clinicName || 'dentsched'}</span>
+             <span className="hidden 2xl:block font-black text-xl tracking-tighter text-white uppercase truncate">{fieldSettings?.clinicName || 'dentsched'}</span>
           </div>
 
           <nav className="flex-1 px-3 space-y-2 mt-4 overflow-y-auto no-scrollbar" role="tablist">
@@ -83,12 +83,12 @@ const Layout: React.FC<LayoutProps> = ({
                 <button 
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-4 p-3 lg:px-4 lg:py-3.5 rounded-xl transition-all group ${activeTab === item.id ? 'bg-teal-600 text-white shadow-lg' : 'text-teal-400 hover:bg-white/5 hover:text-white'}`}
+                    className={`w-full flex items-center gap-4 p-3 xl:px-4 xl:py-3.5 rounded-xl transition-all group ${activeTab === item.id ? 'bg-teal-600 text-white shadow-lg' : 'text-teal-400 hover:bg-white/5 hover:text-white'}`}
                     aria-selected={activeTab === item.id}
                     role="tab"
                 >
                     <item.icon size={22} className="shrink-0 transition-transform group-hover:scale-110" />
-                    <span className="hidden lg:block font-black uppercase text-xs tracking-widest truncate">{item.label}</span>
+                    <span className="hidden 2xl:block font-black uppercase text-xs tracking-widest truncate">{item.label}</span>
                 </button>
               ))}
           </nav>
@@ -96,14 +96,14 @@ const Layout: React.FC<LayoutProps> = ({
           <div className="p-4 mt-auto border-t border-teal-900 space-y-4">
               <button 
                   onClick={() => setIsProfileOpen(true)}
-                  className="w-full flex items-center gap-4 p-3 lg:px-4 rounded-xl text-teal-400 hover:text-white transition-all group"
+                  className="w-full flex items-center gap-4 p-3 xl:px-4 rounded-xl text-teal-400 hover:text-white transition-all group"
                   aria-label="View profile"
               >
                   <UserCircle size={22} className="shrink-0" />
-                  <span className="hidden lg:block font-black uppercase text-[10px] tracking-widest truncate">My Identity</span>
+                  <span className="hidden 2xl:block font-black uppercase text-[10px] tracking-widest truncate">My Identity</span>
               </button>
               
-              <div className="hidden lg:block px-2">
+              <div className="hidden 2xl:block px-2">
                   <p className="text-[8px] font-black text-teal-700 uppercase tracking-widest leading-relaxed">
                     PDA ETHICS RULE 19 VERIFIED: Liability solely on practitioner.
                   </p>
@@ -186,19 +186,21 @@ const Layout: React.FC<LayoutProps> = ({
         )}
 
         <main className="flex-1 flex flex-col h-[calc(100dvh-64px)] overflow-hidden bg-slate-50 relative pb-16 md:pb-0" role="main">
-          <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-1 md:p-2' : 'overflow-auto p-4 md:p-6 lg:p-8'} no-scrollbar`}>
+          <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-1 md:p-2' : 'overflow-auto p-4 md:p-6 lg:p-6'} no-scrollbar`}>
               {children}
           </div>
         </main>
 
         {/* Compact Bottom Nav - Mobile Only */}
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-4 z-40 flex md:hidden gap-1 justify-between items-center rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe" role="tablist">
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-4 z-40 flex md:hidden gap-1 justify-between items-center rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe" role="tablist" aria-label="Mobile Navigation">
               {navItems.map((item) => (
                 <button 
                     key={item.id} 
                     onClick={() => setActiveTab(item.id)} 
                     className={`flex flex-col items-center justify-center flex-1 h-full rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'text-teal-600 scale-110' : 'text-slate-400 hover:text-teal-500'}`}
                     aria-label={item.label}
+                    role="tab"
+                    aria-selected={activeTab === item.id}
                 >
                     <item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} />
                     <span className={`text-[8px] font-black uppercase tracking-widest mt-1 ${activeTab === item.id ? 'opacity-100' : 'opacity-0'}`}>{item.label}</span>
