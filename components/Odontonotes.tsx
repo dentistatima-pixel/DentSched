@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet } from '../types';
-/* Fix: Added missing History icon from lucide-react */
 import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, History } from 'lucide-react';
 import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 import { useToast } from './ToastSystem';
@@ -430,7 +429,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
              </div>
 
              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-end">
                     <div><label className="label">Tooth #</label><input type="text" value={toothNum} onChange={e => setToothNum(e.target.value)} className="input" placeholder="e.g. 16" /></div>
                     <div><label className="label">Procedure</label><select value={selectedProcedure} onChange={e => setSelectedProcedure(e.target.value)} className="input">{filteredProcedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                     <div><label className="label">Resource/Chair</label><select value={selectedResourceId} onChange={e => setSelectedResourceId(e.target.value)} className="input"><option value="">- Select -</option>{fieldSettings?.resources.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
@@ -479,7 +478,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
       <div className="flex-1 overflow-y-auto p-8 space-y-4 no-scrollbar bg-white">
           <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-              {/* Fix: Resolved global History namespace conflict by correctly importing History from lucide-react */}
               <History size={20} className="text-slate-400"/><h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Chronological Narrative Trail</h4>
           </div>
           {[...entries].reverse().map(entry => (
@@ -497,7 +495,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                          {entry.patientSignature && <div className="flex items-center gap-2 px-3 py-1 bg-lilac-50 text-lilac-700 rounded-full text-[9px] font-black uppercase border border-lilac-100"><Check size={14}/> Patient Signed</div>}
                          {!entry.sealedHash && !readOnly && currentUser.name === entry.author && <button onClick={() => handleEdit(entry)} className="p-2.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all" aria-label="Edit note"><Edit3 size={18}/></button>}
                          {entry.isPendingSupervision && !readOnly && currentUser.role === UserRole.DENTIST && <button onClick={() => handleSuperviseSeal(entry)} className="px-4 py-2 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-lilac-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Verified size={14}/> Supervise</button>}
-                         {!entry.sealedHash && !readOnly && (currentUser.name === entry.author || isArchitect) && <button onClick={() => handleSeal(entry)} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-lilac-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Lock size={14}/> Seal Record</button>}
+                         {!entry.sealedHash && !readOnly && (currentUser.name === entry.author || isArchitect) && <button onClick={() => handleSeal(entry)} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-teal-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Lock size={14}/> Seal Record</button>}
                       </div>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border border-slate-100/60 shadow-inner">

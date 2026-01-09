@@ -123,7 +123,6 @@ const PatientList: React.FC<PatientListProps> = ({
                             </div>
                         </div>
                         
-                        {/* Global Stacked Meta Labels for Tablet optimization */}
                         <div className="flex flex-col gap-3" role="status">
                             {selectedPatient.allergies && selectedPatient.allergies.length > 0 && selectedPatient.allergies[0] !== 'None' && (
                                 <div className="bg-red-600 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-red-600/20 w-fit">
@@ -174,7 +173,6 @@ const PatientList: React.FC<PatientListProps> = ({
                         </div>
                     </div>
                 )}
-                {/* Remaining tabs truncated, logic identical to v16 source */}
            </div>
         </div>
       ) : null}

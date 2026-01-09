@@ -62,13 +62,13 @@ const TOLERANCE_MAP: Record<StockCategory, number> = {
 };
 
 const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, color: string, label: string, value: string, subtext?: string }) => (
-  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] flex items-center gap-5 group hover:shadow-xl hover:border-teal-100 transition-all duration-500">
-    <div className={`p-5 rounded-[1.5rem] ${color} transition-transform group-hover:scale-110 duration-500 shadow-lg shadow-current/10`} aria-hidden="true">
+  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] flex items-start gap-5 group hover:shadow-xl hover:border-teal-100 transition-all duration-500">
+    <div className={`p-5 rounded-[1.5rem] ${color} transition-transform group-hover:scale-110 duration-500 shadow-lg shadow-current/10 shrink-0`} aria-hidden="true">
       <Icon size={28} />
     </div>
-    <div className="flex flex-col min-w-0">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-2 truncate">{label}</span>
-      <span className="text-3xl font-black text-slate-800 tracking-tighter leading-none">{value}</span>
+    <div className="flex flex-col min-w-0 pt-1">
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-2 truncate block">{label}</span>
+      <span className="text-2xl md:text-3xl font-black text-slate-800 tracking-tighter leading-none break-all">{value}</span>
       {subtext && <span className="text-[8px] font-black text-teal-700 mt-2 uppercase tracking-widest truncate">{subtext}</span>}
     </div>
   </div>
@@ -153,8 +153,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Optimized KPI Grid for Tablet Range: Stacking labels vertically for currency protection */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-6" role="region" aria-label="Key Performance Indicators">
+      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-6" role="region" aria-label="Key Performance Indicators">
         <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-700" label="Yield (YTD)" value={roleKPIs.production} subtext="Gross Asset" />
         <MetricCard icon={Clock} color="bg-blue-50 text-blue-700" label="Latency" value={roleKPIs.latency} subtext="Avg. Time" />
         <MetricCard icon={Scale} color="bg-orange-50 text-orange-700" label="Forensic Integrity" value={roleKPIs.integrity} subtext="Variance Score" />
@@ -192,7 +191,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </section>
           </div>
-          {/* Remaining columns truncated for brevity, identical logic to original v16 */}
       </div>
     </div>
   );

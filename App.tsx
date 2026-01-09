@@ -97,7 +97,7 @@ const verifyAuditTrail = (logs: AuditLogEntry[]): boolean => {
         const current = logsSorted[i];
         const prev = logsSorted[i - 1];
         const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
-        const expectedHash = CryptoJS.SHA256(payload).toString();
+        const currentHash = CryptoJS.SHA256(payload).toString();
         if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
             return false;
         }
@@ -127,7 +127,12 @@ function App() {
   const [staff, setStaff] = useState<User[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [sterilizationCycles, setSterilizationCycles] = useState<SterilizationCycle[]>([]);
-  const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
+  const [fieldSettings, setFieldSettings] = useState<FieldSettings>(() => {
+    const cachedBranding = localStorage.getItem('dentsched_public_branding');
+    return cachedBranding 
+        ? { ...DEFAULT_FIELD_SETTINGS, clinicName: cachedBranding }
+        : DEFAULT_FIELD_SETTINGS;
+  });
   const [tasks, setTask] = useState<PinboardTask[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [isAuditLogVerified, setIsAuditLogVerified] = useState<boolean | null>(null);
@@ -434,11 +439,14 @@ function App() {
       setAppointments(apts);
       setStaff(members);
       if (settings) {
-          setFieldSettings({
+          const mergedSettings = {
               ...DEFAULT_FIELD_SETTINGS,
               ...settings,
               features: { ...DEFAULT_FIELD_SETTINGS.features, ...(settings.features || {}) }
-          });
+          };
+          setFieldSettings(mergedSettings);
+          // Mirror to public cache for login page branding
+          localStorage.setItem('dentsched_public_branding', mergedSettings.clinicName);
       }
 
       // --- PHASE 2: SECONDARY DATA (Background Decryption) ---
@@ -527,6 +535,8 @@ function App() {
             save('dentsched_system_status_v2', systemStatus),
             save('dentsched_scheduled_sms_v2', scheduledSms)
           ]);
+          // Sync public branding cache
+          localStorage.setItem('dentsched_public_branding', fieldSettings.clinicName);
       };
       
       saveAll();
@@ -768,7 +778,7 @@ function App() {
                       <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl mb-6 transition-all duration-700 ${isInitializing ? 'bg-teal-900 animate-pulse scale-90' : 'bg-teal-600'}`}>
                           {isInitializing ? <Loader2 size={40} className="text-teal-400 animate-spin" /> : <ShieldCheck size={40} className="text-white"/>}
                       </div>
-                      <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Clinical Vault</h1>
+                      <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter text-center">{fieldSettings.clinicName}</h1>
                       <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                           {isInitializing ? (
                               <span className="text-teal-600 animate-pulse">{loginSubtext}</span>
