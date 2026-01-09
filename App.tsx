@@ -17,8 +17,7 @@ import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-/* Added missing 'X' icon from lucide-react to resolve "Cannot find name 'X'" errors in showDiagnosticOverlay block */
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2, ShieldX, Info, RefreshCw, X } from 'lucide-react';
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2, ShieldX, Info, RefreshCw, X, Database, Zap, Trash2 } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 
 const CANARY_KEY = 'dentsched_auth_canary_v2';
@@ -116,6 +115,8 @@ function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
   const [loginSubtext, setLoginSubtext] = useState('');
+  const [cryptoStatus, setCryptoStatus] = useState('');
+  const [derivationProgress, setDerivationProgress] = useState(0);
   const [showTamperAlert, setShowTamperAlert] = useState(false);
 
   // Environment Diagnostic States
@@ -182,7 +183,6 @@ function App() {
   // Environment Check Bootstrap
   useEffect(() => {
     const checkEnv = async () => {
-      // Small delay to let the UI settle
       await new Promise(resolve => setTimeout(resolve, 800));
 
       if (!window.isSecureContext) {
@@ -201,6 +201,22 @@ function App() {
     };
     checkEnv();
   }, []);
+
+  const resetSecurityVault = () => {
+      const confirmReset = window.confirm("NUCEAL RESET: This will purge local security metadata (SALT and CANARY). You will lose access to local data if you do not have the master password. Proceed?");
+      if (confirmReset) {
+          localStorage.removeItem(SALT_KEY);
+          localStorage.removeItem(CANARY_KEY);
+          // Purge encrypted clinical keys (v2) but keep public branding
+          Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('dentsched_') && key.endsWith('_v2')) {
+                  localStorage.removeItem(key);
+              }
+          });
+          toast.success("Security Vault Resurrected. Please reload.");
+          window.location.reload();
+      }
+  };
 
   const handleManualOverride = (gateId: string, reason: string) => {
     logAction('SECURITY_ALERT', 'SystemGate', gateId, `Manual Override Executed. Reason: ${reason}`);
@@ -402,7 +418,9 @@ function App() {
   const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
-      setLoginSubtext('Deriving Key (100,000 rounds)...');
+      setLoginSubtext('Securing Vault...');
+      setCryptoStatus('[IO] EXTRACTING_SALT');
+      setDerivationProgress(10);
 
       try {
           let salt = localStorage.getItem(SALT_KEY);
@@ -411,7 +429,19 @@ function App() {
               localStorage.setItem(SALT_KEY, salt);
           }
 
+          setCryptoStatus('[CPU] PBKDF2_ITERATE_100K');
+          setDerivationProgress(30);
+          
+          // PBKDF2 is a single await, so we simulate progress feedback
+          const progressInterval = setInterval(() => {
+              setDerivationProgress(p => p < 75 ? p + 5 : p);
+          }, 400);
+
           const derivedKey = await getCryptoKey(passwordInput, salt);
+          clearInterval(progressInterval);
+          setDerivationProgress(80);
+          setCryptoStatus('[SEC] VERIFYING_CANARY_V2');
+
           const storedCanary = localStorage.getItem(CANARY_KEY);
           
           if (storedCanary) {
@@ -420,11 +450,14 @@ function App() {
                   if (check !== VERIFICATION_TOKEN) {
                       toast.error("Incorrect password.");
                       setIsInitializing(false);
+                      setDerivationProgress(0);
                       return;
                   }
-              } catch {
-                  toast.error("Authentication failed. Database corrupt or wrong key.");
+              } catch (err: any) {
+                  setCryptoStatus('[ERR] CORRUPTED_SECURITY_METADATA');
+                  toast.error("Authentication failed. Security metadata corrupt or invalid key.");
                   setIsInitializing(false);
+                  setDerivationProgress(0);
                   return;
               }
           } else {
@@ -432,20 +465,30 @@ function App() {
               localStorage.setItem(CANARY_KEY, encCanary);
           }
 
+          setDerivationProgress(90);
+          setCryptoStatus('[IO] SYNCING_CLINICAL_REGISTRY');
           setEncryptionKey(derivedKey);
           setLoginSubtext('Opening clinical vault...');
           await loadSecureData(derivedKey);
+          
+          setDerivationProgress(100);
           setIsAuthenticated(true);
           setIsInitializing(false);
           logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
       } catch (error: any) {
           setIsInitializing(false);
+          setDerivationProgress(0);
           console.error(error);
           
-          if (error.name === 'OperationError' || error.message?.includes('derivation')) {
-              toast.error("Performance Timeout: Device hardware unable to complete clinical key derivation.");
+          if (error.name === 'OperationError' || error.name === 'QuotaExceededError') {
+              setCryptoStatus('[ERR] HARDWARE_RESTRICTION_TRIGGERED');
+              toast.error("Hardware Limitation: Device unable to complete clinical key derivation.");
+          } else if (error.name === 'InvalidAccessError') {
+              setCryptoStatus('[ERR] ACCESS_DENIED_SECURE');
+              toast.error("Security module denied access to derivation hardware.");
           } else {
-              toast.error("Security module encountered an error.");
+              setCryptoStatus('[ERR] UNKNOWN_CRYPTOGRAPHIC_FAULT');
+              toast.error("Security mode encountered a technical error.");
           }
       }
   };
@@ -481,7 +524,6 @@ function App() {
               features: { ...DEFAULT_FIELD_SETTINGS.features, ...(settings.features || {}) }
           };
           setFieldSettings(mergedSettings);
-          // Mirror to public cache for login page branding
           localStorage.setItem('dentsched_public_branding', mergedSettings.clinicName);
       }
 
@@ -545,7 +587,6 @@ function App() {
           localStorage.setItem(k, enc);
       };
 
-      // Bundle saves into logical batches
       const saveAll = async () => {
           await Promise.all([
             save('dentsched_appointments_v2', appointments),
@@ -571,7 +612,6 @@ function App() {
             save('dentsched_system_status_v2', systemStatus),
             save('dentsched_scheduled_sms_v2', scheduledSms)
           ]);
-          // Sync public branding cache
           localStorage.setItem('dentsched_public_branding', fieldSettings.clinicName);
       };
       
@@ -809,22 +849,43 @@ function App() {
   if (!isAuthenticated) {
       return (
           <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10">
-                  <div className="flex flex-col items-center mb-10">
-                      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl mb-6 transition-all duration-700 ${isInitializing ? 'bg-teal-900 animate-pulse scale-90' : 'bg-teal-600'}`}>
-                          {isInitializing ? <Loader2 size={40} className="text-teal-400 animate-spin" /> : <ShieldCheck size={40} className="text-white"/>}
+              <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 overflow-hidden relative">
+                  {/* Background Progress Glow */}
+                  {isInitializing && (
+                      <div className="absolute inset-0 bg-teal-500/5 pointer-events-none transition-all duration-1000" style={{ opacity: derivationProgress / 100 }} />
+                  )}
+
+                  <div className="flex flex-col items-center mb-10 relative z-10">
+                      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl mb-6 transition-all duration-700 ${isInitializing ? 'bg-teal-950 animate-pulse scale-90' : 'bg-teal-600'}`}>
+                          {isInitializing ? (
+                              <div className="relative">
+                                  <Loader2 size={40} className="text-teal-400 animate-spin" />
+                                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-teal-200">{derivationProgress}%</span>
+                              </div>
+                          ) : <ShieldCheck size={40} className="text-white"/>}
                       </div>
                       <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter text-center">{fieldSettings.clinicName}</h1>
-                      <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest flex flex-col items-center gap-1">
                           {isInitializing ? (
-                              <span className="text-teal-600 animate-pulse">{loginSubtext}</span>
+                              <>
+                                <span className="text-teal-600 animate-pulse">{loginSubtext}</span>
+                                <span className="font-mono text-[8px] opacity-60">{cryptoStatus}</span>
+                              </>
                           ) : (
                               <>Native Encryption Active</>
                           )}
                       </div>
                   </div>
 
-                  {fatalError && (
+                  {envStatus === 'INSECURE' ? (
+                      <div className="mb-8 p-6 bg-red-600 text-white rounded-[2rem] flex flex-col items-center text-center gap-4 animate-in zoom-in-95 shadow-2xl">
+                          <ShieldX size={48} className="animate-bounce" />
+                          <div>
+                              <h4 className="font-black uppercase text-base tracking-widest">Protocol Violation</h4>
+                              <p className="text-xs font-bold leading-relaxed mt-2 uppercase">HTTPS REQUIRED: Clinical encryption is disabled on insecure connections. Please reload via a secure protocol.</p>
+                          </div>
+                      </div>
+                  ) : fatalError ? (
                       <div className="mb-8 p-5 bg-red-50 border-2 border-red-100 rounded-3xl flex flex-col items-center text-center gap-3 animate-in slide-in-from-top-4">
                           <ShieldX size={32} className="text-red-600 animate-pulse" />
                           <div>
@@ -832,31 +893,36 @@ function App() {
                               <p className="text-[11px] text-red-800 font-bold leading-relaxed mt-1 uppercase">{fatalError}</p>
                           </div>
                       </div>
+                  ) : (
+                    <form onSubmit={handleLogin} className="space-y-6 relative z-10">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2 block">Security Credential</label>
+                            <input 
+                              type="password" 
+                              required 
+                              disabled={isInitializing || !!fatalError}
+                              value={passwordInput} 
+                              onChange={e => setPasswordInput(e.target.value)} 
+                              className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-xl font-bold tracking-widest placeholder:text-slate-200 shadow-inner disabled:opacity-50" 
+                              placeholder="••••••••" 
+                            />
+                        </div>
+                        <button 
+                          type="submit" 
+                          disabled={isInitializing || !passwordInput || !!fatalError} 
+                          className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'} disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none`}
+                        >
+                          {isInitializing ? `${loginSubtext} ${derivationProgress}%` : 'Access Records'}
+                        </button>
+                        {isInitializing && (
+                             <div className="text-center">
+                                 <span className="font-mono text-[8px] text-teal-700 uppercase tracking-widest opacity-80">{cryptoStatus}</span>
+                             </div>
+                        )}
+                    </form>
                   )}
 
-                  <form onSubmit={handleLogin} className="space-y-6">
-                      <div>
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2 block">Security Credential</label>
-                          <input 
-                            type="password" 
-                            required 
-                            disabled={isInitializing || !!fatalError}
-                            value={passwordInput} 
-                            onChange={e => setPasswordInput(e.target.value)} 
-                            className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-xl font-bold tracking-widest placeholder:text-slate-200 shadow-inner disabled:opacity-50" 
-                            placeholder="••••••••" 
-                          />
-                      </div>
-                      <button 
-                        type="submit" 
-                        disabled={isInitializing || !passwordInput || !!fatalError} 
-                        className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'} disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none`}
-                      >
-                        {isInitializing ? loginSubtext : 'Access Records'}
-                      </button>
-                  </form>
-
-                  <div className="mt-10 pt-6 border-t border-slate-50 flex flex-col items-center gap-4">
+                  <div className="mt-10 pt-6 border-t border-slate-50 flex flex-col items-center gap-4 relative z-10">
                        <div className="flex items-center gap-2">
                            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">System Integrity:</span>
                            <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${envStatus === 'VERIFIED' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -872,7 +938,7 @@ function App() {
                   </div>
 
                   {!isOnline && (
-                      <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 relative z-10">
                         <Lock size={16} className="text-amber-600"/>
                         <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight">Emergency Offline mode engaged. Data will sync on restore.</p>
                       </div>
@@ -881,7 +947,7 @@ function App() {
 
               {showDiagnosticOverlay && (
                   <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-                      <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-4 border-teal-600 animate-in zoom-in-95">
+                      <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-4 border-teal-600 animate-in zoom-in-95 overflow-y-auto max-h-[95vh] no-scrollbar">
                           <div className="flex flex-col items-center text-center gap-4 mb-8">
                                 <div className="bg-teal-50 p-4 rounded-3xl text-teal-600 shadow-sm"><ShieldAlert size={40}/></div>
                                 <h2 className="text-2xl font-black uppercase tracking-tighter">Clinical Security Audit</h2>
@@ -901,6 +967,21 @@ function App() {
                                     <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">Optimized</span>
                                 </div>
                           </div>
+
+                          <div className="mb-8 p-6 bg-red-50 rounded-[2rem] border-2 border-red-100 space-y-4">
+                              <div className="flex items-center gap-3 text-red-800">
+                                  <Database size={20} />
+                                  <h4 className="font-black uppercase text-xs tracking-widest">Vault Maintenance</h4>
+                              </div>
+                              <p className="text-[10px] text-red-900 font-bold uppercase leading-tight">If login fails repeatedly, your local cryptographic metadata may be corrupted. Resetting will purge local keys but preserve your public clinic branding.</p>
+                              <button 
+                                onClick={resetSecurityVault}
+                                className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+                              >
+                                  <Trash2 size={14}/> Purge Security Metadata
+                              </button>
+                          </div>
+
                           <button 
                             onClick={() => setShowDiagnosticOverlay(false)}
                             className="w-full py-5 bg-teal-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs"
