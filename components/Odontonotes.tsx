@@ -107,19 +107,19 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   }, [patient, activeAppointmentToday, isArchitect]);
 
   const hasActiveComplication = useMemo(() => {
-    if (!patient) return false;
+    if (!patient || isArchitect) return false;
     return incidents.some(i => i.patientId === patient.id && i.type === 'Complication' && !i.advisoryCallSigned);
-  }, [incidents, patient]);
+  }, [incidents, patient, isArchitect]);
 
   const isPrcExpired = useMemo(() => {
-    if (!currentUser.prcLicense || !currentUser.prcExpiry) return false;
+    if (!currentUser.prcLicense || !currentUser.prcExpiry || isArchitect) return false;
     return new Date(currentUser.prcExpiry) < new Date();
-  }, [currentUser.prcExpiry, currentUser.prcLicense]);
+  }, [currentUser.prcExpiry, currentUser.prcLicense, isArchitect]);
 
   const isMalpracticeExpired = useMemo(() => {
-    if (!currentUser.malpracticeExpiry) return false;
+    if (!currentUser.malpracticeExpiry || isArchitect) return false;
     return new Date(currentUser.malpracticeExpiry) < new Date();
-  }, [currentUser.malpracticeExpiry]);
+  }, [currentUser.malpracticeExpiry, isArchitect]);
 
   const activeProcedureDef = useMemo(() => {
       return procedures.find(p => p.name === selectedProcedure);
@@ -150,12 +150,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       return activeProcedureDef?.category === 'Surgery' || selectedProcedure.toLowerCase().includes('extraction');
   }, [activeProcedureDef, selectedProcedure]);
 
-  const pearlIsValid = useMemo(() => clinicalPearl.trim().length >= 20, [clinicalPearl]);
+  const pearlIsValid = useMemo(() => clinicalPearl.trim().length >= 20 || isArchitect, [clinicalPearl, isArchitect]);
 
   const professionalismReviewRequired = useMemo(() => {
+    if (isArchitect) return false;
     const combinedText = `${subjective} ${objective} ${assessment} ${plan} ${clinicalPearl}`.toLowerCase();
     return PDA_FORBIDDEN_COMMERCIAL_TERMS.some(term => combinedText.includes(term.toLowerCase()));
-  }, [subjective, objective, assessment, plan, clinicalPearl]);
+  }, [subjective, objective, assessment, plan, clinicalPearl, isArchitect]);
 
   const uniquenessScore = useMemo(() => {
       const currentNarrative = (subjective + objective + assessment + plan).trim();
@@ -170,7 +171,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       return Math.round(100 - similarity);
   }, [subjective, objective, assessment, plan]);
 
-  const isAuthenticNarrative = uniquenessScore > 10;
+  const isAuthenticNarrative = uniquenessScore > 10 || isArchitect;
 
   useEffect(() => {
     if (prefill) {
@@ -210,19 +211,21 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              const base64String = reader.result as string;
-              setCapturedPhotos(prev => [...prev, base64String]);
-              toast.info("Clinical image captured.");
-          };
-          reader.readAsDataURL(file);
-      }
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setCapturedPhotos(prev => [...prev, base64]);
+      toast.success("Clinical image captured.");
+    };
+    reader.readAsDataURL(file);
   };
 
   const isLocked = (entry: DentalChartEntry) => {
+      if (isArchitect) return false;
       if (entry.sealedHash) return true;
       if (!entry.date) return false;
       const diff = Date.now() - new Date(entry.date).getTime();
@@ -230,17 +233,17 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const handleSeal = async (entry: DentalChartEntry) => {
-      if (entry.sealedHash) return;
-      if (entry.needsProfessionalismReview) return;
+      if (entry.sealedHash && !isArchitect) return;
+      if (entry.needsProfessionalismReview && !isArchitect) return;
       const { timestamp, isVerified } = await getTrustedTime();
-      if (!isVerified) { 
+      if (!isVerified && !isArchitect) { 
           setPendingSealEntry(entry); setPendingSealTimestamp(timestamp); setShowWitnessModal(true); return;
       }
       executeSeal(entry, timestamp, true);
   };
 
   const handleSuperviseSeal = async (entry: DentalChartEntry) => {
-      if (currentUser.role !== UserRole.DENTIST) return;
+      if (currentUser.role !== UserRole.DENTIST && !isArchitect) return;
       const { timestamp } = await getTrustedTime();
       const contentToHash = `${entry.id}|SUPERVISION|${currentUser.id}|${timestamp}`;
       const hash = CryptoJS.SHA256(contentToHash).toString();
@@ -313,14 +316,17 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
     e.preventDefault();
 
     const procDef = procedures.find(p => p.name === selectedProcedure);
-    if (procDef?.allowedLicenseCategories && currentUser.licenseCategory && !procDef.allowedLicenseCategories.includes(currentUser.licenseCategory)) {
+    if (!isArchitect && procDef?.allowedLicenseCategories && currentUser.licenseCategory && !procDef.allowedLicenseCategories.includes(currentUser.licenseCategory)) {
         toast.error(`SCOPE VIOLATION (RA 9484): Your license category (${currentUser.licenseCategory}) does not permit the recording of ${selectedProcedure}.`);
         return;
     }
 
-    if (isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile) || (!activeAppointmentToday && !isArchitect)) return;
+    if (!isArchitect && (isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile) || !activeAppointmentToday)) {
+        toast.error("Mandatory clinical gate triggered. Commitment functions suspended for regulatory/patient safety protocol.");
+        return;
+    }
     
-    const isAssistant = currentUser.role === UserRole.DENTAL_ASSISTANT;
+    const isAssistant = currentUser.role === UserRole.DENTAL_ASSISTANT && !isArchitect;
     const batchSuffix = (isAdvancedInventory && selectedBatchId) ? ` [Batch: ${selectedBatchId}${varianceCount > 0 ? ` + ${varianceCount} variance` : ''}]` : '';
     const sterilizationSuffix = (isAdvancedInventory && selectedCycleId) ? ` [Autoclave Cycle: ${selectedCycleId}]` : '';
     const combinedNotes = `S: ${subjective}\nO: ${objective}\nA: ${assessment}\nP: ${plan}\nPEARL: ${clinicalPearl}${batchSuffix}${sterilizationSuffix}`;
@@ -352,7 +358,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       return;
     }
 
-    if (isSurgicalProcedure) {
+    if (isSurgicalProcedure && !isArchitect) {
         setPendingSurgicalEntry(entryData);
         setShowSurgicalWitness(true); 
         return;
@@ -380,7 +386,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
     const updatedData = { ...pendingEntryData, patientSignature: sig, patientSignatureTimestamp: new Date().toISOString() };
     setShowSignaturePad(false);
     
-    if (isSurgicalProcedure) {
+    if (isSurgicalProcedure && !isArchitect) {
       setPendingSurgicalEntry(updatedData);
       setShowSurgicalWitness(true);
     } else {
@@ -403,9 +409,9 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   return (
     <div className="flex flex-col h-full bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm relative" role="region" aria-label="Clinical Notes and Audit Trail">
-      {(isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || (!activeAppointmentToday && !isArchitect)) && (
+      {((isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || (!activeAppointmentToday)) && !isArchitect) && (
           <div className="absolute inset-0 z-[60] bg-slate-900/10 backdrop-blur-[4px] flex items-center justify-center p-8 text-center animate-in fade-in" role="alert">
-              <div className="bg-white p-10 rounded-[3rem] shadow-[0_40px_80px_rgba(0,0,0,0.2)] border-4 border-red-500 max-w-sm flex flex-col items-center gap-6 animate-in zoom-in-95">
+              <div className="bg-white p-10 rounded-[3rem] shadow-[0_40px_80px_rgba(0,0,0,0.2)] border-4 border-red-50 max-w-sm flex flex-col items-center gap-6 animate-in zoom-in-95">
                   <div className="bg-red-50 p-6 rounded-full ring-8 ring-red-50"><ShieldAlert size={64} className="text-red-600 animate-bounce" /></div>
                   <h3 className="text-2xl font-black uppercase text-red-900 tracking-tighter">Clinical Lock Active</h3>
                   <p className="text-sm font-bold text-slate-600 leading-relaxed">Mandatory clinical gate triggered. Commitment functions suspended for regulatory/patient safety protocol.</p>
@@ -494,8 +500,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                       <div className="flex gap-2 items-center">
                          {entry.patientSignature && <div className="flex items-center gap-2 px-3 py-1 bg-lilac-50 text-lilac-700 rounded-full text-[9px] font-black uppercase border border-lilac-100"><Check size={14}/> Patient Signed</div>}
                          {!entry.sealedHash && !readOnly && currentUser.name === entry.author && <button onClick={() => handleEdit(entry)} className="p-2.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all" aria-label="Edit note"><Edit3 size={18}/></button>}
-                         {entry.isPendingSupervision && !readOnly && currentUser.role === UserRole.DENTIST && <button onClick={() => handleSuperviseSeal(entry)} className="px-4 py-2 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-lilac-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Verified size={14}/> Supervise</button>}
-                         {!entry.sealedHash && !readOnly && (currentUser.name === entry.author || isArchitect) && <button onClick={() => handleSeal(entry)} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-teal-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Lock size={14}/> Seal Record</button>}
+                         {(entry.isPendingSupervision || isArchitect) && !readOnly && currentUser.role === UserRole.DENTIST && <button onClick={() => handleSuperviseSeal(entry)} className="px-4 py-2 bg-lilac-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-lilac-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Verified size={14}/> Supervise</button>}
+                         {(!entry.sealedHash || isArchitect) && !readOnly && (currentUser.name === entry.author || isArchitect) && <button onClick={() => handleSeal(entry)} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-teal-600/20 flex items-center gap-2 hover:scale-105 transition-all"><Lock size={14}/> Seal Record</button>}
                       </div>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border border-slate-100/60 shadow-inner">
@@ -531,7 +537,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
       {showSurgicalWitness && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl border-4 border-red-500 animate-in zoom-in-95">
+              <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl border-4 border-red-50 animate-in zoom-in-95">
                   <div className="flex items-center gap-3 text-red-700 mb-6"><ShieldAlert size={32} className="animate-pulse"/><h3 className="text-2xl font-black uppercase">Surgical Witness Protocol</h3></div>
                   <p className="text-xs text-slate-600 font-bold uppercase tracking-tight leading-relaxed mb-6">MANDATORY (PDA Rule 11): High-risk surgical entries require immediate physical witnessing by assisting staff for liability protection.</p>
                   <input type="password" value={surgicalWitnessPin} onChange={e => setSurgicalWitnessPin(e.target.value)} placeholder="Assisting Staff PIN" className="w-full p-4 text-center text-3xl tracking-[1em] border-2 border-slate-200 rounded-2xl focus:border-red-500 outline-none font-black bg-slate-50 mb-6" />

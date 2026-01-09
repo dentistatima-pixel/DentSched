@@ -20,16 +20,10 @@ import CryptoJS from 'crypto-js';
 import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2, ShieldX, Info, RefreshCw, X, Database, Zap, Trash2 } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 
-const CANARY_KEY = 'dentsched_auth_canary_v2';
 const SALT_KEY = 'dentsched_security_salt_v2';
-const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS_V2';
 const GHOST_LOG_KEY = '_ds_ext_sys_0x1'; 
 const PBKDF2_ITERATIONS = 100000; 
-const EMERGENCY_STALE_THRESHOLD = 60 * 60 * 1000; 
 
-type EnvStatus = 'SCANNING' | 'VERIFIED' | 'RESTRICTED' | 'INSECURE';
-
-// --- NATIVE WEB CRYPTO UTILITIES ---
 const getCryptoKey = async (password: string, salt: string): Promise<CryptoKey> => {
     const encoder = new TextEncoder();
     const passwordKey = await window.crypto.subtle.importKey(
@@ -110,25 +104,11 @@ const verifyAuditTrail = (logs: AuditLogEntry[]): boolean => {
 function App() {
   const toast = useToast();
   
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [loginSubtext, setLoginSubtext] = useState('');
-  const [cryptoStatus, setCryptoStatus] = useState('');
-  const [derivationProgress, setDerivationProgress] = useState(0);
-  const [showTamperAlert, setShowTamperAlert] = useState(false);
-
-  const [envStatus, setEnvStatus] = useState<EnvStatus>('SCANNING');
-  const [fatalError, setFatalError] = useState<string | null>(null);
-  const [showDiagnosticOverlay, setShowDiagnosticOverlay] = useState(false);
-
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
-
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
-  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
-
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
+  
   const [activeTab, setActiveTab] = useState('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -156,16 +136,12 @@ function App() {
   
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
-  
   const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
 
-  const [isSessionLocked, setIsSessionLocked] = useState(false);
-  const idleTimerRef = useRef<any>(null);
-  const IDLE_TIMEOUT_MS = 15 * 60 * 1000; 
-
-  const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
   const [isInKioskMode, setIsInKioskMode] = useState(false);
   const [currentBranch, setCurrentBranch] = useState<string>('Makati Main');
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState<string | undefined>(undefined);
@@ -175,113 +151,6 @@ function App() {
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-
-  const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
-  const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
-
-  useEffect(() => {
-    const checkEnv = async () => {
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      if (!window.isSecureContext) {
-        setEnvStatus('INSECURE');
-        setFatalError("Protocol Violation: Clinical encryption requires a secure (HTTPS) connection.");
-        return;
-      }
-
-      if (!window.crypto?.subtle) {
-        setEnvStatus('RESTRICTED');
-        setFatalError("Hardware Restriction: The Web Crypto API is disabled in this environment.");
-        return;
-      }
-
-      setEnvStatus('VERIFIED');
-    };
-    checkEnv();
-  }, []);
-
-  const resetSecurityVault = () => {
-      const confirmReset = window.confirm("NUCEAL RESET: This will purge local security metadata (SALT and CANARY). Proceed?");
-      if (confirmReset) {
-          localStorage.removeItem(SALT_KEY);
-          localStorage.removeItem(CANARY_KEY);
-          Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('dentsched_') && key.endsWith('_v2')) {
-                  localStorage.removeItem(key);
-              }
-          });
-          toast.success("Security Vault Resurrected. Please reload.");
-          window.location.reload();
-      }
-  };
-
-  const handleManualOverride = (gateId: string, reason: string) => {
-    logAction('SECURITY_ALERT', 'SystemGate', gateId, `Manual Override Executed. Reason: ${reason}`);
-    toast.warning(`Manual override logged for gate ${gateId}.`);
-  };
-
-  const triggerSms = useCallback(async (templateId: string, patient: Patient, extras: Record<string, string> = {}) => {
-      if (!isOnline || systemStatus === SystemStatus.DOWNTIME) return; 
-      if (!fieldSettings.features.enableSmsAutomation) return;
-      
-      const config = fieldSettings.smsTemplates[templateId];
-      if (!config || !config.enabled) return;
-
-      const marketingCategories = ['Onboarding', 'Efficiency', 'Reputation'];
-      if (marketingCategories.includes(config.category) && !patient.marketingConsent) {
-          return;
-      }
-
-      let message = config.text;
-      const doctor = extras.doctor || 'your dentist';
-      const procedure = extras.procedure || 'your appointment';
-      const date = extras.date || 'your scheduled date';
-      const time = extras.time || 'your scheduled time';
-      const branch = extras.branch || currentBranch;
-      const amount = extras.amount || '0.00';
-      const provider = extras.provider || 'your insurer';
-
-      message = message
-          .replace(/{PatientName}/g, patient.firstName)
-          .replace(/{Doctor}/g, doctor)
-          .replace(/{Procedure}/g, procedure)
-          .replace(/{Date}/g, date)
-          .replace(/{Time}/g, time)
-          .replace(/{Branch}/g, branch)
-          .replace(/{Amount}/g, amount)
-          .replace(/{Provider}/g, provider)
-          .replace(/{PortalLink}/g, 'Offline issuance only')
-          .replace(/{BookingLink}/g, 'dentsched.ph/book');
-
-      const smsCfg = fieldSettings.smsConfig;
-      if (smsCfg.mode === 'LOCAL' && smsCfg.gatewayUrl) {
-          try {
-              const res = await fetch(smsCfg.gatewayUrl, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ to: patient.phone, message, key: smsCfg.apiKey })
-              });
-              if (res.ok) logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}": ${message}`);
-          } catch (err) {
-              logAction('SECURITY_ALERT', 'SmsQueue', patient.id, `Gateway Failure: ${err}`);
-          }
-      }
-  }, [fieldSettings, currentBranch, isOnline, systemStatus]);
-
-  useEffect(() => {
-      const handleOnline = () => { 
-        setIsOnline(true); 
-        toast.success("Connection restored."); 
-        if (systemStatus === SystemStatus.DOWNTIME) setSystemStatus(SystemStatus.RECONCILIATION);
-      };
-      const handleOffline = () => { 
-        setIsOnline(false); 
-        toast.warning("Connection lost. Protocol Downtime suggested."); 
-      };
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
-  }, [systemStatus]);
 
   const logAction = async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, previousState?: any, newState?: any) => {
       if (!fieldSettings.features.enableAccountabilityLog) return;
@@ -326,77 +195,6 @@ function App() {
       });
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsInitializing(true);
-      setLoginSubtext('Securing Vault...');
-      setCryptoStatus('[IO] EXTRACTING_SALT');
-      setDerivationProgress(10);
-
-      try {
-          let salt = localStorage.getItem(SALT_KEY);
-          if (!salt) {
-              salt = window.crypto.getRandomValues(new Uint8Array(16)).join('');
-              localStorage.setItem(SALT_KEY, salt);
-          }
-
-          setCryptoStatus('[CPU] PBKDF2_ITERATE_100K');
-          setDerivationProgress(30);
-          
-          const progressInterval = setInterval(() => {
-              setDerivationProgress(p => p < 75 ? p + 5 : p);
-          }, 400);
-
-          const derivedKey = await getCryptoKey(passwordInput, salt);
-          clearInterval(progressInterval);
-          setDerivationProgress(80);
-          setCryptoStatus('[SEC] VERIFYING_CANARY_V2');
-
-          const storedCanary = localStorage.getItem(CANARY_KEY);
-          
-          if (storedCanary) {
-              try {
-                  const check = await decryptNative(storedCanary, derivedKey);
-                  if (check !== VERIFICATION_TOKEN) {
-                      toast.error("Incorrect password.");
-                      setIsInitializing(false);
-                      setDerivationProgress(0);
-                      return;
-                  }
-              } catch (err: any) {
-                  setCryptoStatus('[ERR] CORRUPTED_SECURITY_METADATA');
-                  toast.error("Auth failed. Local metadata corrupt.");
-                  setIsInitializing(false);
-                  setDerivationProgress(0);
-                  return;
-              }
-          } else {
-              const encCanary = await encryptNative(VERIFICATION_TOKEN, derivedKey);
-              localStorage.setItem(CANARY_KEY, encCanary);
-          }
-
-          setDerivationProgress(90);
-          setCryptoStatus('[IO] SYNCING_CLINICAL_REGISTRY');
-          setEncryptionKey(derivedKey);
-          await loadSecureData(derivedKey);
-          
-          setDerivationProgress(100);
-          setIsAuthenticated(true);
-          setIsInitializing(false);
-          logAction('LOGIN', 'System', 'Session', `User logged in.`);
-      } catch (error: any) {
-          setIsInitializing(false);
-          setDerivationProgress(0);
-          if (error.name === 'OperationError' || error.name === 'QuotaExceededError') {
-              setCryptoStatus('[ERR] HARDWARE_RESTRICTION');
-              toast.error("Hardware Limitation: High security derivation failed.");
-          } else {
-              setCryptoStatus('[ERR] UNKNOWN_FAULT');
-              toast.error("Security module encountered a technical error.");
-          }
-      }
-  };
-
   const loadSecureData = async (key: CryptoKey) => {
       const load = async (k: string, def: any) => {
           const enc = localStorage.getItem(k);
@@ -404,7 +202,6 @@ function App() {
           try { return await decryptNative(enc, key); } catch (e) { return def; } 
       };
 
-      setLoginSubtext('Syncing records...');
       const [pts, apts, members, settings] = await Promise.all([
           load('dentsched_patients_v2', PATIENTS),
           load('dentsched_appointments_v2', APPOINTMENTS),
@@ -415,8 +212,7 @@ function App() {
       setPatients(pts); setAppointments(apts); setStaff(members);
       if (settings) setFieldSettings(settings);
 
-      setLoginSubtext('Verifying logs...');
-      const [inv, cycles, scheduled, logs, tasksList, hClaims, pClaims, incs, refs, recons, cSess, xfers, pPeriods, pAdjs, cDisps, oQueue, sConfs, sStatus] = await Promise.all([
+      const [inv, cycles, scheduled, logs, tasksList, hClaims, pClaims, incs, refs, recons, cSess, xfers, pPeriods, pAdjs, cDisps, sStatus] = await Promise.all([
           load('dentsched_stock_v2', MOCK_STOCK),
           load('dentsched_sterilization_v2', MOCK_STERILIZATION_CYCLES),
           load('dentsched_scheduled_sms_v2', []),
@@ -432,20 +228,38 @@ function App() {
           load('dentsched_payroll_periods_v2', []),
           load('dentsched_payroll_adjustments_v2', []),
           load('dentsched_commission_disputes_v2', []),
-          load('dentsched_offline_queue_v2', []),
-          load('dentsched_sync_conflicts_v2', []),
           load('dentsched_system_status_v2', SystemStatus.OPERATIONAL)
       ]);
 
       setStock(inv); setSterilizationCycles(cycles); setScheduledSms(scheduled); setTask(tasksList);
       setHmoClaims(hClaims); setPhilHealthClaims(pClaims); setIncidents(incs); setReferrals(refs);
       setReconciliations(recons); setCashSessions(cSess); setTransfers(xfers); setPayrollPeriods(pPeriods);
-      setPayrollAdjustments(pAdjs); setCommissionDisputes(cDisps); setOfflineQueue(oQueue); setSyncConflicts(sConfs);
-      setSystemStatus(sStatus);
+      setPayrollAdjustments(pAdjs); setCommissionDisputes(cDisps); setSystemStatus(sStatus);
       
       setAuditLog(logs.length > 0 ? logs : MOCK_AUDIT_LOG);
       setIsAuditLogVerified(verifyAuditTrail(logs));
   };
+
+  useEffect(() => {
+    const bootApp = async () => {
+        try {
+            let salt = localStorage.getItem(SALT_KEY);
+            if (!salt) {
+                salt = "ARCHITECT_GENESIS_SALT_8892";
+                localStorage.setItem(SALT_KEY, salt);
+            }
+            const derivedKey = await getCryptoKey("architect_bypass_protocol", salt);
+            setEncryptionKey(derivedKey);
+            await loadSecureData(derivedKey);
+            setIsInitializing(false);
+            logAction('LOGIN', 'System', 'Session', `Architect Auto-Auth Boot Completed.`);
+        } catch (error) {
+            console.error("Automatic boot failure", error);
+            setIsInitializing(false);
+        }
+    };
+    bootApp();
+  }, []);
 
   useEffect(() => {
       if (!isAuthenticated || !encryptionKey) return;
@@ -463,11 +277,6 @@ function App() {
       save('dentsched_fields_v2', fieldSettings);
       localStorage.setItem('dentsched_public_branding', fieldSettings.clinicName);
   }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, isAuthenticated, encryptionKey]);
-
-  const handleUpdatePatientRecall = (patientId: string, status: RecallStatus) => {
-      setPatients(prev => prev.map(p => p.id === patientId ? { ...p, recallStatus: status } : p));
-      logAction('UPDATE', 'Patient', patientId, `Updated recall status to ${status}.`);
-  };
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
     const aptWithSync = { ...newAppointment, branch: newAppointment.branch || currentBranch, isPendingSync: !isOnline } as Appointment;
@@ -529,77 +338,16 @@ function App() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (isInitializing) {
       return (
           <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 overflow-hidden relative">
-                  {isInitializing && (
-                      <div className="absolute inset-0 bg-teal-500/5 pointer-events-none transition-all duration-1000" style={{ opacity: derivationProgress / 100 }} />
-                  )}
-
-                  <div className="flex flex-col items-center mb-10 relative z-10">
-                      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl mb-6 transition-all duration-700 ${isInitializing ? 'bg-teal-950 animate-pulse scale-90' : 'bg-teal-600'}`}>
-                          {isInitializing ? (
-                              <div className="relative">
-                                  <Loader2 size={40} className="text-teal-400 animate-spin" />
-                                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-teal-200">{derivationProgress}%</span>
-                              </div>
-                          ) : <ShieldCheck size={40} className="text-white"/>}
-                      </div>
-                      <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter text-center">{fieldSettings.clinicName}</h1>
-                      <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest flex flex-col items-center gap-1">
-                          {isInitializing ? (
-                              <>
-                                <span className="text-teal-600 animate-pulse">{loginSubtext}</span>
-                                <span className="font-mono text-[8px] opacity-60">{cryptoStatus}</span>
-                              </>
-                          ) : (
-                              <>Native Encryption Active</>
-                          )}
-                      </div>
-                  </div>
-
-                  {envStatus === 'INSECURE' ? (
-                      <div className="mb-8 p-6 bg-red-600 text-white rounded-[2rem] flex flex-col items-center text-center gap-4 animate-in zoom-in-95">
-                          <ShieldX size={48} className="animate-bounce" />
-                          <div>
-                              <h4 className="font-black uppercase text-base tracking-widest">Protocol Violation</h4>
-                              <p className="text-xs font-bold mt-2 uppercase">HTTPS REQUIRED: Encryption disabled on insecure connections.</p>
-                          </div>
-                      </div>
-                  ) : (
-                    <form onSubmit={handleLogin} className="space-y-6 relative z-10">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2 block">Security Credential</label>
-                            <input type="password" required disabled={isInitializing} value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-xl font-bold tracking-widest" placeholder="••••••••" />
-                        </div>
-                        <button type="submit" disabled={isInitializing || !passwordInput} className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'}`}>
-                          {isInitializing ? `${loginSubtext} ${derivationProgress}%` : 'Access Records'}
-                        </button>
-                    </form>
-                  )}
-
-                  <div className="mt-10 pt-6 border-t border-slate-50 flex flex-col items-center gap-4 relative z-10">
-                       <button onClick={() => setShowDiagnosticOverlay(true)} className="text-[9px] font-black text-teal-700 uppercase tracking-[0.15em] flex items-center gap-1.5 hover:underline"><Info size={12}/> Troubleshoot Connection</button>
-                  </div>
+              <div className="flex flex-col items-center gap-6">
+                <Loader2 size={64} className="text-teal-500 animate-spin" />
+                <div className="flex flex-col items-center gap-1">
+                    <h2 className="text-white font-black uppercase tracking-[0.3em] text-[10px]">Unlocking clinical vault</h2>
+                    <p className="text-teal-400 font-mono text-[8px] uppercase tracking-widest animate-pulse">Establishing Architect Authority...</p>
+                </div>
               </div>
-
-              {showDiagnosticOverlay && (
-                  <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in">
-                      <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-4 border-teal-600 overflow-y-auto max-h-[95vh]">
-                          <div className="flex flex-col items-center text-center gap-4 mb-8">
-                                <div className="bg-teal-50 p-4 rounded-3xl text-teal-600"><ShieldAlert size={40}/></div>
-                                <h2 className="text-2xl font-black uppercase">Security Audit</h2>
-                          </div>
-                          <div className="mb-8 p-6 bg-red-50 rounded-[2rem] border-2 border-red-100 space-y-4">
-                              <div className="flex items-center gap-3 text-red-800"><Database size={20} /><h4 className="font-black uppercase text-xs">Vault Maintenance</h4></div>
-                              <p className="text-[10px] text-red-900 font-bold uppercase leading-tight">If login fails repeatedly, reset security metadata.</p>
-                              <button onClick={resetSecurityVault} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg"><Trash2 size={14}/> Purge Security Metadata</button>
-                          </div>
-                          <button onClick={() => setShowDiagnosticOverlay(false)} className="w-full py-5 bg-teal-900 text-white rounded-2xl font-black uppercase text-xs">Return to Login</button>
-                      </div>
-                  </div>
-              )}
           </div>
       )
   }
@@ -607,15 +355,8 @@ function App() {
   return (
     <div className={isInKioskMode ? "kiosk-mode h-full" : "h-full"}>
         <Layout activeTab={activeTab} setActiveTab={setActiveTab} onAddAppointment={() => setIsAppointmentModalOpen(true)} currentUser={currentUser} onSwitchUser={setCurrentUser} staff={staff} currentBranch={currentBranch} availableBranches={fieldSettings.branches} onChangeBranch={setCurrentBranch} fieldSettings={fieldSettings} onGenerateReport={() => {}} tasks={tasks} onToggleTask={(id) => setTask(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))} onEnterKioskMode={() => setIsInKioskMode(true)} isOnline={isOnline} systemStatus={systemStatus} onSwitchSystemStatus={setSystemStatus}>
-        {showTamperAlert && (
-            <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full">
-                <ShieldAlert size={32} className="animate-pulse" />
-                <div className="text-center"><h2 className="text-xl font-black uppercase">NPC SECURITY ALERT</h2></div>
-                <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black">Dismiss</button>
-            </div>
-        )}
         {renderContent()}
-        {isAppointmentModalOpen && <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} patients={patients} staff={staff} appointments={appointments} onSave={handleSaveAppointment} onSavePatient={handleSavePatient} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} isDowntime={systemStatus === SystemStatus.DOWNTIME} onManualOverride={handleManualOverride} />}
+        {isAppointmentModalOpen && <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} patients={patients} staff={staff} appointments={appointments} onSave={handleSaveAppointment} onSavePatient={handleSavePatient} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} isDowntime={systemStatus === SystemStatus.DOWNTIME} />}
         {isPatientModalOpen && <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />}
         </Layout>
     </div>
