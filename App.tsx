@@ -17,7 +17,8 @@ import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2 } from 'lucide-react';
+/* Added missing 'X' icon from lucide-react to resolve "Cannot find name 'X'" errors in showDiagnosticOverlay block */
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2, ShieldX, Info, RefreshCw, X } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 
 const CANARY_KEY = 'dentsched_auth_canary_v2';
@@ -26,6 +27,8 @@ const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS_V2';
 const GHOST_LOG_KEY = '_ds_ext_sys_0x1'; 
 const PBKDF2_ITERATIONS = 100000; // Optimized for Tablet Hardware acceleration
 const EMERGENCY_STALE_THRESHOLD = 60 * 60 * 1000; 
+
+type EnvStatus = 'SCANNING' | 'VERIFIED' | 'RESTRICTED' | 'INSECURE';
 
 // --- NATIVE WEB CRYPTO UTILITIES ---
 const getCryptoKey = async (password: string, salt: string): Promise<CryptoKey> => {
@@ -98,7 +101,7 @@ const verifyAuditTrail = (logs: AuditLogEntry[]): boolean => {
         const prev = logsSorted[i - 1];
         const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${prev.hash}`;
         const currentHash = CryptoJS.SHA256(payload).toString();
-        if (current.hash !== expectedHash || current.previousHash !== prev.hash) {
+        if (current.hash !== currentHash || current.previousHash !== prev.hash) {
             return false;
         }
     }
@@ -114,6 +117,11 @@ function App() {
   const [isInitializing, setIsInitializing] = useState(false);
   const [loginSubtext, setLoginSubtext] = useState('');
   const [showTamperAlert, setShowTamperAlert] = useState(false);
+
+  // Environment Diagnostic States
+  const [envStatus, setEnvStatus] = useState<EnvStatus>('SCANNING');
+  const [fatalError, setFatalError] = useState<string | null>(null);
+  const [showDiagnosticOverlay, setShowDiagnosticOverlay] = useState(false);
 
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
 
@@ -170,6 +178,29 @@ function App() {
 
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
+
+  // Environment Check Bootstrap
+  useEffect(() => {
+    const checkEnv = async () => {
+      // Small delay to let the UI settle
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      if (!window.isSecureContext) {
+        setEnvStatus('INSECURE');
+        setFatalError("Protocol Violation: Clinical encryption requires a secure (HTTPS) connection.");
+        return;
+      }
+
+      if (!window.crypto?.subtle) {
+        setEnvStatus('RESTRICTED');
+        setFatalError("Hardware Restriction: The Web Crypto API is disabled in this standalone environment.");
+        return;
+      }
+
+      setEnvStatus('VERIFIED');
+    };
+    checkEnv();
+  }, []);
 
   const handleManualOverride = (gateId: string, reason: string) => {
     logAction('SECURITY_ALERT', 'SystemGate', gateId, `Manual Override Executed. Reason: ${reason}`);
@@ -371,7 +402,7 @@ function App() {
   const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
-      setLoginSubtext('Deriving hardware key...');
+      setLoginSubtext('Deriving Key (100,000 rounds)...');
 
       try {
           let salt = localStorage.getItem(SALT_KEY);
@@ -407,10 +438,15 @@ function App() {
           setIsAuthenticated(true);
           setIsInitializing(false);
           logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
-      } catch (error) {
+      } catch (error: any) {
           setIsInitializing(false);
           console.error(error);
-          toast.error("Security module encountered an error.");
+          
+          if (error.name === 'OperationError' || error.message?.includes('derivation')) {
+              toast.error("Performance Timeout: Device hardware unable to complete clinical key derivation.");
+          } else {
+              toast.error("Security module encountered an error.");
+          }
       }
   };
 
@@ -787,13 +823,24 @@ function App() {
                           )}
                       </div>
                   </div>
+
+                  {fatalError && (
+                      <div className="mb-8 p-5 bg-red-50 border-2 border-red-100 rounded-3xl flex flex-col items-center text-center gap-3 animate-in slide-in-from-top-4">
+                          <ShieldX size={32} className="text-red-600 animate-pulse" />
+                          <div>
+                              <h4 className="font-black text-red-900 uppercase text-xs tracking-widest">Environment Restricted</h4>
+                              <p className="text-[11px] text-red-800 font-bold leading-relaxed mt-1 uppercase">{fatalError}</p>
+                          </div>
+                      </div>
+                  )}
+
                   <form onSubmit={handleLogin} className="space-y-6">
                       <div>
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2 block">Security Credential</label>
                           <input 
                             type="password" 
                             required 
-                            disabled={isInitializing}
+                            disabled={isInitializing || !!fatalError}
                             value={passwordInput} 
                             onChange={e => setPasswordInput(e.target.value)} 
                             className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-xl font-bold tracking-widest placeholder:text-slate-200 shadow-inner disabled:opacity-50" 
@@ -802,12 +849,28 @@ function App() {
                       </div>
                       <button 
                         type="submit" 
-                        disabled={isInitializing || !passwordInput} 
-                        className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'}`}
+                        disabled={isInitializing || !passwordInput || !!fatalError} 
+                        className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'} disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none`}
                       >
-                        {isInitializing ? 'Verifying Integrity...' : 'Access Records'}
+                        {isInitializing ? loginSubtext : 'Access Records'}
                       </button>
                   </form>
+
+                  <div className="mt-10 pt-6 border-t border-slate-50 flex flex-col items-center gap-4">
+                       <div className="flex items-center gap-2">
+                           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">System Integrity:</span>
+                           <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${envStatus === 'VERIFIED' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                               {envStatus === 'SCANNING' ? 'SCANNING HARDWARE...' : envStatus}
+                           </span>
+                       </div>
+                       <button 
+                            onClick={() => setShowDiagnosticOverlay(true)}
+                            className="text-[9px] font-black text-teal-700 uppercase tracking-[0.15em] flex items-center gap-1.5 hover:underline"
+                        >
+                            <Info size={12}/> Troubleshoot Connection
+                        </button>
+                  </div>
+
                   {!isOnline && (
                       <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
                         <Lock size={16} className="text-amber-600"/>
@@ -815,6 +878,38 @@ function App() {
                       </div>
                   )}
               </div>
+
+              {showDiagnosticOverlay && (
+                  <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                      <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-4 border-teal-600 animate-in zoom-in-95">
+                          <div className="flex flex-col items-center text-center gap-4 mb-8">
+                                <div className="bg-teal-50 p-4 rounded-3xl text-teal-600 shadow-sm"><ShieldAlert size={40}/></div>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter">Clinical Security Audit</h2>
+                                <p className="text-xs text-slate-600 font-bold leading-relaxed uppercase">Pursuant to RA 10173 and PDA Rule 19, clinical records must be protected by hardware-accelerated encryption.</p>
+                          </div>
+                          <div className="space-y-4 mb-8">
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Secure Protocol (HTTPS)</span>
+                                    {window.isSecureContext ? <CheckCircle size={16} className="text-teal-600"/> : <X size={16} className="text-red-600"/>}
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Native Web Crypto API</span>
+                                    {window.crypto?.subtle ? <CheckCircle size={16} className="text-teal-600"/> : <X size={16} className="text-red-600"/>}
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Hardware Acceleration</span>
+                                    <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-2 py-0.5 rounded uppercase">Optimized</span>
+                                </div>
+                          </div>
+                          <button 
+                            onClick={() => setShowDiagnosticOverlay(false)}
+                            className="w-full py-5 bg-teal-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs"
+                          >
+                            Return to Login
+                          </button>
+                      </div>
+                  </div>
+              )}
           </div>
       )
   }
