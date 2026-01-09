@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dentsched-cache-v1';
+const CACHE_NAME = 'dentsched-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -12,19 +12,7 @@ self.addEventListener('install', event => {
         return cache.addAll(urlsToCache);
       })
   );
-});
-
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      }
-    )
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -38,6 +26,25 @@ self.addEventListener('activate', event => {
           }
         })
       );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  // Navigation Fallback: Redirect all page navigation requests to index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then(response => {
+        return response || fetch(event.request);
+      })
+    );
+    return;
+  }
+
+  // Standard Cache-First for static assets
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
     })
   );
 });

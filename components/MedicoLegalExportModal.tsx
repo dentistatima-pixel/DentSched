@@ -101,7 +101,8 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         };
 
         const addPractitionerAffidavitFooter = (pDoc: jsPDF) => {
-            const pageCount = pDoc.internal.getNumberOfPages();
+            /* Fix: pDoc.internal.getNumberOfPages() is not correct in modern jsPDF. Use pDoc.getNumberOfPages() instead. */
+            const pageCount = pDoc.getNumberOfPages();
             const author = patient.dentalChart?.find(e => e.author)?.author || 'the attending dentist';
             const clinician = staff.find(s => s.name.includes(author));
             
