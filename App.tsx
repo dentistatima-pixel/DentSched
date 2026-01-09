@@ -17,15 +17,59 @@ import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, Loader2 } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 
-const CANARY_KEY = 'dentsched_auth_canary';
-const SALT_KEY = 'dentsched_security_salt';
-const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS';
+const CANARY_KEY = 'dentsched_auth_canary_v2';
+const SALT_KEY = 'dentsched_security_salt_v2';
+const VERIFICATION_TOKEN = 'DENTSCHED_VERIFIED_ACCESS_V2';
 const GHOST_LOG_KEY = '_ds_ext_sys_0x1'; 
-const PBKDF2_ITERATIONS = 600000; 
+const PBKDF2_ITERATIONS = 100000; // Optimized for Tablet Hardware acceleration
 const EMERGENCY_STALE_THRESHOLD = 60 * 60 * 1000; 
+
+// --- NATIVE WEB CRYPTO UTILITIES ---
+const getCryptoKey = async (password: string, salt: string): Promise<CryptoKey> => {
+    const encoder = new TextEncoder();
+    const passwordKey = await window.crypto.subtle.importKey(
+        'raw', 
+        encoder.encode(password), 
+        { name: 'PBKDF2' }, 
+        false, 
+        ['deriveKey']
+    );
+    return window.crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: encoder.encode(salt),
+            iterations: PBKDF2_ITERATIONS,
+            hash: 'SHA-256'
+        },
+        passwordKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
+};
+
+const encryptNative = async (data: any, key: CryptoKey): Promise<string> => {
+    const encoder = new TextEncoder();
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encodedData = encoder.encode(JSON.stringify(data));
+    const encrypted = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encodedData);
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    return btoa(String.fromCharCode(...combined));
+};
+
+const decryptNative = async (base64: string, key: CryptoKey): Promise<any> => {
+    const combined = new Uint8Array(atob(base64).split('').map(c => c.charCodeAt(0)));
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    const decoder = new TextDecoder();
+    return JSON.parse(decoder.decode(decrypted));
+};
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -65,9 +109,10 @@ function App() {
   const toast = useToast();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
+  const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
+  const [loginSubtext, setLoginSubtext] = useState('');
   const [showTamperAlert, setShowTamperAlert] = useState(false);
 
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
@@ -318,125 +363,173 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsInitializing(true);
+      setLoginSubtext('Deriving hardware key...');
 
-      setTimeout(async () => {
-          try {
-              let salt = localStorage.getItem(SALT_KEY);
-              if (!salt) {
-                  salt = localStorage.getItem(CANARY_KEY) ? "dentsched-salt-v1" : CryptoJS.lib.WordArray.random(128/8).toString();
-                  localStorage.setItem(SALT_KEY, salt);
-              }
+      try {
+          let salt = localStorage.getItem(SALT_KEY);
+          if (!salt) {
+              salt = window.crypto.getRandomValues(new Uint8Array(16)).join('');
+              localStorage.setItem(SALT_KEY, salt);
+          }
 
-              const derivedKey = CryptoJS.PBKDF2(passwordInput, salt, { keySize: 256/32, iterations: PBKDF2_ITERATIONS }).toString();
-              const storedCanary = localStorage.getItem(CANARY_KEY);
-              
-              if (storedCanary) {
-                  const bytes = CryptoJS.AES.decrypt(storedCanary, derivedKey);
-                  if (bytes.toString(CryptoJS.enc.Utf8) !== VERIFICATION_TOKEN) {
+          const derivedKey = await getCryptoKey(passwordInput, salt);
+          const storedCanary = localStorage.getItem(CANARY_KEY);
+          
+          if (storedCanary) {
+              try {
+                  const check = await decryptNative(storedCanary, derivedKey);
+                  if (check !== VERIFICATION_TOKEN) {
                       toast.error("Incorrect password.");
                       setIsInitializing(false);
                       return;
                   }
-              } else {
-                  localStorage.setItem(CANARY_KEY, CryptoJS.AES.encrypt(VERIFICATION_TOKEN, derivedKey).toString());
+              } catch {
+                  toast.error("Authentication failed. Database corrupt or wrong key.");
+                  setIsInitializing(false);
+                  return;
               }
-
-              setEncryptionKey(derivedKey);
-              await loadSecureData(derivedKey);
-              setIsAuthenticated(true);
-              setIsInitializing(false);
-              logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
-          } catch (error) {
-              setIsInitializing(false);
-              toast.error("Login error.");
+          } else {
+              const encCanary = await encryptNative(VERIFICATION_TOKEN, derivedKey);
+              localStorage.setItem(CANARY_KEY, encCanary);
           }
-      }, 100);
+
+          setEncryptionKey(derivedKey);
+          setLoginSubtext('Opening clinical vault...');
+          await loadSecureData(derivedKey);
+          setIsAuthenticated(true);
+          setIsInitializing(false);
+          logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
+      } catch (error) {
+          setIsInitializing(false);
+          console.error(error);
+          toast.error("Security module encountered an error.");
+      }
   };
 
-  const loadSecureData = async (key: string) => {
-      const load = (k: string, def: any) => {
+  const loadSecureData = async (key: CryptoKey) => {
+      const load = async (k: string, def: any) => {
           const enc = localStorage.getItem(k);
           if (!enc) return def;
           try {
-              const bytes = CryptoJS.AES.decrypt(enc, key);
-              return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-          } catch { return def; } 
+              return await decryptNative(enc, key);
+          } catch (e) { 
+              console.warn(`Decryption failed for ${k}`, e);
+              return def; 
+          } 
       };
 
-      setAppointments(load('dentsched_appointments', APPOINTMENTS));
-      setPatients(load('dentsched_patients', PATIENTS));
-      setStaff(load('dentsched_staff', STAFF));
-      setStock(load('dentsched_stock', MOCK_STOCK));
-      setSterilizationCycles(load('dentsched_sterilization', MOCK_STERILIZATION_CYCLES));
-      setScheduledSms(load('dentsched_scheduled_sms', []));
-      
-      const loadedLogs = load('dentsched_auditlog', []);
+      // --- PHASE 1: PRIORITIZED BOOTSTRAP (Essential Clinical Data) ---
+      setLoginSubtext('Syncing clinical registry...');
+      const [pts, apts, members, settings] = await Promise.all([
+          load('dentsched_patients_v2', PATIENTS),
+          load('dentsched_appointments_v2', APPOINTMENTS),
+          load('dentsched_staff_v2', STAFF),
+          load('dentsched_fields_v2', null)
+      ]);
+
+      setPatients(pts);
+      setAppointments(apts);
+      setStaff(members);
+      if (settings) {
+          setFieldSettings({
+              ...DEFAULT_FIELD_SETTINGS,
+              ...settings,
+              features: { ...DEFAULT_FIELD_SETTINGS.features, ...(settings.features || {}) }
+          });
+      }
+
+      // --- PHASE 2: SECONDARY DATA (Background Decryption) ---
+      setLoginSubtext('Analyzing forensic logs...');
+      const [inv, cycles, scheduled, logs, tasksList, hClaims, pClaims, incs, refs, recons, cSess, xfers, pPeriods, pAdjs, cDisps, oQueue, sConfs, sStatus] = await Promise.all([
+          load('dentsched_stock_v2', MOCK_STOCK),
+          load('dentsched_sterilization_v2', MOCK_STERILIZATION_CYCLES),
+          load('dentsched_scheduled_sms_v2', []),
+          load('dentsched_auditlog_v2', []),
+          load('dentsched_pinboard_tasks_v2', []),
+          load('dentsched_hmo_claims_v2', MOCK_CLAIMS),
+          load('dentsched_philhealth_claims_v2', []),
+          load('dentsched_incidents_v2', []),
+          load('dentsched_referrals_v2', []),
+          load('dentsched_reconciliations_v2', []),
+          load('dentsched_cash_sessions_v2', []),
+          load('dentsched_transfers_v2', []),
+          load('dentsched_payroll_periods_v2', []),
+          load('dentsched_payroll_adjustments_v2', []),
+          load('dentsched_commission_disputes_v2', []),
+          load('dentsched_offline_queue_v2', []),
+          load('dentsched_sync_conflicts_v2', []),
+          load('dentsched_system_status_v2', SystemStatus.OPERATIONAL)
+      ]);
+
+      setStock(inv);
+      setSterilizationCycles(cycles);
+      setScheduledSms(scheduled);
+      setTask(tasksList);
+      setHmoClaims(hClaims);
+      setPhilHealthClaims(pClaims);
+      setIncidents(incs);
+      setReferrals(refs);
+      setReconciliations(recons);
+      setCashSessions(cSess);
+      setTransfers(xfers);
+      setPayrollPeriods(pPeriods);
+      setPayrollAdjustments(pAdjs);
+      setCommissionDisputes(cDisps);
+      setOfflineQueue(oQueue);
+      setSyncConflicts(sConfs);
+      setSystemStatus(sStatus);
       
       try {
         const shadowLogs = JSON.parse(localStorage.getItem(GHOST_LOG_KEY) || '[]');
-        if (loadedLogs.length === 0 && shadowLogs.length > 0) {
+        if (logs.length === 0 && shadowLogs.length > 0) {
             setShowTamperAlert(true);
             toast.error("NPC SECURITY BREACH: Primary audit log wiped while forensic shadow exists.");
         }
       } catch (e) { console.error("Integrity check failed"); }
 
-      setAuditLog(loadedLogs.length > 0 ? loadedLogs : MOCK_AUDIT_LOG);
-      setIsAuditLogVerified(verifyAuditTrail(loadedLogs));
-
-      setTask(load('dentsched_pinboard_tasks', []));
-      setHmoClaims(load('dentsched_hmo_claims', MOCK_CLAIMS));
-      setPhilHealthClaims(load('dentsched_philhealth_claims', []));
-      setIncidents(load('dentsched_incidents', []));
-      setReferrals(load('dentsched_referrals', []));
-      setReconciliations(load('dentsched_reconciliations', []));
-      setCashSessions(load('dentsched_cash_sessions', []));
-      setStaff(load('dentsched_staff', STAFF));
-      setTransfers(load('dentsched_transfers', []));
-      setPayrollPeriods(load('dentsched_payroll_periods', []));
-      setPayrollAdjustments(load('dentsched_payroll_adjustments', []));
-      setCommissionDisputes(load('dentsched_commission_disputes', []));
-      setOfflineQueue(load('dentsched_offline_queue', []));
-      setSyncConflicts(load('dentsched_sync_conflicts', []));
-      setSystemStatus(load('dentsched_system_status', SystemStatus.OPERATIONAL));
-      
-      const savedSettings = load('dentsched_fields', null);
-      if (savedSettings) {
-          setFieldSettings({
-              ...DEFAULT_FIELD_SETTINGS,
-              ...savedSettings,
-              features: { ...DEFAULT_FIELD_SETTINGS.features, ...(savedSettings.features || {}) }
-          });
-      }
+      setAuditLog(logs.length > 0 ? logs : MOCK_AUDIT_LOG);
+      setIsAuditLogVerified(verifyAuditTrail(logs));
   };
 
   useEffect(() => {
       if (!isAuthenticated || !encryptionKey) return;
-      const save = (k: string, data: any) => localStorage.setItem(k, CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey).toString());
-      save('dentsched_appointments', appointments);
-      save('dentsched_patients', patients);
-      save('dentsched_staff', staff);
-      save('dentsched_stock', stock);
-      save('dentsched_sterilization', sterilizationCycles);
-      save('dentsched_auditlog', auditLog);
-      save('dentsched_pinboard_tasks', tasks);
-      save('dentsched_fields', fieldSettings);
-      save('dentsched_hmo_claims', hmoClaims);
-      save('dentsched_philhealth_claims', philHealthClaims);
-      save('dentsched_incidents', incidents);
-      save('dentsched_referrals', referrals);
-      save('dentsched_reconciliations', reconciliations);
-      save('dentsched_cash_sessions', cashSessions);
-      save('dentsched_transfers', transfers);
-      save('dentsched_payroll_periods', payrollPeriods);
-      save('dentsched_payroll_adjustments', payrollAdjustments);
-      save('dentsched_commission_disputes', commissionDisputes);
-      save('dentsched_offline_queue', offlineQueue);
-      save('dentsched_sync_conflicts', syncConflicts);
-      save('dentsched_system_status', systemStatus);
-      save('dentsched_scheduled_sms', scheduledSms);
+      const save = async (k: string, data: any) => {
+          const enc = await encryptNative(data, encryptionKey);
+          localStorage.setItem(k, enc);
+      };
+
+      // Bundle saves into logical batches
+      const saveAll = async () => {
+          await Promise.all([
+            save('dentsched_appointments_v2', appointments),
+            save('dentsched_patients_v2', patients),
+            save('dentsched_staff_v2', staff),
+            save('dentsched_stock_v2', stock),
+            save('dentsched_sterilization_v2', sterilizationCycles),
+            save('dentsched_auditlog_v2', auditLog),
+            save('dentsched_pinboard_tasks_v2', tasks),
+            save('dentsched_fields_v2', fieldSettings),
+            save('dentsched_hmo_claims_v2', hmoClaims),
+            save('dentsched_philhealth_claims_v2', philHealthClaims),
+            save('dentsched_incidents_v2', incidents),
+            save('dentsched_referrals_v2', referrals),
+            save('dentsched_reconciliations_v2', reconciliations),
+            save('dentsched_cash_sessions_v2', cashSessions),
+            save('dentsched_transfers_v2', transfers),
+            save('dentsched_payroll_periods_v2', payrollPeriods),
+            save('dentsched_payroll_adjustments_v2', payrollAdjustments),
+            save('dentsched_commission_disputes_v2', commissionDisputes),
+            save('dentsched_offline_queue_v2', offlineQueue),
+            save('dentsched_sync_conflicts_v2', syncConflicts),
+            save('dentsched_system_status_v2', systemStatus),
+            save('dentsched_scheduled_sms_v2', scheduledSms)
+          ]);
+      };
+      
+      saveAll();
   }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, scheduledSms, isAuthenticated, encryptionKey]);
 
   const resetIdleTimer = () => {
@@ -662,7 +755,7 @@ function App() {
       case 'patients': return <PatientList patients={patients} appointments={appointments} currentUser={effectiveUser} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onQuickUpdatePatient={handleQuickUpdatePatient} onDeletePatient={(id) => {}} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} fieldSettings={fieldSettings} logAction={logAction} staff={staff} incidents={incidents} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={setStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={(c) => setSterilizationCycles(prev => [...prev, { id: `c_${Date.now()}`, ...c }])} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={setFieldSettings} appointments={appointments} logAction={logAction} />;
       case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={(r) => {}} onSaveCashSession={(s) => {}} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={(p) => {}} onAddPayrollAdjustment={(a) => {}} onApproveAdjustment={(id) => {}} onAddCommissionDispute={(d) => {}} onResolveCommissionDispute={(id) => {}} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={(id) => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={(i) => {}} appointments={appointments} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={setFieldSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={(id) => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey ? 'PROTECTED_HARDWARE_KEY' : null} incidents={incidents} onSaveIncident={(i) => {}} appointments={appointments} />;
       default: return null;
     }
   };
@@ -670,16 +763,47 @@ function App() {
   if (!isAuthenticated) {
       return (
           <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
-                  <div className="flex flex-col items-center mb-8">
-                      <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-lg mb-4"><ShieldCheck size={32} className="text-white"/></div>
-                      <h1 className="text-2xl font-bold text-slate-800">Secure Access</h1>
-                      {!isOnline && <div className="mt-2 text-xs font-bold text-lilac-600 uppercase flex items-center gap-1"><Lock size={12}/> Emergency Offline Entry Active</div>}
+              <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10">
+                  <div className="flex flex-col items-center mb-10">
+                      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl mb-6 transition-all duration-700 ${isInitializing ? 'bg-teal-900 animate-pulse scale-90' : 'bg-teal-600'}`}>
+                          {isInitializing ? <Loader2 size={40} className="text-teal-400 animate-spin" /> : <ShieldCheck size={40} className="text-white"/>}
+                      </div>
+                      <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Clinical Vault</h1>
+                      <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                          {isInitializing ? (
+                              <span className="text-teal-600 animate-pulse">{loginSubtext}</span>
+                          ) : (
+                              <>Native Encryption Active</>
+                          )}
+                      </div>
                   </div>
-                  <form onSubmit={handleLogin} className="space-y-4">
-                      <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 outline-none text-lg font-bold" placeholder="••••••••" /></div>
-                      <button type="submit" disabled={isInitializing || !passwordInput} className="w-full py-4 bg-teal-600 text-white font-bold rounded-xl shadow-xl transition-all">{isInitializing ? 'Verifying...' : 'Unlock System'}</button>
+                  <form onSubmit={handleLogin} className="space-y-6">
+                      <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 mb-2 block">Security Credential</label>
+                          <input 
+                            type="password" 
+                            required 
+                            disabled={isInitializing}
+                            value={passwordInput} 
+                            onChange={e => setPasswordInput(e.target.value)} 
+                            className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-teal-500 outline-none text-xl font-bold tracking-widest placeholder:text-slate-200 shadow-inner disabled:opacity-50" 
+                            placeholder="••••••••" 
+                          />
+                      </div>
+                      <button 
+                        type="submit" 
+                        disabled={isInitializing || !passwordInput} 
+                        className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isInitializing ? 'bg-slate-800' : 'bg-teal-600 shadow-teal-600/30 hover:bg-teal-700'}`}
+                      >
+                        {isInitializing ? 'Verifying Integrity...' : 'Access Records'}
+                      </button>
                   </form>
+                  {!isOnline && (
+                      <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                        <Lock size={16} className="text-amber-600"/>
+                        <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight">Emergency Offline mode engaged. Data will sync on restore.</p>
+                      </div>
+                  )}
               </div>
           </div>
       )
@@ -755,7 +879,6 @@ function App() {
             <PostOpHandoverModal 
                 isOpen={!!pendingPostOpAppointment} 
                 onClose={() => setPendingPostOpAppointment(null)} 
-                /* Fix: Passed closure to finalizeUpdateStatus to satisfy () => void prop requirement */
                 onConfirm={() => finalizeUpdateStatus(pendingPostOpAppointment.id, AppointmentStatus.COMPLETED)} 
                 appointment={pendingPostOpAppointment} 
             />
