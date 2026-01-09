@@ -294,9 +294,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-black text-slate-600">{apt.time}</span>
                                                         <div className="flex items-center gap-1">
-                                                            {apt.isWaitlistOverride && <ShieldAlert size={14} className="text-red-700 animate-pulse" title="Waitlist Priority Override Entry"/>}
-                                                            {apt.entryMode === 'MANUAL' && <AlertTriangle size={12} className="text-yellow-700 animate-pulse" title="Manual Entry - Needs Reconciliation"/>}
-                                                            {apt.isPendingSync && <CloudOff size={12} className="text-lilac-700 animate-pulse" title="Awaiting Sync"/>}
+                                                            {/* Fix: Wrapped Lucide icons in spans to handle title attribute as lucide-react icons do not support it directly */}
+                                                            {apt.isWaitlistOverride && <span title="Waitlist Priority Override Entry"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
+                                                            {apt.entryMode === 'MANUAL' && <span title="Manual Entry - Needs Reconciliation"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
+                                                            {apt.isPendingSync && <span title="Awaiting Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
                                                             {viewDimension === 'chair' && <img src={provider?.avatar} alt="" className="w-5 h-5 rounded-full border border-white" title={provider?.name}/>}
                                                         </div>
                                                     </div>

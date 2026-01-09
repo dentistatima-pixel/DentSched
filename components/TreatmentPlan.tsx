@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings } from '../types';
-import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope } from 'lucide-react';
+/* Fix: Added missing Lock icon from lucide-react */
+import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, Lock } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 import CryptoJS from 'crypto-js';
@@ -496,6 +497,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                     {(!isDuressAffirmed || !isFaceDetected || !allRisksChecked) && (
                                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px] text-center p-4">
                                             <div className="flex flex-col items-center gap-1">
+                                                {/* Fix: correctly importing Lock from lucide-react to avoid JSX element error */}
                                                 <Lock size={20} className="text-slate-400"/>
                                                 <span className="text-[9px] font-black text-slate-400 uppercase">
                                                     {!allRisksChecked ? 'Acknowledge risks to unlock' : 'Acknowledge and detect face'}
