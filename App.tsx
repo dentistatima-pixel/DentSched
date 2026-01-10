@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -244,7 +245,7 @@ function App() {
         setScheduledSms(prev => prev.map(s => (s.dueDate <= today ? { ...s, status: 'Sent' } : s)));
       }
     }
-  }, [isAuthenticated, patients, triggerSms]);
+  }, [isAuthenticated, patients, triggerSms, scheduledSms]);
 
   useEffect(() => {
       const handleOnline = () => { 
@@ -401,32 +402,33 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-      if (!isAuthenticated || !encryptionKey) return;
-      const save = (k: string, data: any) => localStorage.setItem(k, CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey).toString());
-      save('dentsched_appointments', appointments);
-      save('dentsched_patients', patients);
-      save('dentsched_staff', staff);
-      save('dentsched_stock', stock);
-      save('dentsched_sterilization', sterilizationCycles);
-      save('dentsched_auditlog', auditLog);
-      save('dentsched_pinboard_tasks', tasks);
-      save('dentsched_fields', fieldSettings);
-      save('dentsched_hmo_claims', hmoClaims);
-      save('dentsched_philhealth_claims', philHealthClaims);
-      save('dentsched_incidents', incidents);
-      save('dentsched_referrals', referrals);
-      save('dentsched_reconciliations', reconciliations);
-      save('dentsched_cash_sessions', cashSessions);
-      save('dentsched_transfers', transfers);
-      save('dentsched_payroll_periods', payrollPeriods);
-      save('dentsched_payroll_adjustments', payrollAdjustments);
-      save('dentsched_commission_disputes', commissionDisputes);
-      save('dentsched_offline_queue', offlineQueue);
-      save('dentsched_sync_conflicts', syncConflicts);
-      save('dentsched_system_status', systemStatus);
-      save('dentsched_scheduled_sms', scheduledSms);
-  }, [appointments, patients, staff, stock, sterilizationCycles, auditLog, tasks, fieldSettings, hmoClaims, philHealthClaims, incidents, referrals, reconciliations, cashSessions, transfers, payrollPeriods, payrollAdjustments, commissionDisputes, offlineQueue, syncConflicts, systemStatus, scheduledSms, isAuthenticated, encryptionKey]);
+  const saveToLocal = useCallback((key: string, data: any) => {
+    if (!isAuthenticated || !encryptionKey) return;
+    localStorage.setItem(key, CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey).toString());
+  }, [isAuthenticated, encryptionKey]);
+
+  useEffect(() => { saveToLocal('dentsched_appointments', appointments); }, [appointments, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_patients', patients); }, [patients, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_staff', staff); }, [staff, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_stock', stock); }, [stock, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_sterilization', sterilizationCycles); }, [sterilizationCycles, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_auditlog', auditLog); }, [auditLog, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_pinboard_tasks', tasks); }, [tasks, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_fields', fieldSettings); }, [fieldSettings, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_hmo_claims', hmoClaims); }, [hmoClaims, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_philhealth_claims', philHealthClaims); }, [philHealthClaims, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_incidents', incidents); }, [incidents, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_referrals', referrals); }, [referrals, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_reconciliations', reconciliations); }, [reconciliations, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_cash_sessions', cashSessions); }, [cashSessions, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_transfers', transfers); }, [transfers, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_payroll_periods', payrollPeriods); }, [payrollPeriods, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_payroll_adjustments', payrollAdjustments); }, [payrollAdjustments, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_commission_disputes', commissionDisputes); }, [commissionDisputes, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_offline_queue', offlineQueue); }, [offlineQueue, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_sync_conflicts', syncConflicts); }, [syncConflicts, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_system_status', systemStatus); }, [systemStatus, saveToLocal]);
+  useEffect(() => { saveToLocal('dentsched_scheduled_sms', scheduledSms); }, [scheduledSms, saveToLocal]);
 
   const resetIdleTimer = () => {
       if (isSessionLocked || !isAuthenticated) return;
