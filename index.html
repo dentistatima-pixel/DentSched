@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>dentsched</title>
-    <link rel="manifest" href="./manifest.json" />
+    <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#134e4a" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -137,13 +137,32 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => {
-            console.error('ServiceWorker registration failed: ', err);
-          });
+          // Check for valid protocol to avoid errors in virtual/srcdoc environments
+          if (!window.location.protocol.startsWith('http')) {
+            console.warn('ServiceWorker registration skipped: Invalid protocol for SW context.');
+            return;
+          }
+
+          try {
+            // Attempt same-origin resolution to fix previous 'ai.studio' origin mismatch
+            const swUrl = new URL('sw.js', window.location.href).href;
+            navigator.serviceWorker.register(swUrl, { scope: './' }).then(reg => {
+              console.log('ServiceWorker registered successfully with scope: ', reg.scope);
+            }).catch(err => {
+              // Gracefully handle origin mismatch or blockages in preview frame
+              console.error('ServiceWorker registration failed: ', err);
+            });
+          } catch (e) {
+            // Catch 'Invalid URL' errors if window.location.href is problematic
+            console.warn('ServiceWorker URL construction failed, falling back to relative path.');
+            navigator.serviceWorker.register('sw.js', { scope: './' }).catch(err => {
+              console.error('Fallback ServiceWorker registration failed: ', err);
+            });
+          }
         });
       }
     </script>
