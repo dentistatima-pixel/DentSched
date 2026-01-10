@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Patient, Medication, FieldSettings, User } from '../types';
-import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning, BookOpen } from 'lucide-react';
+import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
+import { PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const [quantity, setQuantity] = useState('');
     const [clinicalJustification, setClinicalJustification] = useState('');
     const [yellowRxSerial, setYellowRxSerial] = useState('');
+    const [consentAcknowledged, setConsentAcknowledged] = useState(false);
     
     // Pediatric Safety State
     const [patientWeight, setPatientWeight] = useState<string>(patient.weightKg?.toString() || '');
@@ -101,7 +103,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     }, [selectedMed, currentUser.s2License, currentUser.s2Expiry]);
 
     const handleLogS2 = () => {
-        if (!yellowRxSerial.trim()) return;
+        if (!yellowRxSerial.trim() || !consentAcknowledged) return;
         if (logAction) {
             logAction('SECURITY_ALERT', 'ClinicalNote', patient.id, `PDEA S2 REGISTRY: Manual Yellow Prescription issued for ${selectedMed?.genericName}. Serial: ${yellowRxSerial}. Issued by Dr. ${currentUser.name}.`);
         }
@@ -113,6 +115,11 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const handlePrint = () => {
         if (isAuthorityLocked) {
             toast.error("CLINICAL AUTHORITY LOCK: Prescription issuance is suspended due to an expired PRC License.");
+            return;
+        }
+
+        if (!consentAcknowledged) {
+            toast.error("MANDATORY DISCLOSURE: Patient must acknowledge the Drugs & Medications warning from Page 2.");
             return;
         }
 
@@ -188,6 +195,21 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50 no-scrollbar">
                     
+                    {/* Verbatim Drugs & Medications Warning */}
+                    <div className="bg-red-50 border-2 border-red-200 p-6 rounded-3xl space-y-4 shadow-sm animate-in slide-in-from-top-2">
+                        <div className="flex items-center gap-3 text-red-700">
+                            <HeartPulse size={24} className="animate-pulse" />
+                            <h3 className="font-black uppercase tracking-tight text-xs">Mandatory Allergic Risk Disclosure</h3>
+                        </div>
+                        <p className="text-xs text-red-900 font-medium leading-relaxed italic">
+                            "{PDA_INFORMED_CONSENT_TEXTS.DRUGS_MEDICATIONS}"
+                        </p>
+                        <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${consentAcknowledged ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-red-200'}`}>
+                            <input type="checkbox" checked={consentAcknowledged} onChange={e => setConsentAcknowledged(e.target.checked)} className="w-6 h-6 accent-teal-600 rounded" />
+                            <span className="text-[10px] font-black uppercase text-teal-950 tracking-widest">I acknowledge these potential adverse reactions *</span>
+                        </label>
+                    </div>
+
                     {isAuthorityLocked && (
                         <div className="bg-red-600 text-white p-6 rounded-3xl shadow-xl flex items-center gap-5 animate-in shake duration-500 mb-2 border-4 border-red-400" role="alert">
                             <Lock size={32} className="shrink-0" aria-hidden="true" />
@@ -271,7 +293,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                             </div>
                             <button 
                                 onClick={handleLogS2}
-                                disabled={!yellowRxSerial.trim()}
+                                disabled={!yellowRxSerial.trim() || !consentAcknowledged}
                                 className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-50"
                             >
                                 Commit to Statutory Logbook
@@ -344,7 +366,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {!selectedMed?.isS2Controlled && (
                         <button 
                           onClick={handlePrint} 
-                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked} 
+                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked || !consentAcknowledged} 
                           className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
                         >
                             {isAuthorityLocked ? <Lock size={16} aria-hidden="true"/> : <Printer size={16} aria-hidden="true"/>} 

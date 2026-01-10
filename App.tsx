@@ -728,7 +728,10 @@ function App() {
             <PostOpHandoverModal 
                 isOpen={!!pendingPostOpAppointment} 
                 onClose={() => setPendingPostOpAppointment(null)} 
-                onConfirm={finalizeUpdateStatus} 
+                onConfirm={() => {
+                    finalizeUpdateStatus(pendingPostOpAppointment.id, AppointmentStatus.COMPLETED);
+                    setPendingPostOpAppointment(null);
+                }} 
                 appointment={pendingPostOpAppointment} 
             />
         )}

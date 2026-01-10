@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle } from 'lucide-react';
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
+import { PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -99,6 +99,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 return current; 
             }
 
+            if (!current.clinicalMediaConsent) {
+                toast.error("Compliance Error: You must acknowledge the General Treatment Authorization.");
+                return current;
+            }
+
             if (!current.firstName) { toast.error("Missing Field: First Name is mandatory."); return current; }
             if (!current.surname) { toast.error("Missing Field: Surname is mandatory."); return current; }
             if (!current.phone) { toast.error("Missing Field: Mobile Number is mandatory."); return current; }
@@ -163,20 +168,46 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-12 pb-48">
                 
-                {/* Section Gate: Data Privacy */}
-                <div className="bg-white border-2 border-teal-100 p-6 rounded-3xl shadow-sm">
+                {/* Verbatim Page 2 Informed Consent Integration */}
+                <div className="bg-white border-2 border-teal-100 p-8 rounded-[2.5rem] shadow-sm space-y-6">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3"><div className="p-2 bg-teal-50 rounded-xl text-teal-600"><Lock size={20} /></div><h3 className="font-bold text-lg text-slate-800">DPA Statutory Consent</h3></div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-teal-50 rounded-2xl text-teal-600 shadow-sm"><FileText size={24} /></div>
+                        <div>
+                            <h3 className="font-black text-xl text-teal-950 uppercase tracking-tight leading-none">Informed Consent Disclosure</h3>
+                            <p className="text-[10px] text-teal-600 font-bold uppercase tracking-widest mt-1">Verbatim Page 2 Mandate</p>
+                        </div>
+                      </div>
                       {formData.registrationSignature && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-[10px] font-black uppercase border border-teal-200">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-[10px] font-black uppercase border border-teal-200 shadow-sm">
                           <CheckCircle size={14} /> Signature Verified
                         </div>
                       )}
                     </div>
-                    <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-200'}`}>
-                        <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-6 h-6 accent-teal-600 rounded mt-1 shrink-0" />
-                        <div><span className="font-extrabold text-teal-900 uppercase text-xs">Primary Data Processing Consent *</span><p className="text-xs text-slate-600 mt-1 leading-relaxed">I authorize the Philippine Dental Association standard processing of my personal and sensitive personal information for clinical care and diagnosis.</p></div>
-                    </label>
+                    
+                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100 shadow-inner h-48 overflow-y-auto no-scrollbar space-y-4 text-xs text-slate-700 leading-relaxed font-medium">
+                        <p className="font-bold text-teal-900 uppercase">General Authorization for Care</p>
+                        <p>{PDA_INFORMED_CONSENT_TEXTS.GENERAL_AUTHORIZATION}</p>
+                        <p className="font-bold text-teal-900 uppercase">Treatment Scope & Consent</p>
+                        <p>{PDA_INFORMED_CONSENT_TEXTS.TREATMENT_DONE}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
+                            <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <div>
+                                <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span>
+                                <p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.</p>
+                            </div>
+                        </label>
+                        <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.clinicalMediaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
+                            <input type="checkbox" name="clinicalMediaConsent" checked={formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <div>
+                                <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Scale size={12}/> TREATMENT AUTHORIZATION *</span>
+                                <p className="text-[11px] text-slate-600 mt-1 font-bold">I certify that I have read the General Authorization above and agree to the terms of clinical care and liability.</p>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <div className="space-y-16">

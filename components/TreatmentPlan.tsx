@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings } from '../types';
-import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope } from 'lucide-react';
+import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { formatDate } from '../constants';
+import { formatDate, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 import CryptoJS from 'crypto-js';
 
 interface TreatmentPlanProps {
@@ -304,45 +304,73 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                 const isSurgicalPlan = planItems.some(i => i.procedure.toLowerCase().includes('surgery') || i.procedure.toLowerCase().includes('extraction'));
 
                 return (
-                    <div key={plan.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="p-4 border-b flex justify-between items-start">
-                            <div><h3 className="font-bold text-xl">{plan.name}</h3><div className="text-xs text-slate-500 mt-1">By: {plan.createdBy}</div></div>
-                            <span className={`px-3 py-1 text-xs font-bold rounded-full border`}>{plan.status}</span>
+                    <div key={plan.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b flex justify-between items-start bg-slate-50/50">
+                            <div><h3 className="font-black text-xl text-teal-950 uppercase tracking-tight">{plan.name}</h3><div className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">By: {plan.createdBy}</div></div>
+                            <span className={`px-4 py-1 text-xs font-black rounded-full border shadow-sm uppercase tracking-widest ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-white text-slate-500'}`}>{plan.status}</span>
                         </div>
                         
-                        {isSurgicalPlan && (
-                            <div className={`p-4 mx-4 mt-4 rounded-2xl border-2 transition-all ${plan.isComplexityDisclosed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-200 animate-pulse'}`}>
-                                <label className="flex items-start gap-3 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={plan.isComplexityDisclosed} 
-                                        onChange={() => handlePlanAction(plan.id, 'toggle_disclosure')}
-                                        className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
-                                    />
-                                    <div>
-                                        <span className="font-black text-slate-900 uppercase text-[10px] tracking-widest flex items-center gap-1">
-                                            <Scale size={12}/> PDA Rule 16: Complexity Variance Disclosure
-                                        </span>
-                                        <p className="text-[10px] text-slate-600 leading-tight mt-1">
-                                            Estimated fees for surgical plans are subject to variance based on clinical findings identified intra-operatively.
-                                        </p>
+                        {/* Verbatim Clinical Disclosures from Page 2 */}
+                        <div className="p-6 bg-white border-b space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-lilac-50/50 border-2 border-lilac-100 p-5 rounded-3xl space-y-3">
+                                    <div className="flex items-center gap-2 text-lilac-800 font-black uppercase text-[10px] tracking-[0.2em] mb-2">
+                                        <FileSearch size={14} className="text-lilac-600"/> Plan Deviation Policy
                                     </div>
-                                </label>
+                                    <p className="text-[10px] text-slate-700 leading-relaxed font-medium italic">
+                                        "{PDA_INFORMED_CONSENT_TEXTS.TREATMENT_CHANGES}"
+                                    </p>
+                                </div>
+                                <div className="bg-teal-50/50 border-2 border-teal-100 p-5 rounded-3xl space-y-3">
+                                    <div className="flex items-center gap-2 text-teal-800 font-black uppercase text-[10px] tracking-[0.2em] mb-2">
+                                        <Activity size={14} className="text-teal-600"/> Radiograph Disclosure
+                                    </div>
+                                    <p className="text-[10px] text-slate-700 leading-relaxed font-medium italic">
+                                        "{PDA_INFORMED_CONSENT_TEXTS.RADIOGRAPH}"
+                                    </p>
+                                </div>
                             </div>
-                        )}
 
-                        <div className="divide-y mt-4">
+                            {isSurgicalPlan && (
+                                <div className={`p-4 rounded-2xl border-2 transition-all ${plan.isComplexityDisclosed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-200 animate-pulse'}`}>
+                                    <label className="flex items-start gap-3 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={plan.isComplexityDisclosed} 
+                                            onChange={() => handlePlanAction(plan.id, 'toggle_disclosure')}
+                                            className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
+                                        />
+                                        <div>
+                                            <span className="font-black text-slate-900 uppercase text-[10px] tracking-widest flex items-center gap-1">
+                                                <Scale size={12}/> PDA Rule 16: Complexity Variance Disclosure
+                                            </span>
+                                            <p className="text-[10px] text-slate-600 leading-tight mt-1 font-bold">
+                                                Estimated fees for surgical plans are subject to variance based on clinical findings identified intra-operatively.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="divide-y">
                             {planItems.map(item => (
-                                <div key={item.id} className="p-3 flex justify-between items-center group">
-                                    <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border">#{item.toothNumber}</div><div className="font-bold text-sm">{item.procedure}</div></div>
+                                <div key={item.id} className="p-4 flex justify-between items-center group hover:bg-slate-50 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs border-2 bg-white text-slate-400 group-hover:border-teal-500 group-hover:text-teal-600 transition-all">#{item.toothNumber}</div>
+                                        <div>
+                                            <div className="font-black text-slate-800 uppercase tracking-tight text-sm">{item.procedure}</div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Est. Fee: ₱{(item.price || 0).toLocaleString()}</div>
+                                        </div>
+                                    </div>
                                     <div className="flex gap-2">
                                         {plan.status === TreatmentPlanStatus.APPROVED && item.status !== 'Completed' && (
-                                            <><button onClick={() => setRefusalModal(item)} className="bg-red-50 text-red-600 px-3 py-1 text-xs font-bold rounded-full border border-red-100">Refusal</button>
+                                            <><button onClick={() => setRefusalModal(item)} className="bg-red-50 text-red-600 px-4 py-1.5 text-[10px] font-black uppercase rounded-xl border border-red-100 hover:bg-red-600 hover:text-white transition-all">Informed Refusal</button>
                                             <button 
                                                 onClick={() => handleMarkComplete(item)} 
-                                                className={`px-3 py-1 text-xs font-bold rounded-full transition-all bg-green-500 text-white shadow-md`}
+                                                className={`px-5 py-1.5 text-[10px] font-black uppercase rounded-xl transition-all bg-green-500 text-white shadow-lg shadow-green-500/20 hover:scale-105`}
                                             >
-                                                Complete
+                                                Mark Done
                                             </button></>
                                         )}
                                     </div>
@@ -355,7 +383,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
             
             {isCreating ? (
                  <div className="bg-white p-4 border-2 border-dashed rounded-xl flex gap-2"><input type="text" placeholder="Plan name..." className="input" value={newPlanName} onChange={e => setNewPlanName(e.target.value)} autoFocus/><button onClick={handleCreatePlan} className="px-4 bg-teal-600 text-white rounded-lg">Save</button></div>
-            ) : <button onClick={() => setIsCreating(true)} className="w-full py-4 border-2 border-dashed rounded-2xl text-slate-500 font-bold">+ New Treatment Plan</button>}
+            ) : <button onClick={() => setIsCreating(true)} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-400 font-black uppercase tracking-widest text-[10px] hover:border-teal-500 hover:text-teal-600 transition-all">+ Draft Treatment Strategy</button>}
 
             {/* Rule 17 Deviation Modal */}
             {deviationModal && (

@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet } from '../types';
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint } from 'lucide-react';
-import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
+import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, Scale } from 'lucide-react';
+import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 import { useToast } from './ToastSystem';
 import EPrescriptionModal from './EPrescriptionModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
@@ -68,6 +67,10 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [requireSignOff, setRequireSignOff] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [pendingEntryData, setPendingEntryData] = useState<any>(null);
+
+  const [showHardStopConsent, setShowHardStopConsent] = useState(false);
+  const [hardStopText, setHardStopText] = useState('');
+  const [hardStopChecked, setHardStopChecked] = useState(false);
   
   const recognitionRef = useRef<any>(null);
 
@@ -187,6 +190,17 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
     }
   }, [prefill, onClearPrefill]);
 
+  const getHardStopText = (procedure: string): string => {
+    const procLower = procedure.toLowerCase();
+    if (procLower.includes('extraction') || procLower.includes('surgery')) return PDA_INFORMED_CONSENT_TEXTS.EXTRACTION;
+    if (procLower.includes('root canal')) return PDA_INFORMED_CONSENT_TEXTS.ROOT_CANAL;
+    if (procLower.includes('crown') || procLower.includes('bridge') || procLower.includes('veneer')) return PDA_INFORMED_CONSENT_TEXTS.CROWNS_BRIDGES;
+    if (procLower.includes('denture')) return PDA_INFORMED_CONSENT_TEXTS.DENTURES;
+    if (procLower.includes('scaling') || procLower.includes('perio')) return PDA_INFORMED_CONSENT_TEXTS.PERIODONTAL;
+    if (procLower.includes('filling') || procLower.includes('restoration')) return PDA_INFORMED_CONSENT_TEXTS.FILLINGS;
+    return '';
+  };
+
   const applyQuickFill = (fill: ClinicalMacro) => {
       const s = fill.s || ''; const o = fill.o || ''; const a = fill.a || ''; const p = fill.p || '';
       setSubjective(s); setObjective(o); setAssessment(a); setPlan(p);
@@ -296,7 +310,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
   const resetForm = () => {
       setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
-      macroSnapshotRef.current = ''; setEditingId(null); setRequireSignOff(false);
+      macroSnapshotRef.current = ''; setEditingId(null); setRequireSignOff(false); setHardStopChecked(false);
   };
 
   const handleEdit = (entry: DentalChartEntry) => {
@@ -321,6 +335,14 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
 
     if (isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile) || (!activeAppointmentToday && !isArchitect)) return;
     
+    // Check for hard-stop informed consent from Page 2
+    const stopText = getHardStopText(selectedProcedure);
+    if (stopText && !hardStopChecked) {
+        setHardStopText(stopText);
+        setShowHardStopConsent(true);
+        return;
+    }
+
     const isAssistant = currentUser.role === UserRole.DENTAL_ASSISTANT;
     const batchSuffix = (isAdvancedInventory && selectedBatchId) ? ` [Batch: ${selectedBatchId}${varianceCount > 0 ? ` + ${varianceCount} variance` : ''}]` : '';
     const sterilizationSuffix = (isAdvancedInventory && selectedCycleId) ? ` [Autoclave Cycle: ${selectedCycleId}]` : '';
@@ -510,6 +532,43 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
           ))}
           {entries.length === 0 && <div className="py-20 text-center text-slate-400 italic">No clinical entries found in registry.</div>}
       </div>
+
+      {/* --- INFORMTED CONSENT HARD-STOP MODAL (Verbatim Page 2) --- */}
+      {showHardStopConsent && (
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[120] flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl border-4 border-teal-500 animate-in zoom-in-95 flex flex-col max-h-[85vh]">
+                  <div className="bg-teal-900 p-8 text-white flex items-center gap-4 shrink-0">
+                      <div className="bg-white/20 p-2 rounded-xl"><Scale size={24}/></div>
+                      <div>
+                          <h3 className="text-xl font-black uppercase tracking-tight">Procedural Informed Consent</h3>
+                          <p className="text-[10px] text-teal-300 font-bold uppercase tracking-widest">Hard-Stop Safety Gate</p>
+                      </div>
+                  </div>
+                  <div className="p-8 overflow-y-auto no-scrollbar space-y-6">
+                      <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 shadow-inner text-sm text-slate-700 leading-relaxed font-medium italic">
+                          "{hardStopText}"
+                      </div>
+                      <label className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all ${hardStopChecked ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
+                          <input type="checkbox" checked={hardStopChecked} onChange={e => setHardStopChecked(e.target.checked)} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                          <div>
+                              <p className="text-xs font-black uppercase text-teal-950 tracking-widest mb-1">Acknowledge Mandatory Disclosure</p>
+                              <p className="text-[11px] text-slate-600 leading-tight">I certify that the procedure-specific risks and benefits (verbatim PDA mandate) have been explained to and acknowledged by the patient.</p>
+                          </div>
+                      </label>
+                  </div>
+                  <div className="p-8 border-t bg-slate-50 flex gap-3 shrink-0">
+                      <button onClick={() => setShowHardStopConsent(false)} className="flex-1 py-4 font-black uppercase text-xs text-slate-500">Cancel</button>
+                      <button 
+                        onClick={() => { setShowHardStopConsent(false); handleSubmit({ preventDefault: () => {} } as any); }}
+                        disabled={!hardStopChecked}
+                        className={`flex-[2] py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${hardStopChecked ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-400'}`}
+                      >
+                          Verify & Proceed
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       <input type="file" ref={photoInputRef} onChange={handlePhotoCapture} accept="image/*" className="hidden" />
 
