@@ -2,7 +2,7 @@
   "name": "dentsched Practice Management",
   "short_name": "dentsched",
   "description": "Intelligent Dental Management System",
-  "start_url": "./",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#134e4a",
