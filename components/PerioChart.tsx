@@ -9,12 +9,9 @@ interface PerioChartProps {
     readOnly?: boolean;
 }
 
-// FDI Quadrants split for wrapping on tablet range
-const UR = [18, 17, 16, 15, 14, 13, 12, 11];
-const UL = [21, 22, 23, 24, 25, 26, 27, 28];
-const LR = [48, 47, 46, 45, 44, 43, 42, 41];
-const LL = [31, 32, 33, 34, 35, 36, 37, 38];
-const ALL_TEETH = [...UR, ...UL, ...LR, ...LL];
+const TEETH_UPPER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+const TEETH_LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+const ALL_TEETH = [...TEETH_UPPER, ...TEETH_LOWER];
 
 interface PerioRowProps {
     tooth: number;
@@ -37,12 +34,13 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
     const isConcern = maxDepth >= 5;
 
     return (
-        <div className={`flex flex-col border-r border-slate-200 min-w-[120px] transition-colors ${isConcern ? 'bg-red-50/50' : 'bg-white'}`}>
-            <div className={`text-center font-black py-1.5 border-b border-slate-200 text-[11px] ${isConcern ? 'text-red-700 bg-red-50' : 'text-slate-700 bg-slate-50'}`}>
+        <div className={`flex flex-col border-r border-slate-200 min-w-[125px] transition-colors ${isConcern ? 'bg-red-50/50' : 'bg-white'}`}>
+            <div className={`text-center font-bold py-2 border-b border-slate-200 ${isConcern ? 'text-red-700' : 'text-slate-700'}`}>
                 #{tooth}
+                {isConcern && <AlertTriangle size={12} className="inline ml-1 text-red-500"/>}
             </div>
 
-            <div className="flex justify-center gap-1 p-1 bg-slate-50/20">
+            <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
                 {[0, 1, 2].map(i => {
                     const isFocused = focusedSite?.tooth === tooth && focusedSite?.index === i;
                     const diff = previousMeasurement && compareMode ? (m.pocketDepths[i] || 0) - (previousMeasurement.pocketDepths[i] || 0) : 0;
@@ -55,22 +53,24 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                     value={m.pocketDepths[i] ?? ''}
                                     onFocus={() => onFocusSite(tooth, i)}
                                     onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                    className={`w-9 h-9 text-center text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
-                                        ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-100'}
+                                    className={`w-10 h-10 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
+                                        ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
                                         ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-300 bg-red-50' : 'text-slate-800'}
                                     `}
                                     placeholder="-"
                                     disabled={readOnly}
                                 />
                                 {compareMode && diff !== 0 && (
-                                    <span className={`absolute -top-1.5 -right-1.5 text-[7px] px-1 rounded-full border font-black ${diff > 0 ? 'bg-red-600 text-white border-red-700' : 'bg-green-600 text-white border-green-700'}`}>
+                                    <span className={`absolute -top-1.5 -right-1.5 text-[8px] px-1 rounded-full border font-bold ${diff > 0 ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`}>
                                         {diff > 0 ? `+${diff}` : diff}
                                     </span>
                                 )}
                             </div>
                             <button 
                                 onClick={() => onBleedingToggle(tooth, i)}
-                                className={`w-5 h-5 rounded-full border-2 transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800 shadow-md' : 'bg-white border-slate-200'}`}
+                                className={`w-6 h-6 rounded-full border-2 shadow-sm transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800' : 'bg-white border-slate-300 hover:border-red-400'}`}
+                                title="Bleeding on Probing (BOP)"
+                                aria-label={`Toggle bleeding for tooth ${tooth} site ${i + 1}`}
                                 disabled={readOnly}
                             />
                         </div>
@@ -78,47 +78,55 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                 })}
             </div>
 
-            <div className="py-1 flex justify-center border-y border-slate-100 bg-slate-100/30">
-                <select 
+            <div className="py-2 flex justify-center border-y border-slate-200 bg-slate-100/50">
+                    <select 
                     value={m.mobility ?? ''}
+                    aria-label={`Mobility for tooth ${tooth}`}
                     onChange={(e) => onMobilityChange(tooth, e.target.value)}
-                    className="text-[9px] bg-transparent font-black text-center outline-none cursor-pointer text-blue-800 uppercase"
+                    className="text-xs bg-transparent font-black text-center outline-none cursor-pointer text-blue-800 w-full appearance-none uppercase"
                     disabled={readOnly}
-                >
-                    <option value="">-</option>
-                    <option value="0">0</option>
-                    <option value="1">I</option>
-                    <option value="2">II</option>
-                    <option value="3">III</option>
-                </select>
+                    >
+                        <option value="">Mob: -</option>
+                        <option value="0">0</option>
+                        <option value="1">I</option>
+                        <option value="2">II</option>
+                        <option value="3">III</option>
+                    </select>
             </div>
 
-            <div className="flex justify-center gap-1 p-1 bg-slate-50/20">
+            <div className="flex justify-center gap-1 p-1 bg-slate-50/50">
                 {[3, 4, 5].map(i => {
                     const isFocused = focusedSite?.tooth === tooth && focusedSite?.index === i;
                     const diff = previousMeasurement && compareMode ? (m.pocketDepths[i] || 0) - (previousMeasurement.pocketDepths[i] || 0) : 0;
                     return (
                         <div key={`L-${i}`} className="flex flex-col items-center gap-1">
-                            <button 
-                                onClick={() => onBleedingToggle(tooth, i)}
-                                className={`w-5 h-5 rounded-full border-2 transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800 shadow-md' : 'bg-white border-slate-200'}`}
+                        <button 
+                            onClick={() => onBleedingToggle(tooth, i)}
+                            className={`w-6 h-6 rounded-full border-2 shadow-sm transition-transform active:scale-90 ${m.bleeding[i] ? 'bg-red-600 border-red-800' : 'bg-white border-slate-300 hover:border-red-400'}`}
+                            title="Bleeding on Probing (BOP)"
+                            aria-label={`Toggle bleeding for tooth ${tooth} site ${i + 1}`}
+                            disabled={readOnly}
+                        />
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                maxLength={2}
+                                value={m.pocketDepths[i] ?? ''}
+                                onFocus={() => onFocusSite(tooth, i)}
+                                onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
+                                className={`w-10 h-10 text-center text-sm border rounded focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
+                                    ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-200'}
+                                    ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-300 bg-red-50' : 'text-slate-800'}
+                                `}
+                                placeholder="-"
                                 disabled={readOnly}
                             />
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    maxLength={2}
-                                    value={m.pocketDepths[i] ?? ''}
-                                    onFocus={() => onFocusSite(tooth, i)}
-                                    onChange={(e) => onValueChange(tooth, 'pocketDepths', i, e.target.value)}
-                                    className={`w-9 h-9 text-center text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-700 font-black transition-all
-                                        ${isFocused ? 'scale-110 border-teal-700 ring-2 ring-teal-500/20 z-10' : 'border-slate-100'}
-                                        ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-300 bg-red-50' : 'text-slate-800'}
-                                    `}
-                                    placeholder="-"
-                                    disabled={readOnly}
-                                />
-                            </div>
+                            {compareMode && diff !== 0 && (
+                                <span className={`absolute -top-1.5 -right-1.5 text-[8px] px-1 rounded-full border font-bold ${diff > 0 ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`}>
+                                    {diff > 0 ? `+${diff}` : diff}
+                                </span>
+                            )}
+                        </div>
                         </div>
                     );
                 })}
@@ -127,17 +135,78 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
     );
 });
 
+const PerioProgressionGraph: React.FC<{ data: PerioMeasurement[] }> = ({ data }) => {
+    const historicalDates = useMemo(() => {
+        return Array.from(new Set(data.map(m => m.date).filter(Boolean)))
+            .sort((a: any, b: any) => new Date(a).getTime() - new Date(b).getTime());
+    }, [data]);
+
+    const stats = useMemo(() => {
+        return historicalDates.map(date => {
+            const dateMeasurements = data.filter(m => m.date === date);
+            const allDepths = dateMeasurements.flatMap(m => m.pocketDepths).filter(d => d !== null) as number[];
+            const avg = allDepths.length > 0 ? allDepths.reduce((a, b) => a + b, 0) / allDepths.length : 0;
+            return { date, avg };
+        });
+    }, [historicalDates, data]);
+
+    if (stats.length < 2) return null;
+
+    const maxAvg = Math.max(...stats.map(s => s.avg), 5);
+
+    return (
+        <div className="bg-white p-6 rounded-2xl border border-teal-100 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-6">
+            <div className="flex items-center gap-2 text-teal-800 font-black mb-6">
+                <LineChart size={20} className="text-teal-700"/>
+                Healing Progression: Average Pocket Depth Trend
+            </div>
+            <div className="h-40 flex items-end gap-2 relative border-b border-l border-slate-200 ml-10 mb-10 px-4 pt-4">
+                {/* Y-Axis Labels */}
+                <div className="absolute -left-10 top-0 bottom-0 flex flex-col justify-between text-[10px] font-black text-slate-500 py-1">
+                    <span>{maxAvg.toFixed(1)}mm</span>
+                    <span>{(maxAvg/2).toFixed(1)}mm</span>
+                    <span>0mm</span>
+                </div>
+                
+                {stats.map((s, i) => {
+                    const height = (s.avg / maxAvg) * 100;
+                    return (
+                        <div key={i} className="flex-1 flex flex-col items-center group relative">
+                            <div 
+                                className="w-full bg-teal-700/20 rounded-t-lg transition-all duration-1000 border-t-4 border-teal-700 hover:bg-teal-700/40 relative" 
+                                style={{ height: `${height}%` }}
+                            >
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-teal-900 bg-white px-1 rounded border border-teal-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {s.avg.toFixed(1)}mm
+                                </div>
+                            </div>
+                            <div className="absolute -bottom-8 text-[10px] font-black text-slate-600 whitespace-nowrap rotate-45 origin-left">
+                                {s.date}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
     const toast = useToast();
     const [measurements, setMeasurements] = useState<Record<number, PerioMeasurement>>({});
     const [compareMode, setCompareMode] = useState(false);
+    const [showGraph, setShowGraph] = useState(true);
+    const [isVoiceActive, setIsVoiceActive] = useState(false);
     const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
     
+    const recognitionRef = useRef<any>(null);
+
     const historicalDates = useMemo(() => {
         const dates = Array.from(new Set(data.map(m => m.date))).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime());
         return dates as string[];
     }, [data]);
 
+    const latestDate = historicalDates[0];
     const previousDate = historicalDates[1];
 
     useEffect(() => {
@@ -157,11 +226,42 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
             }
         });
         setMeasurements(map);
+        // Default focus
         if (!readOnly) setFocusedSite({ tooth: 18, index: 0 });
     }, [data, readOnly]);
 
+    const advanceFocus = (current: { tooth: number, index: number }) => {
+        let { tooth, index } = current;
+        if (index < 5) {
+            setFocusedSite({ tooth, index: index + 1 });
+        } else {
+            const currentIdx = ALL_TEETH.indexOf(tooth);
+            if (currentIdx < ALL_TEETH.length - 1) {
+                setFocusedSite({ tooth: ALL_TEETH[currentIdx + 1], index: 0 });
+            } else {
+                setFocusedSite(null);
+                toast.info("Perio chart complete.");
+            }
+        }
+    };
+
     const handleValueChange = (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => {
         if (readOnly) return;
+        
+        // Auto-advance logic: if single digit 0-9 is entered
+        if (value.length === 1 && /^\d$/.test(value)) {
+            const numVal = parseInt(value);
+            setMeasurements(prev => {
+                const toothData = { ...prev[tooth] };
+                const newValues = [...toothData[field]];
+                newValues[index] = numVal;
+                toothData[field] = newValues;
+                return { ...prev, [tooth]: toothData };
+            });
+            advanceFocus({ tooth, index });
+            return;
+        }
+
         const numVal = value === '' ? null : parseInt(value);
         if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
 
@@ -170,17 +270,6 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
             const newValues = [...toothData[field]];
             newValues[index] = numVal;
             toothData[field] = newValues;
-            return { ...prev, [tooth]: toothData };
-        });
-    };
-
-    const toggleBleeding = (tooth: number, index: number) => {
-        if (readOnly) return;
-        setMeasurements(prev => {
-            const toothData = { ...prev[tooth] };
-            const newBleeding = [...toothData.bleeding];
-            newBleeding[index] = !newBleeding[index];
-            toothData.bleeding = newBleeding;
             return { ...prev, [tooth]: toothData };
         });
     };
@@ -194,61 +283,206 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         }));
     };
 
+    const toggleBleeding = (tooth: number, index: number) => {
+        if (readOnly) return;
+        setMeasurements(prev => {
+            const toothData = { ...prev[tooth] };
+            const newBleeding = [...toothData.bleeding];
+            newBleeding[index] = !newBleeding[index];
+            toothData.bleeding = newBleeding;
+            return { ...prev, [tooth]: toothData };
+        });
+    };
+
+    const handleVoiceCommand = (command: string) => {
+        if (!focusedSite) return;
+        const clean = command.toLowerCase().trim();
+        
+        if (clean.includes('bleeding') || clean.includes('blood')) {
+            toggleBleeding(focusedSite.tooth, focusedSite.index);
+            toast.info(`Logged bleeding at #${focusedSite.tooth} site ${focusedSite.index + 1}`);
+            return;
+        }
+
+        const number = parseInt(clean.match(/\d+/)?.[0] || '');
+        if (!isNaN(number) && number >= 0 && number <= 15) {
+            handleValueChange(focusedSite.tooth, 'pocketDepths', focusedSite.index, number.toString());
+        }
+    };
+
+    const toggleVoice = () => {
+        if (isVoiceActive) {
+            recognitionRef.current?.stop();
+            setIsVoiceActive(false);
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            toast.error("Speech API not supported.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            setIsVoiceActive(true);
+            toast.success("Voice recording active. Speak depths (e.g. '3') or 'bleeding'.");
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[event.results.length - 1][0].transcript;
+            handleVoiceCommand(transcript);
+        };
+
+        recognition.onerror = () => setIsVoiceActive(false);
+        recognition.onend = () => setIsVoiceActive(false);
+
+        recognitionRef.current = recognition;
+        recognition.start();
+    };
+
+    const saveAll = () => {
+        const arrayData = Object.values(measurements);
+        onSave(arrayData);
+        toast.success("Perio exam saved.");
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative">
-             <div className="bg-white p-4 border-b flex justify-between items-center shadow-sm z-10">
+             <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center shadow-sm z-10 sticky top-0">
                 <div className="flex items-center gap-3">
                     <div className="bg-lilac-100 p-2 rounded-xl text-lilac-700"><Activity size={24} /></div>
                     <div>
-                        <h3 className="font-black text-slate-800 text-sm">Periodontal Mapping</h3>
-                        <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Stacked Quad-View for tablet efficiency</p>
+                        <h3 className="font-black text-slate-800">Periodontal Attachment Tracking</h3>
+                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Hygiene comparison & diagnostic progression</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setShowGraph(!showGraph)}
+                        className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1
+                            ${showGraph ? 'bg-teal-50 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-500 hover:border-teal-400'}
+                        `}
+                    >
+                        <LineChart size={14}/> {showGraph ? 'Hide Trends' : 'Show Trends'}
+                    </button>
                     {!readOnly && (
                         <button 
-                            onClick={() => onSave(Object.values(measurements))}
-                            className="bg-teal-700 text-white px-5 py-2 rounded-xl font-black text-xs uppercase shadow-lg shadow-teal-700/20"
+                            onClick={toggleVoice}
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-2
+                                ${isVoiceActive ? 'bg-red-600 text-white animate-pulse border-red-700' : 'bg-white text-slate-500 border-slate-200 hover:border-teal-400'}
+                            `}
                         >
-                            Save Exam
+                            {isVoiceActive ? <MicOff size={16}/> : <Mic size={16}/>}
+                            {isVoiceActive ? 'Stop Voice' : 'Voice Entry'}
+                        </button>
+                    )}
+                    {previousDate && (
+                        <button 
+                            onClick={() => setCompareMode(!compareMode)}
+                            className={`px-3 py-1.5 rounded-xl font-black text-xs border transition-all flex items-center gap-1
+                                ${compareMode ? 'bg-lilac-600 text-white border-lilac-400' : 'bg-white text-slate-500 border-slate-200 hover:border-lilac-400'}
+                            `}
+                        >
+                            <ArrowRightLeft size={14}/> {compareMode ? 'Hide Comparison' : `Compare vs ${previousDate}`}
+                        </button>
+                    )}
+                    {!readOnly && (
+                        <button 
+                            onClick={saveAll}
+                            className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-teal-700/20 transition-all"
+                        >
+                            <Save size={18} /> Save Exam
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-12 no-scrollbar">
-                
-                {/* Maxillary Section (Segmented) */}
-                <div className="space-y-6">
-                    <div className="flex items-center gap-2 font-black text-slate-400 uppercase text-[10px] tracking-widest ml-1"><ChevronUp size={14} className="text-teal-600"/> Maxillary (Upper Arch)</div>
-                    <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
-                        <div className="border border-slate-200 rounded-[2.2rem] overflow-hidden shadow-xl bg-white w-max">
-                            <div className="flex">
-                                {UR.map(t => <PerioRow key={t} tooth={t} focusedSite={focusedSite} measurement={measurements[t]} onValueChange={handleValueChange} onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })} onMobilityChange={handleMobilityChange} onBleedingToggle={toggleBleeding} readOnly={readOnly} />)}
+            <div className="flex-1 overflow-x-auto overflow-y-auto p-4 space-y-8 no-scrollbar scroll-smooth">
+                {showGraph && <PerioProgressionGraph data={data} />}
+
+                {!readOnly && (
+                    <div className="bg-teal-50 border-2 border-teal-100 p-4 rounded-2xl flex items-center justify-between mb-4 shadow-sm animate-in slide-in-from-top-1">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-teal-700 text-white p-2.5 rounded-xl shadow-md"><FastForward size={20}/></div>
+                            <div>
+                                <div className="text-sm font-black text-teal-900 uppercase">Auto-Advance Active</div>
+                                <div className="text-xs text-teal-700 font-bold">Enter a single digit to jump to the next site. Dots are 24x24px for ease of access.</div>
                             </div>
                         </div>
-                        <div className="border border-slate-200 rounded-[2.2rem] overflow-hidden shadow-xl bg-white w-max">
-                            <div className="flex">
-                                {UL.map(t => <PerioRow key={t} tooth={t} focusedSite={focusedSite} measurement={measurements[t]} onValueChange={handleValueChange} onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })} onMobilityChange={handleMobilityChange} onBleedingToggle={toggleBleeding} readOnly={readOnly} />)}
+                        {focusedSite && (
+                            <div className="bg-white border-2 border-teal-200 px-5 py-2.5 rounded-xl font-mono font-black text-teal-700 shadow-sm text-lg">
+                                TOOTH: #{focusedSite.tooth} | SITE: {focusedSite.index + 1}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {compareMode && previousDate && (
+                    <div className="bg-white p-4 rounded-xl border-2 border-lilac-100 shadow-sm animate-in slide-in-from-top-2 duration-500">
+                        <div className="flex items-center gap-2 text-lilac-700 font-black text-xs uppercase mb-3"><History size={14}/> Progress Summary</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
+                                <div className="text-[10px] font-black text-slate-400 uppercase">Hygiene Improvement</div>
+                                <div className="text-lg font-black text-teal-700 flex items-center justify-center gap-1"><TrendingDown size={18}/> 12% BOP Reduction</div>
                             </div>
                         </div>
                     </div>
+                )}
+
+                <div className="flex gap-6 mb-4 text-[11px] text-slate-600 justify-center font-black uppercase tracking-widest">
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-white border-2 border-slate-300 shadow-sm"></span> Normal</div>
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-red-50 border-2 border-red-300 shadow-sm"></span> 5mm+ Depth</div>
+                    <div className="flex items-center gap-2"><span className="w-4 h-4 bg-red-600 rounded-full shadow-sm"></span> Bleeding (BOP)</div>
                 </div>
 
-                {/* Mandibular Section (Segmented) */}
-                <div className="space-y-6 pb-24">
-                    <div className="flex items-center gap-2 font-black text-slate-400 uppercase text-[10px] tracking-widest ml-1"><ChevronDown size={14} className="text-lilac-600"/> Mandibular (Lower Arch)</div>
-                    <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
-                        <div className="border border-slate-200 rounded-[2.2rem] overflow-hidden shadow-xl bg-white w-max">
-                            <div className="flex">
-                                {LR.map(t => <PerioRow key={t} tooth={t} focusedSite={focusedSite} measurement={measurements[t]} onValueChange={handleValueChange} onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })} onMobilityChange={handleMobilityChange} onBleedingToggle={toggleBleeding} readOnly={readOnly} />)}
-                            </div>
-                        </div>
-                        <div className="border border-slate-200 rounded-[2.2rem] overflow-hidden shadow-xl bg-white w-max">
-                            <div className="flex">
-                                {LL.map(t => <PerioRow key={t} tooth={t} focusedSite={focusedSite} measurement={measurements[t]} onValueChange={handleValueChange} onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })} onMobilityChange={handleMobilityChange} onBleedingToggle={toggleBleeding} readOnly={readOnly} />)}
-                            </div>
-                        </div>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 font-black text-slate-500 uppercase text-xs tracking-wider ml-1">
+                        <ChevronUp size={16} className="text-teal-700"/> Maxillary Arch (FDI 18-28)
+                    </div>
+                    <div className="flex border border-slate-200 rounded-2xl overflow-hidden shadow-xl w-max bg-white">
+                        {TEETH_UPPER.map(t => (
+                            <PerioRow 
+                                key={t} 
+                                tooth={t} 
+                                focusedSite={focusedSite}
+                                measurement={measurements[t]} 
+                                previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
+                                onValueChange={handleValueChange}
+                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
+                                onMobilityChange={handleMobilityChange}
+                                onBleedingToggle={toggleBleeding}
+                                readOnly={readOnly}
+                                compareMode={compareMode}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-4 pb-16">
+                    <div className="flex items-center gap-2 font-black text-slate-500 uppercase text-xs tracking-wider ml-1">
+                        <ChevronDown size={16} className="text-lilac-700"/> Mandibular Arch (FDI 48-38)
+                    </div>
+                    <div className="flex border border-slate-200 rounded-2xl overflow-hidden shadow-xl w-max bg-white">
+                        {TEETH_LOWER.map(t => (
+                            <PerioRow 
+                                key={t} 
+                                tooth={t} 
+                                focusedSite={focusedSite}
+                                measurement={measurements[t]} 
+                                previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
+                                onValueChange={handleValueChange}
+                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
+                                onMobilityChange={handleMobilityChange}
+                                onBleedingToggle={toggleBleeding}
+                                readOnly={readOnly}
+                                compareMode={compareMode}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>

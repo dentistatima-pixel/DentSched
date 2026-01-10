@@ -112,9 +112,8 @@ const Inventory: React.FC<InventoryProps> = ({
     if (onAddCycle) onAddCycle(cycle);
 
     if (cycle.passed && cycle.instrumentSetIds && cycle.instrumentSetIds.length > 0) {
-        // Fix: Explicitly cast 'status' to the required literal union type to satisfy the InstrumentSet interface and prevent property widening to string.
         const updatedSets = fieldSettings.instrumentSets?.map(set => 
-            cycle.instrumentSetIds!.includes(set.id) ? { ...set, status: 'Sterile' as 'Sterile', lastCycleId: cycle.id } : set
+            cycle.instrumentSetIds!.includes(set.id) ? { ...set, status: 'Sterile', lastCycleId: cycle.id } : set
         );
         onUpdateSettings({ ...fieldSettings, instrumentSets: updatedSets });
         toast.success(`Load Result: ${cycle.instrumentSetIds.length} sets marked STERILE.`);
@@ -214,7 +213,7 @@ const Inventory: React.FC<InventoryProps> = ({
                                 {auditMode ? (
                                     <button onClick={() => setShowVarianceReport(true)} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Analyze Audit Variance</button>
                                 ) : (
-                                    <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
+                                    <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
                                 )}
                             </div>
                         </div>
@@ -305,7 +304,7 @@ const Inventory: React.FC<InventoryProps> = ({
                                     </div>
                                 </div>
                             ))}
-                            {branchSets.length === 0 && <div className="col-span-full py-20 text-center opacity-30 italic uppercase font-black text-slate-800 tracking-widest uppercase">No active instrument sets in registry.</div>}
+                            {branchSets.length === 0 && <div className="col-span-full py-20 text-center opacity-30 italic uppercase font-black text-slate-800 tracking-widest">No active instrument sets in registry.</div>}
                         </div>
                     </div>
                 )}
@@ -409,7 +408,7 @@ const Inventory: React.FC<InventoryProps> = ({
                              </div>
                         </div>
 
-                        <label className={`flex items-center gap-4 p-5 rounded-3xl border-2 cursor-pointer transition-all shadow-sm ${newCycle.passed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-200 animate-pulse'}`}>
+                        <label className={`flex items-center gap-4 p-5 rounded-3xl border-2 cursor-pointer transition-all shadow-sm ${newCycle.passed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-500 animate-pulse'}`}>
                             <input type="checkbox" checked={newCycle.passed} onChange={e => setNewCycle({...newCycle, passed: e.target.checked})} className="w-8 h-8 accent-teal-600 rounded" />
                             <div>
                                 <span className="font-black text-slate-950 uppercase text-xs tracking-widest">Biological Indicator Passed</span>
