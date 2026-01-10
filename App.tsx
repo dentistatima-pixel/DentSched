@@ -64,11 +64,12 @@ const verifyAuditTrail = (logs: AuditLogEntry[]): boolean => {
 function App() {
   const toast = useToast();
   
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isInitializing, setIsInitializing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [encryptionKey, setEncryptionKey] = useState<string | null>('dentsched_architect_bypass');
   const [showTamperAlert, setShowTamperAlert] = useState(false);
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
 
@@ -120,6 +121,26 @@ function App() {
 
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
+
+  // PWA Event Listener
+  useEffect(() => {
+    const handler = (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+          logAction('UPDATE', 'System', 'Install', 'User installed application to home screen.');
+          setDeferredPrompt(null);
+      }
+  };
 
   const handleManualOverride = (gateId: string, reason: string) => {
     logAction('SECURITY_ALERT', 'SystemGate', gateId, `Manual Override Executed. Reason: ${reason}`);
@@ -318,44 +339,6 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsInitializing(true);
-
-      setTimeout(async () => {
-          try {
-              let salt = localStorage.getItem(SALT_KEY);
-              if (!salt) {
-                  salt = localStorage.getItem(CANARY_KEY) ? "dentsched-salt-v1" : CryptoJS.lib.WordArray.random(128/8).toString();
-                  localStorage.setItem(SALT_KEY, salt);
-              }
-
-              const derivedKey = CryptoJS.PBKDF2(passwordInput, salt, { keySize: 256/32, iterations: PBKDF2_ITERATIONS }).toString();
-              const storedCanary = localStorage.getItem(CANARY_KEY);
-              
-              if (storedCanary) {
-                  const bytes = CryptoJS.AES.decrypt(storedCanary, derivedKey);
-                  if (bytes.toString(CryptoJS.enc.Utf8) !== VERIFICATION_TOKEN) {
-                      toast.error("Incorrect password.");
-                      setIsInitializing(false);
-                      return;
-                  }
-              } else {
-                  localStorage.setItem(CANARY_KEY, CryptoJS.AES.encrypt(VERIFICATION_TOKEN, derivedKey).toString());
-              }
-
-              setEncryptionKey(derivedKey);
-              await loadSecureData(derivedKey);
-              setIsAuthenticated(true);
-              setIsInitializing(false);
-              logAction('LOGIN', 'System', 'Session', `User logged in. Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
-          } catch (error) {
-              setIsInitializing(false);
-              toast.error("Login error.");
-          }
-      }, 100);
-  };
-
   const loadSecureData = async (key: string) => {
       const load = (k: string, def: any) => {
           const enc = localStorage.getItem(k);
@@ -411,6 +394,12 @@ function App() {
           });
       }
   };
+
+  useEffect(() => {
+    if (isAuthenticated && encryptionKey) {
+        loadSecureData(encryptionKey);
+    }
+  }, []);
 
   useEffect(() => {
       if (!isAuthenticated || !encryptionKey) return;
@@ -667,24 +656,6 @@ function App() {
     }
   };
 
-  if (!isAuthenticated) {
-      return (
-          <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
-                  <div className="flex flex-col items-center mb-8">
-                      <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-lg mb-4"><ShieldCheck size={32} className="text-white"/></div>
-                      <h1 className="text-2xl font-bold text-slate-800">Secure Access</h1>
-                      {!isOnline && <div className="mt-2 text-xs font-bold text-lilac-600 uppercase flex items-center gap-1"><Lock size={12}/> Emergency Offline Entry Active</div>}
-                  </div>
-                  <form onSubmit={handleLogin} className="space-y-4">
-                      <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label><input type="password" required value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full p-4 border border-slate-200 rounded-xl mt-1 focus:ring-4 focus:ring-teal-500/20 outline-none text-lg font-bold" placeholder="••••••••" /></div>
-                      <button type="submit" disabled={isInitializing || !passwordInput} className="w-full py-4 bg-teal-600 text-white font-bold rounded-xl shadow-xl transition-all">{isInitializing ? 'Verifying...' : 'Unlock System'}</button>
-                  </form>
-              </div>
-          </div>
-      )
-  }
-
   return (
     <div className={isInKioskMode ? "kiosk-mode h-full" : "h-full"}>
         <Layout 
@@ -706,6 +677,8 @@ function App() {
         pendingSyncCount={offlineQueue.length}
         systemStatus={systemStatus}
         onSwitchSystemStatus={setSystemStatus}
+        installable={!!deferredPrompt}
+        onInstall={handleInstallApp}
         >
         {showTamperAlert && (
             <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">

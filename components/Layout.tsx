@@ -23,12 +23,15 @@ interface LayoutProps {
   pendingSyncCount?: number;
   systemStatus?: SystemStatus;
   onSwitchSystemStatus?: (status: SystemStatus) => void;
+  installable?: boolean;
+  onInstall?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
   currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
-  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus
+  isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus,
+  installable = false, onInstall
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -79,7 +82,7 @@ const Layout: React.FC<LayoutProps> = ({
 
       <header className={headerClass}>
              <div className="flex items-center gap-6">
-                <div className={`w-12 h-12 rounded-[1.4rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-500 rotate-3 ring-4 ring-white/10'}`}>
+                <div className={`w-12 h-12 rounded-[1.4rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-505 rotate-3 ring-4 ring-white/10'}`}>
                     <span className="text-white font-black text-2xl" aria-hidden="true">{isDowntime ? '!' : 'd'}</span>
                 </div>
                 <div className="flex flex-col">
@@ -169,6 +172,14 @@ const Layout: React.FC<LayoutProps> = ({
                         </div>
                     )}
                     <div className="grid grid-cols-1 gap-3 pt-4">
+                        {installable && (
+                            <button onClick={onInstall} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-600 hover:bg-teal-500 shadow-xl shadow-teal-900/40 transition-all focus:ring-offset-2 active:scale-95 group">
+                                <div className="bg-white/20 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                                    <Smartphone size={24} className="text-white" />
+                                </div>
+                                <span className="font-black uppercase tracking-widest text-sm">Install Practice App</span>
+                            </button>
+                        )}
                         <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
                         <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
                     </div>

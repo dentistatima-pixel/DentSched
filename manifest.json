@@ -1,0 +1,23 @@
+{
+  "name": "dentsched Practice Management",
+  "short_name": "dentsched",
+  "description": "Intelligent Dental Management System",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#134e4a",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=dentsched&backgroundColor=134e4a",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=dentsched&backgroundColor=134e4a",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
