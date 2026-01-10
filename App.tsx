@@ -521,6 +521,7 @@ function App() {
         if (status === AppointmentStatus.CANCELLED) newStats.lateCancelCount++;
         const denominator = newStats.completedCount + newStats.noShowCount + newStats.lateCancelCount;
         const score = denominator > 0 ? Math.round((newStats.completedCount / denominator) * 100) : 100;
+        
         setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, attendanceStats: newStats, reliabilityScore: score } : p));
         
         if (status === AppointmentStatus.CANCELLED) {

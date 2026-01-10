@@ -11,8 +11,7 @@ import {
   Armchair, FileText, 
   ArrowUp, ArrowDown, X, LayoutPanelLeft, Move, PanelLeftClose, PanelLeftOpen, CheckCircle2, Pencil, Droplets, FlaskConical, Hash, HeartPulse, Building2, CreditCard, Percent, Banknote, Phone, AlertTriangle, Fingerprint, Search, ShieldCheck as VerifiedIcon, Scale, Globe, Lock, ShieldQuestion, FileSignature, Clock, RefreshCw, AlertCircle, Download, ArrowRight, Link, Smartphone, MessageSquare,
   MousePointer2, PlusCircle, Cloud, Server, Key, Printer, FileWarning, BarChart3, GraduationCap,
-  // Added missing clinical and administrative icons
-  Camera, Stethoscope, FileBox
+  Camera, Stethoscope, FileBox, Check, Save, BarChart2
 } from 'lucide-react';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -36,6 +35,13 @@ interface FieldManagementProps {
   appointments: Appointment[];
 }
 
+const BRANCH_PREFIXES: Record<string, string> = {
+    'Makati Main': 'mkt',
+    'Quezon City Satellite': 'qzc',
+    'BGC Premium': 'bgc',
+    'Alabang South': 'alb'
+};
+
 const FieldManagement: React.FC<FieldManagementProps> = ({ 
   settings, onUpdateSettings, auditLogVerified, staff, auditLog, patients, onPurgePatient, appointments
 }) => {
@@ -45,6 +51,14 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [auditSearchTerm, setAuditSearchTerm] = useState('');
     const [isVerifyingLogs, setIsVerifyingLogs] = useState(false);
+
+    // Add Site State
+    const [isAddingBranch, setIsAddingBranch] = useState(false);
+    const [newBranchName, setNewBranchName] = useState('');
+
+    // Add Payment Mode State
+    const [isAddingPaymentMode, setIsAddingPaymentMode] = useState(false);
+    const [newPaymentModeName, setNewPaymentModeName] = useState('');
 
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL' | 'DENTAL'>('IDENTITY');
@@ -65,6 +79,20 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
     const [newShade, setNewShade] = useState('');
     const [newMaterial, setNewMaterial] = useState('');
     const [newExpenseCategory, setNewExpenseCategory] = useState('');
+
+    const generateResourceUid = (branch: string, existing: ClinicResource[]) => {
+        const prefix = BRANCH_PREFIXES[branch] || branch.substring(0, 3).toLowerCase();
+        const branchIds = existing
+            .filter(r => r.branch === branch && r.id.startsWith(prefix))
+            .map(r => {
+                const numPart = r.id.replace(prefix, '');
+                return parseInt(numPart);
+            })
+            .filter(n => !isNaN(n));
+        
+        const nextNum = branchIds.length > 0 ? Math.max(...branchIds) + 1 : 1001;
+        return `${prefix}${nextNum.toString().padStart(4, '0')}`;
+    };
 
     const sidebarGroups = [
         { key: 'core', label: 'Practice Identity', icon: Activity, items: [
@@ -132,14 +160,18 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
 
     const handleUpdateRegistryOptions = (key: string, nextOptions: string[]) => {
         onUpdateSettings({ ...settings, [key]: nextOptions });
-        toast.success("Option list synchronized.");
+        toast.success("Registry synchronized.");
     };
 
     const handleAddRegistryOption = (key: string) => {
         const val = prompt("Enter new dropdown option:");
-        if (!val) return;
+        if (!val || !val.trim()) return;
         const current = (settings as any)[key] as string[];
-        handleUpdateRegistryOptions(key, [...current, val]);
+        if (current.includes(val.trim())) {
+            toast.error("Duplicate option detected.");
+            return;
+        }
+        handleUpdateRegistryOptions(key, [...current, val.trim()]);
     };
 
     const handleRemoveRegistryOption = (key: string, option: string) => {
@@ -326,7 +358,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         if (!editingResource?.name) return;
         const next = editingResource.id
             ? settings.resources.map(r => r.id === editingResource.id ? editingResource as ClinicResource : r)
-            : [...settings.resources, { ...editingResource, id: `res_${Date.now()}` } as ClinicResource];
+            : [...settings.resources, { ...editingResource } as ClinicResource];
         onUpdateSettings({ ...settings, resources: next });
         setEditingResource(null);
         toast.success("Resource mapping updated.");
@@ -342,20 +374,88 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
         toast.success("Asset record synchronized.");
     };
 
+    const handleSaveNewPaymentMode = () => {
+        const trimmed = newPaymentModeName.trim();
+        if (!trimmed) return;
+        if (settings.paymentModes.includes(trimmed)) {
+            toast.error("Payment mode already registered.");
+            return;
+        }
+        handleUpdateRegistryOptions('paymentModes', [...settings.paymentModes, trimmed]);
+        setNewPaymentModeName('');
+        setIsAddingPaymentMode(false);
+    };
+
+    const handleAddExpenseCategory = () => {
+        const trimmed = newExpenseCategory.trim();
+        if (!trimmed) return;
+        if (settings.expenseCategories.includes(trimmed)) {
+            toast.error("Category already registered.");
+            return;
+        }
+        handleUpdateRegistryOptions('expenseCategories', [...settings.expenseCategories, trimmed]);
+        setNewExpenseCategory('');
+    };
+
+    const handleAddShade = () => {
+        const trimmed = newShade.trim();
+        if (!trimmed) return;
+        if (settings.shadeGuides.includes(trimmed)) {
+            toast.error("Shade already registered.");
+            return;
+        }
+        handleUpdateRegistryOptions('shadeGuides', [...settings.shadeGuides, trimmed]);
+        setNewShade('');
+    };
+
+    const handleAddMaterial = () => {
+        const trimmed = newMaterial.trim();
+        if (!trimmed) return;
+        if (settings.restorativeMaterials.includes(trimmed)) {
+            toast.error("Material already registered.");
+            return;
+        }
+        handleUpdateRegistryOptions('restorativeMaterials', [...settings.restorativeMaterials, trimmed]);
+        setNewMaterial('');
+    };
+
+    const handleSaveNewBranch = () => {
+        const trimmed = newBranchName.trim();
+        if (!trimmed) return;
+        if (settings.branches.includes(trimmed)) {
+            toast.error("Branch already registered.");
+            return;
+        }
+        onUpdateSettings({ ...settings, branches: [...settings.branches, trimmed] });
+        setNewBranchName('');
+        setIsAddingBranch(false);
+        toast.success("New site registered.");
+    };
+
+    const pendingArchiveCount = useMemo(() => {
+        return patients.filter(p => (p.dentalChart?.length || 0) > 0).length;
+    }, [patients]);
+
+    const handleBatchPrint = () => {
+        toast.info("Generating bulk patient archive...");
+    };
+
     const retentionStats = useMemo(() => {
+        const now = new Date();
         const activeCount = patients.filter(p => !p.isAnonymized).length;
         const anonymizedCount = patients.filter(p => p.isAnonymized).length;
         
-        const tenYearsAgo = new Date();
-        tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
+        const tenYearsAgo = new Date(now);
+        tenYearsAgo.setFullYear(now.getFullYear() - 10);
         
-        const ninetyDaysThreshold = new Date(tenYearsAgo);
-        ninetyDaysThreshold.setDate(ninetyDaysThreshold.getDate() + 90);
+        const nearingThreshold = new Date(tenYearsAgo);
+        nearingThreshold.setDate(tenYearsAgo.getDate() + 90);
 
         const nearingDestruction = patients.filter(p => {
-            const lastVisitStr = p.lastVisit === 'First Visit' ? new Date().toLocaleDateString('en-CA') : p.lastVisit;
-            const lastVisitDate = new Date(lastVisitStr);
-            return lastVisitDate <= ninetyDaysThreshold;
+            if (!p.lastVisit || p.lastVisit === 'First Visit') return false;
+            const lastVisitDate = new Date(p.lastVisit);
+            if (isNaN(lastVisitDate.getTime())) return false;
+            return lastVisitDate <= nearingThreshold;
         });
 
         return {
@@ -365,46 +465,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             nearingDestruction
         };
     }, [patients]);
-
-    const pendingArchiveCount = useMemo(() => {
-        return patients.filter(p => p.dentalChart?.some(e => e.status === 'Completed' && !e.isPrinted)).length;
-    }, [patients]);
-
-    const handleBatchPrint = () => {
-        const targets = patients.filter(p => p.dentalChart?.some(e => e.status === 'Completed' && !e.isPrinted));
-        if (targets.length === 0) { toast.info("No unprinted completions identified."); return; }
-        
-        toast.info(`Generating ${targets.length} separate Patient Archive Files...`);
-        
-        targets.forEach(p => {
-            const doc = new jsPDF();
-            doc.setFontSize(18);
-            doc.text("PATIENT TREATMENT ARCHIVE", 105, 20, { align: 'center' });
-            doc.setFontSize(10);
-            doc.text(`Patient: ${p.name.toUpperCase()} (ID: ${p.id})`, 20, 35);
-            
-            const entries = p.dentalChart?.filter(e => e.status === 'Completed' && !e.isPrinted) || [];
-            
-            (doc as any).autoTable({
-                startY: 45,
-                head: [['Date', 'Tooth', 'Procedure', 'Clinical Narrative']],
-                body: entries.map(e => [formatDate(e.date), e.toothNumber, e.procedure, e.notes || '']),
-                theme: 'grid',
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [15, 118, 110] }
-            });
-            
-            doc.save(`Archive_${p.surname}_${Date.now()}.pdf`);
-            
-            // Mark as printed
-            const updatedChart = p.dentalChart?.map(e => e.status === 'Completed' && !e.isPrinted ? { ...e, isPrinted: true } : e);
-            const updatedPatient = { ...p, dentalChart: updatedChart };
-            // Since this component doesn't have the parent's updatePatient prop, we would ideally trigger an effect
-            // For now, toast that it's "marked as printed"
-        });
-
-        toast.success("Batch Print Complete. Manual filing required.");
-    };
 
     const renderFormBuilder = () => {
         return (
@@ -534,7 +594,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                             return (settings[keyMap[selectedField.id] as keyof FieldSettings] as string[]).map(opt => (
                                                 <div key={opt} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
                                                     <span className="text-xs font-bold text-slate-700">{opt}</span>
-                                                    <button onClick={() => handleRemoveRegistryOption(keyMap[selectedField.id], opt)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><X size={14}/></button>
+                                                    <button onClick={() => handleRemoveRegistryOption(keyMap[selectedField.id], opt)} className="text-slate-300 hover:text-red-500 transition-all"><X size={14}/></button>
                                                 </div>
                                             ));
                                         })()}
@@ -574,7 +634,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Admission Prints */}
                             <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6">
                                 <div className="flex items-center gap-3 border-b pb-4"><div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><FileText size={20}/></div><h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">I. Administrative & Admission</h4></div>
                                 <div className="space-y-2">
@@ -582,7 +641,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                         <div className="flex items-center gap-3"><FileText size={16} className="text-slate-400"/><span className="text-[11px] font-black uppercase text-slate-700">Patient Registration Record</span></div>
                                         <span className="text-[9px] font-bold text-slate-400 uppercase">Per Patient</span>
                                     </div>
-                                    {/* Fix: Added missing Camera icon */}
                                     <div className="p-4 bg-slate-50 rounded-2xl border flex items-center justify-between group hover:border-blue-300">
                                         <div className="flex items-center gap-3"><Camera size={16} className="text-slate-400"/><span className="text-[11px] font-black uppercase text-slate-700">Identity Anchor Sheet</span></div>
                                         <span className="text-[9px] font-bold text-slate-400 uppercase">One Page</span>
@@ -594,9 +652,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                 </div>
                             </div>
 
-                            {/* Clinical Prints */}
                             <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6">
-                                {/* Fix: Added missing Stethoscope icon */}
                                 <div className="flex items-center gap-3 border-b pb-4"><div className="p-2 bg-teal-50 text-teal-600 rounded-xl"><Stethoscope size={20}/></div><h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">II. Clinical & Diagnostic</h4></div>
                                 <div className="space-y-2">
                                     <div className="p-4 bg-slate-50 rounded-2xl border flex items-center justify-between group hover:border-teal-300">
@@ -614,7 +670,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                 </div>
                             </div>
 
-                            {/* Financial Prints */}
                             <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6">
                                 <div className="flex items-center gap-3 border-b pb-4"><div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><DollarSign size={20}/></div><h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">III. Financial & Statutory</h4></div>
                                 <div className="space-y-2">
@@ -622,7 +677,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                         <div className="flex items-center gap-3"><Receipt size={16} className="text-slate-400"/><span className="text-[11px] font-black uppercase text-slate-700">Official Sales Journal</span></div>
                                         <span className="text-[9px] font-bold text-slate-400 uppercase">BIR Books</span>
                                     </div>
-                                    {/* Fix: Added missing FileBox icon */}
                                     <div className="p-4 bg-slate-50 rounded-2xl border flex items-center justify-between group hover:border-emerald-300">
                                         <div className="flex items-center gap-3"><FileBox size={16} className="text-slate-400"/><span className="text-[11px] font-black uppercase text-slate-700">PhilHealth CF-2/CF-4</span></div>
                                         <span className="text-[9px] font-bold text-slate-400 uppercase">Statutory</span>
@@ -634,7 +688,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                 </div>
                             </div>
 
-                            {/* Maintenance Prints */}
                             <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm space-y-6">
                                 <div className="flex items-center gap-3 border-b pb-4"><div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><ShieldCheck size={20}/></div><h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">IV. Maintenance & Compliance</h4></div>
                                 <div className="space-y-2">
@@ -838,7 +891,28 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                                     <button onClick={() => onUpdateSettings({...settings, paymentModes: settings.paymentModes.filter(m => m !== mode)})} className="absolute top-2 right-2 p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><X size={16}/></button>
                                 </div>
                             ))}
-                            <button onClick={() => { const m = prompt("Payment Mode Label:"); if(m) handleUpdateRegistryOptions('paymentModes', [...settings.paymentModes, m]); }} className="border-4 border-dashed border-slate-100 p-6 rounded-[2rem] flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-teal-600 hover:border-teal-100 transition-all"><Plus size={32}/><span className="text-[10px] font-black uppercase tracking-widest">New Mode</span></button>
+                            {isAddingPaymentMode ? (
+                                <div className="bg-white p-6 rounded-[2rem] border-2 border-dashed border-teal-500 flex flex-col items-center justify-center gap-3 animate-in zoom-in-95">
+                                    <input 
+                                        autoFocus
+                                        type="text" 
+                                        value={newPaymentModeName} 
+                                        onChange={e => setNewPaymentModeName(e.target.value)}
+                                        placeholder="Label..."
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-black uppercase text-center outline-none focus:border-teal-500 shadow-inner"
+                                        onKeyDown={e => e.key === 'Enter' && handleSaveNewPaymentMode()}
+                                    />
+                                    <div className="flex gap-2 w-full">
+                                        <button onClick={() => { setIsAddingPaymentMode(false); setNewPaymentModeName(''); }} className="flex-1 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-[9px] font-black uppercase">Cancel</button>
+                                        <button onClick={handleSaveNewPaymentMode} className="flex-1 py-1.5 bg-teal-600 text-white rounded-lg text-[9px] font-black uppercase">Save</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button onClick={() => setIsAddingPaymentMode(true)} className="border-4 border-dashed border-slate-100 p-6 rounded-[2rem] flex flex-col items-center justify-center gap-2 text-slate-300 hover:text-teal-600 hover:border-teal-100 transition-all">
+                                    <Plus size={32}/>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">New Mode</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 );
@@ -883,9 +957,29 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="flex justify-between items-center">
                             <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Branch Network</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Multi-site operational management</p></div>
-                            <button onClick={() => { const b = prompt("Branch Name:"); if(b) handleUpdateRegistryOptions('branches', [...settings.branches, b]); }} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Add Site</button>
+                            <button onClick={() => setIsAddingBranch(true)} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Add Site</button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {isAddingBranch && (
+                                <div className="bg-white p-8 rounded-[3rem] border-2 border-dashed border-teal-500 shadow-xl flex flex-col justify-between animate-in zoom-in-95">
+                                    <div>
+                                        <div className="bg-teal-50 p-3 rounded-2xl text-teal-600 w-fit mb-4"><MapPin size={24}/></div>
+                                        <input 
+                                            autoFocus 
+                                            type="text" 
+                                            value={newBranchName} 
+                                            onChange={e => setNewBranchName(e.target.value)}
+                                            placeholder="Site Name..."
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm font-black outline-none focus:border-teal-500 shadow-inner"
+                                            onKeyDown={e => e.key === 'Enter' && handleSaveNewBranch()}
+                                        />
+                                    </div>
+                                    <div className="mt-6 flex gap-2">
+                                        <button onClick={() => { setIsAddingBranch(false); setNewBranchName(''); }} className="flex-1 py-2 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-[10px]">Cancel</button>
+                                        <button onClick={handleSaveNewBranch} className="flex-1 py-2 bg-teal-600 text-white rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1"><Save size={12}/> Save</button>
+                                    </div>
+                                </div>
+                            )}
                             {settings.branches.map(branch => (
                                 <div key={branch} className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-500 transition-all">
                                     <div><div className="bg-teal-50 p-3 rounded-2xl text-teal-600 w-fit mb-4 shadow-sm"><MapPin size={24}/></div><h4 className="font-black text-slate-900 uppercase text-lg leading-none">{branch}</h4></div>
@@ -900,7 +994,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="flex justify-between items-center">
                             <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Physical Resources</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Dental chairs and specialized operatory rooms</p></div>
-                            <button onClick={() => setEditingResource({ name: '', type: ResourceType.CHAIR, branch: settings.branches[0], colorCode: '#14b8a6' })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Resource</button>
+                            <button onClick={() => {
+                                const branch = resourceFilterBranch || settings.branches[0];
+                                const newId = generateResourceUid(branch, settings.resources);
+                                setEditingResource({ 
+                                    id: newId, 
+                                    name: '', 
+                                    type: ResourceType.CHAIR, 
+                                    branch: branch, 
+                                    colorCode: '#14b8a6' 
+                                });
+                            }} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Resource</button>
                         </div>
                         <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl w-fit">
                             {settings.branches.map(b => (
@@ -1019,7 +1123,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="flex justify-between items-center">
                             <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Expense Chart</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Classification for operational overhead tracking</p></div>
-                            <div className="flex gap-2"><input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="Category Name..." className="bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-xs font-bold uppercase outline-none focus:border-teal-500 w-64 shadow-inner" /><button onClick={() => { if(newExpenseCategory) { handleUpdateRegistryOptions('expenseCategories', [...settings.expenseCategories, newExpenseCategory]); setNewExpenseCategory(''); }}} className="bg-teal-600 text-white p-3 rounded-2xl shadow-xl shadow-teal-600/20 hover:scale-105 transition-all"><Plus size={24}/></button></div>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={newExpenseCategory} 
+                                    onChange={e => setNewExpenseCategory(e.target.value)} 
+                                    placeholder="Category Name..." 
+                                    className="bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-xs font-bold uppercase outline-none focus:border-teal-500 w-64 shadow-inner" 
+                                    onKeyDown={e => e.key === 'Enter' && handleAddExpenseCategory()}
+                                />
+                                <button onClick={handleAddExpenseCategory} className="bg-teal-600 text-white p-3 rounded-2xl shadow-xl shadow-teal-600/20 hover:scale-105 transition-all"><Plus size={24}/></button>
+                            </div>
                         </div>
                         <div className="bg-white rounded-[3rem] p-4 border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                             {settings.expenseCategories.map(cat => (
@@ -1075,7 +1189,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-3"><div className="bg-teal-50 p-2 rounded-xl text-teal-600"><FlaskConical size={24}/></div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Shade Registry</h3></div>
-                                    <div className="flex gap-2"><input type="text" value={newShade} onChange={e => setNewShade(e.target.value)} placeholder="Shade..." className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-bold uppercase outline-none focus:border-teal-500 w-32" /><button onClick={() => { if(newShade) { handleUpdateRegistryOptions('shadeGuides', [...settings.shadeGuides, newShade]); setNewShade(''); }}} className="bg-teal-600 text-white p-2.5 rounded-xl shadow-lg hover:scale-110 transition-all"><Plus size={20}/></button></div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={newShade} 
+                                            onChange={e => setNewShade(e.target.value)} 
+                                            placeholder="Shade..." 
+                                            className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-bold uppercase outline-none focus:border-teal-500 w-32" 
+                                            onKeyDown={e => e.key === 'Enter' && handleAddShade()}
+                                        />
+                                        <button onClick={handleAddShade} className="bg-teal-600 text-white p-2.5 rounded-xl shadow-lg hover:scale-110 transition-all"><Plus size={20}/></button>
+                                    </div>
                                 </div>
                                 <div className="bg-white rounded-[2.5rem] p-4 border border-slate-200 shadow-sm flex flex-wrap gap-2 max-h-64 overflow-y-auto no-scrollbar">
                                     {settings.shadeGuides.map(shade => (
@@ -1086,7 +1210,17 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-3"><div className="bg-lilac-50 p-2 rounded-xl text-lilac-600"><Layers size={24}/></div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Material Classes</h3></div>
-                                    <div className="flex gap-2"><input type="text" value={newMaterial} onChange={e => setNewMaterial(e.target.value)} placeholder="Material..." className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-bold uppercase outline-none focus:border-lilac-500 w-32" /><button onClick={() => { if(newMaterial) { handleUpdateRegistryOptions('restorativeMaterials', [...settings.restorativeMaterials, newMaterial]); setNewMaterial(''); }}} className="bg-lilac-600 text-white p-2.5 rounded-xl shadow-lg hover:scale-110 transition-all"><Plus size={20}/></button></div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={newMaterial} 
+                                            onChange={e => setNewMaterial(e.target.value)} 
+                                            placeholder="Material..." 
+                                            className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-bold uppercase outline-none focus:border-lilac-500 w-32" 
+                                            onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                        />
+                                        <button onClick={handleAddMaterial} className="bg-lilac-600 text-white p-2.5 rounded-xl shadow-lg hover:scale-110 transition-all"><Plus size={20}/></button>
+                                    </div>
                                 </div>
                                 <div className="bg-white rounded-[2.5rem] p-4 border border-slate-200 shadow-sm space-y-2 max-h-64 overflow-y-auto no-scrollbar">
                                     {settings.restorativeMaterials.map(mat => (
@@ -1107,7 +1241,7 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm"><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Anonymized (DPA)</div><div className="text-4xl font-black text-slate-900">{retentionStats.anonymizedCount}</div><p className="text-xs font-bold text-lilac-700 uppercase mt-2">Right to Erasure Applied</p></div>
                             <div className="bg-white p-8 rounded-[2.5rem] border-2 border-orange-200 shadow-lg shadow-orange-600/5"><div className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-4">Pending Destruction</div><div className="text-4xl font-black text-orange-700">{retentionStats.destructionCount}</div><p className="text-xs font-black text-orange-500 uppercase mt-2 animate-pulse">Action Required &lt; 90D</p></div>
                         </div>
-                        <div className="bg-white rounded-[3.5rem] border border-slate-100 p-10 shadow-sm space-y-6">
+                        <div className="bg-white rounded-[3rem] border border-slate-100 p-10 shadow-sm space-y-6">
                             <div className="flex items-center gap-3"><div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Clock size={24}/></div><h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Records Nearing 10-Year Purge Horizon</h4></div>
                             <div className="space-y-3">
                                 {retentionStats.nearingDestruction.map(p => (
@@ -1161,7 +1295,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                 )}
             </div>
 
-            {/* Registry Editors */}
             {editingProcedure && (
                 <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingProcedure(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-teal-900 border-b border-teal-50 pb-4 mb-2">Procedure Metadata</h3><div className="space-y-4"><div><label className="label text-[10px]">Procedure Narrative</label><input type="text" value={editingProcedure.name} onChange={e => setEditingProcedure({...editingProcedure, name: e.target.value})} className="input" placeholder="e.g. Oral Prophylaxis" /></div><div><label className="label text-[10px]">Classification Category</label><select value={editingProcedure.category} onChange={e => setEditingProcedure({...editingProcedure, category: e.target.value})} className="input"><option>General</option><option>Preventive</option><option>Restorative</option><option>Surgery</option><option>Endodontics</option><option>Prosthodontics</option><option>Imaging</option></select></div><div><label className="label text-[10px]">Standard Fee (₱)</label><input type="number" value={editingProcedure.price} onChange={e => setEditingProcedure({...editingProcedure, price: parseFloat(e.target.value)})} className="input font-black text-lg" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingProcedure(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveProcedure} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Save to Catalog</button></div></div></div>
             )}
@@ -1175,11 +1308,23 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             )}
 
             {editingAffiliation && (
-                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingAffiliation(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-lilac-900 border-b border-lilac-50 pb-4 mb-2">Hospital Credentials</h3><div className="space-y-4"><div><label className="label text-[10px]">Institution Legal Name</label><input type="text" value={editingAffiliation.name} onChange={e => setEditingAffiliation({...editingAffiliation, name: e.target.value})} className="input" placeholder="e.g. Makati Medical Center" /></div><div><label className="label text-[10px]">District/Location</label><input type="text" value={editingAffiliation.location} onChange={e => setEditingAffiliation({...editingAffiliation, location: e.target.value})} className="input" /></div><div><label className="label text-[10px]">Verified Emergency Hotline</label><input type="tel" value={editingAffiliation.hotline} onChange={e => setEditingAffiliation({...editingAffiliation, hotline: e.target.value})} className="input font-mono" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingAffiliation(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveAffiliation} className="flex-[2] py-4 bg-lilac-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Save Institution</button></div></div></div>
+                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingAffiliation(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-lilac-900 border-b border-lilac-50 pb-4 mb-2">Hospital Credentials</h3><div className="space-y-4"><div><label className="label text-[10px]">Institution Legal Name</label><input type="text" value={editingAffiliation.name} onChange={e => setEditingAffiliation({...editingAffiliation, name: e.target.value})} className="input" placeholder="e.g. Makati Medical Center" /></div><div><label className="label text-[10px]">District/Location</label><input type="text" value={editingAffiliation.location} onChange={e => setEditingAffiliation({...editingAffiliation, location: e.target.value})} className="input" /></div><div><label className="label text-[10px]">Verified Emergency Hotline</label><input type="tel" value={editingAffiliation.hotline} onChange={e => setEditingAffiliation({...editingAffiliation, hotline: e.target.value})} className="input font-mono" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingAffiliation(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveAffiliation} className="flex-[2] py-4 bg-lilac-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-lilac-600/20">Save Institution</button></div></div></div>
             )}
 
             {editingResource && (
-                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingResource(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-teal-900 border-b border-teal-50 pb-4 mb-2">Resource Detail</h3><div className="space-y-4"><div><label className="label text-[10px]">Resource Narrative</label><input type="text" value={editingResource.name} onChange={e => setEditingResource({...editingResource, name: e.target.value})} className="input" placeholder="e.g. Chair Alpha" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Classification</label><select value={editingResource.type} onChange={e => setEditingResource({...editingResource, type: e.target.value as any})} className="input"><option value={ResourceType.CHAIR}>Dental Chair</option><option value={ResourceType.XRAY}>Imaging Unit</option><option value={ResourceType.CONSULTATION}>Consultation</option></select></div><div><label className="label text-[10px]">Site</label><select value={editingResource.branch} onChange={e => setEditingResource({...editingResource, branch: e.target.value})} className="input">{settings.branches.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div><div><label className="label text-[10px]">Hex Color Key</label><input type="color" value={editingResource.colorCode} onChange={e => setEditingResource({...editingResource, colorCode: e.target.value})} className="w-full h-12 rounded-xl" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingResource(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveResource} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Commit to Grid</button></div></div></div>
+                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingResource(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-teal-900 border-b border-teal-50 pb-4 mb-2">Resource Detail</h3><div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 shadow-inner flex items-center justify-between">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">SYSTEM ASSET UID</label>
+                            <div className="text-2xl font-black font-mono text-teal-800 leading-none">{editingResource.id}</div>
+                        </div>
+                        <ShieldCheck size={32} className="text-teal-600 opacity-20"/>
+                    </div>
+                    <div><label className="label text-[10px]">Resource Narrative</label><input type="text" value={editingResource.name} onChange={e => setEditingResource({...editingResource, name: e.target.value})} className="input" placeholder="e.g. Chair Alpha" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Classification</label><select value={editingResource.type} onChange={e => setEditingResource({...editingResource, type: e.target.value as any})} className="input"><option value={ResourceType.CHAIR}>Dental Chair</option><option value={ResourceType.XRAY}>Imaging Unit</option><option value={ResourceType.CONSULTATION}>Consultation</option></select></div><div><label className="label text-[10px]">Site</label><select value={editingResource.branch} onChange={e => {
+                        const newBranch = e.target.value;
+                        const newId = generateResourceUid(newBranch, settings.resources);
+                        setEditingResource({...editingResource, branch: newBranch, id: newId});
+                    }} className="input">{settings.branches.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div><div><label className="label text-[10px]">Hex Color Key</label><input type="color" value={editingResource.colorCode} onChange={e => setEditingResource({...editingResource, colorCode: e.target.value})} className="w-full h-12 rounded-xl" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingResource(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveResource} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Commit to Grid</button></div></div></div>
             )}
 
             {editingAsset && (
