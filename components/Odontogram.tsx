@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
-// Fix: Added missing formatDate import from constants
 import { formatDate } from '../constants';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole, Sparkles } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -24,7 +23,7 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
     { id: 'cursor', label: 'Select', icon: MousePointer2, procedure: '', status: 'Existing', color: 'text-slate-800' },
-    { id: 'exam', label: 'Condition', icon: Search, procedure: 'Caries', status: 'Planned', color: 'text-lilac-600' },
+    { id: 'exam', label: 'Finding', icon: Search, procedure: 'Caries', status: 'Planned', color: 'text-lilac-600' },
     { id: 'restoration', label: 'Filling', icon: Hammer, procedure: 'Composite Restoration', status: 'Completed', color: 'text-teal-600' },
     { id: 'endo', label: 'Endo', icon: Activity, procedure: 'Root Canal', status: 'Planned', color: 'text-purple-600' },
     { id: 'crown', label: 'Crown', icon: Crown, procedure: 'Crown', status: 'Planned', color: 'text-amber-600' },
@@ -76,11 +75,11 @@ const GeometricTooth: React.FC<{
     };
 
     const colorMap: Record<string, string> = {
-        'Planned': '#c026d3', // Lilac - Stage 2
-        'Completed': '#14b8a6', // Teal - Stage 2
-        'Existing': '#3b82f6', // Blue - Stage 2
-        'Condition': '#ef4444', // Red - Stage 2
-        'None': '#f8fafc'
+        'Planned': '#d946ef', // Lilac 400
+        'Completed': '#2dd4bf', // Teal 400
+        'Existing': '#cbd5e1', // Slate 300
+        'Condition': '#ef4444', // Red 500
+        'None': '#ffffff'
     };
 
     const getPriorityColor = (relevantEntries: DentalChartEntry[]) => {
@@ -121,7 +120,7 @@ const GeometricTooth: React.FC<{
         e.procedure.toLowerCase().includes('missing')
     );
     const isMissingOrExtracted = !!extractionEntry;
-    const extractionColor = extractionEntry ? (extractionEntry.status === 'Existing' ? '#3b82f6' : '#c026d3') : '#c026d3';
+    const extractionColor = extractionEntry ? (extractionEntry.status === 'Existing' ? '#94a3b8' : '#d946ef') : '#d946ef';
 
     const hasRootCanal = toothEntries.some(e => e.procedure.toLowerCase().includes('root canal'));
 
@@ -133,8 +132,8 @@ const GeometricTooth: React.FC<{
     if (isPatientRight) { pLeft = cD; sLeft = 'D'; pRight = cM; sRight = 'M'; } 
     else { pLeft = cM; sLeft = 'M'; pRight = cD; sRight = 'D'; }
 
-    const strokeColor = isSelected ? "#0d9488" : "#cbd5e1"; 
-    const strokeWidth = isSelected ? "3" : (isZoomed ? "1" : "1.5");
+    const strokeColor = isSelected ? "#0d9488" : "#e2e8f0"; 
+    const strokeWidth = isSelected ? "3" : (isZoomed ? "1.5" : "1");
 
     const u_root = "M30 0 L70 0 L70 15 L30 15 Z";
     const u_top = "M0 15 L100 15 L70 38 L30 38 Z";
@@ -156,42 +155,44 @@ const GeometricTooth: React.FC<{
         <div 
             role="button"
             aria-label={`Tooth #${number}, ${toothEntries.length} clinical records`}
-            className={`flex flex-col items-center justify-center relative transition-transform touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
+            className={`flex flex-col items-center justify-center relative transition-all duration-500 touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
             style={{ width: isZoomed ? '240px' : isDeciduous ? '48px' : '64px', height: isZoomed ? '300px' : isDeciduous ? '60px' : '80px', minWidth: isZoomed ? '48px' : '48px' }} 
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
-            <span className={`font-black font-mono absolute ${isUpper ? '-top-2' : '-bottom-2'} transition-colors ${isSelected ? 'text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full shadow-sm' : 'text-slate-500'} ${isZoomed ? 'text-2xl' : 'text-xs'}`} aria-hidden="true">
+            <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? '-top-3' : '-bottom-3'} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} ${isZoomed ? 'text-3xl' : 'text-[10px]'}`} aria-hidden="true">
                 {number}
             </span>
-            <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
-                {isUpper ? (
-                    <>
-                        <g onClick={(e) => handleClick(e, 'R')} role="button" aria-label={`Tooth ${number} Root segment`}>
-                            <path d={u_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
-                            {hasRootCanal && <line x1="50" y1="0" x2="50" y2="15" stroke="white" strokeWidth="2" />}
-                        </g>
-                        <path d={u_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} role="button" aria-label={`Tooth ${number} ${sTop} surface`} />
-                        <path d={u_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} role="button" aria-label={`Tooth ${number} ${sRight} surface`} />
-                        <path d={u_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} role="button" aria-label={`Tooth ${number} ${sBottom} surface`} />
-                        <path d={u_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} role="button" aria-label={`Tooth ${number} ${sLeft} surface`} />
-                        <path d={u_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} role="button" aria-label={`Tooth ${number} Occlusal surface`} />
-                        {isMissingOrExtracted && <path d={u_cross} stroke={extractionColor} strokeWidth="5" opacity="0.8" />}
-                    </>
-                ) : (
-                    <>
-                        <g onClick={(e) => handleClick(e, 'R')} role="button" aria-label={`Tooth ${number} Root segment`}>
-                            <path d={l_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} />
-                            {hasRootCanal && <line x1="50" y1="85" x2="50" y2="100" stroke="white" strokeWidth="2" />}
-                        </g>
-                        <path d={l_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} role="button" aria-label={`Tooth ${number} ${sTop} surface`} />
-                        <path d={l_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} role="button" aria-label={`Tooth ${number} ${sRight} surface`} />
-                        <path d={l_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} role="button" aria-label={`Tooth ${number} ${sBottom} surface`} />
-                        <path d={l_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} role="button" aria-label={`Tooth ${number} ${sLeft} surface`} />
-                        <path d={l_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} role="button" aria-label={`Tooth ${number} Occlusal surface`} />
-                        {isMissingOrExtracted && <path d={l_cross} stroke={extractionColor} strokeWidth="5" opacity="0.8" />}
-                    </>
-                )}
-            </svg>
+            <div className={`w-full h-full relative transition-all duration-500 ${isSelected ? 'drop-shadow-[0_0_15px_rgba(20,184,166,0.3)]' : ''}`}>
+                <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+                    {isUpper ? (
+                        <>
+                            <g onClick={(e) => handleClick(e, 'R')} role="button" aria-label={`Tooth ${number} Root segment`}>
+                                <path d={u_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} className="transition-colors duration-300" />
+                                {hasRootCanal && <line x1="50" y1="0" x2="50" y2="15" stroke="white" strokeWidth="2" />}
+                            </g>
+                            <path d={u_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} role="button" className="transition-colors duration-300" />
+                            <path d={u_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} role="button" className="transition-colors duration-300" />
+                            <path d={u_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} role="button" className="transition-colors duration-300" />
+                            <path d={u_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} role="button" className="transition-colors duration-300" />
+                            <path d={u_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} role="button" className="transition-colors duration-300" />
+                            {isMissingOrExtracted && <path d={u_cross} stroke={extractionColor} strokeWidth="6" opacity="0.8" className="animate-in fade-in" />}
+                        </>
+                    ) : (
+                        <>
+                            <g onClick={(e) => handleClick(e, 'R')} role="button" aria-label={`Tooth ${number} Root segment`}>
+                                <path d={l_root} fill={cRootFill} stroke={strokeColor} strokeWidth={strokeWidth} className="transition-colors duration-300" />
+                                {hasRootCanal && <line x1="50" y1="85" x2="50" y2="100" stroke="white" strokeWidth="2" />}
+                            </g>
+                            <path d={l_top} fill={pTop} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sTop)} role="button" className="transition-colors duration-300" />
+                            <path d={l_rgt} fill={pRight} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sRight)} role="button" className="transition-colors duration-300" />
+                            <path d={l_btm} fill={pBottom} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sBottom)} role="button" className="transition-colors duration-300" />
+                            <path d={l_lft} fill={pLeft} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, sLeft)} role="button" className="transition-colors duration-300" />
+                            <path d={l_ctr} fill={cO} stroke={strokeColor} strokeWidth={strokeWidth} onClick={(e) => handleClick(e, 'O')} role="button" className="transition-colors duration-300" />
+                            {isMissingOrExtracted && <path d={l_cross} stroke={extractionColor} strokeWidth="6" opacity="0.8" className="animate-in fade-in" />}
+                        </>
+                    )}
+                </svg>
+            </div>
         </div>
     )
 }
@@ -209,9 +210,9 @@ const QuadrantWrapper: React.FC<QuadrantWrapperProps> = ({ children, quadrant, a
         <div 
           onClick={() => !activeQuadrant && setActiveQuadrant(quadrant)}
           className={`
-              relative p-6 transition-all rounded-[2.5rem]
-              ${!activeQuadrant ? 'hover:bg-slate-100 cursor-zoom-in border-2 border-transparent hover:border-teal-300' : ''}
-              ${isSelected ? 'scale-125 z-40 bg-white shadow-[0_30px_60px_rgba(0,0,0,0.12)] ring-8 ring-teal-500/10' : activeQuadrant ? 'opacity-20 scale-90 blur-[2px]' : ''}
+              relative p-8 transition-all duration-700 rounded-[3.5rem]
+              ${!activeQuadrant ? 'hover:bg-teal-50/30 cursor-zoom-in border-4 border-transparent hover:border-teal-100 hover:shadow-2xl hover:shadow-teal-900/5' : ''}
+              ${isSelected ? 'scale-125 z-40 bg-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] ring-[16px] ring-teal-500/5 border-2 border-teal-100' : activeQuadrant ? 'opacity-10 scale-90 blur-[4px]' : ''}
           `}
           role="region"
           aria-label={`Quadrant ${quadrant} grid`}
@@ -220,9 +221,9 @@ const QuadrantWrapper: React.FC<QuadrantWrapperProps> = ({ children, quadrant, a
                 <button 
                   aria-label="Exit zoom mode"
                   onClick={(e) => { e.stopPropagation(); setActiveQuadrant(null); }}
-                  className="absolute -top-4 -right-4 bg-red-600 text-white p-2.5 rounded-full shadow-xl z-50 hover:bg-red-700 transition-colors"
+                  className="absolute -top-6 -right-6 bg-red-600 text-white p-3 rounded-full shadow-2xl z-50 hover:bg-red-700 transition-all hover:rotate-90 active:scale-90"
                 >
-                    <Minimize2 size={24}/>
+                    <Minimize2 size={28}/>
                 </button>
             )}
             {children}
@@ -282,42 +283,42 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
 
   return (
     <div className="flex flex-col gap-6 relative h-full">
-        <div className="flex flex-wrap justify-between items-center bg-slate-100/60 backdrop-blur-md p-2.5 rounded-2xl gap-3 border border-slate-200 shadow-inner">
+        {/* Unified Tool & Perspective Bar */}
+        <div className="flex flex-wrap justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
              {!readOnly && (
-                <div className="flex gap-2 overflow-x-auto no-scrollbar" role="toolbar" aria-label="Clinical charting tools">
+                <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1 py-1" role="toolbar" aria-label="Clinical charting palette">
                     {TOOLS.map(tool => (
                         <button 
                             key={tool.id} 
                             onClick={() => { setActiveToolId(tool.id); setSelectedTooth(null); }} 
-                            className={`flex flex-col items-center justify-center p-2 rounded-xl min-w-[64px] transition-all duration-300 ${activeToolId === tool.id ? 'bg-white text-slate-900 shadow-md -translate-y-1' : 'text-slate-600 hover:text-slate-800'}`}
+                            className={`flex flex-col items-center justify-center p-2.5 rounded-2xl min-w-[72px] transition-all duration-500 border-2 ${activeToolId === tool.id ? 'bg-teal-900 border-teal-900 text-white shadow-2xl shadow-teal-900/40 -translate-y-1.5' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-teal-100 hover:text-slate-700'}`}
                             aria-pressed={activeToolId === tool.id}
                             aria-label={`Charting tool: ${tool.label}`}
                         >
-                            <tool.icon size={20} className={activeToolId === tool.id ? tool.color : ''} />
-                            <span className="text-xs font-black uppercase tracking-tighter mt-1.5">{tool.label}</span>
+                            <tool.icon size={22} className={activeToolId === tool.id ? 'text-teal-400' : 'transition-colors'} />
+                            <span className="text-[10px] font-black uppercase tracking-widest mt-2 leading-none">{tool.label}</span>
                         </button>
                     ))}
                 </div>
              )}
              
-             <div className="flex gap-2 ml-auto items-center">
+             <div className="flex gap-3 ml-auto items-center">
                  <button 
                     onClick={() => setIsPatientPerspective(!isPatientPerspective)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all border shadow-sm ${isPatientPerspective ? 'bg-teal-100 border-teal-300 text-teal-800' : 'bg-white border-slate-200 text-slate-700 hover:border-teal-300'}`}
-                    aria-label={`Perspective: Currently ${isPatientPerspective ? 'Patient' : 'Dentist'}`}
+                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${isPatientPerspective ? 'bg-lilac-50 border-lilac-200 text-lilac-700 ring-4 ring-lilac-500/5' : 'bg-white border-slate-100 text-slate-500 hover:border-lilac-200'}`}
+                    aria-label={`Perspective toggle`}
                  >
                      <FlipHorizontal size={14}/> {isPatientPerspective ? 'PATIENT' : 'DENTIST'}
                  </button>
 
-                 <div className="bg-white rounded-xl p-1 border border-slate-200 flex shadow-sm" role="group" aria-label="Arch dentition mode">
-                    <button onClick={() => setDentitionMode('Permanent')} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dentitionMode === 'Permanent' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-600 hover:text-teal-700'}`}>ADULT</button>
-                    <button onClick={() => setDentitionMode('Mixed')} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${dentitionMode === 'Mixed' ? 'bg-lilac-600 text-white shadow-md' : 'text-slate-600 hover:text-lilac-700'}`}><Baby size={12}/> MIXED</button>
+                 <div className="bg-slate-50 rounded-2xl p-1.5 border-2 border-slate-100 flex shadow-inner gap-1" role="group" aria-label="Arch dentition mode">
+                    <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
+                    <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>
                  </div>
                  
                  <button 
                     onClick={() => setShowBaseline(!showBaseline)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all border shadow-sm ${showBaseline ? 'bg-amber-100 border-amber-300 text-amber-900' : 'bg-white border-slate-200 text-slate-600'}`}
-                    aria-label={`Showing ${showBaseline ? 'Baseline' : 'Active'} chart status`}
+                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${showBaseline ? 'bg-amber-50 border-amber-300 text-amber-900 ring-4 ring-amber-500/5' : 'bg-white border-slate-100 text-slate-500'}`}
                  >
                      <Clock size={14}/> {showBaseline ? 'BASELINE' : 'ACTIVE'}
                  </button>
@@ -325,63 +326,66 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
         </div>
 
         <div 
-          className="bg-white rounded-[3rem] border border-slate-200 overflow-hidden shadow-2xl bg-slate-50/20 relative min-h-[500px] flex flex-col justify-center items-center"
+          className="bg-white rounded-[4rem] border-4 border-white overflow-hidden shadow-[inset_0_2px_15px_rgba(0,0,0,0.02),0_10px_40px_rgba(0,0,0,0.03)] relative min-h-[600px] flex flex-col justify-center items-center transition-all duration-700 group/canvas"
           role="img"
-          aria-label="Graphic dental chart visualizing tooth conditions and procedure logs"
+          aria-label="Clinical Odontogram"
         >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#f0fdfa_0%,#ffffff_100%)] opacity-40 pointer-events-none" />
+
             {activeQuadrant && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 animate-in fade-in duration-300" onClick={() => setActiveQuadrant(null)} aria-hidden="true" />
+                <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 animate-in fade-in duration-700" onClick={() => setActiveQuadrant(null)} aria-hidden="true" />
             )}
 
             {readOnly && (
-                <div className="absolute inset-0 z-50 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center p-8 text-center animate-in fade-in duration-300">
-                    <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-red-50 max-w-sm flex flex-col items-center justify-center">
-                        <div className="w-20 h-20 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-red-600/10">
-                            <LockKeyhole size={40} />
+                <div className="absolute inset-0 z-[60] bg-slate-900/10 backdrop-blur-md flex items-center justify-center p-12 text-center animate-in fade-in duration-700">
+                    <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-4 border-red-50 max-w-sm flex flex-col items-center justify-center animate-in zoom-in-95">
+                        <div className="w-24 h-24 bg-red-50 text-red-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-red-600/10 animate-pulse">
+                            <LockKeyhole size={48} />
                         </div>
-                        <h4 className="text-xl font-black text-slate-800 uppercase tracking-tighter mb-3">Clinical Lock Active</h4>
-                        <p className="text-sm text-slate-700 font-medium leading-relaxed">
-                            Treatment data is restricted. The patient has withdrawn medical processing consent (PDA Governance).
+                        <h4 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-4 leading-none">Security Lock</h4>
+                        <p className="text-sm text-slate-500 font-bold leading-relaxed uppercase tracking-widest">
+                            Clinical data processing restricted by statutory governance (PDA).
                         </p>
                     </div>
                 </div>
             )}
 
             <div className={`
-                flex flex-col gap-0 items-center py-10 transition-all duration-700
+                flex flex-col gap-0 items-center py-16 transition-all duration-1000
                 ${isPatientPerspective ? 'scale-x-[-1]' : ''}
+                ${activeQuadrant ? 'translate-y-[-10%]' : ''}
             `}>
                 <div className="flex flex-col items-center">
-                    <div className="flex border-b-2 border-slate-200 w-full justify-center">
+                    <div className="flex border-b-4 border-slate-100/50 w-full justify-center">
                         <QuadrantWrapper quadrant={1} activeQuadrant={activeQuadrant} setActiveQuadrant={setActiveQuadrant}>
-                            <div className="flex flex-col items-center">
-                                <div className="flex gap-1 mb-3">{q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
-                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full">{dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="flex gap-2">{q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                                {dentitionMode === 'Mixed' && <div className="flex gap-2 justify-end w-full animate-in slide-in-from-top-2">{dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
                             </div>
                         </QuadrantWrapper>
-                        <div className="w-0.5 bg-slate-200 h-40 self-end mb-6"></div>
+                        <div className="w-1 bg-gradient-to-b from-slate-100 to-transparent h-48 self-end mb-12 rounded-full"></div>
                         <QuadrantWrapper quadrant={2} activeQuadrant={activeQuadrant} setActiveQuadrant={setActiveQuadrant}>
-                            <div className="flex flex-col items-center">
-                                <div className="flex gap-1 mb-3">{q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
-                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full">{dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="flex gap-2">{q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                                {dentitionMode === 'Mixed' && <div className="flex gap-2 justify-start w-full animate-in slide-in-from-top-2">{dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
                             </div>
                         </QuadrantWrapper>
                     </div>
                 </div>
 
                 <div className="flex flex-col items-center">
-                    <div className="flex pt-0 border-t-2 border-slate-200 w-full justify-center">
+                    <div className="flex pt-0 border-t-4 border-slate-100/50 w-full justify-center">
                         <QuadrantWrapper quadrant={4} activeQuadrant={activeQuadrant} setActiveQuadrant={setActiveQuadrant}>
-                            <div className="flex flex-col items-center">
-                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-end w-full mb-3">{dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
-                                <div className="flex gap-1">{q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                            <div className="flex flex-col items-center gap-6">
+                                {dentitionMode === 'Mixed' && <div className="flex gap-2 justify-end w-full mb-2 animate-in slide-in-from-bottom-2">{dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                                <div className="flex gap-2">{q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
                             </div>
                         </QuadrantWrapper>
-                        <div className="w-0.5 bg-slate-200 h-40 self-start mt-6"></div>
+                        <div className="w-1 bg-gradient-to-t from-slate-100 to-transparent h-48 self-start mt-12 rounded-full"></div>
                         <QuadrantWrapper quadrant={3} activeQuadrant={activeQuadrant} setActiveQuadrant={setActiveQuadrant}>
-                            <div className="flex flex-col items-center">
-                                {dentitionMode === 'Mixed' && <div className="flex gap-1 justify-start w-full mb-3">{dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
-                                <div className="flex gap-1">{q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
+                            <div className="flex flex-col items-center gap-6">
+                                {dentitionMode === 'Mixed' && <div className="flex gap-2 justify-start w-full mb-2 animate-in slide-in-from-bottom-2">{dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} isDeciduous={true}/>)}</div>}
+                                <div className="flex gap-2">{q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onLongPress={handleLongPress} isSelected={selectedTooth === t} />)}</div>
                             </div>
                         </QuadrantWrapper>
                     </div>
@@ -390,35 +394,41 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
 
             {selectedTooth && !readOnly && (
                 <div 
-                  className={`absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-white rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] border-2 border-slate-200 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}
+                  className={`absolute z-[70] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.18)] border-2 border-teal-50 animate-in fade-in zoom-in-95 duration-500 overflow-hidden ring-[16px] ring-white/50 ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}
                   role="dialog"
-                  aria-labelledby="tooth-detail-title"
                 >
-                    <div className="bg-teal-900 text-white px-6 py-4 flex justify-between items-center">
-                        <h4 id="tooth-detail-title" className="font-black uppercase tracking-widest text-xs flex items-center gap-2">Registry Record: #{selectedTooth}</h4>
-                        <button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-2 rounded-xl transition-colors" aria-label="Close tooth details"><X size={16}/></button>
+                    <div className="bg-teal-950 text-white px-8 py-6 flex justify-between items-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
+                        <h4 className="font-black uppercase tracking-[0.2em] text-[10px] flex items-center gap-3 relative z-10">
+                            <Sparkles size={14} className="text-teal-400"/> Identity Bound: #{selectedTooth}
+                        </h4>
+                        <button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-2 rounded-xl transition-all relative z-10 active:scale-90" aria-label="Close details"><X size={18}/></button>
                     </div>
-                    <div className={`max-h-60 overflow-y-auto p-4 space-y-3 no-scrollbar ${isPatientPerspective ? 'text-right' : 'text-left'}`}>
+                    <div className={`max-h-64 overflow-y-auto p-6 space-y-4 no-scrollbar ${isPatientPerspective ? 'text-right' : 'text-left'}`}>
                         {getToothData(selectedTooth).length > 0 ? getToothData(selectedTooth).slice(0, 5).map((entry, i) => (
-                            <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl group transition-all hover:bg-white hover:border-teal-300 shadow-sm">
-                                <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">{formatDate(entry.date)}</div>
-                                <div className="text-sm font-black text-slate-800 leading-tight">{entry.procedure}</div>
-                                <div className={`flex items-center gap-2 mt-3 ${isPatientPerspective ? 'justify-end' : ''}`}>
-                                    <span className={`w-2.5 h-2.5 rounded-full ${entry.status === 'Completed' ? 'bg-teal-600' : entry.status === 'Planned' ? 'bg-lilac-600' : 'bg-red-600'}`} aria-hidden="true" />
-                                    <span className="text-xs text-slate-700 uppercase font-black tracking-widest">{entry.status}</span>
+                            <div key={i} className="p-5 bg-slate-50/50 border border-slate-100 rounded-3xl group transition-all duration-500 hover:bg-white hover:border-teal-300 hover:shadow-xl hover:shadow-teal-900/5">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{formatDate(entry.date)}</div>
+                                <div className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">{entry.procedure}</div>
+                                <div className={`flex items-center gap-3 mt-4 ${isPatientPerspective ? 'justify-end' : ''}`}>
+                                    <span className={`w-2.5 h-2.5 rounded-full ${entry.status === 'Completed' ? 'bg-teal-500' : entry.status === 'Planned' ? 'bg-lilac-500' : 'bg-red-500'} shadow-[0_0_8px_rgba(0,0,0,0.1)]`} aria-hidden="true" />
+                                    <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{entry.status}</span>
                                 </div>
                             </div>
-                        )) : <div className="py-12 flex flex-col items-center justify-center opacity-30"><Ghost size={48} aria-hidden="true"/><p className="text-xs font-black uppercase mt-4">Clean Archive</p></div>}
+                        )) : <div className="py-16 flex flex-col items-center justify-center opacity-20 gap-4"><Ghost size={48} aria-hidden="true"/><p className="text-[10px] font-black uppercase tracking-widest">Virgin Enamel Archive</p></div>}
                     </div>
-                    <div className="bg-slate-50 p-4 border-t border-slate-200">
-                        <button onClick={() => { onToothClick(selectedTooth!); setSelectedTooth(null); }} className="w-full py-3.5 bg-white border border-slate-200 rounded-2xl text-xs font-black text-teal-800 uppercase tracking-widest hover:border-teal-600 hover:shadow-lg transition-all flex items-center justify-center gap-2" aria-label={`View clinical narrative for tooth ${selectedTooth}`}><FileText size={16} /> Chronological Narrative</button>
+                    <div className="bg-slate-50 p-6 border-t border-slate-100">
+                        <button onClick={() => { onToothClick(selectedTooth!); setSelectedTooth(null); }} className="w-full py-4 bg-white border-2 border-teal-50 rounded-2xl text-[10px] font-black text-teal-800 uppercase tracking-[0.2em] hover:bg-teal-900 hover:text-white hover:shadow-2xl hover:shadow-teal-900/30 transition-all flex items-center justify-center gap-3">
+                            <FileText size={18} /> Chronic Narrative
+                        </button>
                     </div>
                 </div>
             )}
         </div>
         {!activeQuadrant && !readOnly && (
-            <div className="text-center text-xs font-black text-slate-600 uppercase tracking-[0.3em] animate-pulse" aria-hidden="true">
-                Quadrant selection required for precise surface mapping
+            <div className="text-center py-4">
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em] animate-pulse">
+                    Select Quadrant to initiate Mapping
+                </span>
             </div>
         )}
     </div>

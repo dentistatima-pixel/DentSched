@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+
+import React,
+{ useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
@@ -294,9 +296,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-black text-slate-600">{apt.time}</span>
                                                         <div className="flex items-center gap-1">
-                                                            {apt.isWaitlistOverride && <ShieldAlert size={14} className="text-red-700 animate-pulse" title="Waitlist Priority Override Entry"/>}
-                                                            {apt.entryMode === 'MANUAL' && <AlertTriangle size={12} className="text-yellow-700 animate-pulse" title="Manual Entry - Needs Reconciliation"/>}
-                                                            {apt.isPendingSync && <CloudOff size={12} className="text-lilac-700 animate-pulse" title="Awaiting Sync"/>}
+// FIX: Removed invalid 'title' prop from Lucide icon component.
+                                                            {apt.isWaitlistOverride && <ShieldAlert size={14} className="text-red-700 animate-pulse"/>}
+// FIX: Removed invalid 'title' prop from Lucide icon component.
+                                                            {apt.entryMode === 'MANUAL' && <AlertTriangle size={12} className="text-yellow-700 animate-pulse"/>}
+// FIX: Removed invalid 'title' prop from Lucide icon component.
+                                                            {apt.isPendingSync && <CloudOff size={12} className="text-lilac-700 animate-pulse"/>}
                                                             {viewDimension === 'chair' && <img src={provider?.avatar} alt="" className="w-5 h-5 rounded-full border border-white" title={provider?.name}/>}
                                                         </div>
                                                     </div>

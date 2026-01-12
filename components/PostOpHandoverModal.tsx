@@ -1,16 +1,18 @@
-
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Appointment } from '../types';
+import { useToast } from './ToastSystem';
 
 interface PostOpHandoverModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: () => Promise<void>;
     appointment: Appointment;
 }
 
 const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm, appointment }) => {
+    const toast = useToast();
+    const [isSaving, setIsSaving] = useState(false);
     const [checks, setChecks] = useState({
         oral: false,
         written: false,
@@ -20,6 +22,20 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
     if (!isOpen) return null;
 
     const allChecked = checks.oral && checks.written && checks.emergency;
+
+    const handleConfirm = async () => {
+        if (!allChecked) return;
+        setIsSaving(true);
+        try {
+            await onConfirm();
+            onClose(); // Close only on success
+        } catch (error) {
+            toast.error("Failed to update status. Please try again.");
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
@@ -59,11 +75,15 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                 <div className="p-6 border-t border-slate-100 bg-white flex gap-3">
                     <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Cancel</button>
                     <button 
-                        onClick={onConfirm} 
-                        disabled={!allChecked}
-                        className={`flex-[2] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all ${allChecked ? 'bg-teal-600 text-white shadow-teal-600/20 hover:scale-105' : 'bg-slate-200 text-slate-400 opacity-50'}`}
+                        onClick={handleConfirm} 
+                        disabled={!allChecked || isSaving}
+                        className={`flex-[2] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all flex items-center justify-center gap-2 ${allChecked && !isSaving ? 'bg-teal-600 text-white shadow-teal-600/20 hover:scale-105' : 'bg-slate-200 text-slate-400 opacity-50'}`}
                     >
-                        Verify & Complete Session
+                        {isSaving ? (
+                            <><RotateCcw size={16} className="animate-spin" /> Verifying...</>
+                        ) : (
+                            'Verify & Complete Session'
+                        )}
                     </button>
                 </div>
             </div>

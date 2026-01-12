@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
@@ -7,7 +6,6 @@ import {
   Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
   Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
   History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning, MessageCircle, Heart, Info, DollarSign as FinanceIcon, Sparkles, Shield, GraduationCap,
-  // Added Receipt icon
   Receipt
 } from 'lucide-react';
 import { 
@@ -79,9 +77,12 @@ const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, c
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, fieldSettings, currentBranch, stock = [], staff = [], onConfirmFollowUp
+  onUpdateAppointmentStatus, fieldSettings, currentBranch, stock = [], staff = [], onConfirmFollowUp,
+  syncConflicts = [], setSyncConflicts, onVerifyDowntimeEntry, onVerifyMedHistory
 }) => {
   const [activeHuddleId, setActiveHuddleId] = useState<string | null>(null);
+  const [showConflictDrawer, setShowConflictDrawer] = useState(false);
+  const toast = useToast();
 
   const today = new Date().toLocaleDateString('en-CA');
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
@@ -138,6 +139,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { arriving, inTreatment, readyForBilling };
   }, [todaysAppointments]);
 
+  const pendingVerifications = useMemo(() => {
+      const downtimeEntries = allAppointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
+      const medHistoryEntries = allAppointments.filter(a => a.status === AppointmentStatus.ARRIVED && !a.medHistoryVerified);
+      return { downtime: downtimeEntries, medHistory: medHistoryEntries };
+  }, [allAppointments]);
+
+  const handleResolveConflict = (conflictId: string) => {
+      if (!setSyncConflicts) return;
+      setSyncConflicts(syncConflicts.filter(c => c.id !== conflictId));
+      toast.success("Conflict marked as resolved.");
+  };
+
   return (
     <div className="space-y-10 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 pb-20">
       
@@ -162,6 +175,26 @@ const Dashboard: React.FC<DashboardProps> = ({
         <MetricCard icon={Scale} color="bg-orange-50 text-orange-700" label="Forensic Integrity" value={roleKPIs.integrity} subtext="Stock Variance Score" />
         <MetricCard icon={Activity} color="bg-lilac-50 text-lilac-700" label="Treatment Velocity" value={roleKPIs.flow} subtext="Operational Flow Rate" />
       </div>
+
+      {(pendingVerifications.downtime.length > 0 || pendingVerifications.medHistory.length > 0) && (
+        <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="bg-amber-100 p-2 rounded-xl text-amber-700 animate-pulse"><Inbox size={24}/></div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Verification Inbox</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pendingVerifications.downtime.map(apt => (
+                    <div key={apt.id} className="p-4 bg-amber-50 rounded-2xl border-2 border-amber-100 flex items-center justify-between">
+                        <div>
+                            <div className="font-bold text-amber-900 text-xs uppercase flex items-center gap-2"><FileWarning size={14}/> Manual Downtime Entry</div>
+                            <div className="text-[10px] text-amber-700 font-bold">{getPatient(apt.patientId)?.name} - {apt.type}</div>
+                        </div>
+                        <button onClick={() => onVerifyDowntimeEntry?.(apt.id)} className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl">Verify</button>
+                    </div>
+                ))}
+            </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
@@ -332,6 +365,38 @@ const Dashboard: React.FC<DashboardProps> = ({
               })}
           </div>
       </section>
+
+      {syncConflicts.length > 0 && (
+          <button onClick={() => setShowConflictDrawer(true)} className="fixed bottom-24 right-6 z-50 bg-lilac-600 text-white h-16 w-16 rounded-full flex items-center justify-center shadow-2xl shadow-lilac-600/40 animate-pulse-lilac">
+              <AlertTriangle size={24}/>
+              <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-600 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-white">{syncConflicts.length}</span>
+          </button>
+      )}
+
+      {showConflictDrawer && (
+          <div className="fixed inset-0 z-[100] animate-in fade-in">
+              <div className="absolute inset-0 bg-black/60" onClick={() => setShowConflictDrawer(false)} />
+              <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right-full duration-500">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><RefreshCcw size={20}/> Sync Conflict Resolution</h3>
+                      <button onClick={() => setShowConflictDrawer(false)} className="p-2 text-slate-400 hover:text-slate-800"><X/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {syncConflicts.map(c => (
+                          <div key={c.id} className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
+                              <h4 className="font-bold text-sm text-slate-700">Conflict: {c.entityType}</h4>
+                              <p className="text-xs text-slate-500">Local vs Server data mismatch.</p>
+                              <div className="flex gap-2 mt-3">
+                                  <button onClick={() => handleResolveConflict(c.id)} className="flex-1 py-2 bg-white border rounded-lg text-xs font-bold">Keep Local</button>
+                                  <button onClick={() => handleResolveConflict(c.id)} className="flex-1 py-2 bg-white border rounded-lg text-xs font-bold">Use Server</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

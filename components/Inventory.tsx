@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale, ShoppingBag, Download, User as UserIcon, ClipboardCheck, ArrowUpCircle, EyeOff, BarChart2, Armchair, ShieldCheck, Thermometer } from 'lucide-react';
 import { StockItem, StockCategory, SterilizationCycle, User, UserRole, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry, AppointmentStatus, InstrumentSet } from '../types';
@@ -97,6 +98,30 @@ const Inventory: React.FC<InventoryProps> = ({
     return Math.round((withinTolerance / branchStock.length) * 100);
   }, [branchStock]);
 
+  const handleFormChange = (field: keyof StockItem, value: any) => {
+    if (editItem) {
+        setEditItem({ ...editItem, [field]: value });
+    }
+  };
+
+  const handleSaveItem = () => {
+    if (!editItem || !editItem.name?.trim()) {
+        toast.error("Item name is required.");
+        return;
+    }
+    const updatedItem = { ...editItem, branch: currentBranch }; // Ensure branch is set
+
+    const isNew = !updatedItem.id;
+    const newStock = isNew
+        ? [...stock, { ...updatedItem, id: `stk_${Date.now()}` } as StockItem]
+        : stock.map(s => s.id === updatedItem.id ? updatedItem as StockItem : s);
+
+    onUpdateStock(newStock);
+    logAction?.(isNew ? 'CREATE' : 'UPDATE', 'StockItem', updatedItem.id || `stk_${Date.now()}`, `Item ${updatedItem.name} saved.`);
+    setEditItem(null);
+    toast.success(`Item "${updatedItem.name}" saved successfully.`);
+  };
+
   const handleAddSet = () => {
       if (!newSetName.trim() || !onUpdateSettings || !fieldSettings) return;
       const newSet: InstrumentSet = { id: `set_${Date.now()}`, name: newSetName, status: 'Contaminated', branch: currentBranch };
@@ -113,7 +138,7 @@ const Inventory: React.FC<InventoryProps> = ({
 
     if (cycle.passed && cycle.instrumentSetIds && cycle.instrumentSetIds.length > 0) {
         const updatedSets = fieldSettings.instrumentSets?.map(set => 
-            cycle.instrumentSetIds!.includes(set.id) ? { ...set, status: 'Sterile', lastCycleId: cycle.id } : set
+            cycle.instrumentSetIds!.includes(set.id) ? { ...set, status: 'Sterile' as const, lastCycleId: cycle.id } : set
         );
         onUpdateSettings({ ...fieldSettings, instrumentSets: updatedSets });
         toast.success(`Load Result: ${cycle.instrumentSetIds.length} sets marked STERILE.`);
@@ -354,6 +379,55 @@ const Inventory: React.FC<InventoryProps> = ({
                 )}
             </div>
         </div>
+
+        {editItem && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4 animate-in fade-in duration-300">
+                <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="bg-teal-900 p-6 text-white flex justify-between items-center shrink-0 rounded-t-[2.5rem]">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-3 rounded-xl"><Package size={24} /></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">{editItem.id ? 'Edit Stock Item' : 'Register New Item'}</h3>
+                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Supply Chain Registry</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setEditItem(null)}><X size={24} /></button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50">
+                        <div><label className="label">Item Narrative</label><input type="text" value={editItem.name || ''} onChange={e => handleFormChange('name', e.target.value)} className="input" /></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div><label className="label">Classification</label><select value={editItem.category} onChange={e => handleFormChange('category', e.target.value)} className="input">{Object.values(StockCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                            <div><label className="label">Registry Level</label><input type="number" value={editItem.quantity ?? ''} onChange={e => handleFormChange('quantity', parseInt(e.target.value))} className="input" /></div>
+                            <div><label className="label">Low Stock Threshold</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div><label className="label">Expiry Date</label><input type="date" value={editItem.expiryDate || ''} onChange={e => handleFormChange('expiryDate', e.target.value)} className="input" /></div>
+                            <div><label className="label">Batch Number</label><input type="text" value={editItem.batchNumber || ''} onChange={e => handleFormChange('batchNumber', e.target.value)} className="input" /></div>
+                            <div><label className="label">Supplier</label><input type="text" value={editItem.supplier || ''} onChange={e => handleFormChange('supplier', e.target.value)} className="input" /></div>
+                        </div>
+                        {isAdvanced && (
+                             <div className="pt-6 border-t border-slate-200 mt-6 space-y-6">
+                                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Advanced Traceability</h4>
+                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                     <div><label className="label text-xs">Bulk Unit</label><input type="text" value={editItem.bulkUnit || ''} onChange={e => handleFormChange('bulkUnit', e.target.value)} className="input" /></div>
+                                     <div><label className="label text-xs">Dispensing Unit</label><input type="text" value={editItem.dispensingUnit || ''} onChange={e => handleFormChange('dispensingUnit', e.target.value)} className="input" /></div>
+                                     <div><label className="label text-xs">Conversion</label><input type="number" value={editItem.conversionFactor ?? ''} onChange={e => handleFormChange('conversionFactor', parseFloat(e.target.value))} className="input" /></div>
+                                     <div><label className="label text-xs">Lead Time (Days)</label><input type="number" value={editItem.leadTimeDays ?? ''} onChange={e => handleFormChange('leadTimeDays', parseInt(e.target.value))} className="input" /></div>
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+
+                    <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-[2.5rem]">
+                        <button onClick={() => setEditItem(null)} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
+                        <button onClick={handleSaveItem} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all flex items-center gap-3">
+                            <Save size={20} /> Save to Registry
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {showCycleModal && (
             <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex justify-center items-center p-4 animate-in fade-in duration-200" role="dialog" aria-labelledby="load-modal-title" aria-modal="true">

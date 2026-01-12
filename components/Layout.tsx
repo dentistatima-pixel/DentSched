@@ -188,7 +188,7 @@ const Layout: React.FC<LayoutProps> = ({
       )}
 
       <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-slate-50 relative" role="main">
-        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : 'overflow-auto p-6'} pb-32 no-scrollbar`}>
+        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} pb-32 no-scrollbar`}>
             {children}
         </div>
       </main>
