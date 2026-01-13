@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 // Fix: Added missing 'TrendingUp' and 'PieChart' to lucide-react imports
 import { BarChart2, DollarSign, Users, Activity, Percent, UserCheck, User, Building2, ShieldAlert, TrendingUp, PieChart } from 'lucide-react';

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Patient, Appointment, AppointmentStatus } from '../types';
 // Added Plus to lucide-react imports

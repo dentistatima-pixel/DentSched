@@ -170,18 +170,6 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
               </div>
           )}
       </div>
-
-      {/* Registry Footer */}
-      <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center px-10">
-          <div className="flex items-center gap-3">
-              <Activity size={16} className="text-teal-600"/>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Health: Nominal</span>
-          </div>
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex gap-6">
-              <span>Total Active Records: {patients.length}</span>
-              <span>Statutory Compliance: RA 10173</span>
-          </div>
-      </div>
     </div>
   );
 };

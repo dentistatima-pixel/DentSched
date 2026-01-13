@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
@@ -38,9 +39,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   useEffect(() => {
     if (isOpen) {
         if (initialData) { 
-            setFormData({ ...initialData }); 
+            // This is an edit. Clear the signature to force re-signing for compliance.
+            setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' }); 
         } 
         else { 
+            // This is a new patient.
             const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
             setFormData({ ...initialFormState, id: generatedId }); 
         }
@@ -233,24 +236,28 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         </div>
 
         {/* Fixed Footer */}
-        <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0 z-50">
-            <button onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-xs tracking-widest">Cancel</button>
-            {!readOnly && (
-                <button onClick={handleSubmit} className="flex items-center gap-3 px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all">
-                    <Save size={20} /> {formData.registrationSignature ? 'Save PDA Registry Entry' : 'Verify & Sign'}
-                </button>
-            )}
+        <div className="p-4 md:p-6 border-t border-slate-200 bg-white/80 backdrop-blur-md shrink-0 flex justify-end gap-4 z-10">
+            {!isKiosk && <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>}
+            <button 
+                type="button" 
+                onClick={(e: any) => handleSubmit(e)}
+                className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                <Save size={18}/> {initialData ? 'Update Record' : 'Register Identity'}
+            </button>
         </div>
       </div>
-      <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
-      <SignatureCaptureOverlay 
-        isOpen={showSignaturePad} 
-        onClose={() => setShowSignaturePad(false)} 
-        onSave={handleSignatureCaptured}
-        title="PDA Statutory Digital Sign-off"
-        instruction="By signing below, you provide statutory consent for data processing and clinical care under RA 10173."
-        themeColor="teal"
-      />
+
+      {showPrivacyPolicy && <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />}
+      {showSignaturePad && (
+          <SignatureCaptureOverlay 
+              isOpen={showSignaturePad}
+              onClose={() => setShowSignaturePad(false)}
+              onSave={handleSignatureCaptured}
+              title="Digital Identity Anchor"
+              instruction="To ensure non-repudiation and forensic integrity, please provide your digital signature."
+              themeColor="teal"
+          />
+      )}
     </div>
   );
 };

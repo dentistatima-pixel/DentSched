@@ -632,6 +632,11 @@ function App() {
     }
   };
 
+  const handleEditPatient = (patient: Patient) => {
+    setEditingPatient(patient);
+    setIsPatientModalOpen(true);
+  };
+
   const handleQuickUpdatePatient = (updatedPatient: Patient) => {
       const original = patients.find(p => p.id === updatedPatient.id);
       if (original) {
@@ -727,6 +732,7 @@ function App() {
                         currentUser={effectiveUser}
                         onQuickUpdatePatient={handleQuickUpdatePatient}
                         onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
+                        onEditPatient={handleEditPatient}
                         fieldSettings={fieldSettings}
                         logAction={logAction}
                         incidents={incidents}
