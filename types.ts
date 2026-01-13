@@ -611,8 +611,6 @@ export interface Appointment {
   medHistoryVerifiedAt?: string;
   followUpConfirmed?: boolean;
   followUpConfirmedAt?: string;
-  postOpVerified?: boolean;
-  postOpVerifiedAt?: string;
   entryMode?: 'AUTO' | 'MANUAL';
   reconciled?: boolean;
   isPendingSync?: boolean;
@@ -620,7 +618,7 @@ export interface Appointment {
   queuedAt?: string;
   isStale?: boolean;
   signedConsentUrl?: string;
-  triageLevel?: string;
+  triageLevel?: TriageLevel;
 }
 
 export interface Patient {

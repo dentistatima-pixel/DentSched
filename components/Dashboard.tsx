@@ -39,7 +39,7 @@ interface DashboardProps {
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   onSaveConsent: (appointmentId: string, consentUrl: string) => void;
-  onSaveQuickQueue?: (name: string, phone: string, complaint: string, triageLevel: TriageLevel) => void;
+  onQuickQueue: () => void;
   auditLogVerified?: boolean | null;
   sterilizationCycles?: SterilizationCycle[];
   stock?: StockItem[];
@@ -75,10 +75,65 @@ const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, c
   </div>
 );
 
+const EmergencyQueue: React.FC<{ queue: Appointment[], patients: Patient[] }> = ({ queue, patients }) => {
+    const getPatientName = (id: string) => patients.find(p => p.id === id)?.name || 'Unknown';
+    const getTimeInQueue = (queuedAt: string) => {
+        const diff = Date.now() - new Date(queuedAt).getTime();
+        return `${Math.floor(diff / 60000)}m ago`;
+    };
+
+    const triageColors: Record<TriageLevel, string> = {
+        'Level 1: Trauma/Bleeding': 'bg-red-600 text-white ring-red-300',
+        'Level 2: Acute Pain/Swelling': 'bg-amber-500 text-white ring-amber-200',
+        'Level 3: Appliance/Maintenance': 'bg-blue-500 text-white ring-blue-200'
+    };
+
+    return (
+        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-3 mb-8">
+                <div className="bg-red-50 p-2 rounded-xl text-red-700"><History size={24}/></div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Walk-In / Emergency Queue</h3>
+            </div>
+            <div className="space-y-4 flex-1">
+                {queue.length > 0 ? queue.map(apt => (
+                    <div key={apt.id} className={`p-5 rounded-[2rem] border-2 shadow-md flex items-center justify-between group transition-all ${apt.isStale ? 'bg-red-50/50 border-red-300' : 'bg-slate-50 border-white'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full animate-pulse ring-4 ${triageColors[apt.triageLevel!]}`} />
+                            <div>
+                                <div className="font-black text-slate-800 uppercase text-sm tracking-widest">{getPatientName(apt.patientId)}</div>
+                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{apt.type}</div>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                           {apt.isStale ? (
+                                <div className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full animate-pulse">STALE RECORD</div>
+                           ) : (
+                               <div className="font-mono font-black text-slate-500 text-sm">{getTimeInQueue(apt.queuedAt!)}</div>
+                           )}
+                           <div className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${triageColors[apt.triageLevel!].split(' ')[1]}`}>{apt.triageLevel}</div>
+                        </div>
+                    </div>
+                )) : <div className="p-10 text-center opacity-30 italic text-sm h-full flex items-center justify-center">Walk-in queue clear.</div>}
+            </div>
+        </div>
+    );
+};
+
+const CommandButton = ({ icon: Icon, label, color, onClick, isEmergency = false }: { icon: any, label: string, color: string, onClick: () => void, isEmergency?: boolean }) => (
+    <button 
+        onClick={onClick} 
+        className={`flex flex-col items-center justify-center p-6 rounded-[2.5rem] border-2 border-white/50 shadow-xl hover:-translate-y-1 transition-all group ${color} ${isEmergency ? 'animate-pulse' : ''}`}
+    >
+        <Icon size={32} className="mb-3 transition-transform group-hover:scale-110"/>
+        <span className="text-xs font-black uppercase tracking-widest text-center">{label}</span>
+    </button>
+);
+
+
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
   onUpdateAppointmentStatus, fieldSettings, currentBranch, stock = [], staff = [], onConfirmFollowUp,
-  syncConflicts = [], setSyncConflicts, onVerifyDowntimeEntry, onVerifyMedHistory
+  syncConflicts = [], setSyncConflicts, onVerifyDowntimeEntry, onVerifyMedHistory, onQuickQueue
 }) => {
   const [activeHuddleId, setActiveHuddleId] = useState<string | null>(null);
   const [showConflictDrawer, setShowConflictDrawer] = useState(false);
@@ -133,11 +188,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [allAppointments, todaysAppointments, fieldSettings, realityScore]);
 
   const receptionPatientFlow = useMemo(() => {
-    const arriving = todaysAppointments.filter(a => [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED].includes(a.status));
-    const inTreatment = todaysAppointments.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
-    const readyForBilling = todaysAppointments.filter(a => [AppointmentStatus.COMPLETED].includes(a.status));
-    return { arriving, inTreatment, readyForBilling };
-  }, [todaysAppointments]);
+    const nonTriage = todaysAppointments.filter(a => !a.triageLevel);
+    const arriving = nonTriage.filter(a => [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED].includes(a.status));
+    const inTreatment = nonTriage.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
+    const readyForBilling = nonTriage.filter(a => [AppointmentStatus.COMPLETED].includes(a.status));
+    const emergencyQueue = allAppointments
+        .filter(a => a.triageLevel && a.status === AppointmentStatus.ARRIVED)
+        .sort((a,b) => (a.triageLevel || '').localeCompare(b.triageLevel || ''));
+    return { arriving, inTreatment, readyForBilling, emergencyQueue };
+  }, [todaysAppointments, allAppointments]);
 
   const pendingVerifications = useMemo(() => {
       const downtimeEntries = allAppointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
@@ -154,18 +213,16 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-10 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 pb-20">
       
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start gap-6">
         <div>
             <h2 className="text-[10px] font-black text-teal-700 uppercase tracking-[0.4em] mb-2 flex items-center gap-2"><Sparkles size={12} aria-hidden="true"/> Clinical Command Hub</h2>
             <h1 className="text-5xl font-black text-slate-800 tracking-tighter leading-none uppercase">Operations Center</h1>
         </div>
-        <div className="flex items-center gap-4">
-            <button onClick={onAddPatient} className="bg-white text-teal-800 border-2 border-teal-100 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-3">
-                <UserPlus size={18}/> New Admission
-            </button>
-            <button onClick={() => onBookAppointment()} className="bg-lilac-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-lilac-500/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-                <CalendarPlus size={18}/> Book Session
-            </button>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto mt-4 md:mt-0" role="toolbar">
+            <CommandButton icon={Search} label="Search Registry" color="bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={() => toast.info('Global search coming soon.')} />
+            <CommandButton icon={UserPlus} label="New Admission" color="bg-teal-50 text-teal-700 hover:bg-teal-100" onClick={onAddPatient} />
+            <CommandButton icon={CalendarPlus} label="Book Session" color="bg-lilac-50 text-lilac-700 hover:bg-lilac-100" onClick={() => onBookAppointment()} />
+            <CommandButton icon={Zap} label="Unregistered Patient" color="bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={onQuickQueue} isEmergency />
         </div>
       </div>
 
@@ -174,6 +231,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         <MetricCard icon={Clock} color="bg-blue-50 text-blue-700" label="Registry Latency" value={roleKPIs.latency} subtext="Avg. Time to Chair" />
         <MetricCard icon={Scale} color="bg-orange-50 text-orange-700" label="Forensic Integrity" value={roleKPIs.integrity} subtext="Stock Variance Score" />
         <MetricCard icon={Activity} color="bg-lilac-50 text-lilac-700" label="Treatment Velocity" value={roleKPIs.flow} subtext="Operational Flow Rate" />
+      </div>
+
+      <div className="lg:col-span-2">
+        <EmergencyQueue queue={receptionPatientFlow.emergencyQueue} patients={patients} />
       </div>
 
       {(pendingVerifications.downtime.length > 0 || pendingVerifications.medHistory.length > 0) && (

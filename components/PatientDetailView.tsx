@@ -85,7 +85,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   const isPwdOrMinor = patient.isPwd || isMinor;
 
   const headerClasses = `
-    backdrop-blur-2xl border-b p-8 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
+    backdrop-blur-2xl border-b p-4 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
     ${hasCriticalFlags 
         ? 'bg-red-100/80 border-red-200' 
         : isPwdOrMinor 
@@ -275,34 +275,33 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
       {/* Dynamic Workspace Header */}
       <header className={headerClasses}>
         <div className="flex justify-between items-center max-w-[1400px] mx-auto">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <button 
                 onClick={onBack}
-                className="bg-slate-100 hover:bg-teal-900 hover:text-white p-4 rounded-2xl text-slate-400 transition-all active:scale-90 group"
+                className="bg-slate-100 hover:bg-teal-900 hover:text-white p-3 rounded-2xl text-slate-400 transition-all active:scale-90 group"
                 title="Back to Registry"
             >
-                <ArrowLeft size={32} className="group-hover:-translate-x-1 transition-transform"/>
+                <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform"/>
             </button>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tighter truncate uppercase leading-none">{patient.name}</h2>
+            <button 
+                onClick={() => onEditPatient(patient)}
+                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
+                title="Edit Patient Details"
+            >
+                <Edit size={20}/>
+            </button>
+            <button 
+                onClick={props.onToggleTimeline}
+                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
+                title="Open Clinical Timeline"
+            >
+                <History size={20}/>
+            </button>
+          </div>
 
-            <div>
-                <div className="flex items-center gap-4">
-                    <h2 className="text-6xl font-black text-slate-800 tracking-tighter truncate uppercase leading-none">{patient.name}</h2>
-                    <button 
-                        onClick={() => onEditPatient(patient)}
-                        className="bg-slate-100 hover:bg-teal-50 p-3 rounded-2xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
-                        title="Edit Patient Details"
-                    >
-                        <Edit size={28}/>
-                    </button>
-                    <button 
-                        onClick={props.onToggleTimeline}
-                        className="bg-slate-100 hover:bg-teal-50 p-3 rounded-2xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
-                        title="Open Clinical Timeline"
-                    >
-                        <History size={28}/>
-                    </button>
-                </div>
-                <div className="flex items-center gap-3 mt-4">
+          <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
                     <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full uppercase tracking-widest">ID: {patient.id}</span>
                     <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-teal-100">{patient.age} y/o {patient.sex}</span>
                     <span className="text-[10px] font-black text-lilac-700 bg-lilac-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-lilac-100 flex items-center gap-2">
@@ -311,11 +310,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                     <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${patient.currentBalance && patient.currentBalance > 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
                         Balance: ₱{patient.currentBalance?.toLocaleString()}
                     </span>
-                </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
+              </div>
               <div className="hidden xl:flex items-center gap-3">
                   {criticalFlags.slice(0, 3).map((flag, i) => (
                       <div key={i} className="flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-600/20 animate-pulse">
@@ -328,7 +323,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
       </header>
 
       {/* Cockpit Navigation */}
-      <div className="bg-white/50 backdrop-blur-md border-b border-slate-100 px-8 sticky top-[152px] z-10" role="tablist">
+      <div className="bg-white/50 backdrop-blur-md border-b border-slate-100 px-8 sticky top-[80px] z-10" role="tablist">
           <div className="max-w-[1400px] mx-auto">
               <div className="flex gap-2 -mb-px">
                 {patientChartTabs.map(tab => (

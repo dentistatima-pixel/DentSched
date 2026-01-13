@@ -13,6 +13,7 @@ import Inventory from './components/Inventory';
 import Financials from './components/Financials';
 import PostOpHandoverModal from './components/PostOpHandoverModal';
 import SafetyTimeoutModal from './components/SafetyTimeoutModal';
+import QuickTriageModal from './components/QuickTriageModal';
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms } from './types';
 import { useToast } from './components/ToastSystem';
@@ -79,7 +80,7 @@ function App() {
   const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
 
-  const [activeTab, setActiveTab] = useState('patients');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
   const [patients, setPatients] = useState<Patient[]>(PATIENTS);
   const [staff, setStaff] = useState<User[]>(STAFF);
@@ -113,6 +114,7 @@ function App() {
   const [currentBranch, setCurrentBranch] = useState<string>('Makati Main');
 
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isQuickTriageModalOpen, setIsQuickTriageModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState<string | undefined>(undefined);
   const [bookingTime, setBookingTime] = useState<string | undefined>(undefined);
   const [initialBookingPatientId, setInitialBookingPatientId] = useState<string | undefined>(undefined);
@@ -632,6 +634,48 @@ function App() {
     }
   };
 
+  const handleSaveQuickQueue = (name: string, phone: string, complaint: string, isEmergency: boolean) => {
+      const tempPatientId = `q_pat_${Date.now()}`;
+      const [firstName, ...surnameParts] = name.split(' ');
+      const surname = surnameParts.join(' ');
+
+      const tempPatient: Patient = {
+          id: tempPatientId,
+          name: name,
+          firstName: firstName,
+          surname: surname || 'Triage',
+          phone: phone,
+          email: '',
+          dob: '',
+          lastVisit: 'First Visit',
+          nextVisit: null,
+          recallStatus: 'Due',
+      };
+      
+      const now = new Date();
+      const triageLevel = isEmergency ? 'Level 2: Acute Pain/Swelling' : 'Level 3: Appliance/Maintenance';
+
+      const tempAppointment: Appointment = {
+          id: `q_apt_${Date.now()}`,
+          patientId: tempPatientId,
+          providerId: '',
+          branch: currentBranch,
+          date: now.toLocaleDateString('en-CA'),
+          time: now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          durationMinutes: 30,
+          type: complaint,
+          status: AppointmentStatus.ARRIVED,
+          triageLevel,
+          queuedAt: now.toISOString(),
+      };
+
+      setPatients(prev => [...prev, tempPatient]);
+      setAppointments(prev => [...prev, tempAppointment]);
+      logAction('CREATE', 'Patient', tempPatientId, `Unregistered Intake: ${name}. Complaint: ${complaint}. Emergency: ${isEmergency}`);
+      toast.success(`${name} added to Queue.`);
+      setIsQuickTriageModalOpen(false);
+  };
+
   const handleEditPatient = (patient: Patient) => {
     setEditingPatient(patient);
     setIsPatientModalOpen(true);
@@ -718,7 +762,7 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => { const newApts = appointments.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={handleSetSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={handleSwitchSystemStatus} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={() => {}} onConfirmFollowUp={() => {}} />;
+      case 'dashboard': return <Dashboard appointments={appointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => { const newApts = appointments.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={handleSetSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={handleSwitchSystemStatus} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={() => {}} onConfirmFollowUp={() => {}} onQuickQueue={() => setIsQuickTriageModalOpen(true)} />;
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => { const newApts = appointments.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} currentUser={effectiveUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': 
         return (
@@ -842,6 +886,14 @@ function App() {
                 initialData={editingPatient}
                 fieldSettings={fieldSettings}
                 patients={patients}
+            />
+        )}
+
+        {isQuickTriageModalOpen && (
+            <QuickTriageModal
+                isOpen={isQuickTriageModalOpen}
+                onClose={() => setIsQuickTriageModalOpen(false)}
+                onSave={handleSaveQuickQueue}
             />
         )}
 
