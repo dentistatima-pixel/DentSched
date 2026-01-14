@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 /* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings } from '../types';

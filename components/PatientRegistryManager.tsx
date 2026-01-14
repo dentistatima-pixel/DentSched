@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment, AppointmentStatus, FieldSettings } from '../types';
 import { Search, UserPlus, CalendarPlus, Phone, Activity } from 'lucide-react';
@@ -77,13 +76,13 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
                 onClick={onAddPatient}
                 className="flex-1 md:flex-none bg-teal-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-900/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
               >
-                  <UserPlus size={18}/> New Admission
+                  <UserPlus size={18}/> New
               </button>
               <button 
                 onClick={onBookAppointment}
                 className="flex-1 md:flex-none bg-lilac-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-900/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
               >
-                  <CalendarPlus size={18}/> Book Session
+                  <CalendarPlus size={18}/> Appointment
               </button>
           </div>
       </div>
