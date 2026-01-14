@@ -1,5 +1,5 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -38,7 +38,7 @@ export const formatDate = (dateStr: string | undefined | null) => {
 };
 
 export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
-export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues'];
+export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure'];
 
 export const PDA_INFORMED_CONSENT_TEXTS = {
     GENERAL_AUTHORIZATION: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.",
@@ -215,6 +215,43 @@ export const PATIENTS: Patient[] = [
         philHealthMemberStatus: 'Active',
         registrationSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
         registrationSignatureTimestamp: new Date().toISOString(),
+        files: [
+            {
+                id: 'file_pwd_1',
+                name: 'PWD Certificate 2024.pdf',
+                category: 'PWD Certificate',
+                url: '#',
+                date: getPastDateStr(30) // valid
+            }
+        ],
+        clearanceRequests: [
+            {
+                id: 'cr_chidi_1',
+                patientId: 'p_risk_02',
+                doctorName: 'Dr. Eleanor Shellstrop',
+                specialty: 'Cardiologist',
+                requestedAt: getPastDateStr(200),
+                status: 'Approved',
+                approvedAt: getPastDateStr(190), // Expired (more than 6 months ago)
+                remarks: 'Cleared for routine dental procedures.',
+                verificationMethod: VerificationMethod.DIGITAL_UPLOAD,
+                verifiedByPractitionerId: 'doc1',
+                verifiedByPractitionerName: 'Dr. Alexander Crentist',
+            },
+            {
+                id: 'cr_chidi_2',
+                patientId: 'p_risk_02',
+                doctorName: 'Dr. Eleanor Shellstrop',
+                specialty: 'Cardiologist',
+                requestedAt: getPastDateStr(30),
+                status: 'Approved',
+                approvedAt: getPastDateStr(25), // Valid (within 6 months)
+                remarks: 'Cleared for non-invasive procedures. Re-evaluate for surgery.',
+                verificationMethod: VerificationMethod.PHYSICAL_FILE_VERIFIED,
+                verifiedByPractitionerId: 'doc1',
+                verifiedByPractitionerName: 'Dr. Alexander Crentist',
+            }
+        ],
     },
     {
         id: 'p_credit_03', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', age: 29, sex: 'Female', phone: '0920-345-6789', email: 'm.clara@noli.me', lastVisit: getPastDateStr(45), nextVisit: null, currentBalance: 2500, recallStatus: 'Due',

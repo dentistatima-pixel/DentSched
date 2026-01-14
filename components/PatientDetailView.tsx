@@ -1,13 +1,13 @@
-
 import React, { useState } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus } from '../types';
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft } from 'lucide-react';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest } from '../types';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
 import TreatmentPlan from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
+import ClearanceModal from './ClearanceModal'; // Import the new modal
 
 interface PatientDetailViewProps {
   patient: Patient | null;
@@ -67,9 +67,10 @@ const DiagnosticGallery: React.FC = () => (
 );
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
+  const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
 
   if (!patient) {
     return (
@@ -92,6 +93,23 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     return flags;
   };
   
+  const handleSaveClearance = (newClearance: Omit<ClearanceRequest, 'id' | 'patientId'>) => {
+      const clearanceRequest: ClearanceRequest = {
+          ...newClearance,
+          id: `cr_${Date.now()}`,
+          patientId: patient.id,
+      };
+
+      const updatedPatient: Patient = {
+          ...patient,
+          clearanceRequests: [...(patient.clearanceRequests || []), clearanceRequest],
+      };
+
+      onQuickUpdatePatient(updatedPatient);
+      logAction('CREATE', 'ClearanceRequest', clearanceRequest.id, `Logged new medical clearance from ${clearanceRequest.doctorName}.`);
+      setIsClearanceModalOpen(false);
+  };
+
   const criticalFlags = getCriticalFlags(patient);
   const hasCriticalFlags = criticalFlags.length > 0;
   const isMinor = patient.age !== undefined && patient.age < 18;
@@ -206,6 +224,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                   { q: 'Taking birth control pills?', a: patient.birthControl },
               ];
               
+              const sortedClearances = (patient.clearanceRequests || []).sort((a,b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime());
+              const sixMonthsAgo = new Date();
+              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
               return (
                   <div className="space-y-12 animate-in fade-in duration-500">
                       <div className="bg-white p-12 rounded-[3.5rem] border-2 border-teal-50 shadow-sm space-y-12">
@@ -234,6 +256,36 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                                   <InfoItem label="Physician Specialty" value={patient.physicianSpecialty} icon={Stethoscope} />
                                   <InfoItem label="Physician Address" value={patient.physicianAddress} icon={MapPin} />
                                   <InfoItem label="Physician Number" value={patient.physicianNumber} icon={Phone} />
+                              </div>
+                              
+                              <div className="mt-12 pt-8 border-t border-slate-100">
+                                <div className="flex justify-between items-center mb-6">
+                                  <h4 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><ShieldCheck size={20} className="text-lilac-600"/> Medical Clearance Registry</h4>
+                                  <button onClick={() => setIsClearanceModalOpen(true)} className="px-5 py-2.5 bg-lilac-50 text-lilac-800 rounded-xl font-black uppercase text-[10px] tracking-widest border border-lilac-200 hover:bg-lilac-100 transition-all flex items-center gap-2"><Plus size={14}/> Log New Clearance</button>
+                                </div>
+                                <div className="space-y-3">
+                                  {sortedClearances.map(cr => {
+                                      const isExpired = !cr.approvedAt || new Date(cr.approvedAt) < sixMonthsAgo;
+                                      return (
+                                        <div key={cr.id} className={`p-5 rounded-2xl border-2 flex items-center justify-between group ${isExpired ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-teal-50 border-teal-200 shadow-sm'}`}>
+                                          <div className="flex items-center gap-4">
+                                            <div className={`p-3 rounded-xl ${isExpired ? 'bg-slate-200 text-slate-500' : 'bg-teal-600 text-white shadow-lg'}`}><FileText size={20}/></div>
+                                            <div>
+                                              <div className="text-sm font-black text-slate-800 uppercase tracking-tight">{cr.doctorName} ({cr.specialty})</div>
+                                              <div className="text-xs text-slate-500 font-bold mt-1">Verified by: {cr.verifiedByPractitionerName}</div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isExpired ? 'bg-white border-slate-200 text-slate-500' : 'bg-white border-teal-200 text-teal-700'}`}>
+                                              {isExpired ? 'Expired' : 'Valid'}
+                                            </div>
+                                            <div className="text-[10px] font-black text-slate-400 mt-1">Approved: {formatDate(cr.approvedAt)}</div>
+                                          </div>
+                                        </div>
+                                      );
+                                  })}
+                                  {sortedClearances.length === 0 && <p className="text-center text-xs text-slate-400 italic font-bold p-10 bg-slate-50 rounded-2xl border-dashed">No clearance records on file.</p>}
+                                </div>
                               </div>
                           </div>
 
@@ -285,6 +337,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 overflow-hidden relative">
       
+      <ClearanceModal 
+        isOpen={isClearanceModalOpen}
+        onClose={() => setIsClearanceModalOpen(false)}
+        onSave={handleSaveClearance}
+        patient={patient}
+        currentUser={currentUser}
+      />
+
       {/* Dynamic Workspace Header */}
       <header className={headerClasses}>
         <div className="flex justify-between items-center max-w-[1400px] mx-auto">

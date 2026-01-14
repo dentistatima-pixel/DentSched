@@ -139,6 +139,19 @@
       .animate-pulse-lilac {
         animation: pulse-lilac 2s infinite;
       }
+
+      /* Red Pulse for Critical Alert */
+      @keyframes pulse-red {
+        0%, 100% {
+          box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+        }
+      }
+      .animate-pulse-red {
+        animation: pulse-red 2s infinite;
+      }
     </style>
   <script type="importmap">
 {

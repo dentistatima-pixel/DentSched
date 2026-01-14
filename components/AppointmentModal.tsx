@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor } from '../types';
 import Fuse from 'fuse.js';
-import { formatDate } from '../constants';
+import { formatDate, CRITICAL_CLEARANCE_CONDITIONS } from '../constants';
 import { useToast } from './ToastSystem';
 
 interface AppointmentModalProps {
@@ -90,6 +89,21 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
   }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId]);
 
+  useEffect(() => {
+    if(selectedPatient) {
+        const proc = fieldSettings.procedures.find(p => p.name === procedureType);
+        if (proc) {
+            if (proc.name.toLowerCase().includes('surgical') || proc.name.toLowerCase().includes('root canal')) {
+                setDuration(90);
+            } else if (proc.name.toLowerCase().includes('restoration') || proc.name.toLowerCase().includes('crown') || proc.name.toLowerCase().includes('veneer')) {
+                setDuration(60);
+            } else {
+                setDuration(30);
+            }
+        }
+    }
+  }, [procedureType, selectedPatient, fieldSettings.procedures]);
+
   const handleSaveClick = () => {
     if ((activeTab !== 'block' && !selectedPatientId && !initialPatientId) || !providerId) {
       toast.error("Required fields missing.");
@@ -120,11 +134,107 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     onClose();
   };
 
+  // --- PATIENT-FIRST UI LOGIC ---
+
+  const clinicalAlert = useMemo(() => {
+      if (!selectedPatient) return null;
+
+      const hasCriticalCondition = selectedPatient.medicalConditions?.some(c => CRITICAL_CLEARANCE_CONDITIONS.includes(c));
+      const isMinor = (selectedPatient.age || 99) < 18;
+      const isPwd = selectedPatient.isPwd;
+
+      if (hasCriticalCondition) {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          
+          const validClearance = (selectedPatient.clearanceRequests || [])
+              .filter(r => r.status === 'Approved' && r.approvedAt)
+              .sort((a, b) => new Date(b.approvedAt!).getTime() - new Date(a.approvedAt!).getTime())[0];
+
+          if (validClearance && new Date(validClearance.approvedAt!) > sixMonthsAgo) {
+              return {
+                  type: 'red' as const,
+                  title: 'CRITICAL ALERT: REVIEW CLEARANCE',
+                  message: `VALID CLEARANCE ON FILE (Expires: ${new Date(new Date(validClearance.approvedAt!).setMonth(new Date(validClearance.approvedAt!).getMonth() + 6)).toLocaleDateString()}). Proceed with caution and review document.`,
+                  isClear: true
+              };
+          } else {
+              return {
+                  type: 'red' as const,
+                  title: 'CRITICAL ALERT: PHYSICIAN\'S CLEARANCE REQUIRED',
+                  message: `This patient has a high-risk medical condition. A signed clearance letter from their physician is mandatory before proceeding with any invasive treatment. No valid clearance found on file within the last 6 months.`,
+                  isClear: false
+              };
+          }
+      }
+
+      if (isMinor) {
+          return {
+              type: 'amber' as const,
+              title: 'SPECIAL CONSIDERATION: PATIENT IS A MINOR',
+              message: 'Ensure the legal guardian is present and that all consent forms are co-signed. Verify guardianship details are up to date.',
+              isClear: true
+          };
+      }
+      
+      if (isPwd) {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          const validPwdCert = selectedPatient.files?.find(f => f.category === 'PWD Certificate' && new Date(f.date) > sixMonthsAgo);
+
+          if (!validPwdCert) {
+              return {
+                  type: 'amber' as const,
+                  title: 'SPECIAL CONSIDERATION: PWD CERTIFICATE',
+                  message: 'Patient is registered as PWD but no valid certificate has been recorded in the last 6 months. Please verify and upload.',
+                  isClear: false
+              };
+          }
+      }
+
+      return null;
+  }, [selectedPatient]);
+
+  const timeSlotInfo = useMemo(() => {
+    if (!providerId || !date) return { slots: [], isAvailable: () => false };
+    const day = new Date(date).getDay();
+    // JS getDay() is 0 for Sunday, so we need to adjust for our operational hours keys.
+    const dayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][day];
+    const operationalHours = fieldSettings.operationalHours[dayKey as keyof typeof fieldSettings.operationalHours];
+    
+    if (!operationalHours || operationalHours.isClosed) return { slots: [], isAvailable: () => false };
+
+    const startHour = parseInt(operationalHours.start.split(':')[0]);
+    const endHour = parseInt(operationalHours.end.split(':')[0]);
+
+    const slots = Array.from({ length: (endHour - startHour) * 2 }, (_, i) => {
+        const hour = startHour + Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    });
+
+    const bookedTimes = appointments
+        .filter(a => a.date === date && (a.providerId === providerId || (resourceId && a.resourceId === resourceId)))
+        .map(a => {
+            const start = new Date(`${a.date}T${a.time}`);
+            const end = new Date(start.getTime() + a.durationMinutes * 60000);
+            return { start, end };
+        });
+
+    const isAvailable = (slot: string) => {
+        const slotTime = new Date(`${date}T${slot}`);
+        return !bookedTimes.some(b => slotTime >= b.start && slotTime < b.end);
+    };
+
+    return { slots, isAvailable };
+
+  }, [date, providerId, resourceId, appointments, fieldSettings.operationalHours]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-teal-900/60 backdrop-blur-md z-[100] flex justify-center items-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-4xl h-[85vh] rounded-[3rem] shadow-2xl border-4 border-white flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-slate-50 w-full max-w-6xl h-[90vh] rounded-[3rem] shadow-2xl border-4 border-white flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* Header */}
         <div className="bg-teal-900 p-8 text-white flex justify-between items-center shrink-0">
@@ -144,8 +254,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
         </div>
 
-        {/* Tab Selection */}
-        {!existingAppointment && (
+        {!existingAppointment && !selectedPatient && (
           <div className="flex bg-slate-50 border-b border-slate-100 shrink-0" role="tablist">
             <button 
               onClick={() => setActiveTab('existing')}
@@ -186,7 +295,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-teal-50 text-teal-700 rounded-xl flex items-center justify-center font-black group-hover:bg-teal-600 group-hover:text-white transition-colors">
-                        {p.surname[0]}
+                        {p.surname ? p.surname[0] : ''}
                       </div>
                       <div className="text-left">
                         <div className="font-black text-slate-800 uppercase text-sm tracking-tight">{p.name}</div>
@@ -201,55 +310,86 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           )}
 
           {(selectedPatient || activeTab === 'block') && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in duration-500">
               
-              {/* Left Column: Who & What */}
+              {/* Column 1: Patient, Alerts, Procedure */}
               <div className="space-y-8">
-                {activeTab === 'existing' && (
-                  <div className="bg-white p-6 rounded-[2rem] border-2 border-teal-100 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><UserCheck size={28}/></div>
-                      <div>
-                        <div className="font-black text-slate-900 uppercase text-lg leading-none">{selectedPatient?.name}</div>
-                        <div className="text-xs text-slate-400 font-black uppercase tracking-widest mt-1">Patient Verified</div>
-                      </div>
+                {activeTab === 'existing' && selectedPatient && (
+                    <>
+                    <div className="bg-white p-6 rounded-[2rem] border-2 border-teal-100 shadow-sm flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-teal-50 text-teal-700 rounded-2xl flex items-center justify-center shadow-inner">
+                            <UserCheck size={32} className="text-teal-600"/>
+                        </div>
+                        <div>
+                            <div className="font-black text-slate-900 uppercase text-lg leading-none">{selectedPatient.name}</div>
+                            <div className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-4">
+                                <span className="flex items-center gap-1.5"><Hash size={12}/> {selectedPatient.id}</span>
+                                <span className="flex items-center gap-1.5"><Phone size={12}/> {selectedPatient.phone}</span>
+                            </div>
+                        </div>
+                        </div>
+                        {!existingAppointment && <button onClick={() => setSelectedPatientId('')} className="p-2 text-slate-300 hover:text-red-500"><X size={20}/></button>}
                     </div>
-                    {!existingAppointment && <button onClick={() => setSelectedPatientId('')} className="p-2 text-slate-300 hover:text-red-500"><X size={20}/></button>}
-                  </div>
+                    {clinicalAlert && (
+                         <div className={`p-6 rounded-3xl border-2 space-y-3 ${clinicalAlert.type === 'red' ? `bg-red-50 border-red-200 animate-pulse-red` : `bg-amber-50 border-amber-200`}`}>
+                            <div className={`flex items-center gap-3 font-black uppercase text-xs tracking-widest ${clinicalAlert.type === 'red' ? 'text-red-800' : 'text-amber-800'}`}>
+                                <ShieldAlert size={18} className={clinicalAlert.type === 'red' ? 'text-red-600' : 'text-amber-600'}/>
+                                {clinicalAlert.title}
+                            </div>
+                            <p className={`text-sm font-bold leading-relaxed ${clinicalAlert.type === 'red' ? 'text-red-900' : 'text-amber-900'}`}>{clinicalAlert.message}</p>
+                            {clinicalAlert.isClear && <div className="pt-2"><span className="px-3 py-1 bg-white text-teal-800 text-[10px] font-black uppercase rounded-full border-2 border-teal-200 shadow-sm">Document Verified</span></div>}
+                         </div>
+                    )}
+                    <div>
+                      <label className="label">Intended Procedure</label>
+                      <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input text-sm font-bold">
+                        {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    </>
                 )}
-
                 {activeTab === 'block' && (
                   <div>
                     <label className="label">Block Description</label>
                     <input type="text" value={blockTitle} onChange={e => setBlockTitle(e.target.value)} className="input" placeholder="e.g. Staff Lunch, Maintenance..." />
                   </div>
                 )}
+                 <div>
+                    <label className="label">Internal Narrative</label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24 text-sm" placeholder="Clinical prep notes, special requests..." />
+                  </div>
+              </div>
 
-                <div className="grid grid-cols-1 gap-6">
+              {/* Column 2: When & Who */}
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                    <div>
+                        <label className="label">Booking Date</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input font-black" />
+                    </div>
+                    <div>
+                        <label className="label">Allocated Duration</label>
+                        <select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input font-black">
+                            <option value={15}>15 mins</option>
+                            <option value={30}>30 mins</option>
+                            <option value={45}>45 mins</option>
+                            <option value={60}>60 mins</option>
+                            <option value={90}>90 mins</option>
+                            <option value={120}>120 mins</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="label">Attending Provider</label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {dentists.map(d => (
-                        <button 
-                          key={d.id}
-                          onClick={() => setProviderId(d.id)}
-                          className={`p-4 rounded-2xl border-2 flex items-center justify-between transition-all ${providerId === d.id ? 'bg-teal-50 border-teal-500 shadow-md scale-[1.02]' : 'bg-white border-slate-100 opacity-60'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <img src={d.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-                            <div className="text-left">
-                              <div className="font-black text-slate-800 text-xs uppercase">{d.name}</div>
-                              <div className="text-[9px] text-slate-400 font-bold uppercase">{d.role}</div>
-                            </div>
-                          </div>
-                          {providerId === d.id && <BadgeCheck size={20} className="text-teal-600" />}
-                        </button>
-                      ))}
-                    </div>
+                    <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input font-black uppercase text-xs">
+                        {dentists.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
                   </div>
-
                   <div>
-                    <label className="label">Operating Unit (Chair)</label>
+                    <label className="label">Operating Unit</label>
                     <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input font-black uppercase text-xs">
                       <option value="">Full Area Access</option>
                       {fieldSettings.resources.filter(r => r.branch === (existingAppointment?.branch || fieldSettings.branches[0])).map(r => (
@@ -258,59 +398,32 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </select>
                   </div>
                 </div>
-              </div>
 
-              {/* Right Column: When */}
-              <div className="space-y-8">
-                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-xl space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Booking Date</label>
-                      <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input font-black" />
+                <div>
+                    <label className="label">Available Slots</label>
+                    <div className="bg-white p-4 rounded-3xl border-2 border-slate-100 shadow-inner grid grid-cols-4 gap-2">
+                        {timeSlotInfo.slots.map(slot => {
+                            const isBooked = !timeSlotInfo.isAvailable(slot);
+                            const isSelected = slot === time;
+                            return (
+                                <button
+                                    key={slot}
+                                    onClick={() => !isBooked && setTime(slot)}
+                                    disabled={isBooked}
+                                    className={`py-3 rounded-xl font-black text-xs transition-all duration-200 ${
+                                        isSelected ? 'bg-teal-600 text-white shadow-lg' :
+                                        isBooked ? 'bg-slate-100 text-slate-300 cursor-not-allowed line-through' :
+                                        'bg-white text-slate-500 border border-slate-200 hover:bg-teal-50 hover:border-teal-300'
+                                    }`}
+                                >
+                                    {new Date(`1970-01-01T${slot}:00`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                </button>
+                            )
+                        })}
+                         {timeSlotInfo.slots.length === 0 && <p className="col-span-4 text-center text-xs font-bold text-slate-400 p-8">Clinic is closed on this day.</p>}
                     </div>
-                    <div>
-                      <label className="label">Session Start</label>
-                      <input type="time" value={time} onChange={e => setTime(e.target.value)} className="input font-black" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Allocated Duration</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[30, 60, 120].map(m => (
-                        <button key={m} onClick={() => setDuration(m)} className={`py-3 rounded-xl border-2 font-black text-xs transition-all ${duration === m ? 'bg-lilac-600 border-lilac-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}>
-                          {m}m
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {activeTab === 'existing' && (
-                    <div>
-                      <label className="label">Intended Procedure</label>
-                      <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input text-sm font-bold">
-                        {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="label">Internal Narrative</label>
-                    <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24 text-sm" placeholder="Clinical prep notes, special requests..." />
-                  </div>
                 </div>
 
-                {hasConflict && (
-                  <div className="bg-red-50 border-2 border-red-200 p-6 rounded-3xl flex items-start gap-4 animate-in shake duration-500">
-                    <ShieldAlert size={32} className="text-red-600 shrink-0 mt-1" />
-                    <div>
-                      <div className="font-black text-red-900 uppercase text-xs tracking-widest">Resource Overlap Detected</div>
-                      <p className="text-[11px] text-red-700 font-bold leading-tight mt-1">
-                        The selected provider or chair is already reserved for this slot. Double-booking requires administrative override.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
             </div>
