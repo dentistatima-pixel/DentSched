@@ -91,6 +91,24 @@ const Layout: React.FC<LayoutProps> = ({
                 </div>
              </div>
              
+            {/* --- Main Navigation --- */}
+            <nav className="flex items-center gap-2" role="tablist" aria-label="Main Navigation">
+                {navItems.map((item) => (
+                <button 
+                    key={item.id} 
+                    role="tab"
+                    aria-selected={activeTab === item.id}
+                    aria-controls={`${item.id}-panel`}
+                    onClick={() => setActiveTab(item.id)} 
+                    className={`flex items-center h-14 px-6 rounded-2xl transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30' : 'text-teal-200/70 hover:bg-white/10 hover:text-white'}`}
+                    aria-label={`Switch to ${item.label} view`}
+                >
+                    <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
+                    <span className={`text-xs font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
+                </button>
+                ))}
+            </nav>
+
              <div className="flex items-center gap-4">
                  <div className="hidden lg:flex bg-black/20 p-1 rounded-2xl border border-white/10 gap-1" role="group" aria-label="System status toggle">
                     <button 
@@ -185,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({
       )}
 
       <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-slate-50 relative" role="main">
-        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} pb-32 no-scrollbar`}>
+        <div className={`flex-1 ${activeTab === 'schedule' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} no-scrollbar`}>
             {children}
         </div>
       </main>
@@ -197,23 +215,6 @@ const Layout: React.FC<LayoutProps> = ({
             PDA ETHICS RULE 19 VERIFIED: Practitioner retains sole clinical liability for decision support output.
           </p>
       </div>
-
-      <nav className="fixed bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-200 px-6 py-4 z-40 flex gap-3 justify-center rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] transition-all ring-8 ring-black/5" role="tablist" aria-label="Main Navigation">
-            {navItems.map((item) => (
-            <button 
-                key={item.id} 
-                role="tab"
-                aria-selected={activeTab === item.id}
-                aria-controls={`${item.id}-panel`}
-                onClick={() => setActiveTab(item.id)} 
-                className={`flex items-center h-14 px-6 rounded-2xl transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30' : 'text-slate-500 hover:bg-slate-50 hover:text-teal-600'}`}
-                aria-label={`Switch to ${item.label} view`}
-            >
-                <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
-                <span className={`text-xs font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
-            </button>
-            ))}
-      </nav>
 
       <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
     </div>

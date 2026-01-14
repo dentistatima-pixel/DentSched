@@ -24,14 +24,26 @@ interface PatientDetailViewProps {
   onBack?: () => void; // New prop for returning to registry
 }
 
-const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean }> = ({ label, value, icon: Icon, isFlag }) => {
+const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
     const displayValue = Array.isArray(value) ? value.join(', ') : (value || '---');
     return (
-        <div className={`p-4 rounded-2xl flex items-start gap-4 ${isFlag ? 'bg-red-100 border border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
-            {Icon && <Icon size={18} className={`mt-1 shrink-0 ${isFlag ? 'text-red-600' : 'text-slate-400'}`} />}
+        <div className={`p-4 rounded-2xl flex items-start gap-4 ${
+            isFlag ? 'bg-red-200 border border-red-300' : 
+            isSpecial ? 'bg-amber-200 border border-amber-300' : 
+            'bg-slate-50 border border-slate-100'
+        }`}>
+            {Icon && <Icon size={18} className={`mt-1 shrink-0 ${
+                isFlag ? 'text-red-600' : 
+                isSpecial ? 'text-amber-600' : 
+                'text-slate-400'
+            }`} />}
             <div className="flex-1">
                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</div>
-                <div className={`text-sm font-bold mt-1 ${isFlag ? 'text-red-800' : 'text-slate-800'}`}>{displayValue}</div>
+                <div className={`text-sm font-bold mt-1 ${
+                    isFlag ? 'text-red-800' : 
+                    isSpecial ? 'text-amber-800' : 
+                    'text-slate-800'
+                }`}>{displayValue}</div>
             </div>
         </div>
     );
@@ -88,9 +100,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   const headerClasses = `
     backdrop-blur-2xl border-b p-4 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
     ${hasCriticalFlags 
-        ? 'bg-red-100 border-red-200' 
+        ? 'bg-red-200 border-red-300' 
         : isPwdOrMinor 
-        ? 'bg-amber-100 border-amber-200' 
+        ? 'bg-amber-200 border-amber-300' 
         : 'bg-white/80 border-slate-100'}
   `;
 
@@ -250,9 +262,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                                   </div>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  <InfoItem label="Full Name" value={patient.name} icon={UserIcon} />
-                                  <InfoItem label="Birth Date" value={formatDate(patient.dob)} icon={CalendarPlus} />
-                                  <InfoItem label="Age" value={patient.age} />
+                                  <InfoItem label="Full Name" value={patient.name} icon={UserIcon} isSpecial={isPwdOrMinor} />
+                                  <InfoItem label="Birth Date" value={formatDate(patient.dob)} icon={CalendarPlus} isSpecial={isPwdOrMinor} />
+                                  <InfoItem label="Age" value={patient.age} isSpecial={isPwdOrMinor} />
                                   <InfoItem label="Sex" value={patient.sex} />
                                   <InfoItem label="Civil Status" value={patient.civilStatus} />
                                   <InfoItem label="Blood Group" value={patient.bloodGroup} icon={AlertCircle} isFlag={!!patient.bloodGroup} />
@@ -301,17 +313,28 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
             </button>
           </div>
 
-          <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full uppercase tracking-widest">ID: {patient.id}</span>
-                    <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-teal-100">{patient.age} y/o {patient.sex}</span>
-                    <span className="text-[10px] font-black text-lilac-700 bg-lilac-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-lilac-100 flex items-center gap-2">
-                        <Phone size={12}/> {patient.phone}
-                    </span>
-                    <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border ${patient.currentBalance && patient.currentBalance > 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
-                        Balance: ₱{patient.currentBalance?.toLocaleString()}
-                    </span>
+          <div className="flex items-center gap-12">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+                  <div className="flex items-center gap-2 text-sm">
+                      <span className="font-black text-slate-400 uppercase tracking-widest">PAT ID -</span>
+                      <span className="font-mono font-black text-slate-700">{patient.id}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <Phone size={14} className="text-slate-400"/>
+                      <span className="font-mono font-black text-slate-700">{patient.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <span className="font-black text-slate-400 uppercase tracking-widest">AGE -</span>
+                      <span className="font-black text-slate-700">{patient.age} {patient.sex?.toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <span className="font-black text-slate-400 uppercase tracking-widest">BAL -</span>
+                      <span className={`font-black ${patient.currentBalance && patient.currentBalance > 0 ? 'text-red-600' : 'text-teal-600'}`}>
+                          ₱{patient.currentBalance?.toLocaleString() || '0'}
+                      </span>
+                  </div>
               </div>
+
               <div className="hidden xl:flex items-center gap-3">
                   {criticalFlags.slice(0, 3).map((flag, i) => (
                       <div key={i} className="flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-600/20 animate-pulse">

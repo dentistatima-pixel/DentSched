@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment, AppointmentStatus, FieldSettings } from '../types';
 import { Search, UserPlus, CalendarPlus, Phone, Activity } from 'lucide-react';
@@ -60,13 +61,13 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
     <div className="flex flex-col h-full animate-in fade-in duration-500">
       
       {/* Unified Command Bar */}
-      <div className="bg-teal-950 p-6 shadow-2xl z-20 flex flex-col md:flex-row items-center gap-6 border-b border-white/10 shrink-0">
+      <div className="bg-white p-6 shadow-sm z-20 flex flex-col md:flex-row items-center gap-6 border-b border-slate-100 shrink-0">
           <div className="relative flex-1 group w-full">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-teal-400 group-focus-within:text-white transition-colors" size={20} />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={20} />
             <input 
               type="text" 
               placeholder="Search registry by name, mobile, or identifier..."
-              className="w-full bg-white/5 border-2 border-teal-800 rounded-2xl py-4 pl-14 pr-6 text-white font-bold placeholder:text-teal-600 outline-none focus:border-teal-500 focus:bg-white/10 transition-all shadow-inner"
+              className="w-full bg-slate-100 border-2 border-transparent rounded-2xl py-4 pl-14 pr-6 text-slate-800 font-bold placeholder:text-slate-400 outline-none focus:border-teal-500 focus:bg-white transition-all"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -91,7 +92,7 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
       <div className="flex-1 overflow-auto bg-white">
           <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
-                  <tr className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                  <tr className="text-sm font-black uppercase text-slate-500 tracking-widest">
                       <th className="p-0 w-2"></th>
                       <th className="p-6 text-left">Patient ID</th>
                       <th className="p-6 text-left">Name</th>
@@ -116,9 +117,9 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
                             onClick={() => onSelectPatient(p.id)}
                             className={`group relative cursor-pointer transition-colors ${
                                 hasFlags 
-                                ? 'bg-red-50/70 hover:bg-red-100/70' 
+                                ? 'bg-red-200 hover:bg-red-300' 
                                 : isPwdOrMinor 
-                                ? 'bg-amber-50/70 hover:bg-amber-100/70' 
+                                ? 'bg-amber-200 hover:bg-amber-300' 
                                 : 'hover:bg-slate-100'
                             }`}
                           >

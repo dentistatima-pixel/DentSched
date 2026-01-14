@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -757,12 +758,17 @@ function App() {
       saveToLocal('dentsched_appointments', newAppointments);
       logAction('VERIFY', 'Appointment', id, "Verified and reconciled manual downtime entry.");
   }
+  
+  const handleNavigateToPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setActiveTab('patients');
+  };
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard appointments={appointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={setSelectedPatientId} onAddAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} onUpdatePatientRecall={handleUpdatePatientRecall} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} onViewAllSchedule={() => setActiveTab('schedule')} tasks={tasks} onChangeBranch={setCurrentBranch} currentBranch={currentBranch} onSaveConsent={(aid, url) => { const newApts = appointments.map(a => a.id === aid ? { ...a, signedConsentUrl: url } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} auditLogVerified={isAuditLogVerified} sterilizationCycles={sterilizationCycles} stock={stock} auditLog={auditLog} logAction={logAction} syncConflicts={syncConflicts} setSyncConflicts={handleSetSyncConflicts} systemStatus={systemStatus} onSwitchSystemStatus={handleSwitchSystemStatus} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={() => {}} onConfirmFollowUp={() => {}} onQuickQueue={() => setIsQuickTriageModalOpen(true)} />;
+      case 'dashboard': return <Dashboard appointments={appointments} allAppointments={appointments} patientsCount={patients.length} staffCount={staff.length} staff={staff} currentUser={effectiveUser} patients={patients} onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} onPatientSelect={handleNavigateToPatient} onAddAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} fieldSettings={fieldSettings} tasks={tasks} currentBranch={currentBranch} syncConflicts={syncConflicts} systemStatus={systemStatus} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={() => {}} onConfirmFollowUp={() => {}} onQuickQueue={() => setIsQuickTriageModalOpen(true)} />;
       case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => { const newApts = appointments.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} currentUser={effectiveUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
       case 'patients': 
         return (

@@ -1,6 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
-// FIX: Add missing 'X' icon from lucide-react to fix 'Cannot find name X' error.
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
@@ -13,6 +12,7 @@ import {
 } from '../types';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
+import GlobalSearchModal from './GlobalSearchModal';
 
 interface DashboardProps {
   appointments: Appointment[];
@@ -58,6 +58,21 @@ const Dashboard: React.FC<DashboardProps> = ({
   syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = []
 }) => {
   const toast = useToast();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
 
   const getCriticalFlags = (patient: Patient) => {
@@ -134,13 +149,33 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
+  const handleSearchNavigation = (type: 'patient' | 'action', payload?: any) => {
+    setIsSearchOpen(false); // Close modal first
+    if (type === 'patient') {
+      onPatientSelect(payload);
+    } else if (type === 'action' && payload === 'newPatient') {
+      onAddPatient();
+    } else if (type === 'action' && payload === 'newAppointment') {
+      onAddAppointment();
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-        <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Dashboard</h1>
+      <div className="flex flex-col md:flex-row items-center gap-6">
+        <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Home</h1>
+        
+        <div className="flex-1" />
+
         <div className="flex items-center gap-3 w-full md:w-auto">
+            <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40 hover:scale-105 active:scale-95 transition-all"
+                aria-label="Open global search"
+            >
+                <Search size={16}/> Search
+            </button>
             <button onClick={onAddPatient} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 hover:scale-105 active:scale-95 transition-all">
                 <UserPlus size={16}/> New
             </button>
@@ -170,8 +205,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <div key={apt.id} className="p-4 rounded-2xl flex items-center gap-4 bg-slate-50">
                             <div className="w-16 shrink-0 font-black text-slate-500 text-sm">{apt.time}</div>
                             <div className="flex-1 min-w-0 truncate">
-                                <span className="font-black text-slate-600 text-base uppercase truncate">{apt.title}</span>
-                                <span className="text-slate-400 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                                <span className="font-black text-blue-700 text-base uppercase truncate">{apt.title}</span>
+                                <span className="text-blue-500 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
                             </div>
                         </div>
                     );
@@ -189,9 +224,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                         onClick={() => onPatientSelect(apt.patientId)}
                         className={`relative pl-6 pr-4 py-4 rounded-2xl flex items-center gap-4 transition-all group cursor-pointer ${
                             hasFlags 
-                            ? 'bg-red-100 hover:bg-red-200' 
+                            ? 'bg-red-200 hover:bg-red-300' 
                             : isPwdOrMinor 
-                            ? 'bg-amber-100 hover:bg-amber-200' 
+                            ? 'bg-amber-200 hover:bg-amber-300' 
                             : 'bg-white hover:bg-slate-50'
                         }`}
                     >
@@ -338,6 +373,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
         </div>
       </div>
+      
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        patients={patients}
+        todaysAppointments={todaysFullSchedule}
+        onNavigate={handleSearchNavigation}
+      />
     </div>
   );
 };

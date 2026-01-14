@@ -137,12 +137,12 @@ const PatientList: React.FC<PatientListProps> = (props) => {
                     key={p.id}
                     className={`cursor-pointer group relative transition-colors ${
                         isSelected 
-                        ? 'bg-teal-100/70'
+                        ? 'bg-teal-100'
                         : hasFlags 
-                        ? 'bg-red-100 hover:bg-red-200' 
+                        ? 'bg-red-200 hover:bg-red-300' 
                         : isPwdOrMinor 
-                        ? 'bg-amber-100 hover:bg-amber-200' 
-                        : 'hover:bg-teal-50/70'
+                        ? 'bg-amber-200 hover:bg-amber-300' 
+                        : 'hover:bg-teal-50'
                     }`} 
                     onClick={() => props.onSelectPatient(p.id)}
                   >
