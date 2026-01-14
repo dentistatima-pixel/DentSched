@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft } from 'lucide-react';
@@ -138,9 +139,9 @@ const PatientList: React.FC<PatientListProps> = (props) => {
                         isSelected 
                         ? 'bg-teal-100/70'
                         : hasFlags 
-                        ? 'bg-red-50/70 hover:bg-red-100/70' 
+                        ? 'bg-red-100 hover:bg-red-200' 
                         : isPwdOrMinor 
-                        ? 'bg-amber-50/70 hover:bg-amber-100/70' 
+                        ? 'bg-amber-100 hover:bg-amber-200' 
                         : 'hover:bg-teal-50/70'
                     }`} 
                     onClick={() => props.onSelectPatient(p.id)}

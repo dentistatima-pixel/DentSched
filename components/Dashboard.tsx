@@ -1,16 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
+// FIX: Add missing 'X' icon from lucide-react to fix 'Cannot find name X' error.
 import { 
-  Calendar, TrendingUp, Search, UserPlus, ChevronRight, CalendarPlus, ClipboardList, Beaker, 
-  Repeat, ArrowRight, HeartPulse, PieChart, Activity, DollarSign, FileText, StickyNote, 
-  Package, Sunrise, AlertCircle, Plus, CheckCircle, Circle, Trash2, Flag, User as UserIcon, 
-  Building2, MapPin, Inbox, FileSignature, Video, ShieldAlert, Award, ShieldCheck, Phone, 
-  Mail, Zap, X, AlertTriangle, ShieldX, Thermometer, Users, Eye, EyeOff, LayoutGrid, Clock, List, 
-  History, Timer, Lock, Send, Armchair, Scale, Target, RefreshCcw, CloudOff, Database, ShieldCheck as VerifiedIcon, UserCheck, Stethoscope, FileWarning, MessageCircle, Heart, Info, DollarSign as FinanceIcon, Sparkles, Shield, GraduationCap,
-  Receipt
+  Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
+  StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
+  History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
+  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X
 } from 'lucide-react';
 import { 
-  Appointment, AppointmentStatus, User, UserRole, Patient, LabStatus, FieldSettings, 
-  PinboardTask, TreatmentPlanStatus, RecallStatus, SterilizationCycle, StockItem, TriageLevel, AuditLogEntry, ClinicResource, StockCategory, SyncConflict, SystemStatus 
+  Appointment, AppointmentStatus, User, UserRole, Patient, FieldSettings, 
+  PinboardTask, SyncConflict, SystemStatus 
 } from '../types';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -25,439 +24,320 @@ interface DashboardProps {
   patients: Patient[];
   onAddPatient: () => void;
   onPatientSelect: (patientId: string) => void;
-  onBookAppointment: (patientId?: string) => void;
+  onAddAppointment: (patientId?: string) => void;
   onUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => void;
   onCompleteRegistration: (patientId: string) => void;
-  onUpdatePatientRecall?: (patientId: string, status: RecallStatus) => void; 
   fieldSettings?: FieldSettings;
-  onUpdateSettings?: (s: FieldSettings) => void;
-  onViewAllSchedule?: () => void; 
-  onChangeBranch?: (branch: string) => void;
   currentBranch: string;
   tasks?: PinboardTask[];
   onAddTask?: (text: string, isUrgent: boolean, assignedTo: string) => void;
   onToggleTask?: (id: string) => void;
-  onDeleteTask?: (id: string) => void;
-  onSaveConsent: (appointmentId: string, consentUrl: string) => void;
-  onQuickQueue: () => void;
-  auditLogVerified?: boolean | null;
-  sterilizationCycles?: SterilizationCycle[];
-  stock?: StockItem[];
-  auditLog?: AuditLogEntry[];
-  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   syncConflicts?: SyncConflict[];
-  setSyncConflicts?: (c: SyncConflict[]) => void;
   systemStatus?: SystemStatus;
-  onSwitchSystemStatus?: (status: SystemStatus) => void;
   onVerifyDowntimeEntry?: (id: string) => void;
   onVerifyMedHistory?: (appointmentId: string) => void;
   onConfirmFollowUp?: (appointmentId: string) => void;
+  onQuickQueue: () => void;
 }
 
-const TOLERANCE_MAP: Record<StockCategory, number> = {
-    [StockCategory.CONSUMABLES]: 0.10,
-    [StockCategory.RESTORATIVE]: 0.05,
-    [StockCategory.INSTRUMENTS]: 0,
-    [StockCategory.PROSTHODONTIC]: 0,
-    [StockCategory.OFFICE]: 0.10
+const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: string } } = {
+  [AppointmentStatus.SCHEDULED]: { color: 'text-slate-500', label: 'Scheduled' },
+  [AppointmentStatus.CONFIRMED]: { color: 'text-blue-500', label: 'Confirmed' },
+  [AppointmentStatus.ARRIVED]: { color: 'text-orange-700', label: 'Arrived' },
+  [AppointmentStatus.SEATED]: { color: 'text-lilac-700', label: 'Seated' },
+  [AppointmentStatus.TREATING]: { color: 'text-lilac-800', label: 'Treating' },
+  [AppointmentStatus.COMPLETED]: { color: 'text-teal-700', label: 'Completed' },
+  [AppointmentStatus.CANCELLED]: { color: 'text-red-500', label: 'Cancelled' },
+  [AppointmentStatus.NO_SHOW]: { color: 'text-red-700', label: 'No Show' },
 };
-
-const MetricCard = ({ icon: Icon, color, label, value, subtext }: { icon: any, color: string, label: string, value: string, subtext?: string }) => (
-  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] flex items-center gap-6 group hover:shadow-xl hover:border-teal-100 transition-all duration-500">
-    <div className={`p-5 rounded-[1.5rem] ${color} transition-transform group-hover:scale-110 group-hover:rotate-3 duration-500 shadow-lg shadow-current/10`} aria-hidden="true">
-      <Icon size={32} />
-    </div>
-    <div className="flex flex-col">
-      <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] leading-none mb-2">{label}</span>
-      <span className="text-4xl font-black text-slate-800 tracking-tighter">{value}</span>
-      {subtext && <span className="text-[10px] font-black text-teal-700 mt-2 uppercase tracking-[0.2em]">{subtext}</span>}
-    </div>
-  </div>
-);
-
-const EmergencyQueue: React.FC<{ queue: Appointment[], patients: Patient[] }> = ({ queue, patients }) => {
-    const getPatientName = (id: string) => patients.find(p => p.id === id)?.name || 'Unknown';
-    const getTimeInQueue = (queuedAt: string) => {
-        const diff = Date.now() - new Date(queuedAt).getTime();
-        return `${Math.floor(diff / 60000)}m ago`;
-    };
-
-    const triageColors: Record<TriageLevel, string> = {
-        'Level 1: Trauma/Bleeding': 'bg-red-600 text-white ring-red-300',
-        'Level 2: Acute Pain/Swelling': 'bg-amber-500 text-white ring-amber-200',
-        'Level 3: Appliance/Maintenance': 'bg-blue-500 text-white ring-blue-200'
-    };
-
-    return (
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col h-full">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="bg-red-50 p-2 rounded-xl text-red-700"><History size={24}/></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Walk-In / Emergency Queue</h3>
-            </div>
-            <div className="space-y-4 flex-1">
-                {queue.length > 0 ? queue.map(apt => (
-                    <div key={apt.id} className={`p-5 rounded-[2rem] border-2 shadow-md flex items-center justify-between group transition-all ${apt.isStale ? 'bg-red-50/50 border-red-300' : 'bg-slate-50 border-white'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full animate-pulse ring-4 ${triageColors[apt.triageLevel!]}`} />
-                            <div>
-                                <div className="font-black text-slate-800 uppercase text-sm tracking-widest">{getPatientName(apt.patientId)}</div>
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{apt.type}</div>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                           {apt.isStale ? (
-                                <div className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full animate-pulse">STALE RECORD</div>
-                           ) : (
-                               <div className="font-mono font-black text-slate-500 text-sm">{getTimeInQueue(apt.queuedAt!)}</div>
-                           )}
-                           <div className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${triageColors[apt.triageLevel!].split(' ')[1]}`}>{apt.triageLevel}</div>
-                        </div>
-                    </div>
-                )) : <div className="p-10 text-center opacity-30 italic text-sm h-full flex items-center justify-center">Walk-in queue clear.</div>}
-            </div>
-        </div>
-    );
-};
-
-const CommandButton = ({ icon: Icon, label, color, onClick, isEmergency = false }: { icon: any, label: string, color: string, onClick: () => void, isEmergency?: boolean }) => (
-    <button 
-        onClick={onClick} 
-        className={`flex flex-col items-center justify-center p-6 rounded-[2.5rem] border-2 border-white/50 shadow-xl hover:-translate-y-1 transition-all group ${color} ${isEmergency ? 'animate-pulse' : ''}`}
-    >
-        <Icon size={32} className="mb-3 transition-transform group-hover:scale-110"/>
-        <span className="text-xs font-black uppercase tracking-widest text-center">{label}</span>
-    </button>
-);
 
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onBookAppointment,
-  onUpdateAppointmentStatus, fieldSettings, currentBranch, stock = [], staff = [], onConfirmFollowUp,
-  syncConflicts = [], setSyncConflicts, onVerifyDowntimeEntry, onVerifyMedHistory, onQuickQueue
+  appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
+  onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask,
+  syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = []
 }) => {
-  const [activeHuddleId, setActiveHuddleId] = useState<string | null>(null);
-  const [showConflictDrawer, setShowConflictDrawer] = useState(false);
   const toast = useToast();
-
-  const today = new Date().toLocaleDateString('en-CA');
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
-  const todaysAppointments = useMemo(() => appointments.filter(a => a.date === today && !a.isBlock), [appointments, today]);
 
-  const postOpPatients = useMemo(() => {
+  const getCriticalFlags = (patient: Patient) => {
+    const flags: { type: string; value: string }[] = [];
+    const criticalConditions = fieldSettings?.criticalRiskRegistry || [];
+    
+    (patient.allergies || []).forEach(allergy => {
+        if (criticalConditions.includes(allergy) || (patient.allergies || []).length > 1 && allergy !== 'None') {
+            flags.push({ type: 'Allergy', value: allergy });
+        }
+    });
+
+    (patient.medicalConditions || []).forEach(condition => {
+        if (criticalConditions.includes(condition) || (patient.medicalConditions || []).length > 1 && condition !== 'None') {
+            flags.push({ type: 'Condition', value: condition });
+        }
+    });
+
+    if (patient.takingBloodThinners) {
+        flags.push({ type: 'Alert', value: 'Taking Blood Thinners' });
+    }
+
+    return flags;
+  };
+
+  const todaysFullSchedule = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    return appointments
+      .filter(a => a.date === todayStr)
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [appointments]);
+  
+  const patientFlow = useMemo(() => {
+    const todaysApts = todaysFullSchedule.filter(a => !a.isBlock);
+    return {
+      arrived: todaysApts.filter(a => a.status === AppointmentStatus.ARRIVED),
+      inClinic: todaysApts.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)),
+      needsCheckout: todaysApts.filter(a => a.status === AppointmentStatus.COMPLETED)
+    };
+  }, [todaysFullSchedule]);
+
+  const dailyKPIs = useMemo(() => {
+    const completedToday = todaysFullSchedule.filter(a => a.status === AppointmentStatus.COMPLETED);
+    const production = completedToday.reduce((sum, apt) => {
+        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+        return sum + (proc?.price || 0);
+    }, 0);
+    return {
+      production: `₱${production.toLocaleString()}`,
+      patientsSeen: completedToday.length,
+      noShows: todaysFullSchedule.filter(a => a.status === AppointmentStatus.NO_SHOW).length
+    };
+  }, [todaysFullSchedule, fieldSettings]);
+
+  const actionItems = useMemo(() => {
+    const items = [];
+    const downtimeEntries = allAppointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
+    const medHistoryEntries = allAppointments.filter(a => a.status === AppointmentStatus.ARRIVED && !a.medHistoryVerified);
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600000).toISOString();
-    return allAppointments.filter(a => 
+    const postOpPatients = allAppointments.filter(a => 
         ['Surgery', 'Extraction'].includes(a.type) && 
         a.status === AppointmentStatus.COMPLETED &&
         a.date >= twentyFourHoursAgo.split('T')[0] &&
         !a.followUpConfirmed
     );
-  }, [allAppointments]);
 
-  const realityScore = useMemo(() => {
-    if (!stock || stock.length === 0) return 100;
-    const branchStock = stock.filter(s => s.branch === currentBranch || !s.branch);
-    if (branchStock.length === 0) return 100;
-    const withinTolerance = branchStock.filter(s => {
-        if (s.physicalCount === undefined) return true;
-        const diff = Math.abs(s.quantity - s.physicalCount);
-        const toleranceVal = s.quantity * (TOLERANCE_MAP[s.category] || 0);
-        return diff <= toleranceVal;
-    }).length;
-    return Math.round((withinTolerance / branchStock.length) * 100);
-  }, [stock, currentBranch]);
+    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff });
+    if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning });
+    if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert });
+    if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle });
+    
+    return items;
+  }, [allAppointments, syncConflicts]);
 
-  const roleKPIs = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const practiceProductionYTD = allAppointments
-      .filter(a => a.status === AppointmentStatus.COMPLETED && new Date(a.date).getFullYear() === currentYear)
-      .reduce((sum, apt) => {
-        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        return sum + (proc?.price || 0);
-      }, 0);
+  const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
-    const completedToday = todaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED).length;
-    const shiftFlow = todaysAppointments.length > 0 ? Math.round((completedToday / todaysAppointments.length) * 100) : 0;
-    const queueLatency = todaysAppointments.some(a => a.status === AppointmentStatus.ARRIVED) ? "14m" : "0m";
-
-    return {
-      production: `₱${(practiceProductionYTD / 1000).toFixed(1)}k`,
-      latency: queueLatency,
-      integrity: `${realityScore}%`,
-      flow: `${shiftFlow}%`
-    };
-  }, [allAppointments, todaysAppointments, fieldSettings, realityScore]);
-
-  const receptionPatientFlow = useMemo(() => {
-    const nonTriage = todaysAppointments.filter(a => !a.triageLevel);
-    const arriving = nonTriage.filter(a => [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED].includes(a.status));
-    const inTreatment = nonTriage.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status));
-    const readyForBilling = nonTriage.filter(a => [AppointmentStatus.COMPLETED].includes(a.status));
-    const emergencyQueue = allAppointments
-        .filter(a => a.triageLevel && a.status === AppointmentStatus.ARRIVED)
-        .sort((a,b) => (a.triageLevel || '').localeCompare(b.triageLevel || ''));
-    return { arriving, inTreatment, readyForBilling, emergencyQueue };
-  }, [todaysAppointments, allAppointments]);
-
-  const pendingVerifications = useMemo(() => {
-      const downtimeEntries = allAppointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
-      const medHistoryEntries = allAppointments.filter(a => a.status === AppointmentStatus.ARRIVED && !a.medHistoryVerified);
-      return { downtime: downtimeEntries, medHistory: medHistoryEntries };
-  }, [allAppointments]);
-
-  const handleResolveConflict = (conflictId: string) => {
-      if (!setSyncConflicts) return;
-      setSyncConflicts(syncConflicts.filter(c => c.id !== conflictId));
-      toast.success("Conflict marked as resolved.");
-  };
 
   return (
-    <div className="space-y-10 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 pb-20">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-        <div>
-            <h2 className="text-[10px] font-black text-teal-700 uppercase tracking-[0.4em] mb-2 flex items-center gap-2"><Sparkles size={12} aria-hidden="true"/> Clinical Command Hub</h2>
-            <h1 className="text-5xl font-black text-slate-800 tracking-tighter leading-none uppercase">Operations Center</h1>
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+        <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Dashboard</h1>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            <button onClick={onAddPatient} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 hover:scale-105 active:scale-95 transition-all">
+                <UserPlus size={16}/> New
+            </button>
+            <button onClick={() => onAddAppointment()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 hover:scale-105 active:scale-95 transition-all">
+                <CalendarPlus size={16}/> Appointment
+            </button>
+            <button onClick={() => onQuickQueue()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 hover:scale-105 active:scale-95 transition-all">
+                <Zap size={16}/> Walk-In
+            </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto mt-4 md:mt-0" role="toolbar">
-            <CommandButton icon={Search} label="Search Registry" color="bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={() => toast.info('Global search coming soon.')} />
-            <CommandButton icon={UserPlus} label="New Admission" color="bg-teal-50 text-teal-700 hover:bg-teal-100" onClick={onAddPatient} />
-            <CommandButton icon={CalendarPlus} label="Book Session" color="bg-lilac-50 text-lilac-700 hover:bg-lilac-100" onClick={() => onBookAppointment()} />
-            <CommandButton icon={Zap} label="Unregistered Patient" color="bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={onQuickQueue} isEmergency />
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8" role="region" aria-label="Key Performance Indicators">
-        <MetricCard icon={TrendingUp} color="bg-teal-50 text-teal-700" label="Practice Yield (YTD)" value={roleKPIs.production} subtext="Gross Asset Value" />
-        <MetricCard icon={Clock} color="bg-blue-50 text-blue-700" label="Registry Latency" value={roleKPIs.latency} subtext="Avg. Time to Chair" />
-        <MetricCard icon={Scale} color="bg-orange-50 text-orange-700" label="Forensic Integrity" value={roleKPIs.integrity} subtext="Stock Variance Score" />
-        <MetricCard icon={Activity} color="bg-lilac-50 text-lilac-700" label="Treatment Velocity" value={roleKPIs.flow} subtext="Operational Flow Rate" />
-      </div>
-
-      <div className="lg:col-span-2">
-        <EmergencyQueue queue={receptionPatientFlow.emergencyQueue} patients={patients} />
-      </div>
-
-      {(pendingVerifications.downtime.length > 0 || pendingVerifications.medHistory.length > 0) && (
-        <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="bg-amber-100 p-2 rounded-xl text-amber-700 animate-pulse"><Inbox size={24}/></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Verification Inbox</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {pendingVerifications.downtime.map(apt => (
-                    <div key={apt.id} className="p-4 bg-amber-50 rounded-2xl border-2 border-amber-100 flex items-center justify-between">
-                        <div>
-                            <div className="font-bold text-amber-900 text-xs uppercase flex items-center gap-2"><FileWarning size={14}/> Manual Downtime Entry</div>
-                            <div className="text-[10px] text-amber-700 font-bold">{getPatient(apt.patientId)?.name} - {apt.type}</div>
-                        </div>
-                        <button onClick={() => onVerifyDowntimeEntry?.(apt.id)} className="px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl">Verify</button>
-                    </div>
-                ))}
-            </div>
-        </section>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          <section className="lg:col-span-3 bg-slate-100/30 rounded-[3.5rem] p-6 flex flex-col gap-6 border-2 border-slate-100 shadow-inner">
-            <div className="flex justify-between items-center px-4">
-                <h4 className="font-black text-slate-600 uppercase tracking-[0.3em] text-[10px] flex items-center gap-2"><History size={16}/> Queue Monitor</h4>
-                <span className="text-[10px] font-black bg-white px-2 py-1 rounded-full text-slate-700 shadow-sm">{receptionPatientFlow.arriving.length} Active</span>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar px-1">
-              {receptionPatientFlow.arriving.length > 0 ? receptionPatientFlow.arriving.map(apt => {
-                  const patient = getPatient(apt.patientId);
-                  const isHuddleActive = activeHuddleId === apt.id;
-                  return (
-                    <div key={apt.id} className="relative animate-in slide-in-from-left-4 duration-300">
-                        <div className={`bg-white p-5 rounded-[2.2rem] shadow-xl border-2 transition-all duration-500 group ${isHuddleActive ? 'border-teal-700 ring-8 ring-teal-500/5 scale-105 z-20' : 'border-white hover:border-teal-100'}`}>
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="font-black text-teal-700 text-[10px] bg-teal-50 px-2 py-1 rounded-lg uppercase tracking-widest">{apt.time}</span>
-                                {apt.status === AppointmentStatus.ARRIVED && (
-                                    <div className="w-3 h-3 bg-teal-500 rounded-full animate-ping shadow-[0_0_10px_rgba(20,184,166,0.8)]" />
-                                )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Column 1: Full Day Schedule */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <Calendar size={20} className="text-teal-700"/>
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Today's Schedule</h3>
+          </div>
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6 space-y-3 max-h-[70vh] overflow-y-auto no-scrollbar">
+            {todaysFullSchedule.length > 0 ? todaysFullSchedule.map(apt => {
+                const patient = apt.isBlock ? null : getPatient(apt.patientId);
+                
+                if (apt.isBlock || !patient) {
+                     return (
+                        <div key={apt.id} className="p-4 rounded-2xl flex items-center gap-4 bg-slate-50">
+                            <div className="w-16 shrink-0 font-black text-slate-500 text-sm">{apt.time}</div>
+                            <div className="flex-1 min-w-0 truncate">
+                                <span className="font-black text-slate-600 text-base uppercase truncate">{apt.title}</span>
+                                <span className="text-slate-400 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
                             </div>
-                            <button onClick={() => setActiveHuddleId(isHuddleActive ? null : apt.id)} className="w-full text-left font-black text-slate-800 text-xl tracking-tighter truncate uppercase focus:ring-offset-2">
-                                {patient?.surname || 'UNKNOWN'}
-                            </button>
-                            <div className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1.5 opacity-80">{apt.type}</div>
+                        </div>
+                    );
+                }
+
+                const flags = getCriticalFlags(patient);
+                const hasFlags = flags.length > 0;
+                const isMinor = patient.age !== undefined && patient.age < 18;
+                const isPwdOrMinor = patient.isPwd || isMinor;
+                const config = statusTextConfig[apt.status] || { color: 'text-slate-400', label: apt.status };
+
+                return (
+                    <div 
+                        key={apt.id} 
+                        onClick={() => onPatientSelect(apt.patientId)}
+                        className={`relative pl-6 pr-4 py-4 rounded-2xl flex items-center gap-4 transition-all group cursor-pointer ${
+                            hasFlags 
+                            ? 'bg-red-100 hover:bg-red-200' 
+                            : isPwdOrMinor 
+                            ? 'bg-amber-100 hover:bg-amber-200' 
+                            : 'bg-white hover:bg-slate-50'
+                        }`}
+                    >
+                        {hasFlags ? (
+                            <div className="absolute left-0 top-0 h-full w-1.5 bg-red-500 group-hover:bg-red-600 shadow-lg" />
+                        ) : isPwdOrMinor ? (
+                            <div className="absolute left-0 top-0 h-full w-1.5 bg-amber-500 group-hover:bg-amber-600 shadow-lg" />
+                        ) : null}
+                        
+                        <div className="w-16 shrink-0 font-black text-slate-800 text-sm">{apt.time}</div>
+                        
+                        <div className="flex-1 min-w-0 truncate">
+                            <span className="font-black text-slate-800 text-base uppercase truncate group-hover:text-teal-900">{patient.name}</span>
+                            <span className="text-slate-500 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                        </div>
+                        
+                        <div className="w-12 shrink-0 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">{apt.durationMinutes}m</div>
+                        
+                        <div className={`w-24 shrink-0 text-right text-xs font-black uppercase ${config.color}`}>
+                            {config.label}
                         </div>
                     </div>
-                  );
-              }) : <div className="p-20 text-center text-slate-400 italic text-sm">Registry idle.</div>}
-            </div>
-          </section>
+                )
+            }) : <div className="p-10 text-center text-slate-400 italic">No appointments scheduled for today.</div>}
+          </div>
+        </div>
 
-          <div className="lg:col-span-9 space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col h-fit">
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="bg-lilac-50 p-2 rounded-xl text-lilac-700"><Sunrise size={24}/></div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Active Admissions</h3>
-                    </div>
-                    <div className="space-y-4">
-                        {receptionPatientFlow.arriving.length > 0 ? receptionPatientFlow.arriving.map(p => (
-                            <div key={p.id} className="p-5 bg-slate-50 rounded-[2rem] border-2 border-white shadow-md flex items-center justify-between group hover:border-lilac-200 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-2.5 h-2.5 bg-lilac-400 rounded-full animate-pulse ring-4 ring-lilac-100" />
+        {/* Column 2: Patient Flow */}
+        <div className="lg:col-span-5 space-y-6">
+            <div className="flex items-center gap-3 px-2">
+                <Users size={20} className="text-lilac-700"/>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Patient Flow Monitor</h3>
+            </div>
+            <div className="space-y-6">
+                {/* Waiting Room */}
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Waiting Room ({patientFlow.arrived.length})</h4>
+                    <div className="space-y-3">
+                        {patientFlow.arrived.map(apt => {
+                            const patient = getPatient(apt.patientId);
+                            return (
+                                <div key={apt.id} onClick={() => onPatientSelect(apt.patientId)} className="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all">
                                     <div>
-                                        <div className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{getPatient(p.patientId)?.surname}</div>
-                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Status: Waiting Room</div>
+                                        <div className="font-black text-orange-900 uppercase text-sm">{patient?.name}</div>
+                                        <div className="text-[9px] font-bold text-orange-700 uppercase tracking-widest mt-1">{apt.type}</div>
                                     </div>
+                                    <button onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white text-orange-800 text-[9px] font-black uppercase rounded-lg border border-orange-200">Seat Patient</button>
                                 </div>
-                                <button onClick={() => onPatientSelect(p.patientId)} className="p-2.5 bg-white rounded-xl text-slate-300 hover:text-lilac-600 shadow-sm group-hover:translate-x-1 transition-all"><ArrowRight size={18}/></button>
-                            </div>
-                        )) : <div className="p-10 text-center opacity-30 italic text-sm">No active intakes.</div>}
+                            )
+                        })}
+                        {patientFlow.arrived.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">Waiting room is empty.</p>}
                     </div>
-                  </section>
-
-                  <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col h-fit">
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="bg-blue-50 p-2 rounded-xl text-blue-700"><Armchair size={24}/></div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Clinical Production</h3>
-                    </div>
-                    <div className="space-y-4">
-                        {receptionPatientFlow.inTreatment.length > 0 ? receptionPatientFlow.inTreatment.map(apt => {
+                </div>
+                 {/* In Clinic */}
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">In Clinic ({patientFlow.inClinic.length})</h4>
+                    <div className="space-y-3">
+                        {patientFlow.inClinic.map(apt => {
                             const patient = getPatient(apt.patientId);
                             const provider = staff.find(s => s.id === apt.providerId);
                             return (
-                                <div key={apt.id} className="p-6 bg-slate-50 rounded-[2rem] border-2 border-white shadow-md space-y-4 group hover:border-blue-200 transition-all">
+                                <div key={apt.id} className="p-4 bg-lilac-50 border-2 border-lilac-200 rounded-2xl">
                                     <div className="flex justify-between items-start">
-                                        <div className="flex items-center gap-4">
-                                            <img src={provider?.avatar} alt="" className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-                                            <div>
-                                                <div className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{patient?.name}</div>
-                                                <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{apt.type}</div>
-                                            </div>
+                                        <div>
+                                            <div className="font-black text-lilac-900 uppercase text-sm">{patient?.name}</div>
+                                            <div className="text-[9px] font-bold text-lilac-700 uppercase tracking-widest mt-1">{apt.status}</div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-blue-600 animate-pulse"><Timer size={14}/><span className="text-[8px] font-black uppercase tracking-widest">Chair Active</span></div>
+                                        {provider && <img src={provider.avatar} alt={provider.name} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />}
                                     </div>
-                                    <button onClick={() => onUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED)} className="w-full py-2.5 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:bg-blue-700 transition-all">Ready for Handover</button>
+                                    <button onClick={() => onUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED)} className="w-full mt-3 py-2 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-lilac-700 transition-all">Mark as Completed</button>
                                 </div>
-                            );
-                        }) : <div className="p-10 text-center opacity-30 italic text-sm">Treatment floor idle.</div>}
+                            )
+                        })}
+                        {patientFlow.inClinic.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No patients currently in treatment.</p>}
                     </div>
-                  </section>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm h-fit">
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="bg-emerald-50 p-2 rounded-xl text-emerald-700"><FinanceIcon size={24}/></div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Billing Pipeline</h3>
-                    </div>
-                    <div className="space-y-4">
-                        {receptionPatientFlow.readyForBilling.length > 0 ? receptionPatientFlow.readyForBilling.map(apt => (
-                            <div key={apt.id} className="p-6 bg-slate-50 rounded-[2.2rem] border-2 border-white shadow-lg flex items-center justify-between group hover:border-emerald-200 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 group-hover:rotate-12 transition-all"><Receipt size={20}/></div>
+                </div>
+                 {/* Checkout */}
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Ready for Checkout ({patientFlow.needsCheckout.length})</h4>
+                    <div className="space-y-3">
+                         {patientFlow.needsCheckout.map(apt => {
+                            const patient = getPatient(apt.patientId);
+                            return (
+                                <div key={apt.id} onClick={() => onPatientSelect(apt.patientId)} className="p-4 bg-teal-50 border-2 border-teal-200 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all">
                                     <div>
-                                        <div className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{getPatient(apt.patientId)?.surname}</div>
-                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Pending Ledger Seal</div>
+                                        <div className="font-black text-teal-900 uppercase text-sm">{patient?.name}</div>
                                     </div>
+                                    <span className="text-[9px] font-black text-teal-700 uppercase">View Ledger</span>
                                 </div>
-                                <button onClick={() => onPatientSelect(apt.patientId)} className="px-5 py-2.5 bg-white rounded-xl text-[9px] font-black text-emerald-700 border border-emerald-100 shadow-sm hover:bg-emerald-50 transition-all uppercase tracking-widest">Checkout</button>
-                            </div>
-                        )) : <div className="p-10 text-center opacity-30 italic text-sm">Billing queue clear.</div>}
+                            )
+                        })}
+                        {patientFlow.needsCheckout.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No patients awaiting checkout.</p>}
                     </div>
-                  </section>
+                </div>
+            </div>
+        </div>
 
-                  <section className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm h-fit">
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="bg-orange-50 p-2 rounded-xl text-orange-700"><Heart size={24}/></div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em]">Post-Op Vigilance</h3>
+        {/* Column 3: Action Center */}
+        <div className="lg:col-span-3 space-y-6">
+             <div className="flex items-center gap-3 px-2">
+                <Activity size={20} className="text-red-700"/>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Action Center</h3>
+            </div>
+            <div className="space-y-6">
+                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Huddle Board</h4>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span className="text-xs font-bold uppercase text-slate-500">Today's Production</span><span className="font-black text-teal-700">{dailyKPIs.production}</span></div>
+                        <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span className="text-xs font-bold uppercase text-slate-500">Patients Seen</span><span className="font-black text-slate-800">{dailyKPIs.patientsSeen}</span></div>
+                        <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span className="text-xs font-bold uppercase text-slate-500">No-Shows</span><span className={`font-black ${dailyKPIs.noShows > 0 ? 'text-red-600' : 'text-slate-800'}`}>{dailyKPIs.noShows}</span></div>
                     </div>
-                    <div className="space-y-4">
-                        {postOpPatients.map(apt => (
-                            <div key={apt.id} className="p-6 bg-slate-50 rounded-[2.2rem] border-2 border-white shadow-lg flex items-center justify-between group hover:border-orange-200 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-orange-50 text-orange-600 p-3 rounded-2xl animate-pulse"><MessageCircle size={20}/></div>
-                                    <div>
-                                        <div className="font-black text-slate-800 uppercase text-[10px] tracking-widest">{getPatient(apt.patientId)?.surname}</div>
-                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">24h Check-in Required</div>
+                </div>
+                {actionItems.length > 0 && (
+                    <div className="bg-white rounded-[2.5rem] border-2 border-orange-200 shadow-lg p-6">
+                        <h4 className="text-[10px] font-black text-orange-800 uppercase tracking-[0.3em] mb-4">Alerts & Verifications</h4>
+                        <div className="space-y-2">
+                            {actionItems.map(item => (
+                                <div key={item.type} className="p-3 bg-orange-50 border border-orange-100 rounded-lg flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <item.icon size={14} className="text-orange-600" />
+                                        <span className="text-xs font-black text-orange-900 uppercase">{item.type}</span>
                                     </div>
+                                    <span className="font-black text-orange-700">{item.count}</span>
                                 </div>
-                                <button onClick={() => onConfirmFollowUp?.(apt.id)} className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:scale-105 transition-all">Confirm Stable</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                 <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">My Tasks ({myTasks.length})</h4>
+                     <div className="space-y-2">
+                        {myTasks.map(task => (
+                            <div key={task.id} className="flex items-start gap-3 p-3 hover:bg-teal-50 rounded-lg group">
+                                <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 text-slate-400 hover:text-teal-700"><CheckCircle size={16} /></button>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-slate-700 leading-tight">{task.text}</div>
+                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
+                                </div>
                             </div>
                         ))}
-                        {postOpPatients.length === 0 && <div className="p-10 text-center opacity-30 italic text-sm">Post-op handovers current.</div>}
+                        {myTasks.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No pending tasks.</p>}
                     </div>
-                  </section>
-              </div>
-          </div>
+                </div>
+            </div>
+        </div>
       </div>
-
-      <section className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-center mb-10">
-              <div className="flex items-center gap-4">
-                  <div className="bg-lilac-100 p-4 rounded-3xl text-lilac-700 shadow-sm"><GraduationCap size={28}/></div>
-                  <div>
-                      <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none">Statutory CPD Registry</h3>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">RA 9484 Professional License Compliance</p>
-                  </div>
-              </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {staff.filter(s => s.role === UserRole.DENTIST).map(s => {
-                  const totalCpd = (s.cpdEntries || []).reduce((sum, entry) => sum + entry.units, 0);
-                  const required = s.requiredCpdUnits || 15;
-                  const progress = Math.min(100, (totalCpd / required) * 100);
-                  return (
-                      <div key={s.id} className="p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 hover:border-teal-500 hover:bg-white hover:shadow-xl transition-all duration-500">
-                          <div className="flex items-center gap-5 mb-8">
-                              <img src={s.avatar} alt="" className="w-16 h-16 rounded-[1.5rem] border-4 border-white shadow-lg" />
-                              <div className="flex-1 min-w-0">
-                                  <h4 className="font-black text-slate-800 uppercase text-lg tracking-tight truncate leading-none">{s.name}</h4>
-                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 block">License: {s.prcLicense || '---'}</span>
-                              </div>
-                          </div>
-                          <div className="space-y-3">
-                              <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                  <span>Units: {totalCpd} / {required}</span>
-                                  <span className={progress >= 100 ? 'text-teal-700' : 'text-lilac-600'}>{Math.round(progress)}%</span>
-                              </div>
-                              <div className="h-3 bg-white rounded-full overflow-hidden border border-slate-100 shadow-inner">
-                                  <div className={`h-full transition-all duration-1000 ${progress >= 100 ? 'bg-teal-600' : 'bg-lilac-500'}`} style={{ width: `${progress}%` }} />
-                              </div>
-                          </div>
-                      </div>
-                  );
-              })}
-          </div>
-      </section>
-
-      {syncConflicts.length > 0 && (
-          <button onClick={() => setShowConflictDrawer(true)} className="fixed bottom-24 right-6 z-50 bg-lilac-600 text-white h-16 w-16 rounded-full flex items-center justify-center shadow-2xl shadow-lilac-600/40 animate-pulse-lilac">
-              <AlertTriangle size={24}/>
-              <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-600 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-white">{syncConflicts.length}</span>
-          </button>
-      )}
-
-      {showConflictDrawer && (
-          <div className="fixed inset-0 z-[100] animate-in fade-in">
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowConflictDrawer(false)} />
-              <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right-full duration-500">
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><RefreshCcw size={20}/> Sync Conflict Resolution</h3>
-                      <button onClick={() => setShowConflictDrawer(false)} className="p-2 text-slate-400 hover:text-slate-800"><X/></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {syncConflicts.map(c => (
-                          <div key={c.id} className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
-                              <h4 className="font-bold text-sm text-slate-700">Conflict: {c.entityType}</h4>
-                              <p className="text-xs text-slate-500">Local vs Server data mismatch.</p>
-                              <div className="flex gap-2 mt-3">
-                                  <button onClick={() => handleResolveConflict(c.id)} className="flex-1 py-2 bg-white border rounded-lg text-xs font-bold">Keep Local</button>
-                                  <button onClick={() => handleResolveConflict(c.id)} className="flex-1 py-2 bg-white border rounded-lg text-xs font-bold">Use Server</button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          </div>
-      )}
-
     </div>
   );
 };

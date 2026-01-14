@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft } from 'lucide-react';
@@ -26,7 +27,7 @@ interface PatientDetailViewProps {
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean }> = ({ label, value, icon: Icon, isFlag }) => {
     const displayValue = Array.isArray(value) ? value.join(', ') : (value || '---');
     return (
-        <div className={`p-4 rounded-2xl flex items-start gap-4 ${isFlag ? 'bg-red-50/50 border border-red-100' : 'bg-slate-50 border border-slate-100'}`}>
+        <div className={`p-4 rounded-2xl flex items-start gap-4 ${isFlag ? 'bg-red-100 border border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
             {Icon && <Icon size={18} className={`mt-1 shrink-0 ${isFlag ? 'text-red-600' : 'text-slate-400'}`} />}
             <div className="flex-1">
                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</div>
@@ -87,9 +88,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   const headerClasses = `
     backdrop-blur-2xl border-b p-4 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
     ${hasCriticalFlags 
-        ? 'bg-red-100/80 border-red-200' 
+        ? 'bg-red-100 border-red-200' 
         : isPwdOrMinor 
-        ? 'bg-amber-100/80 border-amber-200' 
+        ? 'bg-amber-100 border-amber-200' 
         : 'bg-white/80 border-slate-100'}
   `;
 

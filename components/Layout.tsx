@@ -49,16 +49,16 @@ const Layout: React.FC<LayoutProps> = ({
           : availableBranches;
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'schedule', label: 'Schedule', icon: Calendar },
+    { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { id: 'schedule', label: 'Calendar', icon: Calendar },
     { id: 'patients', label: 'Patients', icon: Users },
   ];
 
-  if (features?.enableInventory) { navItems.push({ id: 'inventory', label: 'Inventory', icon: Package }); }
-  if (features?.enableHMOClaims || features?.enableAnalytics) {
-      navItems.push({ id: 'financials', label: 'Financials', icon: DollarSign });
+  if (features?.enableInventory || features?.enableHMOClaims || features?.enableAnalytics) {
+      navItems.push({ id: 'financials', label: 'Admin', icon: Sliders });
   }
-  navItems.push({ id: 'field-mgmt', label: 'Settings', icon: Settings });
+  navItems.push({ id: 'field-mgmt', label: 'Setup', icon: Settings });
+
 
   const handleProfileUpdate = (updatedUser: User) => onSwitchUser(updatedUser);
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
@@ -82,13 +82,10 @@ const Layout: React.FC<LayoutProps> = ({
 
       <header className={headerClass}>
              <div className="flex items-center gap-6">
-                <div className={`w-12 h-12 rounded-[1.4rem] flex items-center justify-center shadow-2xl transition-all ${isDowntime ? 'bg-red-600' : 'bg-lilac-505 rotate-3 ring-4 ring-white/10'}`}>
-                    <span className="text-white font-black text-2xl" aria-hidden="true">{isDowntime ? '!' : 'd'}</span>
-                </div>
                 <div className="flex flex-col">
-                     <span className={`font-black tracking-[0.3em] text-2xl leading-none uppercase ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
+                     <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-[10px] font-black uppercase tracking-[0.4em] leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Authenticated: Dr. {currentUser.name.split(' ')[0]}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: Dr. {currentUser.name.split(' ')[0]}</span>
                         {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase tracking-widest" role="status"><CloudOff size={8}/> Offline Continuity Mode</div>}
                      </div>
                 </div>

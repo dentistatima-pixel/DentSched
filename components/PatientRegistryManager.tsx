@@ -119,7 +119,7 @@ const PatientRegistryManager: React.FC<PatientRegistryManagerProps> = ({
                                 ? 'bg-red-50/70 hover:bg-red-100/70' 
                                 : isPwdOrMinor 
                                 ? 'bg-amber-50/70 hover:bg-amber-100/70' 
-                                : 'hover:bg-teal-50/50'
+                                : 'hover:bg-slate-100'
                             }`}
                           >
                               <td className="p-0 w-2">
