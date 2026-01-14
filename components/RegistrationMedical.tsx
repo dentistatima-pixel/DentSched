@@ -82,7 +82,6 @@ const IsolatedInput: React.FC<{
   );
 };
 
-// FIXED: Added key?: React.Key to the props interface to resolve build errors when used in lists
 const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'question' | 'condition' | 'allergy' | 'physician', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
   const isSelected = selectedFieldId === id;
   if (!designMode) return <div className={className}>{children}</div>;
@@ -105,7 +104,6 @@ interface BooleanFieldProps {
     q: string;
     icon?: React.ElementType;
     alert?: boolean;
-    // FIXED: Narrowed 'type' prop to supported literal union to ensure clinical registry safety
     type?: 'question' | 'condition' | 'allergy' | 'physician';
     className?: string;
     placeholder?: string;
@@ -127,7 +125,6 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
     const needsDetails = q.includes('*');
     const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(q);
     
-    // FIXED: Explicitly cast 'type' to resolve string assignment error on line 130
     const resolvedType = type as 'question' | 'condition' | 'allergy' | 'physician';
 
     return (
