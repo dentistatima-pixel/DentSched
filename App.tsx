@@ -12,6 +12,7 @@ import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
 import Inventory from './components/Inventory';
 import Financials from './components/Financials';
+import AdminHub from './components/AdminHub';
 import PostOpHandoverModal from './components/PostOpHandoverModal';
 import SafetyTimeoutModal from './components/SafetyTimeoutModal';
 import QuickTriageModal from './components/QuickTriageModal';
@@ -725,15 +726,15 @@ function App() {
       }
   };
 
-  const handleUpdateSettings = (newSettings: FieldSettings) => {
+  const handleUpdateSettings = useCallback((newSettings: FieldSettings) => {
     setFieldSettings(newSettings);
     saveToLocal('dentsched_fields', newSettings);
-  };
+  }, [saveToLocal]);
   
-  const handleUpdateStock = (newStock: StockItem[]) => {
+  const handleUpdateStock = useCallback((newStock: StockItem[]) => {
     setStock(newStock);
     saveToLocal('dentsched_stock', newStock);
-  }
+  }, [saveToLocal]);
 
   const handleAddCycle = (cycle: any) => {
     const newCycles = [...sterilizationCycles, { id: `c_${Date.now()}`, ...cycle }];
@@ -821,6 +822,7 @@ function App() {
             )}
           </div>
         );
+      case 'admin': return <AdminHub onNavigate={(tab) => setActiveTab(tab)} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={handleUpdateStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} appointments={appointments} logAction={logAction} />;
       case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={() => {}} onSaveCashSession={() => {}} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={() => {}} onAddPayrollAdjustment={() => {}} onApproveAdjustment={() => {}} onAddCommissionDispute={() => {}} onResolveCommissionDispute={() => {}} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} />;
       case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} />;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
@@ -55,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({
   ];
 
   if (features?.enableInventory || features?.enableHMOClaims || features?.enableAnalytics) {
-      navItems.push({ id: 'financials', label: 'Admin', icon: Sliders });
+      navItems.push({ id: 'admin', label: 'Admin', icon: Sliders });
   }
   navItems.push({ id: 'field-mgmt', label: 'Setup', icon: Settings });
 
