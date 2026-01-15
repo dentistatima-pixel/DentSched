@@ -33,6 +33,8 @@ interface FieldManagementProps {
   incidents: ClinicalIncident[];
   onSaveIncident: (i: ClinicalIncident) => void;
   appointments: Appointment[];
+  currentUser: User;
+  onStartImpersonating: (user: User) => void;
 }
 
 const BRANCH_PREFIXES: Record<string, string> = {
@@ -43,7 +45,7 @@ const BRANCH_PREFIXES: Record<string, string> = {
 };
 
 const FieldManagement: React.FC<FieldManagementProps> = ({ 
-  settings, onUpdateSettings, auditLogVerified, staff, auditLog, patients, onPurgePatient, appointments
+  settings, onUpdateSettings, auditLogVerified, staff, auditLog, patients, onPurgePatient, appointments, currentUser, onStartImpersonating
 }) => {
     const toast = useToast();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
@@ -124,6 +126,9 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             { id: 'audit_trail', label: 'Forensic Audit Trail', icon: Fingerprint },
             { id: 'npc_compliance', label: 'Compliance Center', icon: Shield },
             { id: 'retention', label: 'Retention Monitor', icon: Archive }
+        ]},
+        { key: 'testing', label: 'VII. Testing', icon: Zap, items: [
+            { id: 'privilege_elevation', label: 'Privilege Elevation', icon: Key }
         ]}
     ];
 
@@ -616,6 +621,50 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
 
     const renderCatalogContent = () => {
         switch (activeRegistry) {
+            case 'privilege_elevation':
+                if (currentUser.role !== UserRole.SYSTEM_ARCHITECT) {
+                  return (
+                    <div className="p-10 space-y-4 text-center">
+                      <ShieldAlert size={48} className="mx-auto text-red-500" />
+                      <h3 className="text-xl font-black text-slate-800">Access Denied</h3>
+                      <p className="text-slate-500">This feature is restricted to the System Architect role.</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-10 animate-in fade-in duration-500">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Privilege Elevation</h3>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Temporarily assume the role of another user for testing.</p>
+                    </div>
+                    <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-[2rem] flex items-start gap-4">
+                      <AlertTriangle size={24} className="text-amber-600 shrink-0 mt-1"/>
+                      <div>
+                        <h4 className="font-black text-amber-900 uppercase tracking-tight text-sm">Forensic Logging Active</h4>
+                        <p className="text-xs text-amber-800 font-bold leading-relaxed mt-1">All actions performed while impersonating are permanently recorded in the audit trail with your original identity as the actor. This feature is for authorized system verification only.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {staff.filter(s => s.role !== UserRole.SYSTEM_ARCHITECT).map(member => (
+                        <div key={member.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center justify-between group hover:border-teal-500 transition-all">
+                          <div className="flex items-center gap-4">
+                            <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full border-2 border-white shadow-md"/>
+                            <div>
+                              <h4 className="font-black text-slate-800 uppercase tracking-tight">{member.name}</h4>
+                              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{member.role}</span>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => onStartImpersonating(member)}
+                            className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all shadow-sm flex items-center gap-2"
+                          >
+                            <Key size={14}/> Assume Role
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
             case 'printouts_hub':
                 return (
                     <div className="space-y-10 animate-in fade-in duration-500">

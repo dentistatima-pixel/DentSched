@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
+import Fuse from 'fuse.js';
 
 /**
  * REFACTORED: This is now a standard controlled input component.
@@ -88,12 +89,65 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
     designMode = false, onFieldClick, selectedFieldId
 }) => {
   const [refSearch, setRefSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const fuse = useMemo(() => new Fuse(patients, {
+    keys: ['name', 'id'],
+    threshold: 0.4,
+    ignoreLocation: true,
+  }), [patients]);
+
+  useEffect(() => {
+    const referredPatient = patients.find(p => p.id === formData.referredById);
+    setRefSearch(referredPatient ? referredPatient.name : '');
+  }, [formData.referredById, patients]);
+
+  useEffect(() => {
+    const isExactMatch = patients.some(p => p.id === formData.referredById && p.name === refSearch);
+    
+    if (refSearch && !isExactMatch) {
+      const results = fuse.search(refSearch).map(result => result.item);
+      setSearchResults(results.slice(0, 5));
+    } else {
+      setSearchResults([]);
+    }
+  }, [refSearch, fuse, formData.referredById, patients]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setSearchResults([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [searchContainerRef]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRefSearch(value);
+    
+    if (value === '') {
+      handleChange({
+        target: { name: 'referredById', value: undefined }
+      } as any);
+    }
+  };
+
+  const handleSelectReferral = (patient: Patient) => {
+    handleChange({
+      target: { name: 'referredById', value: patient.id }
+    } as any);
+    setRefSearch(patient.name);
+    setSearchResults([]);
+  };
 
   const isMinor = useMemo(() => formData.age !== undefined && formData.age < 18, [formData.age]);
   const showGuardian = isMinor || formData.isPwd || formData.isSeniorDependent || designMode;
   const showFemaleQuestions = formData.sex === 'Female' || designMode;
-
-  const referredByName = patients.find(p => p.id === formData.referredById)?.name;
 
   const getLabel = (id: string, def: string) => fieldSettings.fieldLabels[id] || def;
 
@@ -264,18 +318,37 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                 <label className="label flex items-center gap-2 text-slate-400 font-bold"><Hash size={14} /> System ID</label>
                 <div className="input bg-slate-50 text-slate-400 font-mono text-sm border-slate-200">{formData.id || 'AUTO_GEN'}</div>
             </div>
-            <div className="md:col-span-9 relative">
+            <div className="md:col-span-9 relative" ref={searchContainerRef}>
                 <label className="label flex items-center gap-2 text-teal-800 font-bold"><Star size={14} fill="currentColor"/> Referral Source</label>
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
                     <input 
                         type="text" 
                         placeholder="Search existing patient registry..." 
-                        value={refSearch || referredByName || ''} 
-                        onChange={(e) => setRefSearch(e.target.value)}
+                        value={refSearch}
+                        onChange={handleSearchChange}
                         disabled={readOnly}
                         className="input pl-12 bg-white"
+                        autoComplete="off"
                     />
+                    {searchResults.length > 0 && (
+                      <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-lg z-50 max-h-60 overflow-y-auto no-scrollbar">
+                          <ul className="divide-y divide-slate-100">
+                              {searchResults.map(patient => (
+                                  <li key={patient.id}>
+                                      <button 
+                                          type="button"
+                                          onClick={() => handleSelectReferral(patient)}
+                                          className="w-full text-left p-4 hover:bg-teal-50 transition-colors"
+                                      >
+                                          <span className="font-bold text-slate-800">{patient.name}</span>
+                                          <span className="text-xs text-slate-500 ml-2 font-mono">ID: {patient.id}</span>
+                                      </button>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                    )}
                 </div>
             </div>
         </div>

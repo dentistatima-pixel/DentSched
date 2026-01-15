@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 /* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
@@ -18,6 +17,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isSigning, setIsSigning] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -122,7 +122,23 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   const handleAuthorize = () => {
     if (!hasInk || !canvasRef.current) return;
     const sigData = canvasRef.current.toDataURL();
-    const witnessHash = CryptoJS.SHA256(sigData + Date.now()).toString();
+    
+    let witnessHash = CryptoJS.SHA256(sigData + Date.now()).toString(); // Fallback hash
+    
+    const video = videoRef.current;
+    const witnessCanvas = witnessCanvasRef.current;
+
+    if (video && witnessCanvas && isCameraActive && video.readyState >= 3) {
+      const ctx = witnessCanvas.getContext('2d');
+      if (ctx) {
+        witnessCanvas.width = video.videoWidth;
+        witnessCanvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, witnessCanvas.width, witnessCanvas.height);
+        const witnessImageData = witnessCanvas.toDataURL('image/jpeg', 0.8);
+        witnessHash = CryptoJS.SHA256(witnessImageData).toString();
+      }
+    }
+    
     onSave(sigData, witnessHash);
   };
 
@@ -174,7 +190,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
           </div>
 
           <div className="flex gap-4">
-            <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Clear</button>
+            <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button>
             <button 
               onClick={handleAuthorize}
               disabled={!hasInk}
@@ -184,6 +200,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             </button>
           </div>
         </div>
+        <canvas ref={witnessCanvasRef} className="hidden" />
       </div>
     </div>
   );

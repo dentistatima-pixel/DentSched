@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
@@ -26,13 +25,15 @@ interface LayoutProps {
   onSwitchSystemStatus?: (status: SystemStatus) => void;
   installable?: boolean;
   onInstall?: () => void;
+  impersonatingUser?: User | null;
+  onStopImpersonating?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
   currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
   isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus,
-  installable = false, onInstall
+  installable = false, onInstall, impersonatingUser, onStopImpersonating
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -78,6 +79,14 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
+      {impersonatingUser && (
+        <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
+          <ShieldAlert size={18} className="animate-pulse"/>
+          <span>Warning: Impersonating <strong>{currentUser.name}</strong>.</span>
+          <button onClick={onStopImpersonating} className="ml-4 bg-black/80 text-white px-4 py-1.5 rounded-lg text-[10px] hover:bg-black transition-colors">Stop Impersonating</button>
+        </div>
+      )}
+
       {/* Visual Connectivity Bar */}
       <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-400 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
 
@@ -86,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({
                 <div className="flex flex-col">
                      <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: Dr. {currentUser.name.split(' ')[0]}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
                         {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase tracking-widest" role="status"><CloudOff size={8}/> Offline Continuity Mode</div>}
                      </div>
                 </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
@@ -38,17 +37,23 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   useEffect(() => {
     if (isOpen) {
-        if (initialData) { 
-            // This is an edit. Clear the signature to force re-signing for compliance.
-            setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' }); 
-        } 
-        else { 
-            // This is a new patient.
-            const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString(); 
-            setFormData({ ...initialFormState, id: generatedId }); 
+        if (initialData) {
+            // This is an edit. We only want to load the data if it's a different patient.
+            // This check prevents overwriting the form if a parent component re-renders.
+            if (initialData.id !== formData.id) {
+                setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' });
+            }
+        } else {
+            // This is for a new patient. We only want to set a new ID if the form isn't already set up for a new patient.
+            // The previous logic `|| formData.name` was buggy and would reset the form while typing.
+            if (!formData.id) {
+                const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
+                setFormData({ ...initialFormState, id: generatedId });
+            }
         }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, formData.id]);
+
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -130,7 +135,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const handleSignatureCaptured = (sig: string, hash: string) => {
     const timestamp = new Date().toISOString();
-    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp };
+    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: hash };
     setFormData(updatedData);
     setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");

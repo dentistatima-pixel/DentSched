@@ -385,7 +385,8 @@ export interface AuditLogEntry {
   entityId: string;
   details: string;
   hash?: string;          
-  previousHash?: string;  
+  previousHash?: string;
+  impersonatingUser?: { id: string, name: string };
 }
 
 export interface OrthoAdjustment {
@@ -619,6 +620,8 @@ export interface Appointment {
   isStale?: boolean;
   signedConsentUrl?: string;
   triageLevel?: TriageLevel;
+  // Fix: Add missing optional 'postOpVerified' property to the Appointment interface
+  postOpVerified?: boolean;
 }
 
 export interface Patient {
@@ -735,6 +738,7 @@ export interface Patient {
   philHealthMemberStatus?: string;
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
+  registrationPhotoHash?: string;
 }
 
 export enum TreatmentPlanStatus {

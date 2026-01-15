@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -111,7 +110,8 @@ function App() {
   const idleTimerRef = useRef<any>(null);
   const IDLE_TIMEOUT_MS = 15 * 60 * 1000; 
 
-  const [currentUser, setCurrentUser] = useState<User>(STAFF[0]); 
+  const [currentUser, setCurrentUser] = useState<User>(STAFF[0]);
+  const [originalUser, setOriginalUser] = useState<User | null>(null);
   const [isInKioskMode, setIsInKioskMode] = useState(false);
   const [currentBranch, setCurrentBranch] = useState<string>('Makati Main');
 
@@ -164,7 +164,8 @@ function App() {
               entityId,
               details: finalDetails,
               hash: currentHash,
-              previousHash: prevHash
+              previousHash: prevHash,
+              impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined
           };
 
           try {
@@ -179,7 +180,7 @@ function App() {
           saveToLocal('dentsched_auditlog', newAuditLogState);
           return newAuditLogState;
       });
-  }, [currentUser, fieldSettings.features.enableAccountabilityLog, saveToLocal]);
+  }, [currentUser, originalUser, fieldSettings.features.enableAccountabilityLog, saveToLocal]);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -399,6 +400,31 @@ function App() {
           processOfflineQueue();
       }
   }, [isOnline, offlineQueue, processOfflineQueue]);
+  
+  const handleStartImpersonating = (userToImpersonate: User) => {
+    if (currentUser.role !== UserRole.SYSTEM_ARCHITECT) {
+      toast.error("Privilege Elevation is restricted to System Architect role.");
+      return;
+    }
+    if (originalUser) {
+      toast.warning("Already impersonating. Stop current session first.");
+      return;
+    }
+    logAction('SECURITY_ALERT', 'System', userToImpersonate.id, `System Architect started impersonating ${userToImpersonate.name}.`);
+    setOriginalUser(currentUser);
+    setCurrentUser(userToImpersonate);
+    toast.success(`Now impersonating ${userToImpersonate.name}.`);
+    setActiveTab('dashboard'); // Go to dashboard to see effects
+  };
+
+  const handleStopImpersonating = () => {
+    if (!originalUser) return;
+    logAction('SECURITY_ALERT', 'System', originalUser.id, `System Architect stopped impersonating ${currentUser.name}.`);
+    setCurrentUser(originalUser);
+    setOriginalUser(null);
+    toast.info("Privilege elevation session ended.");
+    setActiveTab('field-mgmt'); // Go back to settings
+  };
 
   const effectiveUser = useMemo(() => ({
     ...currentUser,
@@ -825,7 +851,7 @@ function App() {
       case 'admin': return <AdminHub onNavigate={(tab) => setActiveTab(tab)} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={handleUpdateStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} appointments={appointments} logAction={logAction} />;
       case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={() => {}} onSaveCashSession={() => {}} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={() => {}} onAddPayrollAdjustment={() => {}} onApproveAdjustment={() => {}} onAddCommissionDispute={() => {}} onResolveCommissionDispute={() => {}} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} />;
+      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} currentUser={currentUser} onStartImpersonating={handleStartImpersonating} />;
       default: return null;
     }
   };
@@ -853,6 +879,8 @@ function App() {
         onSwitchSystemStatus={handleSwitchSystemStatus}
         installable={!!deferredPrompt}
         onInstall={handleInstallApp}
+        impersonatingUser={originalUser}
+        onStopImpersonating={handleStopImpersonating}
         >
         {showTamperAlert && (
             <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
