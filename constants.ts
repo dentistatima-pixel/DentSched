@@ -1,4 +1,5 @@
 
+
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod } from './types';
 
 // Generators for mock data
@@ -232,7 +233,7 @@ export const PATIENTS: Patient[] = [
                 specialty: 'Cardiologist',
                 requestedAt: getPastDateStr(200),
                 status: 'Approved',
-                approvedAt: getPastDateStr(190), // Expired (more than 6 months ago)
+                approvedAt: getPastDateStr(190), // Expired (more than 3 months ago)
                 remarks: 'Cleared for routine dental procedures.',
                 verificationMethod: VerificationMethod.DIGITAL_UPLOAD,
                 verifiedByPractitionerId: 'doc1',
@@ -245,7 +246,7 @@ export const PATIENTS: Patient[] = [
                 specialty: 'Cardiologist',
                 requestedAt: getPastDateStr(30),
                 status: 'Approved',
-                approvedAt: getPastDateStr(25), // Valid (within 6 months)
+                approvedAt: getPastDateStr(25), // Valid (within 3 months)
                 remarks: 'Cleared for non-invasive procedures. Re-evaluate for surgery.',
                 verificationMethod: VerificationMethod.PHYSICAL_FILE_VERIFIED,
                 verifiedByPractitionerId: 'doc1',

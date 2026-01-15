@@ -144,25 +144,25 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       const isPwd = selectedPatient.isPwd;
 
       if (hasCriticalCondition) {
-          const sixMonthsAgo = new Date();
-          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          const threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
           
           const validClearance = (selectedPatient.clearanceRequests || [])
               .filter(r => r.status === 'Approved' && r.approvedAt)
               .sort((a, b) => new Date(b.approvedAt!).getTime() - new Date(a.approvedAt!).getTime())[0];
 
-          if (validClearance && new Date(validClearance.approvedAt!) > sixMonthsAgo) {
+          if (validClearance && new Date(validClearance.approvedAt!) > threeMonthsAgo) {
               return {
                   type: 'red' as const,
                   title: 'CRITICAL ALERT: REVIEW CLEARANCE',
-                  message: `VALID CLEARANCE ON FILE (Expires: ${new Date(new Date(validClearance.approvedAt!).setMonth(new Date(validClearance.approvedAt!).getMonth() + 6)).toLocaleDateString()}). Proceed with caution and review document.`,
+                  message: `VALID CLEARANCE ON FILE (Expires: ${new Date(new Date(validClearance.approvedAt!).setMonth(new Date(validClearance.approvedAt!).getMonth() + 3)).toLocaleDateString()}). Proceed with caution and review document.`,
                   isClear: true
               };
           } else {
               return {
                   type: 'red' as const,
                   title: 'CRITICAL ALERT: PHYSICIAN\'S CLEARANCE REQUIRED',
-                  message: `This patient has a high-risk medical condition. A signed clearance letter from their physician is mandatory before proceeding with any invasive treatment. No valid clearance found on file within the last 6 months.`,
+                  message: `This patient has a high-risk medical condition. A signed clearance letter from their physician is mandatory before proceeding with any invasive treatment. No valid clearance found on file within the last 3 months.`,
                   isClear: false
               };
           }
