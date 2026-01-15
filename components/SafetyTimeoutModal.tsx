@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, AlertCircle, HeartPulse, Clock, CheckCircle } from 'lucide-react';
 import { Patient } from '../types';

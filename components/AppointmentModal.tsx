@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor } from '../types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS } from '../constants';
 import { useToast } from './ToastSystem';
@@ -39,6 +39,70 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [blockTitle, setBlockTitle] = useState('');
+
+  // Gap 6: Slot Finder State
+  const [showFinder, setShowFinder] = useState(false);
+  const [finderResults, setFinderResults] = useState<{ date: string, time: string }[]>([]);
+  const [isFinding, setIsFinding] = useState(false);
+  const [timePreference, setTimePreference] = useState<'any' | 'am' | 'pm'>('any');
+
+  const findAvailableSlots = useCallback(() => {
+    setIsFinding(true);
+    setFinderResults([]);
+
+    setTimeout(() => { // Simulate async search
+        const results: { date: string, time: string }[] = [];
+        let currentDate = new Date();
+        const searchLimit = new Date();
+        searchLimit.setDate(searchLimit.getDate() + 30); // Look 30 days ahead
+
+        const procedureDuration = duration;
+
+        while (currentDate <= searchLimit && results.length < 5) {
+            const dayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][currentDate.getDay()] as keyof FieldSettings['operationalHours'];
+            const hours = fieldSettings.operationalHours[dayKey];
+
+            if (hours && !hours.isClosed) {
+                const startHour = parseInt(hours.start.split(':')[0]);
+                const endHour = parseInt(hours.end.split(':')[0]);
+
+                for (let hour = startHour; hour < endHour; hour++) {
+                    for (let minute = 0; minute < 60; minute += 15) { // Check every 15 mins
+                        if (results.length >= 5) break;
+
+                        const isAm = hour < 12;
+                        if (timePreference === 'am' && !isAm) continue;
+                        if (timePreference === 'pm' && isAm) continue;
+
+                        const slotDate = currentDate.toLocaleDateString('en-CA');
+                        const slotTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                        const slotStart = new Date(`${slotDate}T${slotTime}`);
+                        const slotEnd = new Date(slotStart.getTime() + procedureDuration * 60000);
+
+                        const conflict = appointments.some(apt => {
+                            if (apt.providerId !== providerId && apt.resourceId !== resourceId) return false;
+                            
+                            const practitionerDelay = fieldSettings.practitionerDelays?.[apt.providerId] || 0;
+                            const effectiveDuration = apt.durationMinutes + practitionerDelay;
+                            
+                            const aptStart = new Date(`${apt.date}T${apt.time}`);
+                            const aptEnd = new Date(aptStart.getTime() + effectiveDuration * 60000);
+                            
+                            return (slotStart < aptEnd && slotEnd > aptStart);
+                        });
+
+                        if (!conflict) {
+                            results.push({ date: slotDate, time: slotTime });
+                        }
+                    }
+                }
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        setFinderResults(results);
+        setIsFinding(false);
+    }, 200);
+  }, [providerId, resourceId, duration, appointments, fieldSettings.operationalHours, fieldSettings.practitionerDelays, timePreference]);
 
   // Fuzzy Search Setup
   const fuse = useMemo(() => new Fuse(patients, {
@@ -86,6 +150,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         setDate(initialDate || new Date().toLocaleDateString('en-CA'));
         setTime(initialTime || '09:00');
       }
+      setShowFinder(false);
+      setFinderResults([]);
     }
   }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId]);
 
@@ -198,7 +264,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const timeSlotInfo = useMemo(() => {
     if (!providerId || !date) return { slots: [], isAvailable: () => false };
     const day = new Date(date).getDay();
-    // JS getDay() is 0 for Sunday, so we need to adjust for our operational hours keys.
     const dayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][day];
     const operationalHours = fieldSettings.operationalHours[dayKey as keyof typeof fieldSettings.operationalHours];
     
@@ -363,24 +428,44 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
               {/* Column 2: When & Who */}
               <div className="space-y-8">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-6 items-end">
                     <div>
                         <label className="label">Booking Date</label>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input font-black" />
                     </div>
                     <div>
-                        <label className="label">Allocated Duration</label>
-                        <select value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="input font-black">
-                            <option value={15}>15 mins</option>
-                            <option value={30}>30 mins</option>
-                            <option value={45}>45 mins</option>
-                            <option value={60}>60 mins</option>
-                            <option value={90}>90 mins</option>
-                            <option value={120}>120 mins</option>
-                        </select>
+                         <button onClick={() => setShowFinder(!showFinder)} className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-white border-2 border-slate-200 text-slate-500 hover:text-teal-700 hover:border-teal-500 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all">
+                             <Zap size={16}/> Find Next Available
+                         </button>
                     </div>
                 </div>
 
+                {showFinder && (
+                    <div className="bg-white p-6 rounded-3xl border-2 border-teal-100 shadow-lg space-y-4 animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-black text-teal-800 uppercase tracking-widest text-xs">Slot Finder</h4>
+                            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <button onClick={() => setTimePreference('any')} className={`px-3 py-1 text-[9px] font-black uppercase rounded-lg ${timePreference === 'any' ? 'bg-white shadow' : ''}`}>Any</button>
+                                <button onClick={() => setTimePreference('am')} className={`px-3 py-1 text-[9px] font-black uppercase rounded-lg ${timePreference === 'am' ? 'bg-white shadow' : ''}`}>AM</button>
+                                <button onClick={() => setTimePreference('pm')} className={`px-3 py-1 text-[9px] font-black uppercase rounded-lg ${timePreference === 'pm' ? 'bg-white shadow' : ''}`}>PM</button>
+                            </div>
+                        </div>
+                        {!isFinding && finderResults.length > 0 && (
+                             <div className="grid grid-cols-1 gap-2">
+                                {finderResults.map((slot, i) => (
+                                    <button key={i} onClick={() => { setDate(slot.date); setTime(slot.time); setShowFinder(false); }} className="p-4 bg-teal-50 border border-teal-100 rounded-2xl text-left hover:bg-teal-100 transition-colors">
+                                        <div className="font-black text-teal-800 uppercase text-sm">{new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+                                        <div className="text-xs font-bold text-teal-600 mt-1">{new Date(`1970-01-01T${slot.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                         {!isFinding && finderResults.length === 0 && <p className="text-center text-xs text-slate-400 font-bold p-4">No slots found within 30 days.</p>}
+                         {isFinding && <div className="text-center p-4 text-xs font-bold text-slate-400 animate-pulse">Searching...</div>}
+                        <button onClick={findAvailableSlots} disabled={isFinding} className="w-full mt-2 py-3 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:scale-105 transition-all">Search</button>
+                    </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="label">Attending Provider</label>
@@ -400,7 +485,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </div>
 
                 <div>
-                    <label className="label">Available Slots</label>
+                    <label className="label">Manual Time Selection</label>
                     <div className="bg-white p-4 rounded-3xl border-2 border-slate-100 shadow-inner grid grid-cols-4 gap-2">
                         {timeSlotInfo.slots.map(slot => {
                             const isBooked = !timeSlotInfo.isAvailable(slot);

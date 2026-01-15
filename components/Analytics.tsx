@@ -1,6 +1,4 @@
-
 import React, { useMemo, useState } from 'react';
-// Fix: Added missing 'TrendingUp' and 'PieChart' to lucide-react imports
 import { BarChart2, DollarSign, Users, Activity, Percent, UserCheck, User, Building2, ShieldAlert, TrendingUp, PieChart } from 'lucide-react';
 import { Patient, Appointment, FieldSettings, AppointmentStatus, User as StaffUser } from '../types';
 
@@ -37,7 +35,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
 
         const totalRevenue = completedYtd.reduce((sum, apt) => {
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-            return sum + (proc?.price || 0);
+            if (!proc) return sum;
+            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
+            return sum + (priceEntry?.price || 0);
         }, 0);
 
         const newPatientsYtd = patients.filter(p => p.lastVisit === 'First Visit' || (p.id.startsWith('p_new_'))).length;
@@ -56,10 +56,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
         completedYtd.forEach(apt => {
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
             if (!proc) return;
+            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
+            const price = priceEntry?.price || 0;
             const category = proc.category || 'General';
             if (!procMix[category]) procMix[category] = { count: 0, revenue: 0 };
             procMix[category].count++;
-            procMix[category].revenue += proc.price;
+            procMix[category].revenue += price;
         });
         const sortedMix = Object.entries(procMix).sort((a,b) => b[1].revenue - a[1].revenue);
 

@@ -358,9 +358,13 @@ const PayrollTab: React.FC<{
     const completed = appointments.filter(a => a.providerId === selectedDentistId && a.status === AppointmentStatus.COMPLETED);
     
     let grossProduction = 0;
+    // Fix: ProcedureItem no longer has a 'price' property. Price must be retrieved from priceBookEntries.
     completed.forEach(apt => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        grossProduction += (proc?.price || 0);
+        if (proc) {
+            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
+            grossProduction += (priceEntry?.price || 0);
+        }
     });
 
     const labFees = expenses.filter(e => e.staffId === selectedDentistId && e.category === 'Lab Fee').reduce((s, e) => s + e.amount, 0);
@@ -490,6 +494,8 @@ const PayrollTab: React.FC<{
                             <tbody className="divide-y divide-slate-50 font-bold text-slate-700">
                                 {completed.map(apt => {
                                     const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+                                    const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc?.id);
+                                    const price = priceEntry?.price || 0;
                                     const dispute = commissionDisputes.find(d => d.itemId === apt.id);
                                     return (
                                         <tr key={apt.id} className={`group hover:bg-slate-50 transition-colors ${dispute ? 'bg-orange-50/50' : ''}`}>
@@ -498,7 +504,7 @@ const PayrollTab: React.FC<{
                                                 <div className="uppercase tracking-tight text-slate-800">{apt.type}</div>
                                                 {dispute && <div className="text-[10px] font-black text-orange-600 flex items-center gap-1 mt-1 uppercase tracking-tighter"><AlertTriangle size={12} aria-hidden="true"/> DISPUTED: "{dispute.note}"</div>}
                                             </td>
-                                            <td className="p-4 text-right font-black text-slate-900">₱{proc?.price.toLocaleString()}</td>
+                                            <td className="p-4 text-right font-black text-slate-900">₱{price.toLocaleString()}</td>
                                             <td className="p-4 text-center">
                                                 {!isLocked && !dispute && (
                                                     <button 

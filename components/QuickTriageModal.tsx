@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
 import { TriageLevel } from '../types';

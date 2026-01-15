@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest } from '../types';
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral } from '../types';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
@@ -16,12 +16,15 @@ interface PatientDetailViewProps {
   currentUser: User;
   onQuickUpdatePatient: (patient: Patient) => void;
   onBookAppointment: (patientId: string) => void;
-  onEditPatient: (patient: Patient) => void; // New prop for editing
+  onEditPatient: (patient: Patient) => void; 
   fieldSettings?: FieldSettings; 
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   incidents?: ClinicalIncident[];
+  onSaveIncident?: (incident: ClinicalIncident) => void;
+  referrals?: Referral[];
+  onSaveReferral?: (referral: Referral) => void;
   onToggleTimeline?: () => void;
-  onBack?: () => void; // New prop for returning to registry
+  onBack?: () => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -67,7 +70,7 @@ const DiagnosticGallery: React.FC = () => (
 );
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -130,7 +133,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     { id: 'chart', label: 'Charts', icon: BarChart },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'gallery', label: 'Xrays', icon: ImageIcon },
-    { id: 'financials', label: 'Ledger', icon: DollarSign }
+    { id: 'financials', label: 'Ledger', icon: DollarSign },
+    { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
   ];
 
   const chartSubTabs = [
@@ -208,6 +212,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                     />
                   </div>
               );
+          case 'compliance':
+              return <ComplianceTab patient={patient} incidents={incidents} onSaveIncident={onSaveIncident} referrals={referrals} onSaveReferral={onSaveReferral} currentUser={currentUser} />;
           case 'profile':
               const medicalQuestions = [
                   { q: 'Are you in good health?', a: patient.goodHealth },
@@ -435,6 +441,45 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     </div>
   );
+};
+
+
+const ComplianceTab: React.FC<{
+    patient: Patient;
+    incidents?: ClinicalIncident[];
+    onSaveIncident?: (incident: ClinicalIncident) => void;
+    referrals?: Referral[];
+    onSaveReferral?: (referral: Referral) => void;
+    currentUser: User;
+}> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser }) => {
+    
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Clinical Incidents */}
+            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-red-50 shadow-sm space-y-8">
+                <div className="flex items-center gap-4 border-b border-red-100 pb-6">
+                    <div className="bg-red-50 p-3 rounded-2xl text-red-600"><AlertCircle size={32}/></div>
+                    <div>
+                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Clinical Incidents</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Medico-Legal Event Log</p>
+                    </div>
+                </div>
+                {/* Add Incident Form will go here */}
+            </div>
+
+            {/* Referrals */}
+            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-blue-50 shadow-sm space-y-8">
+                 <div className="flex items-center gap-4 border-b border-blue-100 pb-6">
+                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600"><Send size={32}/></div>
+                    <div>
+                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Referral Tracker</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Continuity of Care Monitor</p>
+                    </div>
+                </div>
+                 {/* Add Referral Form will go here */}
+            </div>
+        </div>
+    )
 };
 
 export default PatientDetailView;

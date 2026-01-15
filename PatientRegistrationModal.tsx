@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
@@ -38,19 +39,18 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   useEffect(() => {
     if (isOpen) {
         if (initialData) {
-            // FIX: This is an edit. Prevent loop by only setting form data if the patient ID changes.
             if (initialData.id !== formData.id) {
                 setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' });
             }
         } else {
-            // New patient: reset if form holds old data or is pristine.
-            if (!formData.id || formData.name) {
+            if (!formData.id) {
                 const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
                 setFormData({ ...initialFormState, id: generatedId });
             }
         }
     }
-  }, [isOpen, initialData, formData.id, formData.name]); // Added formData dependencies to prevent stale state issues
+  }, [isOpen, initialData]);
+
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -132,7 +132,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const handleSignatureCaptured = (sig: string, hash: string) => {
     const timestamp = new Date().toISOString();
-    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp };
+    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: hash };
     setFormData(updatedData);
     setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");

@@ -1,3 +1,6 @@
+// Fix: Add React import for React.ElementType
+import React from 'react';
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -61,6 +64,23 @@ export enum LabStatus {
   RECEIVED = 'Received',
   DELAYED = 'Delayed'
 }
+
+export interface AppNotification {
+  id: string;
+  type: 'critical' | 'action' | 'info';
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  timestamp: string;
+  actionType: 'navigate' | 'modal' | 'verify';
+  payload: {
+    tab?: string;
+    entityId?: string;
+    modal?: string;
+    // other payload data
+  };
+}
+
 
 export interface SyncIntent {
     id: string;
@@ -403,7 +423,7 @@ export interface OrthoAdjustment {
 export interface ProcedureItem {
   id: string;
   name: string;
-  price: number;
+  // price: number; // Gap 17: Removed
   category?: string;
   traySetup?: string[];
   requiresConsent?: boolean;
@@ -620,8 +640,10 @@ export interface Appointment {
   isStale?: boolean;
   signedConsentUrl?: string;
   triageLevel?: TriageLevel;
-  // Fix: Add missing optional 'postOpVerified' property to the Appointment interface
   postOpVerified?: boolean;
+  isLate?: boolean;
+  recurrenceRule?: string; // Gap 19
+  recurrenceId?: string;   // Gap 19
 }
 
 export interface Patient {
@@ -739,6 +761,8 @@ export interface Patient {
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
   registrationPhotoHash?: string;
+  familyGroupId?: string; // Gap 16
+  communicationLog?: CommunicationLogEntry[]; // Gap 18
 }
 
 export enum TreatmentPlanStatus {
@@ -761,6 +785,7 @@ export interface TreatmentPlan {
   reviewedAt?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
+  color?: string; // For Gap 13
 }
 
 export interface PinboardTask {
@@ -856,6 +881,8 @@ export interface LedgerEntry {
   balanceAfter: number;
   orNumber?: string;
   orDate?: string;
+  allocations?: { chargeId: string; amount: number }[]; // Gap 15
+  paidAmount?: number; // Gap 15
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
@@ -893,6 +920,42 @@ export interface PurchaseOrderItem {
   itemId: string;
   quantity: number;
   unitPrice: number;
+}
+
+// --- GAP 16 ---
+export interface FamilyGroup {
+  id: string;
+  familyName: string;
+  headOfFamilyId: string;
+  memberIds: string[];
+}
+
+// --- GAP 17 ---
+export interface PriceBook {
+  id: string;
+  name: string;
+  isDefault?: boolean;
+}
+export interface PriceBookEntry {
+  priceBookId: string;
+  procedureId: string;
+  price: number;
+}
+
+// --- GAP 18 ---
+export enum CommunicationChannel {
+  SMS = 'SMS',
+  CALL = 'Call',
+  EMAIL = 'Email',
+  SYSTEM = 'System'
+}
+export interface CommunicationLogEntry {
+  id: string;
+  timestamp: string;
+  channel: CommunicationChannel;
+  authorId: string; // 'system' or user ID
+  authorName: string;
+  content: string;
 }
 
 export interface FieldSettings {
@@ -958,6 +1021,9 @@ export interface FieldSettings {
   stockItems?: StockItem[];
   payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
   expenseCategories: string[];
+  practitionerDelays?: Record<string, number>; // For Gap 10
+  priceBooks?: PriceBook[]; // Gap 17
+  priceBookEntries?: PriceBookEntry[]; // Gap 17
 }
 
 export interface Medication {

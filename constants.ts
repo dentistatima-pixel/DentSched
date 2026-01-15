@@ -1,5 +1,5 @@
-
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod } from './types';
+// Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -318,7 +318,7 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.TREATING },
 
     // Past appointments
-    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED },
+    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
     { id: 'apt_past_02', patientId: 'p_unreliable_08', providerId: 'doc2', branch: 'Quezon City Satellite', date: getPastDateStr(30), time: '13:00', durationMinutes: 60, type: 'Composite Restoration (1 Surface)', status: AppointmentStatus.NO_SHOW },
 
     // Future appointments
@@ -327,6 +327,13 @@ export const APPOINTMENTS: Appointment[] = [
     
     // Block time
     { id: 'apt_block_01', patientId: 'ADMIN_BLOCK', providerId: 'doc1', branch: 'Makati Main', date: getTodayStr(), time: '12:00', durationMinutes: 60, type: 'Clinical Block', isBlock: true, title: 'Staff Lunch', status: AppointmentStatus.SCHEDULED }
+];
+
+export const MOCK_WAITLIST: WaitlistEntry[] = [
+    { id: 'wl_1', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Restoration', durationMinutes: 60, priority: 'High', notes: 'Flexible anytime AM' },
+    { id: 'wl_2', patientId: 'p_surg_04', patientName: 'Juan Dela Cruz', procedure: 'Extraction', durationMinutes: 30, priority: 'Normal', notes: 'Prefer afternoons' },
+    { id: 'wl_3', patientId: 'p_full_perio_02', patientName: 'Sofia Reyes', procedure: 'Cleaning', durationMinutes: 45, priority: 'Low', notes: 'Short notice ok' },
+    { id: 'wl_4', patientId: 'p_debt_09', patientName: 'Ronnie Runner', procedure: 'Root Canal', durationMinutes: 60, priority: 'High', notes: 'Emergency opening requested' },
 ];
 
 export const MOCK_CLAIMS: HMOClaim[] = [
@@ -414,6 +421,59 @@ const DEFAULT_SMS_CONFIG: SmsConfig = {
     deviceId: '',
     isPollingEnabled: false
 };
+
+// Fix: Explicitly type as ProcedureItem[] to ensure type compatibility.
+const DEFAULT_PROCEDURES: ProcedureItem[] = [
+    // I. Diagnostic & Preventive Care
+    { id: 'proc_01', name: 'Initial Consultation & Examination', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_02', name: 'Digital Periapical X-Ray (per shot)', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_03', name: 'Panoramic X-Ray (OPG)', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_04', name: 'Cephalometric X-Ray', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_05', name: 'Oral Prophylaxis (Light/Routine Cleaning)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_06', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_07', name: 'Topical Fluoride Application', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_08', name: 'Pit and Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
+
+    // II. Restorative Dentistry (Fillings)
+    { id: 'proc_09', name: 'Composite Restoration (1 Surface)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_10', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_11', name: 'Composite Restoration (3+ Surfaces/Build-up)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_12', name: 'Temporary Filling (IRM/GIC)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    
+    // III. Endodontics (Root Canal Treatment)
+    { id: 'proc_13', name: 'Root Canal Treatment (Anterior Tooth)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_14', name: 'Root Canal Treatment (Premolar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_15', name: 'Root Canal Treatment (Molar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+
+    // IV. Periodontics (Gum Treatment)
+    { id: 'proc_16', name: 'Deep Scaling & Root Planing (per quadrant)', category: 'Periodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_17', name: 'Gingivectomy (per quadrant)', category: 'Periodontics', requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_18', name: 'Frenectomy (Lingual or Labial)', category: 'Periodontics', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
+    
+    // V. Prosthodontics (Crowns, Bridges, Dentures)
+    { id: 'proc_19', name: 'PFM (Porcelain Fused to Metal) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_20', name: 'IPS E.max (All-Porcelain) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_21', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_22', name: 'Porcelain Veneer', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_23', name: 'Fixed Bridge (per unit)', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_24', name: 'Full Denture (Acrylic, per arch)', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_25', name: 'Partial Denture (Flexible, Valplast)', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_26', name: 'Denture Repair / Relining', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
+    
+    // VI. Oral Surgery (Extractions)
+    { id: 'proc_27', name: 'Simple Extraction (Erupted Tooth)', category: 'Oral Surgery', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_28', name: 'Complicated Extraction (Requires sectioning)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_29', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
+    
+    // VII. Orthodontics
+    { id: 'proc_30', name: 'Comprehensive Orthodontic Treatment (Braces Package)', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_31', name: 'Monthly Orthodontic Adjustment', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_32', name: 'Hawley/Essix Retainers (per arch)', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
+    
+    // VIII. Cosmetic / Aesthetic Dentistry
+    { id: 'proc_33', name: 'In-Office Teeth Whitening', category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_34', name: 'Take-Home Whitening Kit', category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] }
+];
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicName: 'Ivory Dental Office',
@@ -522,57 +582,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Approximate Date of Last Visit'
   ],
   criticalRiskRegistry: [],
-  procedures: [
-    // I. Diagnostic & Preventive Care
-    { id: 'proc_01', name: 'Initial Consultation & Examination', price: 800, category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_02', name: 'Digital Periapical X-Ray (per shot)', price: 500, category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_03', name: 'Panoramic X-Ray (OPG)', price: 1500, category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_04', name: 'Cephalometric X-Ray', price: 1500, category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_05', name: 'Oral Prophylaxis (Light/Routine Cleaning)', price: 1200, category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_06', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', price: 1800, category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_07', name: 'Topical Fluoride Application', price: 1000, category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_08', name: 'Pit and Fissure Sealant (per tooth)', price: 1000, category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
-
-    // II. Restorative Dentistry (Fillings)
-    { id: 'proc_09', name: 'Composite Restoration (1 Surface)', price: 1500, category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_10', name: 'Composite Restoration (2 Surfaces)', price: 2000, category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_11', name: 'Composite Restoration (3+ Surfaces/Build-up)', price: 3000, category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_12', name: 'Temporary Filling (IRM/GIC)', price: 800, category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    
-    // III. Endodontics (Root Canal Treatment)
-    { id: 'proc_13', name: 'Root Canal Treatment (Anterior Tooth)', price: 8000, category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_14', name: 'Root Canal Treatment (Premolar)', price: 10000, category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_15', name: 'Root Canal Treatment (Molar)', price: 15000, category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-
-    // IV. Periodontics (Gum Treatment)
-    { id: 'proc_16', name: 'Deep Scaling & Root Planing (per quadrant)', price: 2500, category: 'Periodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_17', name: 'Gingivectomy (per quadrant)', price: 6000, category: 'Periodontics', requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_18', name: 'Frenectomy (Lingual or Labial)', price: 7000, category: 'Periodontics', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    
-    // V. Prosthodontics (Crowns, Bridges, Dentures)
-    { id: 'proc_19', name: 'PFM (Porcelain Fused to Metal) Crown', price: 12000, category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_20', name: 'IPS E.max (All-Porcelain) Crown', price: 18000, category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_21', name: 'Zirconia Crown (High Translucency)', price: 20000, category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_22', name: 'Porcelain Veneer', price: 18000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_23', name: 'Fixed Bridge (per unit)', price: 12000, category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_24', name: 'Full Denture (Acrylic, per arch)', price: 15000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_25', name: 'Partial Denture (Flexible, Valplast)', price: 18000, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_26', name: 'Denture Repair / Relining', price: 3500, category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    
-    // VI. Oral Surgery (Extractions)
-    { id: 'proc_27', name: 'Simple Extraction (Erupted Tooth)', price: 1500, category: 'Oral Surgery', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_28', name: 'Complicated Extraction (Requires sectioning)', price: 3500, category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_29', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', price: 10000, category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    
-    // VII. Orthodontics
-    { id: 'proc_30', name: 'Comprehensive Orthodontic Treatment (Braces Package)', price: 60000, category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_31', name: 'Monthly Orthodontic Adjustment', price: 1000, category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_32', name: 'Hawley/Essix Retainers (per arch)', price: 5000, category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    
-    // VIII. Cosmetic / Aesthetic Dentistry
-    { id: 'proc_33', name: 'In-Office Teeth Whitening', price: 15000, category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_34', name: 'Take-Home Whitening Kit', price: 8000, category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] }
-  ],
+  procedures: DEFAULT_PROCEDURES,
   medications: [
       { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days' },
       { id: 'm2', genericName: 'Clindamycin', brandName: 'Dalacin C', dosage: '300mg', instructions: '1 capsule every 8 hours for 5 days' },
@@ -598,6 +608,22 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Acrylic Resin (Heat-Cured)',
       'Flexible Denture Material (Valplast)'
   ],
+  permissions: {
+      [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
+      [UserRole.DENTIST]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
+      [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
+      // Fix: Removed duplicate canDeletePatients property.
+      [UserRole.SYSTEM_ARCHITECT]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true, canOverrideClinicalSafety: true }
+  },
+  currentPrivacyVersion: '1.0',
+  acknowledgedAlertIds: [],
+  retentionPolicy: { archivalYears: 10, purgeYears: 15 },
+  kioskSettings: {
+    welcomeMessage: 'Welcome to Ivory Dental. Please use this terminal to manage your patient record securely.',
+    privacyNotice: 'Your data is protected under RA 10173. All entries are logged for security.'
+  },
+  instrumentSets: MOCK_INSTRUMENT_SETS,
+  stockItems: MOCK_STOCK,
   payrollAdjustmentTemplates: [
       { id: 'adj1', label: 'Performance Bonus', type: 'Credit', category: 'Incentives' },
       { id: 'adj2', label: 'Lab Fee Reimbursement', type: 'Credit', category: 'Operational' },
@@ -615,7 +641,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Equipment Maintenance',
       'Rent & Utilities',
       'Marketing & Advertising',
-      'Software Subscriptions',
       'Software Subscriptions',
       'Staff Salaries & Benefits'
   ],
@@ -637,32 +662,47 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'sp1', label: 'Routine Checkup', text: 'Patient in for routine prophylaxis. No acute pain.', category: 'SOAP' }
   ],
   paymentModes: ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Credit Card', 'HMO Direct Payout', 'Check'],
-  taxConfig: { vatRate: 12, withholdingRate: 10, nextOrNumber: 1001 },
+  taxConfig: {
+    vatRate: 12,
+    withholdingRate: 10,
+    nextOrNumber: 1001,
+  },
   features: {
-      enableLabTracking: true, enableComplianceAudit: true, enableMultiBranch: true,
-      enableDentalAssistantFlow: true, enableHMOClaims: true, enableInventory: true,
-      enableAnalytics: true, enablePatientPortal: false, enableDigitalConsent: true,
-      enableAutomatedRecall: true, enableOnlineForms: true, enableEPrescription: true,
-      enableAdvancedPermissions: true, enablePhilHealthClaims: true, enableLabPortal: true,
-      enableDocumentManagement: true, enableClinicalProtocolAlerts: true,
-      enableTreatmentPlanApprovals: true, enableAccountabilityLog: true,
-      enableReferralTracking: true, enablePromotions: true, enableSmsAutomation: true,
-      enableMaterialTraceability: true, enableBirComplianceMode: false,
-      enableStatutoryBirTrack: true, enableHmoInsuranceTrack: true
+      enableLabTracking: true,
+      enableComplianceAudit: true,
+      enableMultiBranch: true,
+      enableDentalAssistantFlow: true,
+      enableHMOClaims: true,
+      enableInventory: true,
+      inventoryComplexity: 'SIMPLE',
+      enableAnalytics: true,
+      enablePatientPortal: false,
+      enableDigitalConsent: true,
+      enableAutomatedRecall: true,
+      enableOnlineForms: true,
+      enableEPrescription: true,
+      enableAdvancedPermissions: true,
+      enablePhilHealthClaims: true,
+      enableLabPortal: true,
+      enableDocumentManagement: true,
+      enableClinicalProtocolAlerts: true,
+      enableTreatmentPlanApprovals: true, 
+      enableAccountabilityLog: true,
+      enableReferralTracking: true,
+      enablePromotions: true,
+      enableSmsAutomation: true,
+      enableMaterialTraceability: true, 
+      enableBirComplianceMode: false,
+      enableStatutoryBirTrack: true, 
+      enableHmoInsuranceTrack: true, 
   },
-  permissions: {
-      [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
-      [UserRole.DENTIST]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      [UserRole.SYSTEM_ARCHITECT]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true }
-  },
-  currentPrivacyVersion: '1.0',
-  acknowledgedAlertIds: [],
-  retentionPolicy: { archivalYears: 10, purgeYears: 15 },
-  kioskSettings: {
-    welcomeMessage: 'Welcome to Ivory Dental. Please use this terminal to manage your patient record securely.',
-    privacyNotice: 'Your data is protected under RA 10173. All entries are logged for security.'
-  },
-  instrumentSets: MOCK_INSTRUMENT_SETS,
-  stockItems: MOCK_STOCK
+  practitionerDelays: {}, // For Gap 10
+  priceBooks: [
+      { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true }
+  ],
+  priceBookEntries: DEFAULT_PROCEDURES.map(p => ({
+      priceBookId: 'pb_1',
+      procedureId: p.id,
+      price: Math.floor(Math.random() * 10000) + 500 // Dummy prices for now
+  }))
 };

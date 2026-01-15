@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone } from 'lucide-react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2 } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
-import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus } from '../types';
+import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus, AppNotification } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,17 +27,24 @@ interface LayoutProps {
   onInstall?: () => void;
   impersonatingUser?: User | null;
   onStopImpersonating?: () => void;
+  notifications: AppNotification[];
+  onNotificationClick: (notification: AppNotification) => void;
+  isProfileOpen: boolean;
+  onOpenProfile: () => void;
+  onCloseProfile: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
   currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
   isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus,
-  installable = false, onInstall, impersonatingUser, onStopImpersonating
+  installable = false, onInstall, impersonatingUser, onStopImpersonating,
+  notifications, onNotificationClick, isProfileOpen, onOpenProfile, onCloseProfile
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
+  const [isNotificationPopoverOpen, setIsNotificationPopoverOpen] = useState(false);
+  const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false); // State for Gap 8
 
   const features = fieldSettings?.features;
   const enableMultiBranch = features?.enableMultiBranch ?? true;
@@ -55,6 +62,10 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'schedule', label: 'Calendar', icon: Calendar },
     { id: 'patients', label: 'Patients', icon: Users },
   ];
+  
+  if (features?.enableReferralTracking) {
+      navItems.push({ id: 'referrals', label: 'Referrals', icon: Users2 });
+  }
 
   if (features?.enableInventory || features?.enableHMOClaims || features?.enableAnalytics) {
       navItems.push({ id: 'admin', label: 'Admin', icon: Sliders });
@@ -64,7 +75,8 @@ const Layout: React.FC<LayoutProps> = ({
 
   const handleProfileUpdate = (updatedUser: User) => onSwitchUser(updatedUser);
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
-  const badgeCount = myActiveTasks.length;
+  
+  const notificationCount = notifications.length;
 
   const prcExpiryDate = currentUser.prcExpiry ? new Date(currentUser.prcExpiry) : null;
   const isPrcExpired = prcExpiryDate && prcExpiryDate < new Date();
@@ -75,6 +87,11 @@ const Layout: React.FC<LayoutProps> = ({
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
     : "h-24 bg-teal-900/95 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-teal-800/50 transition-all duration-500";
+
+  const confirmDowntime = () => {
+    onSwitchSystemStatus?.(SystemStatus.DOWNTIME);
+    setShowDowntimeConfirm(false);
+  };
 
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
@@ -129,7 +146,7 @@ const Layout: React.FC<LayoutProps> = ({
                         Operational
                     </button>
                     <button 
-                        onClick={() => onSwitchSystemStatus?.(SystemStatus.DOWNTIME)}
+                        onClick={() => setShowDowntimeConfirm(true)}
                         className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/60 hover:text-white'}`}
                         aria-pressed={systemStatus === SystemStatus.DOWNTIME}
                     >
@@ -137,35 +154,39 @@ const Layout: React.FC<LayoutProps> = ({
                     </button>
                  </div>
 
+                 {/* Notification Hub */}
                  <div className="relative">
-                    <button 
-                        onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)} 
-                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`} 
-                        aria-label={`Task Registry: ${badgeCount} items pending`}
-                        aria-expanded={isTaskPopoverOpen}
+                    <button
+                        onClick={() => setIsNotificationPopoverOpen(!isNotificationPopoverOpen)}
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isNotificationPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`}
+                        aria-label={`Notifications: ${notificationCount} unread`}
+                        aria-expanded={isNotificationPopoverOpen}
                     >
-                        <ClipboardCheck size={22} />
-                        {badgeCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-teal-900 shadow-lg" aria-hidden="true">{badgeCount}</span>}
+                        <Bell size={22} />
+                        {notificationCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-lilac-500 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-teal-900 shadow-lg">{notificationCount}</span>}
                     </button>
-                    {isTaskPopoverOpen && (
+                    {isNotificationPopoverOpen && (
                         <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="registry-title">
+                            <div className="fixed inset-0 z-10" onClick={() => setIsNotificationPopoverOpen(false)} />
+                            <div className="absolute right-0 top-full mt-4 w-96 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="notification-title">
                                 <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
-                                    <span id="registry-title" className="font-black uppercase tracking-widest text-[10px]">Priority Registry</span>
-                                    <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black uppercase" role="status">{badgeCount} Open</span>
+                                    <span id="notification-title" className="font-black uppercase tracking-widest text-[10px] text-slate-600">Action Center</span>
+                                    <span className="text-[10px] bg-lilac-100 text-lilac-700 px-2 py-0.5 rounded-full font-black uppercase">{notificationCount} Items</span>
                                 </div>
-                                <div className="max-h-80 overflow-y-auto p-3 no-scrollbar">
-                                    {myActiveTasks.length > 0 ? (
+                                <div className="max-h-96 overflow-y-auto p-3 no-scrollbar">
+                                    {notifications.length > 0 ? (
                                         <div className="space-y-2">
-                                            {myActiveTasks.map(task => (
-                                                <div key={task.id} className="flex items-start gap-3 p-4 hover:bg-teal-50 rounded-2xl group transition-all">
-                                                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-1 text-slate-400 hover:text-teal-700 transition-colors focus:ring-offset-2" aria-label={`Complete task: ${task.text}`}><Circle size={18} /></button>
-                                                    <div className="flex-1 min-w-0"><div className="text-sm font-bold leading-tight text-slate-700">{task.text}</div>{task.isUrgent && <div className="mt-1 inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest"><Flag size={10} /> Emergency</div>}</div>
-                                                </div>
+                                            {notifications.map(n => (
+                                                <button key={n.id} onClick={() => { onNotificationClick(n); setIsNotificationPopoverOpen(false); }} className="w-full flex items-start gap-4 p-4 hover:bg-slate-50 rounded-2xl group transition-all text-left">
+                                                    <div className={`p-2 rounded-lg mt-1 ${n.type === 'critical' ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'}`}><n.icon size={18} /></div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-black text-sm leading-tight text-slate-800">{n.title}</div>
+                                                        <p className="text-xs text-slate-500 leading-snug mt-1">{n.description}</p>
+                                                    </div>
+                                                </button>
                                             ))}
                                         </div>
-                                    ) : <div className="p-10 text-center text-slate-500 text-sm italic"><CheckCircle size={48} className="mx-auto opacity-10 mb-4 text-teal-600"/>No pending tasks.</div>}
+                                    ) : <div className="p-10 text-center text-slate-500 text-sm italic"><CheckCircle size={48} className="mx-auto opacity-10 mb-4 text-teal-600"/>No pending actions.</div>}
                                 </div>
                             </div>
                         </>
@@ -205,7 +226,7 @@ const Layout: React.FC<LayoutProps> = ({
                                 <span className="font-black uppercase tracking-widest text-sm">Install Practice App</span>
                             </button>
                         )}
-                        <button onClick={() => { setIsProfileOpen(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
+                        <button onClick={() => { onOpenProfile(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
                         <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
                     </div>
                 </div>
@@ -226,7 +247,28 @@ const Layout: React.FC<LayoutProps> = ({
           </p>
       </div>
 
-      <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
+      <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={onCloseProfile} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
+      
+      {/* Gap 8: Downtime Confirmation Modal */}
+      {showDowntimeConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" role="dialog" aria-modal="true" aria-labelledby="downtime-title">
+            <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border-4 border-amber-200 animate-in zoom-in-95">
+                <div className="text-center">
+                    <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
+                        <AlertTriangle size={40} />
+                    </div>
+                    <h2 id="downtime-title" className="text-2xl font-black uppercase text-slate-800 tracking-tight">Activate Emergency Protocol?</h2>
+                    <p className="text-sm text-slate-500 leading-relaxed mt-4">
+                        Activating this mode will flag all new appointments as manual entries requiring later reconciliation. Only proceed if you are experiencing a network outage or system failure.
+                    </p>
+                </div>
+                <div className="flex gap-4 mt-8">
+                    <button onClick={() => setShowDowntimeConfirm(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
+                    <button onClick={confirmDowntime} className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-red-600/30">Confirm & Activate</button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

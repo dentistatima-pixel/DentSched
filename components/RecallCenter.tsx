@@ -1,0 +1,81 @@
+import React from 'react';
+import { Patient, RecallStatus } from '../types';
+import { Phone, MessageSquare, History, UserCheck, UserX } from 'lucide-react';
+
+interface RecallCenterProps {
+  patients: Patient[];
+  onUpdatePatientRecall: (patientId: string, status: RecallStatus) => void;
+}
+
+const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRecall }) => {
+
+  const recallPatients = {
+    due: patients.filter(p => p.recallStatus === 'Due'),
+    contacted: patients.filter(p => p.recallStatus === 'Contacted'),
+    overdue: patients.filter(p => p.recallStatus === 'Overdue'),
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, patientId: string) => {
+    e.dataTransfer.setData("patientId", patientId);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, status: RecallStatus) => {
+    e.preventDefault();
+    const patientId = e.dataTransfer.getData("patientId");
+    onUpdatePatientRecall(patientId, status);
+  };
+
+  const allowDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const Column: React.FC<{ title: string, patients: Patient[], status: RecallStatus, icon: React.ElementType, color: string }> = ({ title, patients, status, icon: Icon, color }) => (
+    <div 
+      className="flex-1 bg-slate-100 rounded-3xl p-4 flex flex-col min-w-[300px]"
+      onDrop={(e) => handleDrop(e, status)}
+      onDragOver={allowDrop}
+    >
+      <div className={`flex items-center gap-3 p-3 mb-4 rounded-2xl bg-white border-b-4 ${color}`}>
+        <Icon size={20} />
+        <h3 className="font-black text-sm uppercase tracking-widest text-slate-700">{title}</h3>
+        <span className="ml-auto bg-slate-200 text-slate-600 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{patients.length}</span>
+      </div>
+      <div className="space-y-3 overflow-y-auto no-scrollbar pb-2">
+        {patients.map(p => (
+          <div 
+            key={p.id} 
+            draggable 
+            onDragStart={(e) => handleDragStart(e, p.id)}
+            className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing"
+          >
+            <div className="font-bold text-slate-800">{p.name}</div>
+            <div className="text-xs text-slate-500 mt-1">Last Visit: {p.lastVisit}</div>
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100">
+                <button className="flex items-center gap-1 text-xs text-slate-500 hover:text-teal-600"><Phone size={12}/> Log Call</button>
+                <button className="flex items-center gap-1 text-xs text-slate-500 hover:text-teal-600"><MessageSquare size={12}/> Send SMS</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
+        <div className="flex items-center gap-4">
+            <div className="bg-teal-600 p-4 rounded-3xl text-white shadow-xl"><History size={36} /></div>
+            <div>
+                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Recall Center</h1>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Patient Retention Workflow</p>
+            </div>
+        </div>
+        <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+            <Column title="Due for Recall" patients={recallPatients.due} status="Due" icon={UserCheck} color="border-teal-500" />
+            <Column title="Contacted" patients={recallPatients.contacted} status="Contacted" icon={Phone} color="border-blue-500" />
+            <Column title="Overdue" patients={recallPatients.overdue} status="Overdue" icon={UserX} color="border-red-500" />
+        </div>
+    </div>
+  );
+};
+
+export default RecallCenter;

@@ -1,17 +1,17 @@
-
 import React,
 { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, 
   LabStatus, FieldSettings, WaitlistEntry, ClinicResource 
 } from '../types';
 import { formatDate } from '../constants';
+// Fix: Import useToast hook to make it available in the component.
 import { useToast } from './ToastSystem';
 
 interface CalendarViewProps {
@@ -19,6 +19,8 @@ interface CalendarViewProps {
   staff: User[];
   onAddAppointment: (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => void;
   onMoveAppointment?: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => void;
+  onUpdateAppointmentStatus?: (appointmentId: string, status: AppointmentStatus) => void;
+  onPatientSelect?: (patientId: string) => void;
   currentUser?: User;
   patients?: Patient[];
   currentBranch?: string;
@@ -34,16 +36,20 @@ const MOCK_WAITLIST: WaitlistEntry[] = [
 
 const RELIABILITY_THRESHOLD = 70;
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, currentUser, patients = [], currentBranch, fieldSettings }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings }) => {
   const toast = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
   const [viewDimension, setViewDimension] = useState<'provider' | 'chair'>('provider');
   const [showWaitlist, setShowWaitlist] = useState(false); 
   const [activeProviderId, setActiveProviderId] = useState<string>(currentUser?.id || '');
-  const [draggedAptId, setDraggedAptId] = useState<string | null>(null);
-  const [movingAptId, setMovingAptId] = useState<string | null>(null);
   
+  // Peek & Inspect State
+  const [peeked, setPeeked] = useState<{ apt: Appointment, patient: Patient, target: HTMLElement } | null>(null);
+  const [inspected, setInspected] = useState<{ apt: Appointment, patient: Patient } | null>(null);
+  // Fix: useRef was not initialized correctly for a timer, which can be undefined.
+  const longPressTimer = useRef<number | undefined>();
+
   // Waitlist Override State
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
   const [overrideConfirmed, setOverrideConfirmed] = useState(false);
@@ -56,6 +62,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
           if (firstDentist) setActiveProviderId(firstDentist.id);
       }
   }, [staff, activeProviderId]);
+  
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      if (peeked) setPeeked(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [peeked]);
 
   const next = () => {
     const nextDate = new Date(selectedDate);
@@ -158,33 +172,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
      return styles;
   };
 
-  const handleDragStart = (e: React.DragEvent, aptId: string) => {
-      setDraggedAptId(aptId);
-      e.dataTransfer.setData("text/plain", aptId);
-      e.dataTransfer.setData("type", "appointment");
-      e.dataTransfer.effectAllowed = "move";
+  const handleMouseDown = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(() => {
+        setPeeked(null);
+        setInspected({ apt, patient });
+    }, 500);
   };
 
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
-  const handleDrop = (e: React.DragEvent, colId: string, hour: number, dateIso: string) => {
-      e.preventDefault();
-      const type = e.dataTransfer.getData("type");
-      const id = e.dataTransfer.getData("text/plain");
-      const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      if (type === 'appointment' && onMoveAppointment) {
-          if (viewDimension === 'provider') onMoveAppointment(id, dateIso, timeStr, colId);
-          else { const apt = appointments.find(a => a.id === id); if (apt) onMoveAppointment(id, dateIso, timeStr, apt.providerId, colId); }
+  const handleMouseUp = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
+      if(longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          if (!inspected) {
+              setPeeked({ apt, patient, target: e.currentTarget as HTMLElement });
+          }
       }
-      setDraggedAptId(null);
   };
 
   const handleSlotClick = (colId: string, hour: number, dateIso: string) => {
-      const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      if (movingAptId && onMoveAppointment) {
-          if (viewDimension === 'provider') onMoveAppointment(movingAptId, dateIso, timeStr, colId);
-          else { const apt = appointments.find(a => a.id === movingAptId); if (apt) onMoveAppointment(movingAptId, dateIso, timeStr, apt.providerId, colId); }
-          setMovingAptId(null); 
-      } else onAddAppointment(dateIso, timeStr);
+      onAddAppointment(dateIso, `${hour.toString().padStart(2, '0')}:00`);
   };
 
   const handleWaitlistAssign = (entry: WaitlistEntry) => {
@@ -286,13 +292,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                 });
                             
                                 return (
-                                    <div key={`${col.id || col.iso}-${hour}`} role="gridcell" aria-label={`Add appointment for ${dateIso} at ${hour}:00`} className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors hover:bg-slate-50/50`} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, colId, hour, dateIso)} onClick={() => handleSlotClick(colId, hour, dateIso)}>
+                                    <div key={`${col.id || col.iso}-${hour}`} role="gridcell" aria-label={`Add appointment for ${dateIso} at ${hour}:00`} className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors hover:bg-slate-50/50`} onClick={() => handleSlotClick(colId, hour, dateIso)}>
                                         {slotAppointments.map(apt => {
                                             const patient = getPatient(apt.patientId);
                                             const provider = staff.find(s => s.id === apt.providerId);
                                             const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status, apt.isPendingSync, apt.entryMode);
+                                            
+                                            if (!patient) return null;
+
                                             return (
-                                                <div key={apt.id} draggable={true} onDragStart={(e) => handleDragStart(e, apt.id)} onClick={(e) => { e.stopPropagation(); onAddAppointment(undefined, undefined, undefined, apt); }} className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Edit session for ${patient?.name || 'Admin Block'}`}>
+                                                <div 
+                                                    key={apt.id} 
+                                                    onMouseDown={(e) => handleMouseDown(e, apt, patient)} 
+                                                    onMouseUp={(e) => handleMouseUp(e, apt, patient)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onDoubleClick={(e) => { e.stopPropagation(); onAddAppointment(undefined, undefined, undefined, apt); }}
+                                                    className={`rounded-xl p-3 text-xs border-2 cursor-pointer hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-black text-slate-600">{apt.time}</span>
                                                         <div className="flex items-center gap-1">
@@ -315,6 +330,68 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                 </div>
             </div>
         </div>
+      </div>
+
+      {/* --- PEEK POPOVER --- */}
+      {peeked && (
+          <div 
+            onClick={e => e.stopPropagation()}
+            style={{ 
+              position: 'fixed', 
+              top: peeked.target.getBoundingClientRect().bottom + 8,
+              left: peeked.target.getBoundingClientRect().left,
+            }}
+            className="z-50 w-64 bg-white rounded-3xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 p-5 space-y-4"
+          >
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                  <div className="w-10 h-10 bg-teal-50 rounded-xl text-teal-600 flex items-center justify-center font-black">{peeked.patient.name[0]}</div>
+                  <div>
+                    <h4 className="font-black text-sm text-slate-800 uppercase">{peeked.patient.name}</h4>
+                    <p className="text-[10px] font-mono text-slate-400">{peeked.patient.id}</p>
+                  </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 p-2 rounded-lg text-center"><div className="text-[9px] font-black text-slate-400 uppercase">Reliability</div><div className="text-lg font-black text-teal-700">{peeked.patient.reliabilityScore || 100}%</div></div>
+                  <div className="bg-slate-50 p-2 rounded-lg text-center"><div className="text-[9px] font-black text-slate-400 uppercase">Balance</div><div className="text-lg font-black text-red-700">₱{peeked.patient.currentBalance || 0}</div></div>
+              </div>
+              <div className="flex gap-2">
+                  <button onClick={() => { setInspected({ apt: peeked.apt, patient: peeked.patient }); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Inspect</button>
+                  <button onClick={() => { onAddAppointment(undefined, undefined, undefined, peeked.apt); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Edit</button>
+              </div>
+          </div>
+      )}
+
+      {/* --- INSPECTOR PANEL --- */}
+      <div className={`inspector-panel ${inspected ? 'open' : ''}`}>
+          {inspected && (
+              <div className="h-full flex flex-col p-6 animate-in fade-in">
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 shrink-0">
+                      <h3 className="font-black text-xl uppercase tracking-tight text-slate-800">{inspected.patient.name}</h3>
+                      <button onClick={() => setInspected(null)} className="p-2 text-slate-400 hover:text-red-500"><X/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto no-scrollbar py-6 space-y-6">
+                      <div>
+                          <h4 className="label text-xs">Action Bar</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.ARRIVED)} className="bg-orange-100 text-orange-800 p-3 rounded-lg text-xs font-black uppercase">Arrived</button>
+                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.SEATED)} className="bg-blue-100 text-blue-800 p-3 rounded-lg text-xs font-black uppercase">Seat</button>
+                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.TREATING)} className="bg-lilac-100 text-lilac-800 p-3 rounded-lg text-xs font-black uppercase">Treat</button>
+                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.COMPLETED)} className="bg-teal-100 text-teal-800 p-3 rounded-lg text-xs font-black uppercase">Complete</button>
+                          </div>
+                      </div>
+                       <div>
+                          <h4 className="label text-xs">Alerts</h4>
+                          <div className="bg-red-50 p-4 rounded-lg space-y-2 border border-red-100">
+                                {(inspected.patient.allergies || []).filter(a => a !== 'None').map(a => <div key={a} className="flex items-center gap-2 text-xs font-bold text-red-800"><Droplet size={14}/> {a}</div>)}
+                                {(inspected.patient.medicalConditions || []).filter(c => c !== 'None').map(c => <div key={c} className="flex items-center gap-2 text-xs font-bold text-red-800"><Heart size={14}/> {c}</div>)}
+                          </div>
+                       </div>
+                  </div>
+                  <div className="shrink-0 pt-4 border-t border-slate-100">
+                      <button onClick={() => onPatientSelect?.(inspected.patient.id)} className="w-full py-4 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Open Full Chart</button>
+                  </div>
+              </div>
+          )}
       </div>
 
       {/* --- WAITLIST SIDE PANEL --- */}

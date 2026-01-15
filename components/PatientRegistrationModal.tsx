@@ -52,6 +52,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             }
         }
     }
+  // Fix: Removed formData.name from dependency array to prevent infinite loop.
   }, [isOpen, initialData, formData.id]);
 
 

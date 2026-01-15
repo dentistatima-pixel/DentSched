@@ -1,9 +1,8 @@
-
 import React from 'react';
-import { DollarSign, Package, ChevronRight } from 'lucide-react';
+import { DollarSign, Package, ChevronRight, History, Send } from 'lucide-react';
 
 interface AdminHubProps {
-  onNavigate: (tab: 'financials' | 'inventory') => void;
+  onNavigate: (tab: 'financials' | 'inventory' | 'recall' | 'referrals') => void;
 }
 
 const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
@@ -14,7 +13,7 @@ const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
         <p className="text-lg text-slate-500 mt-2 font-medium">Select a module to manage practice resources.</p>
       </div>
 
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {/* Financials Card */}
         <button
           onClick={() => onNavigate('financials')}
@@ -47,6 +46,40 @@ const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
           </div>
           <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Inventory & Sterilization</h3>
           <p className="text-slate-500 mt-2 font-medium">Track stock levels and manage sterilization cycles.</p>
+        </button>
+
+        {/* Recall Center Card */}
+        <button
+          onClick={() => onNavigate('recall')}
+          className="bg-white p-10 rounded-[3rem] border-4 border-blue-100 shadow-2xl hover:border-blue-500 transition-all group hover:-translate-y-2 text-left"
+        >
+          <div className="flex items-start justify-between">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all">
+              <History size={40} />
+            </div>
+             <div className="p-4 bg-slate-100 rounded-full group-hover:bg-blue-600 transition-all">
+                <ChevronRight size={24} className="text-slate-400 group-hover:text-white transition-all transform group-hover:translate-x-1" />
+            </div>
+          </div>
+          <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tighter">Recall Center</h3>
+          <p className="text-slate-500 mt-2 font-medium">Manage patient retention and follow-up schedules.</p>
+        </button>
+        
+        {/* Referral Hub Card */}
+        <button
+          onClick={() => onNavigate('referrals')}
+          className="bg-white p-10 rounded-[3rem] border-4 border-amber-100 shadow-2xl hover:border-amber-500 transition-all group hover:-translate-y-2 text-left"
+        >
+          <div className="flex items-start justify-between">
+            <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-600 group-hover:text-white transition-all">
+              <Send size={40} />
+            </div>
+             <div className="p-4 bg-slate-100 rounded-full group-hover:bg-amber-600 transition-all">
+                <ChevronRight size={24} className="text-slate-400 group-hover:text-white transition-all transform group-hover:translate-x-1" />
+            </div>
+          </div>
+          <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tighter">Referral Hub</h3>
+          <p className="text-slate-500 mt-2 font-medium">Monitor incoming patient sources and outgoing specialist referrals.</p>
         </button>
       </div>
     </div>

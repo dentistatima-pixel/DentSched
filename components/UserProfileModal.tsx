@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-/* Fix: Removed non-existent UserPreferences from imports to resolve build error on line 3 */
 import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
 import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent } from 'lucide-react';
 import { formatDate } from '../constants';
@@ -163,7 +162,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                 </div>
                             </div>
 
-                            {/* --- COMMISSION RATE FIELD (Rule 21 Restriction) --- */}
                             {formData.role === UserRole.DENTIST && (
                                 <div className="pt-4 border-t border-slate-200">
                                     <label htmlFor="commission-rate" className="text-[9px] font-black text-teal-800 uppercase tracking-widest ml-1 mb-1 block flex items-center gap-1"><Percent size={10}/> Contracted Fee Split Rate</label>
@@ -233,7 +231,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                     <div className="space-y-2">
                         {(formData.cpdEntries || []).map(entry => (
                             <div key={entry.id} className="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center group">
-                                <div><div className="font-bold text-sm text-slate-800">{entry.title}</div><div className="text-[10px] text-slate-500 font-bold uppercase">{entry.date}</div></div>
+                                <div><div className="font-bold text-sm text-slate-800">{entry.title}</div><div className="text-[10px] text-slate-500 font-bold uppercase">{formatDate(entry.date)}</div></div>
                                 <span className="text-sm font-black text-teal-700">+{entry.units}</span>
                             </div>
                         ))}
@@ -244,7 +242,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
 
         <div className="p-4 border-t border-slate-100 bg-white flex gap-2 shrink-0">
             <button onClick={onClose} className="flex-1 py-4 bg-slate-50 rounded-xl font-bold text-slate-500 uppercase text-[10px] tracking-widest focus:ring-offset-2">Cancel</button>
-            {/* Fix: Added missing onClick handler to handleValidationSave button */}
             <button onClick={handleValidationSave} className="flex-[2] py-4 bg-teal-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-teal-600/20 hover:scale-[1.02] active:scale-95 transition-all focus:ring-offset-2">Update Secure Identity</button>
         </div>
       </div>

@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X
+  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, FieldSettings, 
@@ -54,7 +53,7 @@ const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: s
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
-  onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask,
+  onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask, onCompleteRegistration,
   syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = []
 }) => {
   const toast = useToast();
@@ -75,29 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
 
-  const getCriticalFlags = (patient: Patient) => {
-    const flags: { type: string; value: string }[] = [];
-    const criticalConditions = fieldSettings?.criticalRiskRegistry || [];
-    
-    (patient.allergies || []).forEach(allergy => {
-        if (criticalConditions.includes(allergy) || (patient.allergies || []).length > 1 && allergy !== 'None') {
-            flags.push({ type: 'Allergy', value: allergy });
-        }
-    });
-
-    (patient.medicalConditions || []).forEach(condition => {
-        if (criticalConditions.includes(condition) || (patient.medicalConditions || []).length > 1 && condition !== 'None') {
-            flags.push({ type: 'Condition', value: condition });
-        }
-    });
-
-    if (patient.takingBloodThinners) {
-        flags.push({ type: 'Alert', value: 'Taking Blood Thinners' });
-    }
-
-    return flags;
-  };
-
   const todaysFullSchedule = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('en-CA');
     return appointments
@@ -105,8 +81,10 @@ const Dashboard: React.FC<DashboardProps> = ({
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [appointments]);
   
+  const triageQueue = useMemo(() => todaysFullSchedule.filter(a => a.triageLevel && a.status === AppointmentStatus.ARRIVED), [todaysFullSchedule]);
+
   const patientFlow = useMemo(() => {
-    const todaysApts = todaysFullSchedule.filter(a => !a.isBlock);
+    const todaysApts = todaysFullSchedule.filter(a => !a.isBlock && !a.triageLevel);
     return {
       arrived: todaysApts.filter(a => a.status === AppointmentStatus.ARRIVED),
       inClinic: todaysApts.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)),
@@ -118,7 +96,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     const completedToday = todaysFullSchedule.filter(a => a.status === AppointmentStatus.COMPLETED);
     const production = completedToday.reduce((sum, apt) => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        return sum + (proc?.price || 0);
+        if (!proc) return sum;
+        const priceEntry = fieldSettings?.priceBookEntries?.find(
+            pbe => pbe.procedureId === proc.id
+        );
+        return sum + (priceEntry?.price || 0);
     }, 0);
     return {
       production: `₱${production.toLocaleString()}`,
@@ -196,7 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Calendar size={20} className="text-teal-700"/>
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Today's Schedule</h3>
           </div>
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6 space-y-3 max-h-[70vh] overflow-y-auto no-scrollbar">
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-4 space-y-2 max-h-[70vh] overflow-y-auto no-scrollbar">
             {todaysFullSchedule.length > 0 ? todaysFullSchedule.map(apt => {
                 const patient = apt.isBlock ? null : getPatient(apt.patientId);
                 
@@ -211,42 +193,35 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     );
                 }
-
-                const flags = getCriticalFlags(patient);
-                const hasFlags = flags.length > 0;
+                
                 const isMinor = patient.age !== undefined && patient.age < 18;
                 const isPwdOrMinor = patient.isPwd || isMinor;
+                const balance = patient.currentBalance || 0;
+                const medicalAlerts = (patient.allergies?.filter(a => a !== 'None').length || 0) + (patient.medicalConditions?.filter(c => c !== 'None').length || 0);
+                const isProvisional = !patient.dpaConsent;
+                const needsClearance = patient.medicalConditions?.some(c => (fieldSettings?.criticalRiskRegistry || []).includes(c)) && !patient.clearanceRequests?.some(r => r.status === 'Approved');
+
                 const config = statusTextConfig[apt.status] || { color: 'text-slate-400', label: apt.status };
 
                 return (
                     <div 
                         key={apt.id} 
                         onClick={() => onPatientSelect(apt.patientId)}
-                        className={`relative pl-6 pr-4 py-4 rounded-2xl flex items-center gap-4 transition-all group cursor-pointer ${
-                            hasFlags 
-                            ? 'bg-red-200 hover:bg-red-300' 
-                            : isPwdOrMinor 
-                            ? 'bg-amber-200 hover:bg-amber-300' 
-                            : 'bg-white hover:bg-slate-50'
-                        }`}
+                        className="relative p-4 rounded-2xl flex flex-col gap-3 transition-all group cursor-pointer bg-white hover:bg-slate-50 border border-slate-100"
                     >
-                        {hasFlags ? (
-                            <div className="absolute left-0 top-0 h-full w-1.5 bg-red-500 group-hover:bg-red-600 shadow-lg" />
-                        ) : isPwdOrMinor ? (
-                            <div className="absolute left-0 top-0 h-full w-1.5 bg-amber-500 group-hover:bg-amber-600 shadow-lg" />
-                        ) : null}
-                        
-                        <div className="w-16 shrink-0 font-black text-slate-800 text-sm">{apt.time}</div>
-                        
-                        <div className="flex-1 min-w-0 truncate">
-                            <span className="font-black text-slate-800 text-base uppercase truncate group-hover:text-teal-900">{patient.name}</span>
-                            <span className="text-slate-500 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 shrink-0 font-black text-slate-800 text-sm">{apt.time}</div>
+                            <div className="flex-1 min-w-0 truncate">
+                                <span className="font-black text-slate-800 text-base uppercase truncate group-hover:text-teal-900">{patient.name}</span>
+                                <span className="text-slate-500 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                            </div>
+                            <div className={`w-24 shrink-0 text-right text-xs font-black uppercase ${config.color}`}>{config.label}</div>
                         </div>
-                        
-                        <div className="w-12 shrink-0 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">{apt.durationMinutes}m</div>
-                        
-                        <div className={`w-24 shrink-0 text-right text-xs font-black uppercase ${config.color}`}>
-                            {config.label}
+                        <div className="flex items-center gap-2 pl-20">
+                            {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
+                            {balance > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
+                            {isProvisional && <button onClick={(e) => { e.stopPropagation(); onCompleteRegistration(patient.id);}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
+                            {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-[9px] font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
                         </div>
                     </div>
                 )
@@ -261,6 +236,26 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em]">Patient Flow Monitor</h3>
             </div>
             <div className="space-y-6">
+                {/* Triage Queue */}
+                <div className="bg-white rounded-[2.5rem] border-2 border-red-200 shadow-lg p-6">
+                    <h4 className="text-[10px] font-black text-red-800 uppercase tracking-[0.3em] mb-4">Triage & Walk-in Queue ({triageQueue.length})</h4>
+                    <div className="space-y-3">
+                         {triageQueue.map(apt => {
+                            const patient = getPatient(apt.patientId);
+                            const isEmergency = apt.triageLevel === 'Level 1: Trauma/Bleeding' || apt.triageLevel === 'Level 2: Acute Pain/Swelling';
+                            return (
+                                <div key={apt.id} onClick={() => onPatientSelect(apt.patientId)} className={`p-4 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all ${isEmergency ? 'bg-red-100 border-2 border-red-200 animate-pulse' : 'bg-orange-50 border-2 border-orange-200'}`}>
+                                    <div>
+                                        <div className={`font-black uppercase text-sm ${isEmergency ? 'text-red-900' : 'text-orange-900'}`}>{patient?.name}</div>
+                                        <div className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${isEmergency ? 'text-red-700' : 'text-orange-700'}`}>{apt.type}</div>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white text-orange-800 text-[9px] font-black uppercase rounded-lg border border-orange-200">Seat Patient</button>
+                                </div>
+                            )
+                        })}
+                        {triageQueue.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">Triage queue is empty.</p>}
+                    </div>
+                </div>
                 {/* Waiting Room */}
                 <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Waiting Room ({patientFlow.arrived.length})</h4>
@@ -301,24 +296,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                             )
                         })}
                         {patientFlow.inClinic.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No patients currently in treatment.</p>}
-                    </div>
-                </div>
-                 {/* Checkout */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-6">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Ready for Checkout ({patientFlow.needsCheckout.length})</h4>
-                    <div className="space-y-3">
-                         {patientFlow.needsCheckout.map(apt => {
-                            const patient = getPatient(apt.patientId);
-                            return (
-                                <div key={apt.id} onClick={() => onPatientSelect(apt.patientId)} className="p-4 bg-teal-50 border-2 border-teal-200 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all">
-                                    <div>
-                                        <div className="font-black text-teal-900 uppercase text-sm">{patient?.name}</div>
-                                    </div>
-                                    <span className="text-[9px] font-black text-teal-700 uppercase">View Ledger</span>
-                                </div>
-                            )
-                        })}
-                        {patientFlow.needsCheckout.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No patients awaiting checkout.</p>}
                     </div>
                 </div>
             </div>
