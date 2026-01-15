@@ -3,44 +3,25 @@ import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../ty
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
 
 /**
- * Isolated Input Component to prevent global state re-renders on every keystroke.
- * Syncs back to the parent form data only on Blur or Enter.
+ * REFACTORED: This is now a standard controlled input component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
  */
-const IsolatedInput: React.FC<{
+const ControlledInput: React.FC<{
   name: string;
   value: string;
   type?: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: any) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }> = ({ name, value, type = "text", placeholder, className, disabled, onChange }) => {
-  const [localValue, setLocalValue] = useState(value || '');
-
-  useEffect(() => {
-    setLocalValue(value || '');
-  }, [value]);
-
-  const handleBlur = () => {
-    if (localValue !== value) {
-      onChange({ target: { name, value: localValue, type } });
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleBlur();
-    }
-  };
-
   return (
     <input
       name={name}
       type={type}
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
+      value={value || ''}
+      onChange={onChange}
       disabled={disabled}
       placeholder={placeholder}
       className={className}
@@ -48,32 +29,24 @@ const IsolatedInput: React.FC<{
   );
 };
 
-const IsolatedTextarea: React.FC<{
+/**
+ * REFACTORED: This is now a standard controlled textarea component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
+ */
+const ControlledTextarea: React.FC<{
   name: string;
   value: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: any) => void;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
 }> = ({ name, value, placeholder, className, disabled, onChange }) => {
-  const [localValue, setLocalValue] = useState(value || '');
-
-  useEffect(() => {
-    setLocalValue(value || '');
-  }, [value]);
-
-  const handleBlur = () => {
-    if (localValue !== value) {
-      onChange({ target: { name, value: localValue, type: 'textarea' } });
-    }
-  };
-
   return (
     <textarea
       name={name}
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={handleBlur}
+      value={value || ''}
+      onChange={onChange}
       disabled={disabled}
       placeholder={placeholder}
       className={className}
@@ -142,7 +115,7 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                 <DesignWrapper id={id} type="identity" className="md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
                       <label className="label flex items-center gap-2">{label} * {isCritical && <ShieldAlert size={12} className="text-red-500"/>}</label>
-                      <IsolatedInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
+                      <ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
                   </div>
                 </DesignWrapper>
               );
@@ -203,28 +176,28 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
           if (coreId === 'homeAddress') {
               return (
                 <DesignWrapper id={id} type="identity" className="md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><IsolatedInput name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
+                    <div><label className="label">{label}</label><ControlledInput name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'city' || coreId === 'barangay') {
               return (
                 <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><IsolatedInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label">{label}</label><ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'phone') {
               return (
                 <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label font-bold">{label} *</label><IsolatedInput name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
+                    <div><label className="label font-bold">{label} *</label><ControlledInput name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'email') {
               return (
                 <DesignWrapper id={id} type="identity" className="md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><IsolatedInput name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
+                    <div><label className="label">{label}</label><ControlledInput name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
@@ -262,9 +235,9 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <IsolatedTextarea name={field.id} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
+                      <ControlledTextarea name={field.id} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
                   ) : (
-                      <IsolatedInput name={field.id} type={field.type as any} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
+                      <ControlledInput name={field.id} type={field.type as any} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
                   )}
               </DesignWrapper>
           );
@@ -382,9 +355,9 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                     {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="label text-xs">Full Legal Name *</label><IsolatedInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
-                    <div><label className="label text-xs">Mobile Number *</label><IsolatedInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
-                    <div><label className="label text-xs">Occupation</label><IsolatedInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
+                    <div><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
+                    <div><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
+                    <div><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
                 </div>
             </div>
         )}

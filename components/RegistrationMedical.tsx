@@ -4,35 +4,23 @@ import { Patient, FieldSettings } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
 /**
- * Isolated Textarea Component to prevent global state re-renders on every keystroke.
- * Syncs back to the parent form data only on Blur.
+ * REFACTORED: This is now a standard controlled textarea component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
  */
-const IsolatedTextarea: React.FC<{
+const ControlledTextarea: React.FC<{
   name: string;
   value: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: any) => void;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
 }> = ({ name, value, placeholder, className, disabled, onChange }) => {
-  const [localValue, setLocalValue] = useState(value || '');
-
-  useEffect(() => {
-    setLocalValue(value || '');
-  }, [value]);
-
-  const handleBlur = () => {
-    if (localValue !== value) {
-      onChange({ target: { name, value: localValue } });
-    }
-  };
-
   return (
     <textarea
       name={name}
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={handleBlur}
+      value={value || ''}
+      onChange={onChange}
       disabled={disabled}
       placeholder={placeholder}
       className={className}
@@ -40,41 +28,26 @@ const IsolatedTextarea: React.FC<{
   );
 };
 
-const IsolatedInput: React.FC<{
+/**
+ * REFACTORED: This is now a standard controlled input component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
+ */
+const ControlledInput: React.FC<{
   name: string;
   value: string;
   type?: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: any) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }> = ({ name, value, type = "text", placeholder, className, disabled, onChange }) => {
-  const [localValue, setLocalValue] = useState(value || '');
-
-  useEffect(() => {
-    setLocalValue(value || '');
-  }, [value]);
-
-  const handleBlur = () => {
-    if (localValue !== value) {
-      onChange({ target: { name, value: localValue, type } });
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleBlur();
-    }
-  };
-
   return (
     <input
       name={name}
       type={type}
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
+      value={value || ''}
+      onChange={onChange}
       disabled={disabled}
       placeholder={placeholder}
       className={className}
@@ -168,10 +141,10 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                         )}
                         <div>
                             <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Clinical Specification Narrative *</label>
-                            <IsolatedTextarea 
+                            <ControlledTextarea 
                                 name={`${q}_details`}
                                 value={subVal} 
-                                onChange={(e) => !readOnly && handleChange({ target: { name: 'registryAnswers', value: { ...(formData.registryAnswers || {}), [`${q}_details`]: e.target.value } } } as any)}
+                                onChange={(e: any) => !readOnly && handleChange({ target: { name: 'registryAnswers', value: { ...(formData.registryAnswers || {}), [`${q}_details`]: e.target.value } } } as any)}
                                 placeholder={placeholder}
                                 className="w-full p-4 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500 shadow-inner"
                             />
@@ -208,10 +181,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <DesignWrapper id={id} type="physician" key={id} className="md:col-span-12 bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <h4 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 mb-2"><UserCircle size={14}/> Physician Identification</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="label text-[10px]">Physician Name</label><IsolatedInput type="text" value={formData.physicianName || ''} name="physicianName" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><Award size={12} className="inline mr-1"/> Specialty</label><IsolatedInput type="text" value={formData.physicianSpecialty || ''} name="physicianSpecialty" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><MapPin size={12} className="inline mr-1"/> Office Address</label><IsolatedInput type="text" value={formData.physicianAddress || ''} name="physicianAddress" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                    <div><label className="label text-[10px]"><Phone size={12} className="inline mr-1"/> Office Number</label><IsolatedInput type="tel" value={formData.physicianNumber || ''} name="physicianNumber" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]">Physician Name</label><ControlledInput type="text" value={formData.physicianName || ''} name="physicianName" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><Award size={12} className="inline mr-1"/> Specialty</label><ControlledInput type="text" value={formData.physicianSpecialty || ''} name="physicianSpecialty" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><MapPin size={12} className="inline mr-1"/> Office Address</label><ControlledInput type="text" value={formData.physicianAddress || ''} name="physicianAddress" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
+                    <div><label className="label text-[10px]"><Phone size={12} className="inline mr-1"/> Office Number</label><ControlledInput type="tel" value={formData.physicianNumber || ''} name="physicianNumber" onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </div>
             </DesignWrapper>
         );
@@ -236,7 +209,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <DesignWrapper id={id} type="question" key={id} className="md:col-span-6" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <div>
                     <label className="label flex items-center gap-1">Blood Pressure {isCritical && <Shield size={12} className="text-red-500"/>}</label>
-                    <IsolatedInput type="text" value={formData.bloodPressure || ''} name="bloodPressure" onChange={handleChange} disabled={readOnly} className="input bg-white font-mono" placeholder="120/80" />
+                    <ControlledInput type="text" value={formData.bloodPressure || ''} name="bloodPressure" onChange={handleChange} disabled={readOnly} className="input bg-white font-mono" placeholder="120/80" />
                 </div>
             </DesignWrapper>
         );
@@ -286,7 +259,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
                     <label className="label text-[10px] flex items-center gap-2"><FileText size={12}/> Other Allergies (Question #8) {isCritical && <ShieldAlert size={10} className="text-red-500"/>}</label>
-                    <IsolatedInput 
+                    <ControlledInput 
                         type="text" 
                         name="otherAllergies" 
                         value={formData.otherAllergies || ''} 
