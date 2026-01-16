@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PerioMeasurement } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart, Sparkles } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -27,7 +27,7 @@ interface PerioRowProps {
     compareMode?: boolean;
 }
 
-const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, focusedSite, onValueChange, onBleedingToggle, onMobilityChange, onFocusSite, readOnly, compareMode }) => {
+const PerioRow = React.memo<PerioRowProps>(({ tooth, measurement, previousMeasurement, focusedSite, onValueChange, onBleedingToggle, onMobilityChange, onFocusSite, readOnly, compareMode }) => {
     const m = measurement;
     if (!m) return null;
 

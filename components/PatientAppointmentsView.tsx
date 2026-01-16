@@ -1,7 +1,5 @@
-
 import React from 'react';
 import { Patient, Appointment, AppointmentStatus } from '../types';
-// Added Plus to lucide-react imports
 import { Calendar, Clock, ChevronRight, CalendarPlus, History, Info, Sparkles, Plus } from 'lucide-react';
 import { formatDate } from '../constants';
 

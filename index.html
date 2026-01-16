@@ -7,55 +7,6 @@
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#134e4a" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              teal: {
-                50: '#f0fdfa',
-                100: '#ccfbf1',
-                200: '#99f6e4',
-                300: '#5eead4',
-                400: '#2dd4bf',
-                500: '#14b8a6',
-                600: '#0d9488',
-                700: '#0f766e',
-                800: '#115e59',
-                900: '#134e4a',
-              },
-              lilac: {
-                50: '#fdf4ff',
-                100: '#fae8ff',
-                200: '#f0abfc',
-                300: '#e879f9',
-                400: '#d946ef',
-                500: '#c026d3',
-                600: '#a21caf',
-                700: '#86198f',
-                800: '#701a75',
-                900: '#4a044e',
-              },
-              amber: {
-                50: '#fffbeb',
-                100: '#fef3c7',
-                200: '#fde68a',
-                300: '#fcd34d',
-                400: '#fbbf24',
-                500: '#f59e0b',
-                600: '#d97706',
-                700: '#b45309',
-                800: '#92400e',
-                900: '#78350f',
-              }
-            },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            }
-          }
-        }
-      };
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
@@ -206,10 +157,16 @@
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
-    "crypto-js": "https://esm.sh/crypto-js@4.2.0"
+    "crypto-js": "https://esm.sh/crypto-js@4.2.0",
+    "zustand": "https://esm.sh/zustand@4.5.4",
+    "zustand/middleware": "https://esm.sh/zustand@4.5.4/middleware",
+    "zustand/middleware/immer": "https://esm.sh/zustand@4.5.4/middleware/immer",
+    "immer": "https://esm.sh/immer@10.1.1",
+    "zustand/": "https://esm.sh/zustand@4.5.4/"
   }
 }
 </script>
+<script type="module" src="tailwind.config.js"></script>
 </head>
   <body>
     <div id="root"></div>

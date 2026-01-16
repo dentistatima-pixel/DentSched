@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
@@ -103,7 +102,6 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
     }
   };
 
-// FIX: Refactored to prevent creating an incomplete guardianProfile object.
   const handlePatientSave = (updated: Partial<Patient>) => {
       // Bind Visual Anchor to the patient record
       const finalPatient = { ...updated };

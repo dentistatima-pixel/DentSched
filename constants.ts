@@ -1,5 +1,5 @@
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, PriceBookEntry } from './types';
 
 // Generators for mock data
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -475,6 +475,12 @@ const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { id: 'proc_34', name: 'Take-Home Whitening Kit', category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] }
 ];
 
+const DEFAULT_PRICE_BOOK_ENTRIES: PriceBookEntry[] = DEFAULT_PROCEDURES.map(p => ({
+    priceBookId: 'pb_1',
+    procedureId: p.id,
+    price: Math.floor(Math.random() * 10000) + 500 // Dummy prices for now
+}));
+
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   clinicName: 'Ivory Dental Office',
   clinicProfile: 'boutique',
@@ -612,7 +618,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
       [UserRole.DENTIST]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
       [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      // Fix: Removed duplicate canDeletePatients property.
       [UserRole.SYSTEM_ARCHITECT]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true, canOverrideClinicalSafety: true }
   },
   currentPrivacyVersion: '1.0',
@@ -700,9 +705,5 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   priceBooks: [
       { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true }
   ],
-  priceBookEntries: DEFAULT_PROCEDURES.map(p => ({
-      priceBookId: 'pb_1',
-      procedureId: p.id,
-      price: Math.floor(Math.random() * 10000) + 500 // Dummy prices for now
-  }))
+  priceBookEntries: DEFAULT_PRICE_BOOK_ENTRIES
 };

@@ -36,24 +36,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
 
   useEffect(() => {
+    // This effect now only triggers when the modal opens or the underlying data ID changes.
+    // This prevents re-renders if the `initialData` object reference changes but its content doesn't.
     if (isOpen) {
-        if (initialData) {
-            // This is an edit. We only want to load the data if it's a different patient.
-            // This check prevents overwriting the form if a parent component re-renders.
-            if (initialData.id !== formData.id) {
-                setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' });
-            }
-        } else {
-            // This is for a new patient. We only want to set a new ID if the form isn't already set up for a new patient.
-            // The previous logic `|| formData.name` was buggy and would reset the form while typing.
-            if (!formData.id) {
-                const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
-                setFormData({ ...initialFormState, id: generatedId });
-            }
-        }
+      if (initialData) {
+        setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' });
+      } else {
+        const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
+        setFormData({ ...initialFormState, id: generatedId });
+      }
     }
-  // Fix: Removed formData.name from dependency array to prevent infinite loop.
-  }, [isOpen, initialData, formData.id]);
+  }, [isOpen, initialData?.id]);
 
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -203,14 +196,14 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
-                            <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <input type="checkbox" name="dpaConsent" checked={!!formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
                             <div>
                                 <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span>
                                 <p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.</p>
                             </div>
                         </label>
                         <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.clinicalMediaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
-                            <input type="checkbox" name="clinicalMediaConsent" checked={formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <input type="checkbox" name="clinicalMediaConsent" checked={!!formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
                             <div>
                                 <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Scale size={12}/> TREATMENT AUTHORIZATION *</span>
                                 <p className="text-[11px] text-slate-600 mt-1 font-bold">I certify that I have read the General Authorization above and agree to the terms of clinical care and liability.</p>

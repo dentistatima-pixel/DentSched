@@ -1,6 +1,3 @@
-// Fix: Add React import for React.ElementType
-import React from 'react';
-
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -68,7 +65,7 @@ export enum LabStatus {
 export interface AppNotification {
   id: string;
   type: 'critical' | 'action' | 'info';
-  icon: React.ElementType;
+  icon: any;
   title: string;
   description: string;
   timestamp: string;

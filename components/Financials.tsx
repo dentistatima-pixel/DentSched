@@ -357,15 +357,16 @@ const PayrollTab: React.FC<{
     const commissionRate = currentDentist?.commissionRate || 0.30;
     const completed = appointments.filter(a => a.providerId === selectedDentistId && a.status === AppointmentStatus.COMPLETED);
     
-    let grossProduction = 0;
-    // Fix: ProcedureItem no longer has a 'price' property. Price must be retrieved from priceBookEntries.
-    completed.forEach(apt => {
-        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        if (proc) {
-            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
-            grossProduction += (priceEntry?.price || 0);
-        }
-    });
+    const grossProduction = useMemo(() => {
+        return completed.reduce((sum, apt) => {
+            const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+            if (!proc) return sum;
+            const priceEntry = fieldSettings?.priceBookEntries?.find(
+                pbe => pbe.procedureId === proc.id
+            );
+            return sum + (priceEntry?.price || 0);
+        }, 0);
+    }, [completed, fieldSettings]);
 
     const labFees = expenses.filter(e => e.staffId === selectedDentistId && e.category === 'Lab Fee').reduce((s, e) => s + e.amount, 0);
     const approvedAdjustmentsTotal = payrollAdjustments
@@ -517,7 +518,7 @@ const PayrollTab: React.FC<{
                                                     </button>
                                                 )}
                                                 {dispute && dispute.status === 'Open' && isAdmin && (
-                                                    <button onClick={() => onResolveDispute(dispute.id)} className="text-xs font-black text-teal-800 uppercase bg-teal-100 px-3 py-1 rounded-full border border-teal-200 hover:bg-teal-200 transition-colors">Resolve</button>
+                                                    <button onClick={() => onResolveDispute(dispute.id)} className="text-xs font-black text-teal-600">Resolve</button>
                                                 )}
                                             </td>
                                         </tr>
@@ -526,142 +527,55 @@ const PayrollTab: React.FC<{
                             </tbody>
                         </table>
                     </div>
-
-                    <div className="pt-8 border-t border-slate-100">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs flex items-center gap-2"><CreditCard size={18} aria-hidden="true"/> Non-Percentage Adjustments</h3>
-                            {!isLocked && <button onClick={() => setAdjModal(true)} className="px-4 py-1.5 bg-teal-50 text-teal-800 text-xs font-black uppercase rounded-xl border border-teal-200 hover:bg-teal-100 transition-all">+ Add Credit/Debit</button>}
-                        </div>
-                        <div className="space-y-3">
-                            {payrollAdjustments.filter(a => a.periodId === period.id).map(adj => (
-                                <div key={adj.id} className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all ${adj.status === 'Approved' ? 'bg-teal-50/50 border-teal-200' : 'bg-slate-50 border-slate-300 border-dashed'}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-xl shadow-sm ${adj.status === 'Approved' ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                                            <DollarSign size={20} aria-hidden="true"/>
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-black text-slate-900 uppercase tracking-tight">{adj.reason}</div>
-                                            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{adj.status} • Requested by {staff.find(s => s.id === adj.requestedBy)?.name}</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className={`text-lg font-black ${adj.amount >= 0 ? 'text-teal-700' : 'text-red-700'}`}>{adj.amount >= 0 ? '+' : ''}₱{Math.abs(adj.amount).toLocaleString()}</span>
-                                        {adj.status === 'Pending' && isAdmin && (
-                                            <button onClick={() => onApproveAdjustment(adj.id)} className="p-3 bg-teal-600 text-white rounded-xl shadow-xl hover:bg-teal-700 transition-all" aria-label="Approve adjustment"><CheckSquare size={18}/></button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
-
                 <div className="xl:col-span-4 space-y-6">
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-teal-500 shadow-2xl space-y-8 flex-1 flex flex-col">
-                        <div className="flex justify-between items-start">
-                            <h3 className="font-black text-teal-900 uppercase tracking-tighter text-xl">Payout Summary</h3>
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs flex items-center gap-2"><Calculator size={18} aria-hidden="true"/> Payout Calculation</h3>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100"><span className="text-xs font-bold text-slate-500 uppercase">Gross Production</span><span className="font-black text-slate-800 text-lg">₱{grossProduction.toLocaleString()}</span></div>
+                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100"><span className="text-xs font-bold text-slate-500 uppercase">Lab Fees</span><span className="font-black text-red-600 text-lg">- ₱{labFees.toLocaleString()}</span></div>
+                            <div className="flex justify-between items-center bg-slate-100 p-3 rounded-xl border border-slate-200"><span className="text-xs font-bold text-slate-600 uppercase">Net Base</span><span className="font-black text-slate-900 text-lg">₱{netBase.toLocaleString()}</span></div>
+                            <div className="flex justify-between items-center bg-white p-3 rounded-xl"><span className="text-xs font-bold text-teal-600 uppercase">Commission ({commissionRate * 100}%)</span><span className="font-black text-teal-700 text-lg">₱{baseCommission.toLocaleString()}</span></div>
+                            <div className="flex justify-between items-center bg-white p-3 rounded-xl"><span className="text-xs font-bold text-teal-600 uppercase">Adjustments</span><span className="font-black text-teal-700 text-lg">₱{approvedAdjustmentsTotal.toLocaleString()}</span></div>
+                            <div className="flex justify-between items-center bg-teal-900 text-white p-4 rounded-2xl shadow-xl mt-4"><span className="text-xs font-black uppercase tracking-widest">Final Payout</span><span className="font-black text-xl">₱{finalPayout.toLocaleString()}</span></div>
                         </div>
-                        <div className="space-y-5">
-                            <div className="flex justify-between items-center text-sm font-bold">
-                                <span className="text-slate-500 uppercase tracking-widest text-xs">Gross Attribution</span>
-                                <span className="font-black text-slate-900">₱{grossProduction.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm font-bold">
-                                <span className="text-slate-500 uppercase tracking-widest text-xs">Attributable Lab (-)</span>
-                                <span className="font-black text-red-700">-₱{labFees.toLocaleString()}</span>
-                            </div>
-                            <div className="h-px bg-slate-100" aria-hidden="true" />
-                            <div className="flex justify-between items-center text-sm font-bold">
-                                <span className="text-slate-800 font-black uppercase tracking-widest text-xs">Adjusted Practice Yield</span>
-                                <span className="font-black text-slate-950">₱{netBase.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm font-bold">
-                                <span className={`font-black uppercase tracking-widest text-xs ${isEligibleForSplit ? 'text-teal-700' : 'text-slate-400 italic'}`}>
-                                    {isEligibleForSplit ? `Contracted Split (${commissionRate * 100}%)` : 'Non-eligible for Splits'}
-                                </span>
-                                <span className={`font-black ${isEligibleForSplit ? 'text-teal-800' : 'text-slate-400'}`}>
-                                    ₱{baseCommission.toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm font-bold">
-                                <span className="text-slate-500 uppercase tracking-widest text-xs">Manual Adjustments (+)</span>
-                                <span className={`font-black ${approvedAdjustmentsTotal >= 0 ? 'text-teal-700' : 'text-red-700'}`}>₱{approvedAdjustmentsTotal.toLocaleString()}</span>
-                            </div>
-                            
-                            <div className="pt-8 mt-8 border-t-4 border-teal-50">
-                                <div className="text-xs font-black uppercase tracking-[0.2em] text-teal-700 text-center mb-2">Total Payout Entitlement</div>
-                                <div className="text-5xl font-black text-teal-900 text-center tracking-tighter">₱{finalPayout.toLocaleString()}</div>
-                            </div>
-                        </div>
-
-                        {!isLocked && currentUser.id === selectedDentistId && isClosed && (
-                            <div className="p-6 rounded-3xl border-2 border-lilac-300 bg-lilac-50/50 space-y-4 animate-in slide-in-from-bottom-4 duration-500" role="complementary">
-                                <div className="flex items-center gap-3 text-lilac-900">
-                                    <PenTool size={20} aria-hidden="true"/>
-                                    <h4 className="font-black uppercase tracking-widest text-sm">Practitioner Attestation</h4>
-                                </div>
-                                <p className="text-xs text-lilac-800 leading-relaxed font-bold uppercase tracking-tight">
-                                    I certify that I have reviewed the production attribution and final split calculation for this period. I acknowledge receipt of this statement as an accurate reflection of clinical work performed.
-                                </p>
-                                <button 
-                                    onClick={handlePractitionerSignOff}
-                                    className="w-full py-5 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
-                                >
-                                    <Fingerprint size={20} aria-hidden="true"/> Certify & Lock Statement
-                                </button>
-                            </div>
-                        )}
-
-                        {isLocked && period.practitionerSignOff && (
-                            <div className="p-6 rounded-3xl border-2 border-teal-300 bg-teal-50 space-y-3 animate-in fade-in" role="status">
-                                <div className="flex items-center gap-2 text-teal-900">
-                                    <ShieldCheck size={20} aria-hidden="true"/>
-                                    <span className="font-black uppercase tracking-widest text-xs">Verified Digital Sign-Off</span>
-                                </div>
-                                <div className="p-4 bg-white rounded-xl border border-teal-200 font-mono text-xs text-teal-800 break-all leading-tight shadow-inner">
-                                    SIGNATURE_HASH: {period.practitionerSignOff.hash}
-                                </div>
-                                <div className="flex flex-col gap-1 text-xs font-black text-slate-500 uppercase tracking-tighter">
-                                    <span>Locked: {new Date(period.practitionerSignOff.timestamp).toLocaleString()}</span>
-                                    <span className="text-teal-700">Audit Status: VERIFIED TRACE</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {isAdmin && period.status === PayrollStatus.OPEN && (
-                            <button onClick={handleClosePeriod} className="w-full py-5 bg-lilac-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-lilac-600/30 hover:scale-105 transition-all">Close & Certify Split</button>
-                        )}
-                        {isAdmin && period.status === PayrollStatus.CLOSED && (
-                            <button onClick={handleLockPeriod} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-900/30 hover:scale-105 transition-all flex items-center justify-center gap-3"><Lock size={18} aria-hidden="true"/> Verify & Archive Statement</button>
-                        )}
                     </div>
+
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs flex items-center gap-2"><PenTool size={18} aria-hidden="true"/> Ledger Adjustments</h3>
+                            {!isLocked && <button onClick={() => setAdjModal(true)} className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:text-teal-600"><Plus size={16}/></button>}
+                        </div>
+                        {payrollAdjustments.filter(a => a.periodId === period.id).map(adj => (
+                            <div key={adj.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
+                                <div><div className="text-xs font-bold text-slate-700">{adj.reason}</div><div className="text-[9px] font-bold text-slate-400 uppercase">{adj.status}</div></div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`font-black text-sm ${adj.amount > 0 ? 'text-teal-600' : 'text-red-600'}`}>₱{adj.amount.toLocaleString()}</span>
+                                    {adj.status === 'Pending' && isAdmin && <button onClick={() => onApproveAdjustment(adj.id)} className="p-1 bg-white rounded-md border text-teal-600"><CheckSquare size={14}/></button>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {!isLocked && currentUser.id === selectedDentistId && (
+                        <button 
+                            onClick={handlePractitionerSignOff}
+                            className="w-full p-6 bg-slate-900 text-white rounded-3xl font-black uppercase text-sm tracking-widest shadow-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-colors"
+                        >
+                            <Fingerprint size={24} aria-hidden="true"/> Certify & Lock Statement
+                        </button>
+                    )}
+
+                    {period.practitionerSignOff && (
+                        <div className="bg-teal-50 border-2 border-teal-200 p-6 rounded-3xl space-y-3 shadow-lg">
+                            <div className="flex items-center gap-3 text-teal-700"><ShieldCheck size={20} aria-hidden="true"/><h4 className="font-black text-xs uppercase tracking-widest">Practitioner Verified</h4></div>
+                            <p className="text-xs font-mono text-teal-900 break-all opacity-50">{period.practitionerSignOff.hash}</p>
+                            <p className="text-[10px] font-black text-teal-600 uppercase tracking-wider">{new Date(period.practitionerSignOff.timestamp).toLocaleString()}</p>
+                        </div>
+                    )}
                 </div>
             </div>
-
-            {disputeModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" role="dialog" aria-labelledby="dispute-title" aria-modal="true">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 border-4 border-orange-100">
-                        <div className="flex items-center gap-3 text-orange-700 mb-6">
-                            <Flag size={32} aria-hidden="true" />
-                            <h3 id="dispute-title" className="text-2xl font-black uppercase tracking-tighter">Raise Split Dispute</h3>
-                        </div>
-                        <p className="text-sm text-slate-600 font-bold uppercase tracking-tight leading-relaxed mb-6">Raising a professional fee dispute for <strong>{disputeModal.itemName}</strong>. This item will be flagged for Administrative Audit.</p>
-                        <textarea 
-                            aria-label="Reason for dispute"
-                            className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl h-32 focus:border-orange-500 outline-none font-bold text-sm mb-6 shadow-inner"
-                            placeholder="Reason for dispute (e.g., 'Split tier mismatch')..."
-                            value={disputeNote}
-                            onChange={e => setDisputeNote(e.target.value)}
-                        />
-                        <div className="flex gap-3">
-                            <button onClick={() => setDisputeModal(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-black uppercase tracking-widest text-xs rounded-2xl">Cancel</button>
-                            <button onClick={handleDisputeSubmit} className="flex-[2] py-4 bg-orange-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-600/20 hover:bg-orange-700">Raise Issue</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
-
 export default Financials;
