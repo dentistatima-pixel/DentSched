@@ -18,7 +18,9 @@ import QuickTriageModal from './components/QuickTriageModal';
 import QuickAddPatientModal from './components/QuickAddPatientModal'; // Import new modal
 import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager'; // Import new component
-import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST } from './constants';
+import RosterView from './components/RosterView'; // Import RosterView
+import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safety alert modal
+import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
 import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
@@ -135,6 +137,7 @@ function App() {
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [safetyAlert, setSafetyAlert] = useState<{ title: string; message: string } | null>(null);
 
   // New Drawer State
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false);
@@ -568,6 +571,103 @@ function App() {
       };
   }, [resetIdleTimer]);
 
+  const handlePurgePatient = (patientId: string) => {
+    const patientToPurge = patients.find(p => p.id === patientId);
+    if (!patientToPurge) {
+        toast.error("Patient not found for purging.");
+        return;
+    }
+
+    const anonymizedPatient: Patient = {
+        ...patientToPurge,
+        name: `ANONYMIZED_${patientId}`,
+        firstName: 'Anonymized',
+        surname: 'Patient',
+        middleName: undefined,
+        suffix: undefined,
+        phone: '00000000000',
+        email: 'anon@dentsched.ph',
+        homeAddress: undefined,
+        city: undefined,
+        barangay: undefined,
+        occupation: undefined,
+        guardianProfile: undefined,
+        isAnonymized: true,
+        dob: '1900-01-01',
+        age: undefined,
+        sex: undefined,
+        civilStatus: undefined,
+        insuranceProvider: undefined,
+        insuranceNumber: undefined,
+        physicianName: undefined,
+        physicianAddress: undefined,
+        physicianNumber: undefined,
+        physicianSpecialty: undefined,
+        philHealthPIN: undefined
+    };
+    
+    const newPatients = patients.map(p => p.id === patientId ? anonymizedPatient : p);
+    setPatients(newPatients);
+    saveToLocal('dentsched_patients', newPatients);
+    logAction('DELETE', 'Patient', patientId, 'Anonymized patient record as per data retention policy.');
+    toast.success(`Patient record ${patientId} has been anonymized.`);
+  };
+
+  const handleGenerateReport = () => {
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString('en-CA');
+    const todaysAppointments = appointments.filter(a => a.date === today && a.branch === currentBranch);
+
+    doc.setFontSize(18);
+    doc.text(`Daily Report for ${currentBranch} - ${today}`, 14, 22);
+    
+    (doc as any).autoTable({
+        startY: 30,
+        head: [['Time', 'Patient', 'Procedure', 'Provider', 'Status']],
+        body: todaysAppointments.map(apt => {
+            const patient = patients.find(p => p.id === apt.patientId);
+            const provider = staff.find(s => s.id === apt.providerId);
+            return [
+                apt.time,
+                patient?.name || 'N/A',
+                apt.type,
+                provider?.name || 'N/A',
+                apt.status
+            ];
+        }),
+    });
+
+    doc.save(`dentsched_report_${today}.pdf`);
+    toast.success("Daily report generated.");
+    logAction('EXPORT_RECORD', 'System', 'DailyReport', 'Generated daily summary report.');
+  };
+
+  const handleMoveAppointment = (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => {
+    const apt = appointments.find(a => a.id === appointmentId);
+    if (!apt) return;
+
+    const movedAppointment = { ...apt, date: newDate, time: newTime, providerId: newProviderId, resourceId: newResourceId || apt.resourceId, isPendingSync: !isOnline, modifiedAt: new Date().toISOString() };
+
+    if (!isOnline) {
+        const intent: SyncIntent = {
+            id: `intent_${Date.now()}`,
+            action: 'UPDATE_APPOINTMENT',
+            payload: movedAppointment,
+            timestamp: new Date().toISOString()
+        };
+        const newQueue = [...offlineQueue, intent];
+        setOfflineQueue(newQueue);
+        saveToLocal('dentsched_offline_queue', newQueue);
+        toast.info("Appointment move queued for offline sync.");
+    }
+    
+    const newAppointments = appointments.map(a => a.id === appointmentId ? movedAppointment : a);
+    setAppointments(newAppointments);
+    saveToLocal('dentsched_appointments', newAppointments);
+    const providerName = staff.find(s => s.id === newProviderId)?.name || newProviderId;
+    logAction('UPDATE', 'Appointment', appointmentId, `Rescheduled to ${newDate} at ${newTime} with ${providerName}.`);
+  };
+
   const handleUpdatePatientRecall = (patientId: string, status: RecallStatus) => {
       const newPatients = patients.map(p => p.id === patientId ? { ...p, recallStatus: status } : p);
       setPatients(newPatients);
@@ -720,7 +820,10 @@ function App() {
                   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
                   const hasValidClearance = patient.clearanceRequests?.some(r => r.status === 'Approved' && r.approvedAt && new Date(r.approvedAt) > threeMonthsAgo);
                   if (!hasValidClearance) {
-                      toast.error("REFERRAL HARD-STOP (PDA Rule 4): Medical clearance is REQUIRED for a critical condition before surgical seating.");
+                      setSafetyAlert({
+                          title: "REFERRAL HARD-STOP (PDA Rule 4)",
+                          message: "Medical clearance is REQUIRED for a high-risk patient before any surgical procedure. No valid clearance found on file within the last 3 months."
+                      });
                       logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Hard-Stop Triggered: Attempted surgical seating on high-risk patient without verified medical clearance.`);
                       return;
                   }
@@ -749,49 +852,51 @@ function App() {
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
     let patientToSave = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
-    const existing = patients.find(p => p.id === patientToSave.id);
-
-    if (!existing) { // This is a new patient registration
-        const surnamePart = (patientToSave.surname || 'XXXX').substring(0, 4).toUpperCase();
-        const dobPart = (patientToSave.dob || '00000000').replace(/-/g, '');
-        patientToSave.id = `${surnamePart}${dobPart}`;
-
-        // Simple collision avoidance
-        if (patients.some(p => p.id === patientToSave.id)) {
-            patientToSave.id += `-${Math.random().toString(36).substring(2, 5)}`;
-        }
+    
+    // Fix: Ensure a new patient gets a unique ID.
+    const isNew = !patientToSave.id;
+    if (isNew) {
+      patientToSave.id = generateUid('p_reg');
     }
+  
+    const existing = isNew ? null : patients.find(p => p.id === patientToSave.id);
     
     patientToSave.name = `${patientToSave.firstName || ''} ${patientToSave.middleName || ''} ${patientToSave.surname || ''}`.replace(/\s+/g, ' ').trim();
-
+  
+    // Fix: Correctly queue update vs. register actions when offline.
     if (!isOnline) {
-        const newQueue = [...offlineQueue, { id: `intent_${Date.now()}`, action: 'REGISTER_PATIENT' as const, payload: patientToSave, timestamp: new Date().toISOString() }];
-        setOfflineQueue(newQueue);
-        saveToLocal('dentsched_offline_queue', newQueue);
-        toast.info("Patient update queued for offline sync.");
+      const action = isNew ? 'REGISTER_PATIENT' : 'UPDATE_PATIENT';
+      const newQueue = [...offlineQueue, { id: `intent_${Date.now()}`, action: action as any, payload: patientToSave, timestamp: new Date().toISOString() }];
+      setOfflineQueue(newQueue);
+      saveToLocal('dentsched_offline_queue', newQueue);
+      toast.info("Patient update queued for offline sync.");
     }
-
+  
     if (existing) {
-        const updatedPatient = { ...existing, ...patientToSave } as Patient;
-        logAction('UPDATE', 'Patient', existing.id, 'Updated patient registration details', existing, updatedPatient);
-        const newPatientsState = patients.map(p => p.id === patientToSave.id ? updatedPatient : p);
-        setPatients(newPatientsState);
-        saveToLocal('dentsched_patients', newPatientsState);
-        triggerSms('update_registration', updatedPatient);
-        setEditingPatient(null);
+      const updatedPatient = { ...existing, ...patientToSave } as Patient;
+      logAction('UPDATE', 'Patient', existing.id, 'Updated patient registration details', existing, updatedPatient);
+      const newPatientsState = patients.map(p => p.id === patientToSave.id ? updatedPatient : p);
+      setPatients(newPatientsState);
+      saveToLocal('dentsched_patients', newPatientsState);
+      triggerSms('update_registration', updatedPatient);
+      setEditingPatient(null);
     } else {
-        const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
-        logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
-        
-        if (newPatient.referredById) {
-            const referrer = patients.find(p => p.id === newPatient.referredById);
-            if (referrer) triggerSms('referral_thanks', referrer);
-        }
-        
-        const newPatientsState = [...patients, newPatient];
-        setPatients(newPatientsState);
-        saveToLocal('dentsched_patients', newPatientsState);
-        triggerSms('welcome', newPatient);
+      const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
+      logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
+      
+      if (newPatient.referredById) {
+        const referrer = patients.find(p => p.id === newPatient.referredById);
+        if (referrer) triggerSms('referral_thanks', referrer);
+      }
+      
+      const newPatientsState = [...patients, newPatient];
+      setPatients(newPatientsState);
+      saveToLocal('dentsched_patients', newPatientsState);
+      triggerSms('welcome', newPatient);
+  
+      toast.success(`Patient ${newPatient.name} registered. Opening their chart.`);
+      setSelectedPatientId(newPatient.id);
+      setActiveTab('patients');
     }
   };
 
@@ -1031,6 +1136,7 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
+      // Fix: Add missing 'currentBranch' prop to Dashboard component call.
       case 'dashboard': return <Dashboard 
           appointments={appointments} 
           allAppointments={appointments} 
@@ -1042,100 +1148,187 @@ function App() {
           onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} 
           onPatientSelect={handleNavigateToPatient} 
           onAddAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} 
-          onUpdateAppointmentStatus={handleUpdateAppointmentStatus} 
-          onCompleteRegistration={(id) => { const p = patients.find(pt => pt.id === id); if (p) { setEditingPatient(p); setIsPatientModalOpen(true); }}} 
-          fieldSettings={fieldSettings} 
-          tasks={tasks} 
-          currentBranch={currentBranch} 
-          syncConflicts={syncConflicts} 
-          systemStatus={systemStatus} 
-          onVerifyDowntimeEntry={handleOpenReconciliationModal} 
-          onVerifyMedHistory={(id) => { const newApts = appointments.map(a => a.id === id ? {...a, medHistoryVerified: true, medHistoryVerifiedAt: new Date().toISOString()} : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); logAction('VERIFY', 'Appointment', id, "Verified patient medical history.");}}
-          onConfirmFollowUp={(id) => { const newApts = appointments.map(a => a.id === id ? {...a, followUpConfirmed: true, followUpConfirmedAt: new Date().toISOString()} : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); logAction('UPDATE', 'Appointment', id, "Confirmed post-op follow up call.");}}
-          onQuickQueue={() => setIsQuickTriageModalOpen(true)} />;
-      case 'schedule': return <CalendarView appointments={appointments.filter(a => a.branch === currentBranch)} staff={staff} onAddAppointment={(d, t, pid, apt) => { setBookingDate(d); setBookingTime(t); setInitialBookingPatientId(pid); setEditingAppointment(apt || null); setIsAppointmentModalOpen(true); }} onMoveAppointment={(id, d, t, pr) => { const newApts = appointments.map(a => a.id === id ? { ...a, date: d, time: t, providerId: pr } : a); setAppointments(newApts); saveToLocal('dentsched_appointments', newApts); }} onUpdateAppointmentStatus={handleUpdateAppointmentStatus} onPatientSelect={handleNavigateToPatient} currentUser={effectiveUser} patients={patients} currentBranch={currentBranch} fieldSettings={fieldSettings} />;
-      case 'patients': 
-        return (
-          <div className="h-full bg-slate-50 relative overflow-hidden flex flex-col">
-            {selectedPatientId ? (
-                <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-                    <PatientDetailView
-                        patient={selectedPatient}
-                        appointments={appointments}
-                        staff={staff}
-                        currentUser={effectiveUser}
-                        onQuickUpdatePatient={handleQuickUpdatePatient}
-                        onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
-                        onEditPatient={handleEditPatient}
-                        fieldSettings={fieldSettings}
-                        logAction={logAction}
-                        incidents={incidents.filter(i => i.patientId === selectedPatientId)}
-                        onSaveIncident={handleSaveIncident}
-                        referrals={referrals.filter(r => r.patientId === selectedPatientId)}
-                        onSaveReferral={handleSaveReferral}
-                        onToggleTimeline={() => setIsTimelineDrawerOpen(!isTimelineDrawerOpen)}
-                        onOpenRevocationModal={(patient, category) => setRevocationTarget({ patient, category })}
-                        governanceTrack={governanceTrack}
-                        onBack={() => setSelectedPatientId(null)}
-                    />
-                    
-                    {/* Sliding Timeline Drawer (Scoped to Selection) */}
-                    <div className={`fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-200 flex flex-col ${isTimelineDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-teal-900 text-white shrink-0">
-                            <div className="flex items-center gap-3">
-                                <MessageSquare size={20} className="text-teal-400"/>
-                                <h3 className="text-sm font-black uppercase tracking-widest">Clinical Timeline</h3>
-                            </div>
-                            <button onClick={() => setIsTimelineDrawerOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90"><X/></button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <PatientAppointmentsView
-                                patient={selectedPatient}
-                                appointments={appointments}
-                                onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
-                                onSelectAppointment={(apt) => { setEditingAppointment(apt); setIsAppointmentModalOpen(true); }}
-                            />
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <PatientRegistryManager
-                    patients={patients}
-                    appointments={appointments}
-                    onSelectPatient={setSelectedPatientId}
-                    onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }}
-                    onBookAppointment={() => { setInitialBookingPatientId(undefined); setIsAppointmentModalOpen(true); }}
-                    fieldSettings={fieldSettings}
-                />
-            )}
-          </div>
-        );
-      case 'admin': return <AdminHub onNavigate={(tab) => setActiveTab(tab)} />;
-      case 'referrals': return <ReferralManager patients={patients} referrals={referrals} onSaveReferral={handleSaveReferral} staff={staff} />;
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          fieldSettings={fieldSettings}
+          onCompleteRegistration={(id) => handleEditPatient(patients.find(p => p.id === id)!)}
+          tasks={tasks}
+          onToggleTask={handleToggleTask}
+          syncConflicts={syncConflicts}
+          onVerifyDowntimeEntry={handleOpenReconciliationModal}
+          onQuickQueue={() => setIsQuickTriageModalOpen(true)}
+          currentBranch={currentBranch}
+      />;
+      case 'schedule': return <CalendarView 
+          appointments={appointments} 
+          staff={staff} 
+          onAddAppointment={(date, time, patientId, aptToEdit) => {
+              setBookingDate(date);
+              setBookingTime(time);
+              setInitialBookingPatientId(patientId);
+              setEditingAppointment(aptToEdit || null);
+              setIsAppointmentModalOpen(true);
+          }}
+          onMoveAppointment={handleMoveAppointment}
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          onPatientSelect={handleNavigateToPatient}
+          currentUser={currentUser}
+          patients={patients}
+          currentBranch={currentBranch}
+          fieldSettings={fieldSettings}
+      />;
+      case 'patients': return selectedPatient ? 
+          <PatientDetailView 
+              patient={selectedPatient}
+              appointments={appointments}
+              staff={staff}
+              currentUser={currentUser}
+              onQuickUpdatePatient={handleQuickUpdatePatient}
+              onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
+              onEditPatient={handleEditPatient}
+              fieldSettings={fieldSettings}
+              logAction={logAction}
+              incidents={incidents}
+              onSaveIncident={handleSaveIncident}
+              referrals={referrals}
+              onSaveReferral={handleSaveReferral}
+              onBack={() => setSelectedPatientId(null)}
+              governanceTrack={governanceTrack}
+              onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
+          /> : 
+          <PatientRegistryManager 
+              patients={patients} 
+              appointments={appointments}
+              onSelectPatient={setSelectedPatientId}
+              onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }}
+              onBookAppointment={() => { setInitialBookingPatientId(undefined); setIsAppointmentModalOpen(true); }}
+              fieldSettings={fieldSettings}
+          />;
+      case 'admin':
+          return (
+            <AdminHub 
+                onNavigate={(tab) => {
+                    if (tab === 'inventory') { setActiveTab('inventory'); }
+                    if (tab === 'financials') { setActiveTab('financials'); }
+                    if (tab === 'recall') { setActiveTab('recall'); }
+                    if (tab === 'referrals') { setActiveTab('referrals'); }
+                    if (tab === 'roster') { setActiveTab('roster'); }
+                }}
+            />
+          );
+      case 'inventory': return <Inventory 
+          stock={stock} 
+          onUpdateStock={handleUpdateStock} 
+          sterilizationCycles={sterilizationCycles}
+          onAddCycle={handleAddCycle}
+          currentUser={currentUser}
+          currentBranch={currentBranch}
+          availableBranches={fieldSettings.branches}
+          transfers={transfers}
+          onPerformTransfer={handlePerformTransfer}
+          patients={patients}
+          fieldSettings={fieldSettings}
+          onUpdateSettings={handleUpdateSettings}
+          appointments={appointments}
+          logAction={logAction}
+      />;
+      case 'financials': return <Financials 
+          claims={hmoClaims} 
+          expenses={[]} 
+          philHealthClaims={philHealthClaims}
+          patients={patients}
+          appointments={appointments}
+          fieldSettings={fieldSettings}
+          staff={staff}
+          currentUser={currentUser}
+          onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim}
+          reconciliations={reconciliations}
+          onSaveReconciliation={handleSaveReconciliation}
+          onSaveCashSession={handleSaveCashSession}
+          currentBranch={currentBranch}
+          payrollPeriods={payrollPeriods}
+          payrollAdjustments={payrollAdjustments}
+          commissionDisputes={commissionDisputes}
+          onUpdatePayrollPeriod={handleUpdatePayrollPeriod}
+          onAddPayrollAdjustment={handleAddPayrollAdjustment}
+          onApproveAdjustment={handleApproveAdjustment}
+          onAddCommissionDispute={handleAddCommissionDispute}
+          onResolveCommissionDispute={handleResolveCommissionDispute}
+          governanceTrack={governanceTrack}
+          setGovernanceTrack={setGovernanceTrack}
+      />;
       case 'recall': return <RecallCenter patients={patients} onUpdatePatientRecall={handleUpdatePatientRecall} />;
-      case 'inventory': return <Inventory stock={stock} onUpdateStock={handleUpdateStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} onPerformTransfer={handlePerformTransfer} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} appointments={appointments} logAction={logAction} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={handleUpdatePayrollPeriod} onAddPayrollAdjustment={handleAddPayrollAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddCommissionDispute} onResolveCommissionDispute={handleResolveCommissionDispute} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} governanceTrack={governanceTrack} setGovernanceTrack={setGovernanceTrack} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} currentUser={currentUser} onStartImpersonating={handleStartImpersonating} />;
-      default: return null;
+      case 'referrals': return <ReferralManager patients={patients} referrals={referrals} staff={staff} onSaveReferral={handleSaveReferral} />;
+      case 'roster': return <RosterView staff={staff} fieldSettings={fieldSettings} />;
+      case 'field-mgmt': return <FieldManagement 
+          settings={fieldSettings} 
+          onUpdateSettings={handleUpdateSettings}
+          auditLog={auditLog}
+          auditLogVerified={isAuditLogVerified}
+          staff={staff}
+          patients={patients}
+          onPurgePatient={handlePurgePatient}
+          encryptionKey={encryptionKey}
+          incidents={incidents}
+          onSaveIncident={handleSaveIncident}
+          appointments={appointments}
+          currentUser={currentUser}
+          onStartImpersonating={handleStartImpersonating}
+      />;
+      // Fix: Add missing 'currentBranch' prop and other optional props for consistency.
+      default: return <Dashboard 
+          appointments={appointments}
+          allAppointments={appointments}
+          patientsCount={patients.length} 
+          staffCount={staff.length}
+          staff={staff}
+          currentUser={effectiveUser} 
+          patients={patients} 
+          onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} 
+          onPatientSelect={handleNavigateToPatient} 
+          onAddAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} 
+          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+          fieldSettings={fieldSettings}
+          onCompleteRegistration={(id) => handleEditPatient(patients.find(p => p.id === id)!)}
+          tasks={tasks}
+          onToggleTask={handleToggleTask}
+          syncConflicts={syncConflicts}
+          onVerifyDowntimeEntry={handleOpenReconciliationModal}
+          onQuickQueue={() => setIsQuickTriageModalOpen(true)}
+          currentBranch={currentBranch}
+      />;
     }
   };
 
+  if (isInKioskMode) {
+      return <KioskView 
+          patients={patients} 
+          onUpdatePatient={handleSavePatient}
+          onExitKiosk={() => setIsInKioskMode(false)}
+          fieldSettings={fieldSettings}
+          logAction={logAction}
+      />;
+  }
+
   return (
-    <div className={isInKioskMode ? "kiosk-mode h-full" : "h-full"}>
-        <Layout 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onAddAppointment={() => setIsAppointmentModalOpen(true)}
-        currentUser={effectiveUser} 
-        onSwitchUser={setCurrentUser} 
-        staff={staff} 
-        currentBranch={currentBranch} 
-        availableBranches={fieldSettings.branches} 
-        onChangeBranch={setCurrentBranch} 
-        fieldSettings={fieldSettings} 
-        onGenerateReport={() => {}} 
-        tasks={tasks} 
-        onToggleTask={handleToggleTask} 
+    <>
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onAddAppointment={() => {
+            setInitialBookingPatientId(undefined);
+            setEditingAppointment(null);
+            setIsAppointmentModalOpen(true);
+        }}
+        currentUser={effectiveUser}
+        onSwitchUser={setCurrentUser}
+        staff={staff}
+        currentBranch={currentBranch}
+        availableBranches={fieldSettings.branches}
+        onChangeBranch={setCurrentBranch}
+        fieldSettings={fieldSettings}
+        onGenerateReport={handleGenerateReport}
+        tasks={tasks}
+        onToggleTask={handleToggleTask}
         onEnterKioskMode={() => setIsInKioskMode(true)}
         isOnline={isOnline}
         pendingSyncCount={offlineQueue.length}
@@ -1150,126 +1343,79 @@ function App() {
         isProfileOpen={isProfileOpen}
         onOpenProfile={() => setIsProfileOpen(true)}
         onCloseProfile={() => setIsProfileOpen(false)}
-        >
-        {showTamperAlert && (
-            <div className="fixed top-0 left-0 right-0 z-[1000] bg-black text-red-50 p-4 flex items-center justify-center gap-4 animate-in slide-in-from-top-full duration-1000">
-                <ShieldAlert size={32} className="animate-pulse" />
-                <div className="text-center">
-                    <h2 className="text-xl font-black uppercase tracking-tighter">NPC SECURITY ALERT: SYSTEM INTEGRITY VIOLATION</h2>
-                    <p className="text-xs font-bold text-red-400">Primary audit log wiped while forensic shadow logs remain. Mandatory 72-hour NPC reporting protocol active.</p>
-                </div>
-                <button onClick={() => setShowTamperAlert(false)} className="bg-red-500 text-black px-4 py-1 rounded font-black">Dismiss</button>
-            </div>
-        )}
-        
+      >
         {renderContent()}
-
-        <QuickAddPatientModal
-            isOpen={isQuickAddPatientModalOpen}
-            onClose={() => setIsQuickAddPatientModalOpen(false)}
-            onSave={handleSaveQuickAddPatient}
+      </Layout>
+      <AppointmentModal 
+        isOpen={isAppointmentModalOpen}
+        onClose={() => { 
+            setIsAppointmentModalOpen(false); 
+            setEditingAppointment(null); 
+            setIsReconciliationMode(false);
+            setBookingDate(undefined);
+            setBookingTime(undefined);
+            setInitialBookingPatientId(undefined);
+        }}
+        patients={patients}
+        staff={staff}
+        appointments={appointments}
+        onSave={handleSaveAppointment}
+        initialDate={bookingDate}
+        initialTime={bookingTime}
+        initialPatientId={initialBookingPatientId}
+        existingAppointment={editingAppointment}
+        fieldSettings={fieldSettings}
+        isDowntime={systemStatus === SystemStatus.DOWNTIME}
+      />
+      <PatientRegistrationModal 
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+        onSave={handleSavePatient}
+        initialData={editingPatient}
+        fieldSettings={fieldSettings}
+        patients={patients}
+      />
+      <QuickAddPatientModal
+        isOpen={isQuickAddPatientModalOpen}
+        onClose={() => setIsQuickAddPatientModalOpen(false)}
+        onSave={handleSaveQuickAddPatient}
+      />
+      <QuickTriageModal 
+        isOpen={isQuickTriageModalOpen}
+        onClose={() => setIsQuickTriageModalOpen(false)}
+        onSave={handleSaveQuickQueue}
+      />
+      {pendingPostOpAppointment && (
+          <PostOpHandoverModal 
+            isOpen={!!pendingPostOpAppointment}
+            onClose={() => setPendingPostOpAppointment(null)}
+            appointment={pendingPostOpAppointment}
+            onConfirm={async () => {
+                const apt = pendingPostOpAppointment;
+                setAppointments(prev => prev.map(a => a.id === apt.id ? { ...a, postOpVerified: true } : a));
+                await finalizeUpdateStatus(apt.id, AppointmentStatus.COMPLETED);
+                setPendingPostOpAppointment(null);
+            }}
+          />
+      )}
+      {pendingSafetyTimeout && (
+          <SafetyTimeoutModal 
+            patient={pendingSafetyTimeout.patient}
+            onConfirm={() => {
+                finalizeUpdateStatus(pendingSafetyTimeout.appointmentId, pendingSafetyTimeout.status);
+                setPendingSafetyTimeout(null);
+            }}
+          />
+      )}
+      {safetyAlert && (
+        <SafetyAlertModal 
+            isOpen={!!safetyAlert}
+            onClose={() => setSafetyAlert(null)}
+            title={safetyAlert.title}
+            message={safetyAlert.message}
         />
-
-        {isAppointmentModalOpen && (
-            <AppointmentModal 
-                isOpen={isAppointmentModalOpen} 
-                onClose={() => {setIsAppointmentModalOpen(false); setIsReconciliationMode(false);}} 
-                patients={patients} 
-                staff={staff} 
-                appointments={appointments} 
-                onSave={handleSaveAppointment}
-                onSavePatient={handleSavePatient}
-                initialDate={bookingDate}
-                initialTime={bookingTime}
-                initialPatientId={initialBookingPatientId}
-                existingAppointment={editingAppointment}
-                fieldSettings={fieldSettings}
-                sterilizationCycles={sterilizationCycles}
-                isDowntime={systemStatus === SystemStatus.DOWNTIME}
-            />
-        )}
-
-        {isPatientModalOpen && (
-            <PatientRegistrationModal 
-                isOpen={isPatientModalOpen} 
-                onClose={() => setIsPatientModalOpen(false)} 
-                onSave={handleSavePatient}
-                initialData={editingPatient}
-                fieldSettings={fieldSettings}
-                patients={patients}
-            />
-        )}
-
-        {isQuickTriageModalOpen && (
-            <QuickTriageModal
-                isOpen={isQuickTriageModalOpen}
-                onClose={() => setIsQuickTriageModalOpen(false)}
-                onSave={handleSaveQuickQueue}
-            />
-        )}
-
-        {pendingPostOpAppointment && (
-            <PostOpHandoverModal 
-                isOpen={!!pendingPostOpAppointment} 
-                appointment={pendingPostOpAppointment} 
-                onConfirm={async () => {
-                    if (pendingPostOpAppointment) {
-                        const newAppointments = appointments.map(a => a.id === pendingPostOpAppointment.id ? { ...a, postOpVerified: true } : a);
-                        setAppointments(newAppointments);
-                        await finalizeUpdateStatus(pendingPostOpAppointment.id, AppointmentStatus.COMPLETED);
-                        setPendingPostOpAppointment(null);
-                    }
-                }}
-                onClose={() => setPendingPostOpAppointment(null)} 
-            />
-        )}
-
-        {pendingSafetyTimeout && (
-            <SafetyTimeoutModal 
-                patient={pendingSafetyTimeout.patient} 
-                onConfirm={() => {
-                  finalizeUpdateStatus(pendingSafetyTimeout.appointmentId, pendingSafetyTimeout.status);
-                  setPendingSafetyTimeout(null);
-                }} 
-            />
-        )}
-        
-        {revocationTarget && (
-            <PrivacyRevocationModal
-                isOpen={!!revocationTarget}
-                patient={revocationTarget.patient}
-                category={revocationTarget.category}
-                onClose={() => setRevocationTarget(null)}
-                onConfirm={(reason, notes) => {
-                    // Logic to update patient consent
-                    setRevocationTarget(null);
-                }}
-            />
-        )}
-
-        {isSessionLocked && (
-            <div className="fixed inset-0 z-[300] bg-slate-900 flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-md rounded-3xl p-8 text-center space-y-6">
-                    <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto"><Lock size={40}/></div>
-                    <h2 className="text-2xl font-black uppercase">Session Locked</h2>
-                    <p className="text-slate-500">System locked due to inactivity. Enter your security credentials to resume.</p>
-                    <button onClick={() => setIsSessionLocked(false)} className="w-full py-4 bg-teal-600 text-white font-black rounded-xl uppercase">Unlock</button>
-                </div>
-            </div>
-        )}
-
-        {isInKioskMode && (
-            <KioskView 
-                patients={patients} 
-                onUpdatePatient={handleSavePatient} 
-                onExitKiosk={() => setIsInKioskMode(false)} 
-                fieldSettings={fieldSettings}
-                logAction={logAction}
-            />
-        )}
-
-        </Layout>
-    </div>
+      )}
+    </>
   );
 }
 

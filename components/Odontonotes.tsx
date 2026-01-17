@@ -175,6 +175,18 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   }, [subjective, objective, assessment, plan]);
 
   const isAuthenticNarrative = uniquenessScore > 10;
+  
+  const getLockReason = () => {
+    if (isPrcExpired) return "Practitioner PRC license is expired. Update profile to restore authority.";
+    if (isIndemnityLocked) return "Malpractice insurance is expired. High-risk procedures are suspended.";
+    if (hasActiveComplication) return "Patient has an unresolved clinical complication that requires sign-off.";
+    if (isPediatricBlocked) return "Minor patient requires guardian consent for today's session.";
+    if (!activeAppointmentToday && !isArchitect) return "No active appointment found for today. Notes can only be added during a session.";
+    return "Mandatory clinical gate triggered. Commitment functions suspended for regulatory protocol.";
+  };
+
+  const isLockedForAction = isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || (!activeAppointmentToday && !isArchitect);
+
 
   useEffect(() => {
     if (selectedProcedure && fieldSettings) {
@@ -416,12 +428,14 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   return (
     <div className="flex flex-col h-full bg-slate-50/50 rounded-[3rem] border border-slate-100 overflow-hidden shadow-inner relative" role="region" aria-label="Clinical Notes and Audit Trail">
       
-      {(isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || (!activeAppointmentToday && !isArchitect)) && (
+      {isLockedForAction && (
           <div className="absolute inset-0 z-[60] bg-slate-900/10 backdrop-blur-[6px] flex items-center justify-center p-8 text-center animate-in fade-in" role="alert">
               <div className="bg-white p-12 rounded-[4rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] border-4 border-red-500 max-w-sm flex flex-col items-center gap-8 animate-in zoom-in-95">
                   <div className="bg-red-50 p-6 rounded-[2.5rem] ring-[12px] ring-red-500/5 shadow-inner"><ShieldAlert size={64} className="text-red-600 animate-bounce" /></div>
                   <h3 className="text-2xl font-black uppercase text-red-900 tracking-tighter leading-none">Registry Lock</h3>
-                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-relaxed">Mandatory clinical gate triggered. Commitment functions suspended for regulatory protocol.</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-relaxed">
+                      {getLockReason()}
+                  </p>
               </div>
           </div>
       )}

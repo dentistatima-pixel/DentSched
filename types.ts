@@ -368,7 +368,7 @@ export interface LeaveRequest {
   id: string;
   staffId: string;
   staffName: string;
-  type: ' Sick' | ' Vacation' | 'Conference' | 'Emergency';
+  type: 'Sick' | 'Vacation' | 'Conference' | 'Emergency';
   startDate: string;
   endDate: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -527,6 +527,7 @@ export interface Vendor {
     dsaSignedDate?: string; 
     dsaExpiryDate?: string;
     status: 'Active' | 'Suspended' | 'Pending Review';
+    priceBookId?: string;
     notes?: string;
 }
 
@@ -1034,6 +1035,7 @@ export interface FieldSettings {
   priceBooks?: PriceBook[];
   priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
+  clinicalProtocolRules?: ClinicalProtocolRule[];
 }
 
 export interface Medication {
