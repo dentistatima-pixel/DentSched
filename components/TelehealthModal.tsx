@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient } from '../types';
 import { X, Mic, MicOff, Video, VideoOff, PhoneOff, Clock, Loader } from 'lucide-react';
@@ -18,6 +19,7 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ isOpen, onClose, pati
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    // Fix: In a browser environment, setInterval returns a `number`, not a NodeJS.Timeout object.
     const timerRef = useRef<number | null>(null);
 
     const startCall = async () => {
@@ -30,7 +32,7 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ isOpen, onClose, pati
                 localVideoRef.current.srcObject = stream;
             }
             setCallStatus('connected');
-            timerRef.current = window.setInterval(() => {
+            timerRef.current = setInterval(() => {
                 setCallDuration(prev => prev + 1);
             }, 1000);
         } catch (error) {
