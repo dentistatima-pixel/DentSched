@@ -48,7 +48,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const [peeked, setPeeked] = useState<{ apt: Appointment, patient: Patient, target: HTMLElement } | null>(null);
   const [inspected, setInspected] = useState<{ apt: Appointment, patient: Patient } | null>(null);
   // Fix: useRef was not initialized correctly for a timer, which can be undefined.
-  const longPressTimer = useRef<number | undefined>();
+  const longPressTimer = useRef<number | null>(null);
 
   // Waitlist Override State
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
@@ -173,7 +173,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   };
 
   const handleMouseDown = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
-    clearTimeout(longPressTimer.current);
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(() => {
         setPeeked(null);
         setInspected({ apt, patient });

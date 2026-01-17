@@ -63,10 +63,6 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'patients', label: 'Patients', icon: Users },
   ];
   
-  if (features?.enableReferralTracking) {
-      navItems.push({ id: 'referrals', label: 'Referrals', icon: Users2 });
-  }
-
   if (features?.enableInventory || features?.enableHMOClaims || features?.enableAnalytics) {
       navItems.push({ id: 'admin', label: 'Admin', icon: Sliders });
   }
