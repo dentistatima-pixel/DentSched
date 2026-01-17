@@ -15,7 +15,6 @@ import GlobalSearchModal from './GlobalSearchModal';
 
 interface DashboardProps {
   appointments: Appointment[];
-  allAppointments?: Appointment[];
   patientsCount: number;
   staffCount: number;
   staff?: User[];
@@ -37,6 +36,7 @@ interface DashboardProps {
   onVerifyMedHistory?: (appointmentId: string) => void;
   onConfirmFollowUp?: (appointmentId: string) => void;
   onQuickQueue: () => void;
+  onQuickAddPatient: () => void;
 }
 
 const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: string } } = {
@@ -52,9 +52,10 @@ const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: s
 
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  appointments, allAppointments = [], currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
+  appointments, currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
   onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask, onCompleteRegistration,
-  syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = []
+  syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = [],
+  onQuickAddPatient
 }) => {
   const toast = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -113,10 +114,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const actionItems = useMemo(() => {
     const items = [];
-    const downtimeEntries = allAppointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
-    const medHistoryEntries = allAppointments.filter(a => a.status === AppointmentStatus.ARRIVED && !a.medHistoryVerified);
+    const downtimeEntries = appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled);
+    const medHistoryEntries = appointments.filter(a => a.status === AppointmentStatus.ARRIVED && !a.medHistoryVerified);
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600000).toISOString();
-    const postOpPatients = allAppointments.filter(a => 
+    const postOpPatients = appointments.filter(a => 
         ['Surgery', 'Extraction'].includes(a.type) && 
         a.status === AppointmentStatus.COMPLETED &&
         a.date >= twentyFourHoursAgo.split('T')[0] &&
@@ -129,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle });
     
     return items;
-  }, [allAppointments, syncConflicts]);
+  }, [appointments, syncConflicts]);
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
@@ -165,6 +166,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             </button>
             <button onClick={() => onAddAppointment()} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 hover:scale-105 active:scale-95 transition-all">
                 <CalendarPlus size={16}/> Appointment
+            </button>
+            <button onClick={onQuickAddPatient} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-900/40 hover:scale-105 active:scale-95 transition-all">
+                <Plus size={16}/> Quick Add
             </button>
             <button onClick={onQuickQueue} className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 hover:scale-105 active:scale-95 transition-all">
                 <Zap size={16}/> Walk-In

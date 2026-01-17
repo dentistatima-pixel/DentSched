@@ -16,6 +16,7 @@ import PostOpHandoverModal from './components/PostOpHandoverModal';
 import SafetyTimeoutModal from './components/SafetyTimeoutModal';
 import QuickTriageModal from './components/QuickTriageModal';
 import QuickAddPatientModal from './components/QuickAddPatientModal'; // Import new modal
+import MedicoLegalExportModal from './components/MedicoLegalExportModal'; // Import MedicoLegalExportModal
 import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager'; // Import new component
 import RosterView from './components/RosterView'; // Import RosterView
@@ -130,7 +131,7 @@ function App() {
   const [initialBookingPatientId, setInitialBookingPatientId] = useState<string | undefined>(undefined);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [isQuickAddPatientModalOpen, setIsQuickAddPatientModalOpen] = useState(false); // State for Gap 7
+  const [isQuickAddPatientModalOpen, setIsQuickAddPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
@@ -138,6 +139,9 @@ function App() {
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [safetyAlert, setSafetyAlert] = useState<{ title: string; message: string } | null>(null);
+
+  const [isMedicoLegalExportOpen, setIsMedicoLegalExportOpen] = useState(false);
+  const [medicoLegalExportPatient, setMedicoLegalExportPatient] = useState<Patient | null>(null);
 
   // New Drawer State
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false);
@@ -1056,6 +1060,11 @@ function App() {
     setActiveTab('patients');
   };
 
+  const handleOpenMedicoLegalExport = (patientToExport: Patient) => {
+    setMedicoLegalExportPatient(patientToExport);
+    setIsMedicoLegalExportOpen(true);
+  };
+
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
 
   const handleSaveIncident = (incident: ClinicalIncident) => {
@@ -1136,10 +1145,8 @@ function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      // Fix: Add missing 'currentBranch' prop to Dashboard component call.
       case 'dashboard': return <Dashboard 
-          appointments={appointments} 
-          allAppointments={appointments} 
+          appointments={appointments}
           patientsCount={patients.length} 
           staffCount={staff.length} 
           staff={staff} 
@@ -1156,6 +1163,7 @@ function App() {
           syncConflicts={syncConflicts}
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
+          onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
       />;
       case 'schedule': return <CalendarView 
@@ -1194,6 +1202,7 @@ function App() {
               onBack={() => setSelectedPatientId(null)}
               governanceTrack={governanceTrack}
               onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
+              onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
           /> : 
           <PatientRegistryManager 
               patients={patients} 
@@ -1274,10 +1283,8 @@ function App() {
           currentUser={currentUser}
           onStartImpersonating={handleStartImpersonating}
       />;
-      // Fix: Add missing 'currentBranch' prop and other optional props for consistency.
       default: return <Dashboard 
           appointments={appointments}
-          allAppointments={appointments}
           patientsCount={patients.length} 
           staffCount={staff.length}
           staff={staff}
@@ -1294,6 +1301,7 @@ function App() {
           syncConflicts={syncConflicts}
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
+          onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
       />;
     }
@@ -1414,6 +1422,15 @@ function App() {
             title={safetyAlert.title}
             message={safetyAlert.message}
         />
+      )}
+      {isMedicoLegalExportOpen && medicoLegalExportPatient && (
+          <MedicoLegalExportModal
+            isOpen={isMedicoLegalExportOpen}
+            onClose={() => setIsMedicoLegalExportOpen(false)}
+            patient={medicoLegalExportPatient}
+            staff={staff}
+            logAction={logAction}
+          />
       )}
     </>
   );

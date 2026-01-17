@@ -26,8 +26,8 @@ interface PatientDetailViewProps {
   onToggleTimeline?: () => void;
   onBack?: () => void;
   governanceTrack: GovernanceTrack;
-  // Fix: Added missing onOpenRevocationModal prop to fix type error.
   onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
+  onOpenMedicoLegalExport: (patient: Patient) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -73,7 +73,7 @@ const DiagnosticGallery: React.FC = () => (
 );
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -219,7 +219,24 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                   </div>
               );
           case 'compliance':
-              return <ComplianceTab patient={patient} incidents={incidents} onSaveIncident={onSaveIncident} referrals={referrals} onSaveReferral={onSaveReferral} currentUser={currentUser} />;
+              return (
+                <div className="space-y-6">
+                    <button
+                        onClick={() => onOpenMedicoLegalExport(patient)}
+                        className="mb-4 bg-red-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-900/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                    >
+                        <FileUp size={16}/> Export Medico-Legal Report
+                    </button>
+                    <ComplianceTab 
+                        patient={patient} 
+                        incidents={incidents} 
+                        onSaveIncident={onSaveIncident} 
+                        referrals={referrals} 
+                        onSaveReferral={onSaveReferral} 
+                        currentUser={currentUser} 
+                    />
+                </div>
+              );
           case 'profile':
               const medicalQuestions = [
                   { q: 'Are you in good health?', a: patient.goodHealth },
