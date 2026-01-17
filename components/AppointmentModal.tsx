@@ -177,7 +177,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
 
     if (hasConflict) {
-      toast.warning("Resource conflict detected. Selection required override.");
+      toast.warning("Resource conflict detected. This booking may require an override.");
     }
 
     const appointment: Appointment = {

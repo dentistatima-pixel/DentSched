@@ -97,8 +97,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     const production = completedToday.reduce((sum, apt) => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
         if (!proc) return sum;
+        // Correctly find the price from priceBookEntries
+        const priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
         const priceEntry = fieldSettings?.priceBookEntries?.find(
-            pbe => pbe.procedureId === proc.id
+            pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId
         );
         return sum + (priceEntry?.price || 0);
     }, 0);

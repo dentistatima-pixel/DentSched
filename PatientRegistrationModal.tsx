@@ -7,7 +7,7 @@ import RegistrationMedical from './RegistrationMedical';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-import { PDA_INFORMED_CONSENT_TEXTS } from '../constants';
+import { PDA_INFORMED_CONSENT_TEXTS, generateUid } from '../constants';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -44,7 +44,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             }
         } else {
             if (!formData.id) {
-                const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
+                const generatedId = generateUid('p');
                 setFormData({ ...initialFormState, id: generatedId });
             }
         }

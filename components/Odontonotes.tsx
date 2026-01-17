@@ -177,6 +177,21 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const isAuthenticNarrative = uniquenessScore > 10;
 
   useEffect(() => {
+    if (selectedProcedure && fieldSettings) {
+        const proc = fieldSettings.procedures.find(p => p.name === selectedProcedure);
+        if (proc) {
+            const defaultPriceBook = fieldSettings.priceBooks?.find(pb => pb.isDefault) || fieldSettings.priceBooks?.[0];
+            if (defaultPriceBook) {
+                const priceEntry = fieldSettings.priceBookEntries?.find(pbe => pbe.procedureId === proc.id && pbe.priceBookId === defaultPriceBook.id);
+                setCharge(priceEntry?.price.toString() || '0');
+            } else {
+                setCharge('0');
+            }
+        }
+    }
+  }, [selectedProcedure, fieldSettings]);
+
+  useEffect(() => {
     if (prefill) {
         setToothNum(prefill.toothNumber?.toString() || '');
         setSelectedProcedure(prefill.procedure || '');
@@ -433,7 +448,10 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                     <div><label className="label text-[10px]">Tooth Unit</label><input type="text" value={toothNum} onChange={e => setToothNum(e.target.value)} className="input text-center text-xl font-black" placeholder="--" /></div>
                     <div><label className="label text-[10px]">Procedure Identification</label><select value={selectedProcedure} onChange={e => setSelectedProcedure(e.target.value)} className="input text-xs font-black uppercase tracking-tight">{filteredProcedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                     <div><label className="label text-[10px]">Operating Unit</label><select value={selectedResourceId} onChange={e => setSelectedResourceId(e.target.value)} className="input text-xs font-black uppercase tracking-tight"><option value="">- AREA SELECT -</option>{fieldSettings?.resources.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-                    <div><label className="label text-[10px]">Registry Value (₱)</label><input type="number" value={charge} onChange={e => setCharge(e.target.value)} className="input font-black text-xl text-teal-800" placeholder="0" /></div>
+                    <div>
+                        <label className="label text-[10px]">Registry Value (₱)</label>
+                        <input type="text" value={`₱ ${parseFloat(charge).toLocaleString()}`} readOnly className="input font-black text-xl text-teal-800 bg-slate-50 border-slate-200" />
+                    </div>
                 </div>
 
                 <SoapField label="Subjective Narrative" value={subjective} onChange={setSubjective} field="s" placeholder="Patient reporting..." />

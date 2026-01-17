@@ -19,13 +19,14 @@ import QuickAddPatientModal from './components/QuickAddPatientModal'; // Import 
 import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
 import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
+import PrivacyRevocationModal from './components/PrivacyRevocationModal';
 
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
@@ -83,6 +84,7 @@ function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
@@ -136,6 +138,10 @@ function App() {
 
   // New Drawer State
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false);
+  
+  // Gap 5 state
+  const [revocationTarget, setRevocationTarget] = useState<{ patient: Patient, category: ConsentCategory } | null>(null);
+
 
   // Gap 9: Real-time LATE status check
   useEffect(() => {
@@ -565,7 +571,6 @@ function App() {
   const handleUpdatePatientRecall = (patientId: string, status: RecallStatus) => {
       const newPatients = patients.map(p => p.id === patientId ? { ...p, recallStatus: status } : p);
       setPatients(newPatients);
-      // Fix: Corrected variable name from newPatientsState to newPatients.
       saveToLocal('dentsched_patients', newPatients);
       logAction('UPDATE', 'Patient', patientId, `Updated recall pipeline status to ${status}.`);
   };
@@ -743,26 +748,39 @@ function App() {
   };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
-    const dataWithTimestamp = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
-    const existing = patients.find(p => p.id === newPatientData.id);
+    let patientToSave = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
+    const existing = patients.find(p => p.id === patientToSave.id);
+
+    if (!existing) { // This is a new patient registration
+        const surnamePart = (patientToSave.surname || 'XXXX').substring(0, 4).toUpperCase();
+        const dobPart = (patientToSave.dob || '00000000').replace(/-/g, '');
+        patientToSave.id = `${surnamePart}${dobPart}`;
+
+        // Simple collision avoidance
+        if (patients.some(p => p.id === patientToSave.id)) {
+            patientToSave.id += `-${Math.random().toString(36).substring(2, 5)}`;
+        }
+    }
+    
+    patientToSave.name = `${patientToSave.firstName || ''} ${patientToSave.middleName || ''} ${patientToSave.surname || ''}`.replace(/\s+/g, ' ').trim();
 
     if (!isOnline) {
-        const newQueue = [...offlineQueue, { id: `intent_${Date.now()}`, action: 'REGISTER_PATIENT' as const, payload: dataWithTimestamp, timestamp: new Date().toISOString() }];
+        const newQueue = [...offlineQueue, { id: `intent_${Date.now()}`, action: 'REGISTER_PATIENT' as const, payload: patientToSave, timestamp: new Date().toISOString() }];
         setOfflineQueue(newQueue);
         saveToLocal('dentsched_offline_queue', newQueue);
         toast.info("Patient update queued for offline sync.");
     }
 
     if (existing) {
-        const updatedPatient = { ...existing, ...dataWithTimestamp } as Patient;
+        const updatedPatient = { ...existing, ...patientToSave } as Patient;
         logAction('UPDATE', 'Patient', existing.id, 'Updated patient registration details', existing, updatedPatient);
-        const newPatientsState = patients.map(p => p.id === newPatientData.id ? updatedPatient : p);
+        const newPatientsState = patients.map(p => p.id === patientToSave.id ? updatedPatient : p);
         setPatients(newPatientsState);
         saveToLocal('dentsched_patients', newPatientsState);
         triggerSms('update_registration', updatedPatient);
         setEditingPatient(null);
     } else {
-        const newPatient: Patient = { ...dataWithTimestamp as Patient, id: newPatientData.id || `p_new_${Date.now()}`, lastVisit: 'First Visit', nextVisit: null, notes: newPatientData.notes || '', recallStatus: 'Due' };
+        const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
         
         if (newPatient.referredById) {
@@ -1021,7 +1039,7 @@ function App() {
           staff={staff} 
           currentUser={effectiveUser} 
           patients={patients} 
-          onAddPatient={() => setIsQuickAddPatientModalOpen(true)} 
+          onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }} 
           onPatientSelect={handleNavigateToPatient} 
           onAddAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }} 
           onUpdateAppointmentStatus={handleUpdateAppointmentStatus} 
@@ -1056,6 +1074,8 @@ function App() {
                         referrals={referrals.filter(r => r.patientId === selectedPatientId)}
                         onSaveReferral={handleSaveReferral}
                         onToggleTimeline={() => setIsTimelineDrawerOpen(!isTimelineDrawerOpen)}
+                        onOpenRevocationModal={(patient, category) => setRevocationTarget({ patient, category })}
+                        governanceTrack={governanceTrack}
                         onBack={() => setSelectedPatientId(null)}
                     />
                     
@@ -1083,7 +1103,7 @@ function App() {
                     patients={patients}
                     appointments={appointments}
                     onSelectPatient={setSelectedPatientId}
-                    onAddPatient={() => setIsQuickAddPatientModalOpen(true)}
+                    onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }}
                     onBookAppointment={() => { setInitialBookingPatientId(undefined); setIsAppointmentModalOpen(true); }}
                     fieldSettings={fieldSettings}
                 />
@@ -1094,7 +1114,7 @@ function App() {
       case 'referrals': return <ReferralManager patients={patients} referrals={referrals} onSaveReferral={handleSaveReferral} staff={staff} />;
       case 'recall': return <RecallCenter patients={patients} onUpdatePatientRecall={handleUpdatePatientRecall} />;
       case 'inventory': return <Inventory stock={stock} onUpdateStock={handleUpdateStock} currentUser={effectiveUser} sterilizationCycles={sterilizationCycles} onAddCycle={handleAddCycle} currentBranch={currentBranch} availableBranches={fieldSettings.branches} transfers={transfers} onPerformTransfer={handlePerformTransfer} fieldSettings={fieldSettings} onUpdateSettings={handleUpdateSettings} appointments={appointments} logAction={logAction} />;
-      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={handleUpdatePayrollPeriod} onAddPayrollAdjustment={handleAddPayrollAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddCommissionDispute} onResolveCommissionDispute={handleResolveCommissionDispute} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} />;
+      case 'financials': return <Financials claims={hmoClaims} expenses={MOCK_EXPENSES} philHealthClaims={philHealthClaims} currentUser={effectiveUser} appointments={appointments} patients={patients} fieldSettings={fieldSettings} staff={staff} reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation} onSaveCashSession={handleSaveCashSession} currentBranch={currentBranch} payrollPeriods={payrollPeriods} payrollAdjustments={payrollAdjustments} commissionDisputes={commissionDisputes} onUpdatePayrollPeriod={handleUpdatePayrollPeriod} onAddPayrollAdjustment={handleAddPayrollAdjustment} onApproveAdjustment={handleApproveAdjustment} onAddCommissionDispute={handleAddCommissionDispute} onResolveCommissionDispute={handleResolveCommissionDispute} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim} governanceTrack={governanceTrack} setGovernanceTrack={setGovernanceTrack} />;
       case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={() => {}} auditLogVerified={isAuditLogVerified} encryptionKey={encryptionKey} incidents={incidents} onSaveIncident={() => {}} appointments={appointments} currentUser={currentUser} onStartImpersonating={handleStartImpersonating} />;
       default: return null;
     }
@@ -1211,6 +1231,19 @@ function App() {
                   finalizeUpdateStatus(pendingSafetyTimeout.appointmentId, pendingSafetyTimeout.status);
                   setPendingSafetyTimeout(null);
                 }} 
+            />
+        )}
+        
+        {revocationTarget && (
+            <PrivacyRevocationModal
+                isOpen={!!revocationTarget}
+                patient={revocationTarget.patient}
+                category={revocationTarget.category}
+                onClose={() => setRevocationTarget(null)}
+                onConfirm={(reason, notes) => {
+                    // Logic to update patient consent
+                    setRevocationTarget(null);
+                }}
             />
         )}
 

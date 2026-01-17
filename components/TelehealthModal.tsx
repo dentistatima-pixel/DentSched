@@ -32,7 +32,7 @@ const TelehealthModal: React.FC<TelehealthModalProps> = ({ isOpen, onClose, pati
                 localVideoRef.current.srcObject = stream;
             }
             setCallStatus('connected');
-            timerRef.current = setInterval(() => {
+            timerRef.current = window.setInterval(() => {
                 setCallDuration(prev => prev + 1);
             }, 1000);
         } catch (error) {

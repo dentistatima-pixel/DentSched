@@ -11,7 +11,7 @@ import {
     HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry 
+    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack 
 } from '../types';
 import Analytics from './Analytics';
 import { formatDate } from '../constants';
@@ -40,9 +40,9 @@ interface FinancialsProps {
   onApproveAdjustment: (id: string) => void;
   onAddCommissionDispute: (d: CommissionDispute) => void;
   onResolveCommissionDispute: (id: string) => void;
+  governanceTrack: GovernanceTrack;
+  setGovernanceTrack: (track: GovernanceTrack) => void;
 }
-
-type GovernanceTrack = 'STATUTORY' | 'OPERATIONAL';
 
 const CashReconciliationTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">Cash Reconciliation Interface Syncing...</div>;
 const DebtAgingTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">A/R Aging Analysis Interface Syncing...</div>;
@@ -52,11 +52,11 @@ const HMOClaimsTab: React.FC<any> = () => <div className="p-20 text-center bg-wh
 const Financials: React.FC<FinancialsProps> = (props) => {
   const { 
     claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
-    onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch 
+    onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch,
+    governanceTrack, setGovernanceTrack
   } = props;
   
   const [activeTab, setActiveTab] = useState<string>('analytics');
-  const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
 
   const isStatutory = governanceTrack === 'STATUTORY';
   const isBirEnabled = fieldSettings?.features.enableStatutoryBirTrack ?? true;
@@ -294,7 +294,9 @@ const Financials: React.FC<FinancialsProps> = (props) => {
         {!isStatutory && (
             <div className="absolute bottom-0 left-0 right-0 bg-lilac-700 text-white px-8 py-3 flex items-center justify-center gap-4 z-50 shadow-[0_-8px_30px_rgba(162,28,175,0.4)] animate-in slide-in-from-bottom-full duration-1000" role="complementary">
                 <Shield size={16} className="animate-bounce shrink-0" aria-hidden="true"/>
-                <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">INTERNAL MANAGEMENT AID ONLY: THESE METRICS REPRESENT CLINICAL WORKFLOW AND OPERATIONAL ESTIMATES. THIS IS NOT AN ACCOUNTING RECORD AND DOES NOT REFLECT STATUTORY TAX DECLARATIONS. CLINICAL DECISIONS REMAIN THE SOLE RESPONSIBILITY OF THE DENTIST.</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">
+                    INTERNAL MANAGEMENT AID ONLY: THESE METRICS REPRESENT CLINICAL WORKFLOW AND OPERATIONAL ESTIMATES. THIS IS NOT AN ACCOUNTING RECORD AND DOES NOT REFLECT STATUTORY TAX DECLARATIONS. CLINICAL DECISIONS REMAIN THE SOLE RESPONSIBILITY OF THE DENTIST.
+                </span>
             </div>
         )}
       </div>
@@ -358,7 +360,6 @@ const PayrollTab: React.FC<{
     const completed = appointments.filter(a => a.providerId === selectedDentistId && a.status === AppointmentStatus.COMPLETED);
     
     let grossProduction = 0;
-    // Fix: ProcedureItem no longer has a 'price' property. Price must be retrieved from priceBookEntries.
     completed.forEach(apt => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
         if (proc) {

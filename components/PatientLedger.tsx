@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LedgerEntry, Patient, FieldSettings, InstallmentPlan } from '../types';
+import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack } from '../types';
 import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -9,11 +9,12 @@ interface PatientLedgerProps {
     onUpdatePatient: (updatedPatient: Patient) => void;
     readOnly?: boolean;
     fieldSettings?: FieldSettings;
+    governanceTrack?: GovernanceTrack;
 }
 
-const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings }) => {
+const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings, governanceTrack }) => {
     const toast = useToast();
-    const isBirMode = fieldSettings?.features.enableBirComplianceMode ?? false;
+    const isBirMode = governanceTrack === 'STATUTORY';
     
     const [mode, setMode] = useState<'view' | 'add_charge' | 'add_payment' | 'hmo_setup' | 'add_installment'>('view');
     
@@ -26,7 +27,14 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     const [instTotal, setInstTotal] = useState('');
     const [instMonthly, setInstMonthly] = useState('');
 
-    const ledger = useMemo(() => patient.ledger || [], [patient.ledger]);
+    const ledger = useMemo(() => {
+        const baseLedger = patient.ledger || [];
+        if (governanceTrack === 'STATUTORY') {
+            return baseLedger.filter(l => !!l.orNumber);
+        }
+        return baseLedger;
+    }, [patient.ledger, governanceTrack]);
+
     const currentBalance = useMemo(() => ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter, [ledger]);
     const installments = patient.installmentPlans || [];
 
@@ -40,7 +48,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
             id: Math.random().toString(36).substr(2, 9), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
         };
 
-        onUpdatePatient({ ...patient, ledger: [...ledger, newEntry], currentBalance: newBalance });
+        onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
         setMode('view'); setAmount(''); setDescription('');
         toast.success("Charge recorded.");
     };
@@ -67,7 +75,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
             orDate: isBirMode ? date : undefined
         };
 
-        onUpdatePatient({ ...patient, ledger: [...ledger, newEntry], currentBalance: newBalance });
+        onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
         setMode('view'); setAmount(''); setDescription(''); setOrNumber('');
         toast.success(isBirMode ? "Official Receipt matched & recorded." : "Payment recorded.");
     };

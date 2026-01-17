@@ -423,7 +423,6 @@ export interface OrthoAdjustment {
 export interface ProcedureItem {
   id: string;
   name: string;
-  // price: number; // Gap 17: Removed
   category?: string;
   traySetup?: string[];
   requiresConsent?: boolean;
@@ -642,8 +641,9 @@ export interface Appointment {
   triageLevel?: TriageLevel;
   postOpVerified?: boolean;
   isLate?: boolean;
-  recurrenceRule?: string; // Gap 19
-  recurrenceId?: string;   // Gap 19
+  recurrenceRule?: string;
+  recurrenceId?: string;
+  modifiedAt?: string;
 }
 
 export interface Patient {
@@ -761,13 +761,14 @@ export interface Patient {
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
   registrationPhotoHash?: string;
-  familyGroupId?: string; // Gap 16
-  communicationLog?: CommunicationLogEntry[]; // Gap 18
+  familyGroupId?: string;
+  communicationLog?: CommunicationLogEntry[];
 }
 
 export enum TreatmentPlanStatus {
   DRAFT = 'Draft',
   PENDING_REVIEW = 'Pending Review',
+  PENDING_FINANCIAL_CONSENT = 'Pending Financial Consent',
   APPROVED = 'Approved',
   COMPLETED = 'Completed',
   REJECTED = 'Rejected'
@@ -786,6 +787,7 @@ export interface TreatmentPlan {
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
   color?: string; // For Gap 13
+  financialConsentSignature?: string;
 }
 
 export interface PinboardTask {
@@ -881,8 +883,8 @@ export interface LedgerEntry {
   balanceAfter: number;
   orNumber?: string;
   orDate?: string;
-  allocations?: { chargeId: string; amount: number }[]; // Gap 15
-  paidAmount?: number; // Gap 15
+  allocations?: { chargeId: string; amount: number }[];
+  paidAmount?: number;
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
@@ -922,7 +924,6 @@ export interface PurchaseOrderItem {
   unitPrice: number;
 }
 
-// --- GAP 16 ---
 export interface FamilyGroup {
   id: string;
   familyName: string;
@@ -930,7 +931,6 @@ export interface FamilyGroup {
   memberIds: string[];
 }
 
-// --- GAP 17 ---
 export interface PriceBook {
   id: string;
   name: string;
@@ -942,7 +942,6 @@ export interface PriceBookEntry {
   price: number;
 }
 
-// --- GAP 18 ---
 export enum CommunicationChannel {
   SMS = 'SMS',
   CALL = 'Call',
@@ -956,6 +955,16 @@ export interface CommunicationLogEntry {
   authorId: string; // 'system' or user ID
   authorName: string;
   content: string;
+}
+
+export interface ClinicalMacro {
+  id: string;
+  label: string;
+  s: string;
+  o: string;
+  a: string;
+  p: string;
+  associatedProcedures?: string[];
 }
 
 export interface FieldSettings {
@@ -998,7 +1007,7 @@ export interface FieldSettings {
   smsConfig: SmsConfig;
   operationalHours: OperationalHours;
   consentFormTemplates: ConsentFormTemplate[];
-  smartPhrases: any[];
+  smartPhrases: ClinicalMacro[];
   paymentModes: string[];
   taxConfig: {
     vatRate: number;
@@ -1021,9 +1030,10 @@ export interface FieldSettings {
   stockItems?: StockItem[];
   payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
   expenseCategories: string[];
-  practitionerDelays?: Record<string, number>; // For Gap 10
-  priceBooks?: PriceBook[]; // Gap 17
-  priceBookEntries?: PriceBookEntry[]; // Gap 17
+  practitionerDelays?: Record<string, number>;
+  priceBooks?: PriceBook[];
+  priceBookEntries?: PriceBookEntry[];
+  familyGroups?: FamilyGroup[];
 }
 
 export interface Medication {
@@ -1037,3 +1047,5 @@ export interface Medication {
     interactions?: string[];
     isS2Controlled?: boolean;
 }
+
+export type GovernanceTrack = 'STATUTORY' | 'OPERATIONAL';

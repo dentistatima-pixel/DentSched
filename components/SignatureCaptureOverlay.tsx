@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 /* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';

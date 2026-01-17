@@ -38,22 +38,16 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   useEffect(() => {
     if (isOpen) {
         if (initialData) {
-            // This is an edit. We only want to load the data if it's a different patient.
-            // This check prevents overwriting the form if a parent component re-renders.
             if (initialData.id !== formData.id) {
                 setFormData({ ...initialData, registrationSignature: '', registrationSignatureTimestamp: '' });
             }
         } else {
-            // This is for a new patient. We only want to set a new ID if the form isn't already set up for a new patient.
-            // The previous logic `|| formData.name` was buggy and would reset the form while typing.
             if (!formData.id) {
-                const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
-                setFormData({ ...initialFormState, id: generatedId });
+                setFormData({ ...initialFormState });
             }
         }
     }
-  // Fix: Removed formData.name from dependency array to prevent infinite loop.
-  }, [isOpen, initialData, formData.id]);
+  }, [isOpen, initialData]);
 
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -98,7 +92,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     if (readOnly) return;
     
     if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
-        document.activeElement.blur();
+        (document.activeElement as HTMLElement).blur();
     }
 
     setTimeout(() => {

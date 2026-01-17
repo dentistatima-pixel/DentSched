@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings } from '../types';
+import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory } from '../types';
 import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch, Lock, Sparkles, LayoutGrid } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 import CryptoJS from 'crypto-js';
+import FinancialConsentModal from './FinancialConsentModal';
 
 interface TreatmentPlanProps {
   patient: Patient;
@@ -13,15 +14,18 @@ interface TreatmentPlanProps {
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   featureFlags?: FeatureToggles;
   fieldSettings?: FieldSettings;
+  // Fix: Added missing onOpenRevocationModal prop.
+  onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
 }
 
-const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings }) => {
+const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings, onOpenRevocationModal }) => {
     const toast = useToast();
     const isApprovalEnabled = featureFlags?.enableTreatmentPlanApprovals ?? true;
 
     // Local State
     const [isCreating, setIsCreating] = useState(false);
     const [newPlanName, setNewPlanName] = useState('');
+    const [consentPlan, setConsentPlan] = useState<TreatmentPlanType | null>(null);
     
     // Informed Refusal State
     const [refusalModal, setRefusalModal] = useState<DentalChartEntry | null>(null);
@@ -149,8 +153,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                 switch (action) {
                     case 'submit': return { ...p, status: TreatmentPlanStatus.PENDING_REVIEW };
                     case 'approve': 
-                        const totalQuote = (patient.dentalChart || []).filter(i => i.planId === p.id).reduce((s, i) => s + (i.price || 0), 0);
-                        return { ...p, status: TreatmentPlanStatus.APPROVED, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString(), originalQuoteAmount: totalQuote };
+                        return { ...p, status: TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                     case 'revert_to_draft': return { ...p, status: TreatmentPlanStatus.DRAFT, reviewNotes: undefined };
                     case 'toggle_disclosure': return { ...p, isComplexityDisclosed: !p.isComplexityDisclosed };
                 }
@@ -320,14 +323,14 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                     const progress = planItems.length > 0 ? (completedItems.length / planItems.length) * 100 : 0;
                     
                     return (
-                        <div key={plan.id} className={`bg-white rounded-[3.5rem] border-2 shadow-2xl overflow-hidden transition-all duration-700 ${plan.status === TreatmentPlanStatus.APPROVED ? 'border-teal-500 ring-[12px] ring-teal-500/5' : 'border-slate-100'}`}>
-                            <div className={`p-8 flex justify-between items-center ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-900 text-white' : 'bg-slate-50 border-b border-slate-100'}`}>
+                        <div key={plan.id} className={`bg-white rounded-[3.5rem] border-2 shadow-2xl overflow-hidden transition-all duration-700 ${plan.status === TreatmentPlanStatus.APPROVED ? 'border-teal-500 ring-[12px] ring-teal-500/5' : plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT ? 'border-orange-500 ring-[12px] ring-orange-500/5' : 'border-slate-100'}`}>
+                            <div className={`p-8 flex justify-between items-center ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-900 text-white' : plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT ? 'bg-orange-600 text-white' : 'bg-slate-50 border-b border-slate-100'}`}>
                                 <div className="flex items-center gap-6">
-                                    <div className={`p-4 rounded-3xl shadow-lg transition-transform hover:rotate-12 ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-600 text-white' : 'bg-white text-lilac-600 border border-slate-200'}`}><ShieldCheck size={32}/></div>
+                                    <div className={`p-4 rounded-3xl shadow-lg transition-transform hover:rotate-12 ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-600 text-white' : plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT ? 'bg-orange-500 text-white' : 'bg-white text-lilac-600 border border-slate-200'}`}><ShieldCheck size={32}/></div>
                                     <div>
                                         <h4 className="font-black text-2xl uppercase tracking-tighter leading-none mb-2">{plan.name}</h4>
                                         <div className="flex items-center gap-3">
-                                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-700 border-teal-500 text-white' : 'bg-white border-slate-200 text-slate-500'}`}>{plan.status}</span>
+                                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-700 border-teal-500 text-white' : plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT ? 'bg-orange-500 border-orange-400 text-white' : 'bg-white border-slate-200 text-slate-500'}`}>{plan.status}</span>
                                             <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Defined By: {plan.createdBy}</span>
                                         </div>
                                     </div>
@@ -335,6 +338,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                 <div className="flex items-center gap-3">
                                     {plan.status === TreatmentPlanStatus.DRAFT && <button onClick={() => handlePlanAction(plan.id, 'submit')} className="bg-lilac-600 text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-lilac-900/20 hover:scale-105 transition-all">Submit for Review</button>}
                                     {plan.status === TreatmentPlanStatus.PENDING_REVIEW && currentUser.role === UserRole.DENTIST && <button onClick={() => handlePlanAction(plan.id, 'approve')} className="bg-teal-600 text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"><CheckCircle size={18}/> Approve Plan</button>}
+                                    {plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT && <button onClick={() => setConsentPlan(plan)} className="bg-white text-orange-800 px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2 animate-pulse"><Receipt size={18}/> Finalize & Capture</button>}
                                     <button onClick={() => handlePlanAction(plan.id, 'delete')} className={`p-3.5 rounded-2xl transition-all ${plan.status === TreatmentPlanStatus.APPROVED ? 'bg-teal-800 text-teal-300 hover:bg-red-600 hover:text-white' : 'bg-white border border-slate-200 text-slate-300 hover:text-red-500'}`}><Trash2 size={20}/></button>
                                 </div>
                             </div>
@@ -372,6 +376,24 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
             </div>
 
             {/* --- VARIOUS MODALS REDESIGNED WITH TEAL/LILAC --- */}
+
+            {consentPlan && (
+                <FinancialConsentModal
+                    isOpen={!!consentPlan}
+                    onClose={() => setConsentPlan(null)}
+                    onSave={(signatureData) => {
+                        const totalQuote = (patient.dentalChart || []).filter(i => i.planId === consentPlan.id).reduce((s, i) => s + (i.price || 0), 0);
+                        const updatedPlans = allPlans.map(p => p.id === consentPlan.id ? { ...p, status: TreatmentPlanStatus.APPROVED, originalQuoteAmount: totalQuote, financialConsentSignature: signatureData } : p);
+                        onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
+                        setConsentPlan(null);
+                        logAction('FINANCIAL_CONSENT', 'TreatmentPlan', consentPlan.id, 'Patient financial consent captured and sealed.');
+                        toast.success('Financial consent sealed.');
+                    }}
+                    patient={patient}
+                    plan={consentPlan}
+                    planItems={(patient.dentalChart || []).filter(i => i.planId === consentPlan.id)}
+                />
+            )}
 
             {refusalModal && (
                 <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex justify-center items-center p-4 animate-in fade-in duration-300">
@@ -411,7 +433,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient,
                                     <button onClick={clearCanvas} className="text-[9px] font-black text-slate-300 hover:text-red-600 uppercase transition-all flex items-center gap-1"><Eraser size={12}/> Clear Pad</button>
                                 </div>
                                 <div className="bg-white p-2 rounded-3xl border-2 border-dashed border-slate-200 h-32 relative">
-                                    <canvas ref={refusalCanvasRef} onMouseDown={startSign} onMouseMove={draw} onMouseUp={stopSign} onMouseLeave={stopSign} onTouchStart={startSign} onTouchMove={draw} onTouchEnd={stopSign} className="w-full h-full touch-none cursor-crosshair" />
+                                    <canvas ref={refusalCanvasRef} onMouseDown={startSign} onMouseMove={draw} onMouseUp={stopSign} onMouseLeave={stopSign} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw} className="w-full h-full touch-none cursor-crosshair" />
                                     {!allRisksChecked && <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[1px] flex items-center justify-center pointer-events-none"><span className="text-[10px] font-black text-red-600 uppercase bg-white px-4 py-2 rounded-xl shadow-lg border border-red-100">Verify All Risks Above First</span></div>}
                                 </div>
                             </div>

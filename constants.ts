@@ -2,7 +2,7 @@
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry } from './types';
 
 // Generators for mock data
-const generateId = () => Math.random().toString(36).substring(2, 9);
+export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}`;
 
 // --- DATE UTILITY ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
@@ -122,7 +122,8 @@ export const PATIENTS: Patient[] = [
         attendanceStats: { totalBooked: 10, completedCount: 9, noShowCount: 1, lateCancelCount: 0 }, reliabilityScore: 90,
         treatmentPlans: [{ id: 'tp1', patientId: 'p_heavy_01', name: 'Phase 1 - Urgent Care', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: 'Please check #16 for fracture lines before proceeding.' }],
         ledger: [ {id: 'l1', date: getPastDateStr(30), description: 'Zirconia Crown', type: 'Charge', amount: 20000, balanceAfter: 20000}, {id: 'l2', date: getPastDateStr(29), description: 'GCash Payment', type: 'Payment', amount: 15000, balanceAfter: 5000} ],
-        dentalChart: [ { id: 'dc1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(30), price: 20000, planId: 'tp1' } ]
+        dentalChart: [ { id: 'dc1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(30), price: 20000, planId: 'tp1' } ],
+        familyGroupId: 'fam_scott_01',
     },
     {
         id: 'p_reliable_01', name: 'Eleanor Shellstrop', firstName: 'Eleanor', surname: 'Shellstrop', dob: '1988-10-25', age: 35, sex: 'Female', phone: '0917-123-4567', email: 'e.shell@thegood.place', lastVisit: getPastDateStr(180), nextVisit: null, currentBalance: 0, recallStatus: 'Due',
@@ -320,6 +321,7 @@ export const APPOINTMENTS: Appointment[] = [
     // Past appointments
     { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
     { id: 'apt_past_02', patientId: 'p_unreliable_08', providerId: 'doc2', branch: 'Quezon City Satellite', date: getPastDateStr(30), time: '13:00', durationMinutes: 60, type: 'Composite Restoration (1 Surface)', status: AppointmentStatus.NO_SHOW },
+    { id: 'apt_past_03', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(7), time: '09:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.COMPLETED, recurrenceRule: 'weekly' },
 
     // Future appointments
     { id: 'apt_future_01', patientId: 'p_plan_06', providerId: 'doc2', branch: 'Quezon City Satellite', date: getFutureDateStr(7), time: '10:00', durationMinutes: 60, type: 'Composite Restoration (2 Surfaces)', status: AppointmentStatus.SCHEDULED },
@@ -658,8 +660,9 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   consentFormTemplates: [
       { id: 'c1', name: 'General Consent', content: 'I, {PatientName}, authorize treatment.' }
   ],
+// Fix: Corrected the smartPhrases entry to match the ClinicalMacro interface.
   smartPhrases: [
-      { id: 'sp1', label: 'Routine Checkup', text: 'Patient in for routine prophylaxis. No acute pain.', category: 'SOAP' }
+      { id: 'sp1', label: 'Routine Checkup', s: 'Patient in for routine prophylaxis. No acute pain.', o: '', a: '', p: '' }
   ],
   paymentModes: ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Credit Card', 'HMO Direct Payout', 'Check'],
   taxConfig: {
@@ -696,7 +699,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableStatutoryBirTrack: true, 
       enableHmoInsuranceTrack: true, 
   },
-  practitionerDelays: {}, // For Gap 10
+  practitionerDelays: { 'doc1': 15 }, // For Gap 10
   priceBooks: [
       { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true }
   ],
@@ -704,5 +707,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       priceBookId: 'pb_1',
       procedureId: p.id,
       price: Math.floor(Math.random() * 10000) + 500 // Dummy prices for now
-  }))
+  })),
+  familyGroups: [
+      { id: 'fam_scott_01', familyName: 'Scott Family', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01'] }
+  ]
 };

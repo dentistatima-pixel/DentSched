@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
@@ -25,6 +25,9 @@ interface PatientDetailViewProps {
   onSaveReferral?: (referral: Referral) => void;
   onToggleTimeline?: () => void;
   onBack?: () => void;
+  governanceTrack: GovernanceTrack;
+  // Fix: Added missing onOpenRevocationModal prop to fix type error.
+  onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -70,7 +73,7 @@ const DiagnosticGallery: React.FC = () => (
 );
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -199,7 +202,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                       onUpdatePatient={props.onQuickUpdatePatient}
                       currentUser={props.currentUser}
                       logAction={props.logAction}
+                      featureFlags={props.fieldSettings?.features}
                       fieldSettings={props.fieldSettings}
+                      onOpenRevocationModal={onOpenRevocationModal}
                   />
               );
           case 'financials':
@@ -209,6 +214,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         patient={patient}
                         onUpdatePatient={props.onQuickUpdatePatient}
                         fieldSettings={props.fieldSettings}
+                        governanceTrack={governanceTrack}
                     />
                   </div>
               );

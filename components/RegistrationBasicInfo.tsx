@@ -318,7 +318,7 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                 <label className="label flex items-center gap-2 text-slate-400 font-bold"><Hash size={14} /> System ID</label>
                 <div className="input bg-slate-50 text-slate-400 font-mono text-sm border-slate-200">{formData.id || 'AUTO_GEN'}</div>
             </div>
-            <div className="md:col-span-9 relative" ref={searchContainerRef}>
+            <div className="md:col-span-4 relative" ref={searchContainerRef}>
                 <label className="label flex items-center gap-2 text-teal-800 font-bold"><Star size={14} fill="currentColor"/> Referral Source</label>
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
@@ -350,6 +350,19 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                       </div>
                     )}
                 </div>
+            </div>
+            <div className="md:col-span-5">
+                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
+                <select 
+                    name="familyGroupId" 
+                    value={formData.familyGroupId || ''} 
+                    onChange={handleChange} 
+                    disabled={readOnly}
+                    className="input bg-white"
+                >
+                    <option value="">- None / Set as Head -</option>
+                    {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
             </div>
         </div>
 
