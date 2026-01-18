@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory } from '../types';
+
+import React, { useState, useRef } from 'react';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
-import TreatmentPlan from './TreatmentPlan';
+// Fix: Changed import from default to named to resolve module export error.
+import { TreatmentPlan } from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal'; // Import the new modal
+import { useToast } from './ToastSystem';
 
 interface PatientDetailViewProps {
   patient: Patient | null;
@@ -55,22 +58,83 @@ const InfoItem: React.FC<{ label: string; value?: string | number | null | strin
     );
 };
 
-const DiagnosticGallery: React.FC = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
-        <div className="bg-slate-900 aspect-video rounded-[2.5rem] border-4 border-teal-500/20 flex flex-col items-center justify-center group hover:border-teal-500 transition-all cursor-zoom-in relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60" />
-            <Search size={32} className="text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
-            <div className="absolute bottom-6 left-8 z-10">
-                <div className="text-[10px] font-black text-teal-400 uppercase tracking-widest">PA X-RAY #16</div>
-                <div className="text-white text-xs font-bold uppercase mt-1">May 12, 2024</div>
+const DiagnosticGallery: React.FC<{
+    patient: Patient,
+    onQuickUpdatePatient: (p: Patient) => void
+}> = ({ patient, onQuickUpdatePatient }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const base64String = await blobToBase64(file);
+        
+        const newFile: PatientFile = {
+            id: `file_${Date.now()}`,
+            name: file.name,
+            category: 'X-Ray',
+            url: base64String,
+            date: new Date().toISOString().split('T')[0],
+        };
+        const updatedPatient: Patient = {
+            ...patient,
+            files: [...(patient.files || []), newFile]
+        };
+        onQuickUpdatePatient(updatedPatient);
+    };
+
+    const images = patient.files?.filter(f => f.category === 'X-Ray') || [];
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {images.map(img => (
+                    <div 
+                        key={img.id}
+                        onClick={() => setLightboxImage(img.url)}
+                        className="bg-slate-900 aspect-video rounded-[2.5rem] border-4 border-teal-500/20 flex flex-col items-center justify-center group hover:border-teal-500 transition-all cursor-zoom-in relative overflow-hidden"
+                    >
+                        <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60" />
+                        <Search size={32} className="absolute text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                        <div className="absolute bottom-6 left-8 z-10">
+                            <div className="text-[10px] font-black text-teal-400 uppercase tracking-widest">{img.name}</div>
+                            <div className="text-white text-xs font-bold uppercase mt-1">{formatDate(img.date)}</div>
+                        </div>
+                    </div>
+                ))}
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-video rounded-[2.5rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4 text-slate-300 hover:text-teal-600 hover:border-teal-100 transition-all bg-white shadow-sm"
+                >
+                    <Camera size={48} strokeWidth={1} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Upload Radiograph</span>
+                </button>
             </div>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+
+            {lightboxImage && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
+                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+                    <button onClick={() => setLightboxImage(null)} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
+                </div>
+            )}
         </div>
-        <button className="aspect-video rounded-[2.5rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4 text-slate-300 hover:text-teal-600 hover:border-teal-100 transition-all bg-white shadow-sm">
-            <Camera size={48} strokeWidth={1} />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Capture Radiograph</span>
-        </button>
-    </div>
-);
+    );
+};
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport } = props;
@@ -194,7 +258,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                     />
                   </div>
               );
-          case 'gallery': return <DiagnosticGallery />;
+          case 'gallery': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
           case 'planning':
               return (
                   <TreatmentPlan 
@@ -475,10 +539,55 @@ const ComplianceTab: React.FC<{
     onSaveReferral?: (referral: Referral) => void;
     currentUser: User;
 }> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser }) => {
+    const toast = useToast();
+    const [incidentType, setIncidentType] = useState('Complication');
+    const [incidentDesc, setIncidentDesc] = useState('');
+    const [incidentAction, setIncidentAction] = useState('');
+    
+    const [referralTo, setReferralTo] = useState('');
+    const [referralReason, setReferralReason] = useState('');
+
+    const handleLogIncident = () => {
+        if (!onSaveIncident || !incidentDesc) {
+            toast.error("Incident description is required.");
+            return;
+        }
+        const newIncident: ClinicalIncident = {
+            id: `inc_${Date.now()}`,
+            date: new Date().toISOString(),
+            type: incidentType,
+            patientId: patient.id,
+            patientName: patient.name,
+            description: incidentDesc,
+            actionTaken: incidentAction,
+            reportedBy: currentUser.id,
+            reportedByName: currentUser.name
+        };
+        onSaveIncident(newIncident);
+        setIncidentDesc(''); setIncidentAction('');
+        toast.success("Clinical incident logged.");
+    };
+
+    const handleCreateReferral = () => {
+        if (!onSaveReferral || !referralTo || !referralReason) {
+            toast.error("Specialist and reason are required.");
+            return;
+        }
+        const newReferral: Referral = {
+            id: `ref_${Date.now()}`,
+            date: new Date().toISOString(),
+            patientId: patient.id,
+            referredTo: referralTo,
+            reason: referralReason,
+            status: 'Sent'
+        };
+        onSaveReferral(newReferral);
+        setReferralTo(''); setReferralReason('');
+        toast.success("Referral created.");
+    };
     
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Clinical Incidents */}
             <div className="bg-white p-10 rounded-[3.5rem] border-2 border-red-50 shadow-sm space-y-8">
                 <div className="flex items-center gap-4 border-b border-red-100 pb-6">
                     <div className="bg-red-50 p-3 rounded-2xl text-red-600"><AlertCircle size={32}/></div>
@@ -487,10 +596,22 @@ const ComplianceTab: React.FC<{
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Medico-Legal Event Log</p>
                     </div>
                 </div>
-                {/* Add Incident Form will go here */}
+                <div className="space-y-4">
+                    <select value={incidentType} onChange={e => setIncidentType(e.target.value)} className="input"><option>Complication</option><option>Adverse Reaction</option><option>Equipment Failure</option></select>
+                    <textarea value={incidentDesc} onChange={e => setIncidentDesc(e.target.value)} placeholder="Describe the incident..." className="input h-24" />
+                    <textarea value={incidentAction} onChange={e => setIncidentAction(e.target.value)} placeholder="Action Taken..." className="input h-24" />
+                    <button onClick={handleLogIncident} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Log Incident</button>
+                </div>
+                <div className="pt-8 border-t border-slate-100 space-y-3">
+                    {incidents.filter(i=> i.patientId === patient.id).map(i => (
+                        <div key={i.id} className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                            <div className="font-bold text-red-800">{i.type} on {formatDate(i.date)}</div>
+                            <p className="text-xs text-red-700">{i.description}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Referrals */}
             <div className="bg-white p-10 rounded-[3.5rem] border-2 border-blue-50 shadow-sm space-y-8">
                  <div className="flex items-center gap-4 border-b border-blue-100 pb-6">
                     <div className="bg-blue-50 p-3 rounded-2xl text-blue-600"><Send size={32}/></div>
@@ -499,7 +620,19 @@ const ComplianceTab: React.FC<{
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Continuity of Care Monitor</p>
                     </div>
                 </div>
-                 {/* Add Referral Form will go here */}
+                <div className="space-y-4">
+                    <input value={referralTo} onChange={e => setReferralTo(e.target.value)} placeholder="Referred to (Specialist/Clinic)" className="input" />
+                    <textarea value={referralReason} onChange={e => setReferralReason(e.target.value)} placeholder="Reason for referral..." className="input h-24" />
+                    <button onClick={handleCreateReferral} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Create Referral</button>
+                </div>
+                <div className="pt-8 border-t border-slate-100 space-y-3">
+                    {referrals.filter(r => r.patientId === patient.id).map(r => (
+                        <div key={r.id} className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                            <div className="font-bold text-blue-800">To: {r.referredTo} on {formatDate(r.date)}</div>
+                            <p className="text-xs text-blue-700">{r.reason}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     )

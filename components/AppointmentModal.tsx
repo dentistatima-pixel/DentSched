@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule } from '../types';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS } from '../constants';
 import { useToast } from './ToastSystem';
@@ -13,6 +13,7 @@ interface AppointmentModalProps {
   appointments: Appointment[]; 
   onSave: (appointment: Appointment) => void;
   onSavePatient?: (patient: Partial<Patient>) => void; 
+  onAddToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'patientName'>) => void;
   initialDate?: string;
   initialTime?: string;
   initialPatientId?: string;
@@ -24,7 +25,7 @@ interface AppointmentModalProps {
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({ 
-  isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings, sterilizationCycles = [], onManualOverride, isDowntime
+  isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, onAddToWaitlist, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings, sterilizationCycles = [], onManualOverride, isDowntime
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'existing' | 'new' | 'block'>('existing');
@@ -45,6 +46,24 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [finderResults, setFinderResults] = useState<{ date: string, time: string }[]>([]);
   const [isFinding, setIsFinding] = useState(false);
   const [timePreference, setTimePreference] = useState<'any' | 'am' | 'pm'>('any');
+
+  // Waitlist form state
+  const [showWaitlistForm, setShowWaitlistForm] = useState(false);
+  const [waitlistPriority, setWaitlistPriority] = useState<'Normal' | 'High'>('Normal');
+  const [waitlistNotes, setWaitlistNotes] = useState('');
+
+  const handleAddToWaitlistClick = () => {
+    const patientIdForWaitlist = selectedPatientId || initialPatientId;
+    if (!onAddToWaitlist || !patientIdForWaitlist) return;
+    onAddToWaitlist({
+        patientId: patientIdForWaitlist,
+        procedure: procedureType,
+        durationMinutes: duration,
+        priority: waitlistPriority,
+        notes: waitlistNotes,
+    });
+    onClose();
+  };
 
   const findAvailableSlots = useCallback(() => {
     setIsFinding(true);
@@ -152,11 +171,13 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       }
       setShowFinder(false);
       setFinderResults([]);
+      setShowWaitlistForm(false);
     }
-  }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId]);
+  }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, dentists, fieldSettings.resources]);
 
   useEffect(() => {
-    if(selectedPatient) {
+    // Only auto-update duration for new appointments or when patient context changes for a new booking
+    if (!existingAppointment && selectedPatient) {
         const proc = fieldSettings.procedures.find(p => p.name === procedureType);
         if (proc) {
             if (proc.name.toLowerCase().includes('surgical') || proc.name.toLowerCase().includes('root canal')) {
@@ -168,7 +189,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             }
         }
     }
-  }, [procedureType, selectedPatient, fieldSettings.procedures]);
+  }, [procedureType, selectedPatient, fieldSettings.procedures, existingAppointment]);
 
   const handleSaveClick = () => {
     if ((activeTab !== 'block' && !selectedPatientId && !initialPatientId) || !providerId) {
@@ -177,7 +198,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
 
     if (hasConflict) {
-      toast.warning("Resource conflict detected. This booking may require an override.");
+      setShowWaitlistForm(true);
+      return;
     }
 
     const appointment: Appointment = {
@@ -428,10 +450,20 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
               {/* Column 2: When & Who */}
               <div className="space-y-8">
-                <div className="grid grid-cols-2 gap-6 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                     <div>
                         <label className="label">Booking Date</label>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input font-black" />
+                    </div>
+                    <div>
+                        <label className="label">Duration (minutes)</label>
+                        <input 
+                            type="number" 
+                            value={duration} 
+                            onChange={e => setDuration(parseInt(e.target.value) || 0)} 
+                            className="input font-black" 
+                            step="5"
+                        />
                     </div>
                     <div>
                          <button onClick={() => setShowFinder(!showFinder)} className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-white border-2 border-slate-200 text-slate-500 hover:text-teal-700 hover:border-teal-500 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm transition-all">
@@ -460,7 +492,12 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                 ))}
                             </div>
                         )}
-                         {!isFinding && finderResults.length === 0 && <p className="text-center text-xs text-slate-400 font-bold p-4">No slots found within 30 days.</p>}
+                         {!isFinding && finderResults.length === 0 && (
+                            <div className="text-center p-4">
+                                <p className="text-xs text-slate-400 font-bold">No slots found within 30 days.</p>
+                                <button onClick={() => { setShowWaitlistForm(true); setShowFinder(false); }} className="mt-2 text-xs font-black text-teal-700 bg-teal-100 px-4 py-2 rounded-lg">Add to Waitlist?</button>
+                            </div>
+                         )}
                          {isFinding && <div className="text-center p-4 text-xs font-bold text-slate-400 animate-pulse">Searching...</div>}
                         <button onClick={findAvailableSlots} disabled={isFinding} className="w-full mt-2 py-3 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:scale-105 transition-all">Search</button>
                     </div>
@@ -513,18 +550,32 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
             </div>
           )}
+          {showWaitlistForm && (
+            <div className="bg-white p-10 rounded-3xl border-4 border-teal-100 shadow-2xl space-y-6 animate-in zoom-in-95">
+                <h3 className="font-black text-teal-800 text-lg uppercase tracking-tight">Add to Waitlist</h3>
+                <select value={waitlistPriority} onChange={e => setWaitlistPriority(e.target.value as any)} className="input">
+                    <option value="Normal">Normal Priority</option>
+                    <option value="High">High Priority</option>
+                </select>
+                <textarea value={waitlistNotes} onChange={e => setWaitlistNotes(e.target.value)} className="input h-24" placeholder="Patient preferences or notes..." />
+                <div className="flex gap-4">
+                    <button onClick={() => setShowWaitlistForm(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs">Cancel</button>
+                    <button onClick={handleAddToWaitlistClick} className="flex-1 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2"><UserPlus size={16}/> Add Request</button>
+                </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        {(selectedPatient || activeTab === 'block') && (
+        {(selectedPatient || activeTab === 'block') && !showWaitlistForm && (
           <div className="p-8 border-t border-slate-100 bg-white flex justify-end gap-4 shrink-0">
             <button onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
             <button 
               onClick={handleSaveClick}
-              className={`px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 ${hasConflict ? 'bg-red-600 text-white shadow-red-600/30' : 'bg-teal-600 text-white shadow-teal-600/30'}`}
+              className={`px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 ${hasConflict ? 'bg-orange-600 text-white shadow-orange-600/30' : 'bg-teal-600 text-white shadow-teal-600/30'}`}
             >
-              {hasConflict ? <ShieldAlert size={20}/> : <Save size={20}/>} 
-              {existingAppointment ? 'Commit Changes' : 'Confirm Booking'}
+              {hasConflict ? <AlertTriangle size={20}/> : <Save size={20}/>} 
+              {hasConflict ? 'Add to Waitlist' : (existingAppointment ? 'Commit Changes' : 'Confirm Booking')}
             </button>
           </div>
         )}

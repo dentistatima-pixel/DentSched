@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User, FieldSettings, UserRole } from '../types';
 import { Users2, MapPin } from 'lucide-react';
@@ -5,11 +6,14 @@ import { Users2, MapPin } from 'lucide-react';
 interface RosterViewProps {
   staff: User[];
   fieldSettings: FieldSettings;
+  currentUser: User;
+  onUpdateStaffRoster: (staffId: string, day: string, branch: string) => void;
 }
 
-const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings }) => {
+const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings, currentUser, onUpdateStaffRoster }) => {
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const dentists = staff.filter(s => s.roster && s.role === UserRole.DENTIST);
+  const dentists = staff.filter(s => s.role === UserRole.DENTIST);
+  const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT;
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
@@ -54,13 +58,26 @@ const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings }) => {
                     const assignment = dentist.roster?.[day];
                     return (
                       <td key={day} className="p-5 text-center">
-                        {assignment ? (
-                          <span className="inline-flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-800 rounded-full text-[10px] font-black uppercase border border-teal-100 shadow-sm">
-                            <MapPin size={12} />
-                            {assignment}
-                          </span>
+                        {isAdmin ? (
+                          <select
+                            value={assignment || 'Off'}
+                            onChange={(e) => onUpdateStaffRoster(dentist.id, day, e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] font-bold uppercase tracking-tight focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                          >
+                            <option value="Off">Day Off</option>
+                            {fieldSettings.branches.map(branch => (
+                              <option key={branch} value={branch}>{branch}</option>
+                            ))}
+                          </select>
                         ) : (
-                          <span className="text-slate-300 font-bold">-</span>
+                          assignment ? (
+                            <span className="inline-flex items-center gap-2 px-3 py-1 bg-teal-50 text-teal-800 rounded-full text-[10px] font-black uppercase border border-teal-100 shadow-sm">
+                              <MapPin size={12} />
+                              {assignment}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 font-bold">-</span>
+                          )
                         )}
                       </td>
                     );

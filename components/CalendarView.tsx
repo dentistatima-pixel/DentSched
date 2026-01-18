@@ -1,3 +1,4 @@
+
 import React,
 { useState, useEffect, useRef, useMemo } from 'react';
 import { 
@@ -11,7 +12,6 @@ import {
   LabStatus, FieldSettings, WaitlistEntry, ClinicResource 
 } from '../types';
 import { formatDate } from '../constants';
-// Fix: Import useToast hook to make it available in the component.
 import { useToast } from './ToastSystem';
 
 interface CalendarViewProps {
@@ -25,18 +25,12 @@ interface CalendarViewProps {
   patients?: Patient[];
   currentBranch?: string;
   fieldSettings?: FieldSettings;
+  waitlist?: WaitlistEntry[];
 }
-
-const MOCK_WAITLIST: WaitlistEntry[] = [
-    { id: 'wl_1', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Restoration', durationMinutes: 60, priority: 'High', notes: 'Flexible anytime AM' },
-    { id: 'wl_2', patientId: 'p_surg_04', patientName: 'Juan Dela Cruz', procedure: 'Extraction', durationMinutes: 30, priority: 'Normal', notes: 'Prefer afternoons' },
-    { id: 'wl_3', patientId: 'p_full_perio_02', patientName: 'Sofia Reyes', procedure: 'Cleaning', durationMinutes: 45, priority: 'Low', notes: 'Short notice ok' },
-    { id: 'wl_4', patientId: 'p_debt_09', patientName: 'Ronnie Runner', procedure: 'Root Canal', durationMinutes: 60, priority: 'High', notes: 'Emergency opening requested' },
-];
 
 const RELIABILITY_THRESHOLD = 70;
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings, waitlist = [] }) => {
   const toast = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
@@ -44,17 +38,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const [showWaitlist, setShowWaitlist] = useState(false); 
   const [activeProviderId, setActiveProviderId] = useState<string>(currentUser?.id || '');
   
-  // Peek & Inspect State
   const [peeked, setPeeked] = useState<{ apt: Appointment, patient: Patient, target: HTMLElement } | null>(null);
   const [inspected, setInspected] = useState<{ apt: Appointment, patient: Patient } | null>(null);
-  // Fix: useRef was not initialized correctly for a timer, which can be undefined.
   const longPressTimer = useRef<number | null>(null);
 
-  // Waitlist Override State
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
   const [overrideConfirmed, setOverrideConfirmed] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState('');
   const [managerPin, setManagerPin] = useState('');
+
+  // --- Drag and Drop State ---
+  const [dragOverInfo, setDragOverInfo] = useState<{colId: string, hour: number, dateIso: string} | null>(null);
+
 
   useEffect(() => {
       if (!activeProviderId && staff.length > 0) {
@@ -220,6 +215,53 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       }
   };
 
+  const handleDrop = (e: React.DragEvent, colId: string, hour: number, dateIso: string) => {
+    e.preventDefault();
+    setDragOverInfo(null);
+    if (!onMoveAppointment) return;
+
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+        const { appointmentId } = data;
+        const originalApt = appointments.find(a => a.id === appointmentId);
+        if (!originalApt) return;
+
+        const newDate = dateIso;
+        const newTime = `${hour.toString().padStart(2, '0')}:00`;
+        
+        let newProviderId: string;
+        let newResourceId: string | undefined;
+
+        if (viewMode === 'week') {
+            newProviderId = activeProviderId;
+            newResourceId = originalApt.resourceId; 
+        } else if (viewDimension === 'provider') {
+            newProviderId = colId;
+            newResourceId = originalApt.resourceId;
+        } else { // chair view
+            newProviderId = originalApt.providerId;
+            newResourceId = colId;
+        }
+
+        const isConflict = appointments.some(a => 
+            a.id !== appointmentId &&
+            a.date === newDate &&
+            a.time === newTime &&
+            (a.providerId === newProviderId || (newResourceId && a.resourceId === newResourceId))
+        );
+
+        if (isConflict) {
+            toast.error("Scheduling Conflict: This time slot is already occupied.");
+            return;
+        }
+
+        onMoveAppointment(appointmentId, newDate, newTime, newProviderId, newResourceId);
+    } catch (error) {
+        console.error("Drag and drop failed:", error);
+        toast.error("Could not move appointment.");
+    }
+  };
+
   return (
     <div className="flex flex-row h-full bg-slate-50 gap-4 relative overflow-hidden">
       <style>{`
@@ -290,9 +332,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                     const matchesCol = viewMode === 'week' ? a.providerId === activeProviderId : (viewDimension === 'provider' ? a.providerId === colId : a.resourceId === colId);
                                     return matchesDate && matchesHour && matchesCol;
                                 });
+                                const isDragOver = dragOverInfo?.colId === colId && dragOverInfo?.hour === hour && dragOverInfo?.dateIso === dateIso;
                             
                                 return (
-                                    <div key={`${col.id || col.iso}-${hour}`} role="gridcell" aria-label={`Add appointment for ${dateIso} at ${hour}:00`} className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors hover:bg-slate-50/50`} onClick={() => handleSlotClick(colId, hour, dateIso)}>
+                                    <div 
+                                        key={`${col.id || col.iso}-${hour}`} 
+                                        role="gridcell" 
+                                        aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
+                                        className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
+                                        onClick={() => handleSlotClick(colId, hour, dateIso)}
+                                        onDragOver={e => e.preventDefault()}
+                                        onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
+                                        onDragLeave={() => setDragOverInfo(null)}
+                                        onDrop={(e) => handleDrop(e, colId, hour, dateIso)}
+                                    >
                                         {slotAppointments.map(apt => {
                                             const patient = getPatient(apt.patientId);
                                             const provider = staff.find(s => s.id === apt.providerId);
@@ -303,11 +356,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                             return (
                                                 <div 
                                                     key={apt.id} 
+                                                    draggable
+                                                    onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) }}
                                                     onMouseDown={(e) => handleMouseDown(e, apt, patient)} 
                                                     onMouseUp={(e) => handleMouseUp(e, apt, patient)}
                                                     onClick={(e) => e.stopPropagation()}
                                                     onDoubleClick={(e) => { e.stopPropagation(); onAddAppointment(undefined, undefined, undefined, apt); }}
-                                                    className={`rounded-xl p-3 text-xs border-2 cursor-pointer hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
+                                                    className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-black text-slate-600">{apt.time}</span>
                                                         <div className="flex items-center gap-1">
@@ -406,7 +461,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                  {MOCK_WAITLIST.map(entry => {
+                  {waitlist.map(entry => {
                       const patient = getPatient(entry.patientId);
                       const isUnreliable = (patient?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD;
                       const hasBalance = (patient?.currentBalance ?? 0) > 0;

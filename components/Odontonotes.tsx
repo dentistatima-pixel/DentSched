@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet } from '../types';
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, Scale, History } from 'lucide-react';
+import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet, TreatmentPlan } from '../types';
+import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, Scale, History, Link } from 'lucide-react';
 import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 import { useToast } from './ToastSystem';
 import EPrescriptionModal from './EPrescriptionModal';
@@ -46,6 +47,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   
   const [toothNum, setToothNum] = useState<string>('');
   const [selectedProcedure, setSelectedProcedure] = useState('');
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [subjective, setSubjective] = useState('');
   const [objective, setObjective] = useState('');
   const [assessment, setAssessment] = useState('');
@@ -336,7 +338,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   };
 
   const resetForm = () => {
-      setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
+      setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setSelectedPlanId(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
       macroSnapshotRef.current = ''; setEditingId(null); setRequireSignOff(false); setHardStopChecked(false);
   };
 
@@ -344,6 +346,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       setEditingId(entry.id); setToothNum(entry.toothNumber?.toString() || ''); setSelectedProcedure(entry.procedure || '');
       setSubjective(entry.subjective || ''); setObjective(entry.objective || ''); setAssessment(entry.assessment || ''); setPlan(entry.plan || '');
       setCharge(entry.price?.toString() || ''); setSelectedBatchId(entry.materialBatchId || ''); setVarianceCount(entry.materialVariance || 0); setSelectedResourceId(entry.resourceId || '');
+      setSelectedPlanId(entry.planId || '');
       setSelectedInstrumentSetId(entry.instrumentSetId || '');
       setSelectedCycleId(entry.sterilizationCycleId || ''); setCapturedPhotos(entry.imageHashes || []);
       const pearlMatch = entry.notes?.match(/PEARL:\s*(.*?)(\[Batch:|$)/);
@@ -386,7 +389,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         status: 'Completed' as TreatmentStatus,
         price: charge ? parseFloat(charge) : 0,
         date: new Date().toISOString().split('T')[0],
-        author: currentUser.name
+        author: currentUser.name,
+        planId: selectedPlanId || undefined,
     };
     if (requireSignOff) { setPendingEntryData(entryData); setShowSignaturePad(true); return; }
     if (isSurgicalProcedure) { setPendingSurgicalEntry(entryData); setShowSurgicalWitness(true); return; }
@@ -458,13 +462,20 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
              </div>
 
              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-6 items-end">
-                    <div><label className="label text-[10px]">Tooth Unit</label><input type="text" value={toothNum} onChange={e => setToothNum(e.target.value)} className="input text-center text-xl font-black" placeholder="--" /></div>
-                    <div><label className="label text-[10px]">Procedure Identification</label><select value={selectedProcedure} onChange={e => setSelectedProcedure(e.target.value)} className="input text-xs font-black uppercase tracking-tight">{filteredProcedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
-                    <div><label className="label text-[10px]">Operating Unit</label><select value={selectedResourceId} onChange={e => setSelectedResourceId(e.target.value)} className="input text-xs font-black uppercase tracking-tight"><option value="">- AREA SELECT -</option>{fieldSettings?.resources.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-                    <div>
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                    <div className="md:col-span-2"><label className="label text-[10px]">Tooth Unit</label><input type="text" value={toothNum} onChange={e => setToothNum(e.target.value)} className="input text-center text-xl font-black" placeholder="--" /></div>
+                    <div className="md:col-span-4"><label className="label text-[10px]">Procedure Identification</label><select value={selectedProcedure} onChange={e => setSelectedProcedure(e.target.value)} className="input text-xs font-black uppercase tracking-tight">{filteredProcedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                    <div className="md:col-span-3"><label className="label text-[10px]">Operating Unit</label><select value={selectedResourceId} onChange={e => setSelectedResourceId(e.target.value)} className="input text-xs font-black uppercase tracking-tight"><option value="">- AREA SELECT -</option>{fieldSettings?.resources.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+                    <div className="md:col-span-3">
                         <label className="label text-[10px]">Registry Value (₱)</label>
                         <input type="text" value={`₱ ${parseFloat(charge).toLocaleString()}`} readOnly className="input font-black text-xl text-teal-800 bg-slate-50 border-slate-200" />
+                    </div>
+                    <div className="md:col-span-12">
+                        <label className="label text-[10px] flex items-center gap-2"><Link size={14}/> Link to Strategy</label>
+                        <select value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} className="input text-xs font-black uppercase tracking-tight">
+                            <option value="">- No Link / Standalone -</option>
+                            {patient?.treatmentPlans?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
                     </div>
                 </div>
 

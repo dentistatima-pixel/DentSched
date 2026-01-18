@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
-import PatientRegistryManager from './components/PatientRegistryManager';
+import PatientList from './components/PatientList';
 import PatientDetailView from './components/PatientDetailView';
-import PatientAppointmentsView from './components/PatientAppointmentsView';
 import { AppointmentModal } from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
@@ -21,13 +21,14 @@ import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager'; // Import new component
 import RosterView from './components/RosterView'; // Import RosterView
 import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safety alert modal
+import LeaveAndShiftManager from './components/LeaveAndShiftManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon } from 'lucide-react';
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon, User as UserIcon } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 import PrivacyRevocationModal from './components/PrivacyRevocationModal';
 
@@ -104,6 +105,8 @@ function App() {
   const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
   const [cashSessions, setCashSessions] = useState<CashSession[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(MOCK_WAITLIST);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
 
   const [payrollPeriods, setPayrollPeriods] = useState<PayrollPeriod[]>([]);
   const [payrollAdjustments, setPayrollAdjustments] = useState<PayrollAdjustment[]>([]);
@@ -324,6 +327,8 @@ function App() {
       setStock(load('dentsched_stock', MOCK_STOCK));
       setSterilizationCycles(load('dentsched_sterilization', MOCK_STERILIZATION_CYCLES));
       setScheduledSms(load('dentsched_scheduled_sms', []));
+      setWaitlist(load('dentsched_waitlist', MOCK_WAITLIST));
+      setLeaveRequests(load('dentsched_leave_requests', []));
       
       const loadedLogs = load('dentsched_auditlog', MOCK_AUDIT_LOG);
       
@@ -679,6 +684,81 @@ function App() {
       logAction('UPDATE', 'Patient', patientId, `Updated recall pipeline status to ${status}.`);
   };
 
+  const handleUpdateStaffRoster = (staffId: string, day: string, branch: string) => {
+    setStaff(prevStaff => {
+        const newStaff = prevStaff.map(s => {
+            if (s.id === staffId) {
+                const updatedRoster = { ...(s.roster || {}) };
+                if (branch === 'Off') {
+                    delete updatedRoster[day];
+                } else {
+                    updatedRoster[day] = branch;
+                }
+                return { ...s, roster: updatedRoster };
+            }
+            return s;
+        });
+        saveToLocal('dentsched_staff', newStaff);
+        const staffName = newStaff.find(s => s.id === staffId)?.name || 'Unknown';
+        logAction('UPDATE', 'StaffRoster', staffId, `Updated ${staffName}'s ${day} assignment to ${branch}.`);
+        toast.success(`Roster updated for ${staffName}.`);
+        return newStaff;
+    });
+};
+
+  const handleAddToWaitlist = (entry: Omit<WaitlistEntry, 'id' | 'patientName'>) => {
+      const patient = patients.find(p => p.id === entry.patientId);
+      if (!patient) return;
+
+      const newEntry: WaitlistEntry = {
+          ...entry,
+          id: `wl_${Date.now()}`,
+          patientName: patient.name,
+      };
+
+      setWaitlist(prev => [...prev, newEntry]);
+      saveToLocal('dentsched_waitlist', [...waitlist, newEntry]);
+      toast.success(`${patient.name} has been added to the waitlist.`);
+  };
+
+  const handleAddLeaveRequest = (request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => {
+    const staffMember = staff.find(s => s.id === request.staffId);
+    if (!staffMember) return;
+    const newRequest: LeaveRequest = {
+        ...request,
+        id: `leave_${Date.now()}`,
+        staffName: staffMember.name,
+        status: 'Pending',
+    };
+    setLeaveRequests(prev => [...prev, newRequest]);
+    saveToLocal('dentsched_leave_requests', [...leaveRequests, newRequest]);
+    toast.info("Leave request submitted for approval.");
+  };
+
+  const handleAddTask = (text: string, isUrgent: boolean, assignedTo: string) => {
+    const newTask: PinboardTask = {
+        id: `task_${Date.now()}`,
+        text,
+        isCompleted: false,
+        isUrgent,
+        assignedTo,
+    };
+    setTasks(prev => [newTask, ...prev]);
+    saveToLocal('dentsched_pinboard_tasks', [newTask, ...tasks]);
+    logAction('CREATE', 'Task', newTask.id, `Created task: ${text}`);
+    toast.success("Task added to Huddle Board.");
+  };
+
+  const handleApproveLeaveRequest = (id: string, approve: boolean) => {
+      setLeaveRequests(prev => prev.map(r => {
+          if (r.id === id) {
+              logAction('UPDATE', 'LeaveRequest', id, `Request for ${r.staffName} was ${approve ? 'Approved' : 'Rejected'}.`);
+              return { ...r, status: approve ? 'Approved' : 'Rejected' };
+          }
+          return r;
+      }));
+  };
+
   const handleSaveAppointment = (newAppointment: Appointment) => {
     const isManual = systemStatus === SystemStatus.DOWNTIME;
     const existing = appointments.find(a => a.id === newAppointment.id);
@@ -853,21 +933,34 @@ function App() {
 
       finalizeUpdateStatus(appointmentId, status);
   };
+  
+  const handleVerifyMedHistory = (appointmentId: string) => {
+    const newAppointments = appointments.map(a =>
+      a.id === appointmentId ? { ...a, medHistoryVerified: true, medHistoryVerifiedAt: new Date().toISOString() } : a
+    );
+    setAppointments(newAppointments);
+    saveToLocal('dentsched_appointments', newAppointments);
+    logAction('VERIFY_RECORD', 'Appointment', appointmentId, `Med history verified by ${currentUser.name}.`);
+    toast.success("Medical history verified.");
+  };
+
+  const handleConfirmFollowUp = (appointmentId: string) => {
+    const newAppointments = appointments.map(a =>
+      a.id === appointmentId ? { ...a, followUpConfirmed: true, followUpConfirmedAt: new Date().toISOString() } : a
+    );
+    setAppointments(newAppointments);
+    saveToLocal('dentsched_appointments', newAppointments);
+    logAction('UPDATE', 'Appointment', appointmentId, `Post-op follow-up call confirmed by ${currentUser.name}.`);
+    toast.success("Post-op follow-up confirmed.");
+  };
 
   const handleSavePatient = (newPatientData: Partial<Patient>) => {
     let patientToSave = { ...newPatientData, lastDigitalUpdate: new Date().toISOString() };
     
-    // Fix: Ensure a new patient gets a unique ID.
-    const isNew = !patientToSave.id;
-    if (isNew) {
-      patientToSave.id = generateUid('p_reg');
-    }
-  
-    const existing = isNew ? null : patients.find(p => p.id === patientToSave.id);
+    const isNew = !patients.some(p => p.id === patientToSave.id);
     
     patientToSave.name = `${patientToSave.firstName || ''} ${patientToSave.middleName || ''} ${patientToSave.surname || ''}`.replace(/\s+/g, ' ').trim();
   
-    // Fix: Correctly queue update vs. register actions when offline.
     if (!isOnline) {
       const action = isNew ? 'REGISTER_PATIENT' : 'UPDATE_PATIENT';
       const newQueue = [...offlineQueue, { id: `intent_${Date.now()}`, action: action as any, payload: patientToSave, timestamp: new Date().toISOString() }];
@@ -876,31 +969,32 @@ function App() {
       toast.info("Patient update queued for offline sync.");
     }
   
-    if (existing) {
-      const updatedPatient = { ...existing, ...patientToSave } as Patient;
-      logAction('UPDATE', 'Patient', existing.id, 'Updated patient registration details', existing, updatedPatient);
+    if (isNew) {
+        const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
+        logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
+        
+        if (newPatient.referredById) {
+            const referrer = patients.find(p => p.id === newPatient.referredById);
+            if (referrer) triggerSms('referral_thanks', referrer);
+        }
+        
+        const newPatientsState = [...patients, newPatient];
+        setPatients(newPatientsState);
+        saveToLocal('dentsched_patients', newPatientsState);
+        triggerSms('welcome', newPatient);
+    
+        toast.success(`Patient ${newPatient.name} registered. Opening their chart.`);
+        setSelectedPatientId(newPatient.id);
+        setActiveTab('patients');
+    } else {
+      const originalPatient = patients.find(p => p.id === patientToSave.id)!;
+      const updatedPatient = { ...originalPatient, ...patientToSave } as Patient;
+      logAction('UPDATE', 'Patient', updatedPatient.id, 'Updated patient registration details', originalPatient, updatedPatient);
       const newPatientsState = patients.map(p => p.id === patientToSave.id ? updatedPatient : p);
       setPatients(newPatientsState);
       saveToLocal('dentsched_patients', newPatientsState);
       triggerSms('update_registration', updatedPatient);
       setEditingPatient(null);
-    } else {
-      const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
-      logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
-      
-      if (newPatient.referredById) {
-        const referrer = patients.find(p => p.id === newPatient.referredById);
-        if (referrer) triggerSms('referral_thanks', referrer);
-      }
-      
-      const newPatientsState = [...patients, newPatient];
-      setPatients(newPatientsState);
-      saveToLocal('dentsched_patients', newPatientsState);
-      triggerSms('welcome', newPatient);
-  
-      toast.success(`Patient ${newPatient.name} registered. Opening their chart.`);
-      setSelectedPatientId(newPatient.id);
-      setActiveTab('patients');
     }
   };
 
@@ -1076,10 +1170,11 @@ function App() {
   };
 
   const handleSaveReferral = (referral: Referral) => {
-    const newReferrals = [...referrals, referral];
+    const newReferralWithId = { ...referral, id: `ref_${Date.now()}` };
+    const newReferrals = [...referrals, newReferralWithId];
     setReferrals(newReferrals);
     saveToLocal('dentsched_referrals', newReferrals);
-    logAction('CREATE', 'Referral', referral.id, `Created new referral to ${referral.referredTo}.`);
+    logAction('CREATE', 'Referral', newReferralWithId.id, `Created new referral to ${newReferralWithId.referredTo}.`);
     toast.success('Referral has been logged.');
   };
   
@@ -1118,6 +1213,15 @@ function App() {
         const newPeriods = isNew ? [...payrollPeriods, period] : payrollPeriods.map(p => p.id === period.id ? period : p);
         setPayrollPeriods(newPeriods);
         saveToLocal('dentsched_payroll_periods', newPeriods);
+    };
+
+    const handleAddPayrollPeriod = (period: Omit<PayrollPeriod, 'id'>) => {
+        const newPeriod: PayrollPeriod = {
+            ...period,
+            id: `period_${Date.now()}`
+        };
+        setPayrollPeriods(prev => [...prev, newPeriod]);
+        saveToLocal('dentsched_payroll_periods', [...payrollPeriods, newPeriod]);
     };
 
     const handleAddPayrollAdjustment = (adj: PayrollAdjustment) => {
@@ -1159,9 +1263,13 @@ function App() {
           fieldSettings={fieldSettings}
           onCompleteRegistration={(id) => handleEditPatient(patients.find(p => p.id === id)!)}
           tasks={tasks}
+          onAddTask={handleAddTask}
           onToggleTask={handleToggleTask}
           syncConflicts={syncConflicts}
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
+          onVerifyMedHistory={handleVerifyMedHistory}
+          onConfirmFollowUp={handleConfirmFollowUp}
+          onNavigate={setActiveTab}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
           onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
@@ -1183,35 +1291,43 @@ function App() {
           patients={patients}
           currentBranch={currentBranch}
           fieldSettings={fieldSettings}
+          waitlist={waitlist}
       />;
-      case 'patients': return selectedPatient ? 
-          <PatientDetailView 
-              patient={selectedPatient}
-              appointments={appointments}
-              staff={staff}
-              currentUser={currentUser}
-              onQuickUpdatePatient={handleQuickUpdatePatient}
-              onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
-              onEditPatient={handleEditPatient}
-              fieldSettings={fieldSettings}
-              logAction={logAction}
-              incidents={incidents}
-              onSaveIncident={handleSaveIncident}
-              referrals={referrals}
-              onSaveReferral={handleSaveReferral}
-              onBack={() => setSelectedPatientId(null)}
-              governanceTrack={governanceTrack}
-              onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
-              onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
-          /> : 
-          <PatientRegistryManager 
-              patients={patients} 
-              appointments={appointments}
-              onSelectPatient={setSelectedPatientId}
-              onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }}
-              onBookAppointment={() => { setInitialBookingPatientId(undefined); setIsAppointmentModalOpen(true); }}
-              fieldSettings={fieldSettings}
-          />;
+      case 'patients': 
+        return (
+          <div className="h-full">
+            {selectedPatient ? (
+                <PatientDetailView 
+                    patient={selectedPatient}
+                    appointments={appointments}
+                    staff={staff}
+                    currentUser={currentUser}
+                    onQuickUpdatePatient={handleQuickUpdatePatient}
+                    onBookAppointment={(id) => { setInitialBookingPatientId(id); setIsAppointmentModalOpen(true); }}
+                    onEditPatient={handleEditPatient}
+                    fieldSettings={fieldSettings}
+                    logAction={logAction}
+                    incidents={incidents}
+                    onSaveIncident={handleSaveIncident}
+                    referrals={referrals}
+                    onSaveReferral={handleSaveReferral}
+                    onBack={() => setSelectedPatientId(null)}
+                    governanceTrack={governanceTrack}
+                    onToggleTimeline={() => setIsTimelineDrawerOpen(!isTimelineDrawerOpen)}
+                    onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
+                    onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
+                />
+            ) : (
+              <PatientList 
+                  patients={patients}
+                  selectedPatientId={selectedPatientId}
+                  onSelectPatient={setSelectedPatientId}
+                  onAddPatient={() => { setEditingPatient(null); setIsPatientModalOpen(true); }}
+                  fieldSettings={fieldSettings}
+              />
+            )}
+          </div>
+        );
       case 'admin':
           return (
             <AdminHub 
@@ -1221,6 +1337,7 @@ function App() {
                     if (tab === 'recall') { setActiveTab('recall'); }
                     if (tab === 'referrals') { setActiveTab('referrals'); }
                     if (tab === 'roster') { setActiveTab('roster'); }
+                    if (tab === 'leave') { setActiveTab('leave'); }
                 }}
             />
           );
@@ -1242,7 +1359,7 @@ function App() {
       />;
       case 'financials': return <Financials 
           claims={hmoClaims} 
-          expenses={[]} 
+          expenses={MOCK_EXPENSES} 
           philHealthClaims={philHealthClaims}
           patients={patients}
           appointments={appointments}
@@ -1252,6 +1369,7 @@ function App() {
           onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim}
           reconciliations={reconciliations}
           onSaveReconciliation={handleSaveReconciliation}
+          cashSessions={cashSessions}
           onSaveCashSession={handleSaveCashSession}
           currentBranch={currentBranch}
           payrollPeriods={payrollPeriods}
@@ -1264,10 +1382,12 @@ function App() {
           onResolveCommissionDispute={handleResolveCommissionDispute}
           governanceTrack={governanceTrack}
           setGovernanceTrack={setGovernanceTrack}
+          onAddPayrollPeriod={handleAddPayrollPeriod}
       />;
       case 'recall': return <RecallCenter patients={patients} onUpdatePatientRecall={handleUpdatePatientRecall} />;
       case 'referrals': return <ReferralManager patients={patients} referrals={referrals} staff={staff} onSaveReferral={handleSaveReferral} />;
-      case 'roster': return <RosterView staff={staff} fieldSettings={fieldSettings} />;
+      case 'roster': return <RosterView staff={staff} fieldSettings={fieldSettings} currentUser={currentUser} onUpdateStaffRoster={handleUpdateStaffRoster} />;
+      case 'leave': return <LeaveAndShiftManager staff={staff} currentUser={currentUser} leaveRequests={leaveRequests} onAddLeaveRequest={handleAddLeaveRequest} onApproveLeaveRequest={handleApproveLeaveRequest} fieldSettings={fieldSettings} />;
       case 'field-mgmt': return <FieldManagement 
           settings={fieldSettings} 
           onUpdateSettings={handleUpdateSettings}
@@ -1297,9 +1417,13 @@ function App() {
           fieldSettings={fieldSettings}
           onCompleteRegistration={(id) => handleEditPatient(patients.find(p => p.id === id)!)}
           tasks={tasks}
+          onAddTask={handleAddTask}
           onToggleTask={handleToggleTask}
           syncConflicts={syncConflicts}
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
+          onVerifyMedHistory={handleVerifyMedHistory}
+          onConfirmFollowUp={handleConfirmFollowUp}
+          onNavigate={setActiveTab}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
           onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
@@ -1368,6 +1492,7 @@ function App() {
         staff={staff}
         appointments={appointments}
         onSave={handleSaveAppointment}
+        onAddToWaitlist={handleAddToWaitlist}
         initialDate={bookingDate}
         initialTime={bookingTime}
         initialPatientId={initialBookingPatientId}

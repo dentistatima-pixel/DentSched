@@ -37,6 +37,7 @@ interface DashboardProps {
   onConfirmFollowUp?: (appointmentId: string) => void;
   onQuickQueue: () => void;
   onQuickAddPatient: () => void;
+  onNavigate: (tab: string) => void;
 }
 
 const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: string } } = {
@@ -54,8 +55,8 @@ const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: s
 const Dashboard: React.FC<DashboardProps> = ({ 
   appointments, currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
   onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask, onCompleteRegistration,
-  syncConflicts = [], onVerifyDowntimeEntry, onConfirmFollowUp, onQuickQueue, staff = [],
-  onQuickAddPatient
+  syncConflicts = [], onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp, onQuickQueue, staff = [],
+  onQuickAddPatient, onNavigate
 }) => {
   const toast = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -124,13 +125,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         !a.followUpConfirmed
     );
 
-    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff });
-    if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning });
-    if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert });
-    if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle });
+    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => onNavigate('admin') });
+    if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning, action: () => onVerifyDowntimeEntry && onVerifyDowntimeEntry(downtimeEntries[0].id) });
+    if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert, action: () => onVerifyMedHistory && onVerifyMedHistory(medHistoryEntries[0].id) });
+    if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle, action: () => onConfirmFollowUp && onConfirmFollowUp(postOpPatients[0].id) });
     
     return items;
-  }, [appointments, syncConflicts]);
+  }, [appointments, syncConflicts, onNavigate, onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp]);
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
@@ -327,13 +328,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <h4 className="text-[10px] font-black text-orange-800 uppercase tracking-[0.3em] mb-4">Alerts & Verifications</h4>
                         <div className="space-y-2">
                             {actionItems.map(item => (
-                                <div key={item.type} className="p-3 bg-orange-50 border border-orange-100 rounded-lg flex justify-between items-center">
+                                <button key={item.type} onClick={item.action} className="w-full p-3 bg-orange-50 border border-orange-100 rounded-lg flex justify-between items-center text-left hover:bg-orange-100 transition-colors">
                                     <div className="flex items-center gap-2">
                                         <item.icon size={14} className="text-orange-600" />
                                         <span className="text-xs font-black text-orange-900 uppercase">{item.type}</span>
                                     </div>
                                     <span className="font-black text-orange-700">{item.count}</span>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </div>

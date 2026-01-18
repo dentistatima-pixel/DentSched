@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
+import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-import { PDA_INFORMED_CONSENT_TEXTS } from '../constants';
+import { PDA_INFORMED_CONSENT_TEXTS, generateUid } from '../constants';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -43,7 +45,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             }
         } else {
             if (!formData.id) {
-                setFormData({ ...initialFormState });
+                const generatedId = generateUid('p');
+                setFormData({ ...initialFormState, id: generatedId });
             }
         }
     }
@@ -221,6 +224,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">Section I & II. Patient Identity & Guardianship</h3>
                         </div>
                         <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
+                    </div>
+
+                    {/* Section IV: Dental History */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-amber-600 pb-2">
+                            <FileText size={24} className="text-amber-700"/>
+                            <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tighter">Section IV. Dental History</h3>
+                        </div>
+                        <RegistrationDental 
+                            formData={formData} 
+                            handleChange={handleChange} 
+                            readOnly={readOnly}
+                            fieldSettings={fieldSettings} 
+                        />
                     </div>
 
                     {/* Section III-V: Medical/Physician */}

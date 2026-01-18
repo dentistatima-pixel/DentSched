@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
@@ -5,14 +6,13 @@ import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
 interface RegistrationDentalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  onUpdateChart: (entry: any) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings;
   isMasked?: boolean;
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, onUpdateChart, readOnly, fieldSettings, isMasked = false
+    formData, handleChange, readOnly, fieldSettings, isMasked = false
 }) => {
   const handleDynamicAnswerChange = (q: string, val: string) => {
     const currentAnswers = { ...(formData.registryAnswers || {}) };

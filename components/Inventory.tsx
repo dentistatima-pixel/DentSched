@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale, ShoppingBag, Download, User as UserIcon, ClipboardCheck, ArrowUpCircle, EyeOff, BarChart2, Armchair, ShieldCheck, Thermometer } from 'lucide-react';
 import { StockItem, StockCategory, SterilizationCycle, User, UserRole, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry, AppointmentStatus, InstrumentSet } from '../types';
@@ -13,8 +12,8 @@ interface InventoryProps {
   currentUser: User;
   currentBranch: string;
   availableBranches: string[];
-  transfers?: StockTransfer[];
-  onPerformTransfer?: (t: StockTransfer) => void;
+  transfers: StockTransfer[];
+  onPerformTransfer: (t: StockTransfer) => void;
   patients?: Patient[];
   fieldSettings?: FieldSettings;
   onUpdateSettings?: (s: FieldSettings) => void;
@@ -55,6 +54,37 @@ const Inventory: React.FC<InventoryProps> = ({
   const [newCycle, setNewCycle] = useState<Partial<SterilizationCycle>>({
       autoclaveName: 'Autoclave 1', cycleNumber: `C${Date.now().toString().slice(-4)}`, passed: true, instrumentSetIds: []
   });
+
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [transferData, setTransferData] = useState({ itemId: '', quantity: 1, toBranch: '' });
+
+  const handleTransfer = () => {
+    if (!transferData.itemId || transferData.quantity <= 0 || !transferData.toBranch) {
+        toast.error("All transfer fields are required.");
+        return;
+    }
+    const item = stock.find(s => s.id === transferData.itemId);
+    if (!item) return;
+    if (item.quantity < transferData.quantity) {
+        toast.error("Insufficient stock for transfer.");
+        return;
+    }
+    const newTransfer: StockTransfer = {
+        id: `xfer_${Date.now()}`,
+        date: new Date().toISOString(),
+        itemId: item.id,
+        itemName: item.name,
+        fromBranch: currentBranch,
+        toBranch: transferData.toBranch,
+        quantity: transferData.quantity,
+        initiatedBy: currentUser.name,
+        status: 'Completed'
+    };
+    onPerformTransfer(newTransfer);
+    setShowTransferForm(false);
+    setTransferData({ itemId: '', quantity: 1, toBranch: '' });
+    toast.success("Stock transfer logged.");
+  };
 
   const branchStock = useMemo(() => {
       return stock.filter(s => s.branch === currentBranch || !s.branch);
@@ -199,6 +229,14 @@ const Inventory: React.FC<InventoryProps> = ({
                         <>
                             <button 
                                 role="tab"
+                                aria-selected={activeTab === 'transfers'}
+                                onClick={() => setActiveTab('transfers')} 
+                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
+                            >
+                                <ArrowRightLeft size={18} aria-hidden="true"/> Stock Transfers
+                            </button>
+                            <button 
+                                role="tab"
                                 aria-selected={activeTab === 'stock' && isManagingSets}
                                 onClick={() => { setActiveTab('stock'); setIsManagingSets(true); }} 
                                 className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' && isManagingSets ? 'border-lilac-600 text-lilac-900 bg-white' : 'border-transparent text-slate-500 hover:text-lilac-700 hover:bg-white/50'}`}
@@ -292,91 +330,47 @@ const Inventory: React.FC<InventoryProps> = ({
                         </div>
                     </div>
                 )}
-
-                {isManagingSets && (
-                    <div className="space-y-8 animate-in fade-in duration-300">
-                        <div className="bg-white p-10 rounded-[3rem] border border-lilac-100 shadow-xl shadow-lilac-600/5 flex flex-col md:flex-row items-center gap-8">
-                            <div className="flex-1 w-full">
-                                <label className="text-xs font-black text-lilac-700 uppercase tracking-widest ml-1 mb-2 block">Define New Instrument Set</label>
-                                <input 
-                                    type="text" 
-                                    value={newSetName}
-                                    onChange={e => setNewSetName(e.target.value)}
-                                    className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-800 focus:border-lilac-500 outline-none transition-all shadow-inner"
-                                    placeholder="e.g. Surgery Kit Alpha"
-                                />
+                 {activeTab === 'transfers' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Stock Transfers</h3>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Inter-Branch Logistics</p>
                             </div>
-                            <button onClick={handleAddSet} className="w-full md:w-auto self-end px-12 py-5 bg-lilac-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-lilac-600/20 hover:scale-105 active:scale-95 transition-all">Register New Set</button>
+                            <button onClick={() => setShowTransferForm(true)} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> New Transfer</button>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                            {branchSets.map(set => (
-                                <div key={set.id} className="bg-white p-8 rounded-[3.5rem] border-4 border-slate-50 shadow-xl flex flex-col justify-between group hover:border-lilac-500 transition-all hover:-translate-y-2">
-                                    <div>
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="bg-lilac-50 p-4 rounded-3xl text-lilac-600 group-hover:bg-lilac-600 group-hover:text-white transition-all shadow-sm"><Armchair size={32} aria-hidden="true"/></div>
-                                            <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 shadow-sm tracking-widest ${
-                                                set.status === 'Sterile' ? 'bg-teal-50 border-teal-200 text-teal-800' : 'bg-red-50 border-red-200 text-red-700'
-                                            }`}>
-                                                {set.status}
-                                            </span>
-                                        </div>
-                                        <h4 className="font-black text-slate-900 uppercase tracking-tighter text-xl leading-none mb-2">{set.name}</h4>
-                                        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">REGISTRY_ID: {set.id}</p>
-                                    </div>
-                                    <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
-                                        <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Last Cycle: <span className="text-teal-700 font-mono font-black">{set.lastCycleId || 'NONE'}</span></div>
-                                    </div>
+                        {showTransferForm && (
+                            <div className="bg-white p-8 rounded-[2.5rem] border-2 border-teal-100 shadow-2xl space-y-6 animate-in zoom-in-95">
+                                <h4 className="font-black text-teal-800 uppercase tracking-widest text-sm">Initiate Transfer</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <select value={transferData.itemId} onChange={e => setTransferData({...transferData, itemId: e.target.value})} className="input md:col-span-2"><option value="">- Select Item -</option>{branchStock.map(i => <option key={i.id} value={i.id}>{i.name} (Available: {i.quantity})</option>)}</select>
+                                    <input type="number" value={transferData.quantity} onChange={e => setTransferData({...transferData, quantity: parseInt(e.target.value)})} className="input" placeholder="Quantity"/>
                                 </div>
-                            ))}
-                            {branchSets.length === 0 && <div className="col-span-full py-20 text-center opacity-30 italic uppercase font-black text-slate-800 tracking-widest">No active instrument sets in registry.</div>}
+                                <select value={transferData.toBranch} onChange={e => setTransferData({...transferData, toBranch: e.target.value})} className="input"><option value="">- Destination Branch -</option>{availableBranches.filter(b=>b !== currentBranch).map(b => <option key={b} value={b}>{b}</option>)}</select>
+                                <div className="flex gap-4"><button onClick={() => setShowTransferForm(false)} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-black uppercase">Cancel</button><button onClick={handleTransfer} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Execute</button></div>
+                            </div>
+                        )}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500 tracking-widest">
+                                    <tr><th className="p-4 text-left">Date</th><th className="p-4 text-left">Item</th><th className="p-4 text-center">Qty</th><th className="p-4 text-left">From</th><th className="p-4 text-left">To</th><th className="p-4 text-left">Initiated By</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {transfers.map(t => (
+                                        <tr key={t.id} className="hover:bg-slate-50">
+                                            <td className="p-4 font-mono text-xs">{formatDate(t.date)}</td>
+                                            <td className="p-4 font-bold">{t.itemName}</td>
+                                            <td className="p-4 font-black text-center">{t.quantity}</td>
+                                            <td className="p-4">{t.fromBranch}</td>
+                                            <td className="p-4">{t.toBranch}</td>
+                                            <td className="p-4 text-xs font-bold uppercase text-slate-500">{t.initiatedBy}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                )}
-
-                {activeTab === 'sterilization' && (
-                    <div className="space-y-8 animate-in fade-in duration-300">
-                        <div className="bg-white p-10 rounded-[3rem] border border-teal-100 shadow-xl shadow-teal-600/5 flex flex-col md:flex-row justify-between items-center gap-6">
-                             <div className="flex items-center gap-6">
-                                <div className="p-4 bg-teal-50 text-teal-600 rounded-3xl shadow-sm" aria-hidden="true"><Thermometer size={40}/></div>
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Sterilization Registry</h3>
-                                    <p className="text-xs text-slate-500 font-black uppercase tracking-widest mt-1">Autoclave Biological & Physical Verification</p>
-                                </div>
-                             </div>
-                             <button onClick={() => setShowCycleModal(true)} className="px-10 py-5 bg-teal-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register New Load</button>
-                        </div>
-                        <div className="space-y-4">
-                            {sterilizationCycles.map(cycle => (
-                                <div key={cycle.id} className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 shadow-xl flex flex-col md:flex-row items-center justify-between group hover:border-teal-500 transition-all gap-8">
-                                    <div className="flex items-center gap-8 w-full md:w-auto">
-                                        <div className={`p-5 rounded-[2rem] shadow-lg transition-transform group-hover:scale-110 ${cycle.passed ? 'bg-teal-50 text-teal-600 border-2 border-teal-100' : 'bg-red-50 text-red-600 border-2 border-red-100 animate-pulse'}`}>
-                                            {cycle.passed ? <CheckCircle size={32} aria-hidden="true"/> : <AlertTriangle size={32} aria-hidden="true"/>}
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-black text-slate-500 uppercase tracking-widest">{formatDate(cycle.date)} • {cycle.autoclaveName}</div>
-                                            <h4 className="font-black text-slate-800 text-2xl uppercase tracking-tighter leading-none mt-1">Cycle #{cycle.cycleNumber}</h4>
-                                            {cycle.instrumentSetIds && cycle.instrumentSetIds.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mt-4">
-                                                    {cycle.instrumentSetIds.map(sid => (
-                                                        <span key={sid} className="bg-slate-50 text-[11px] font-black px-3 py-1 rounded-xl border border-slate-200 uppercase text-slate-600 tracking-tight shadow-sm">
-                                                            {fieldSettings?.instrumentSets?.find(s => s.id === sid)?.name || sid}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-right w-full md:w-auto pt-6 md:pt-0 border-t md:border-t-0 border-slate-50">
-                                        <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Load Operator</div>
-                                        <div className="text-lg font-black text-slate-800 uppercase mt-1 flex items-center justify-end gap-2"><UserIcon size={18} className="text-teal-600"/> {cycle.operator}</div>
-                                    </div>
-                                </div>
-                            ))}
-                            {sterilizationCycles.length === 0 && <div className="p-20 text-center opacity-30 italic font-black text-slate-800 tracking-widest uppercase">No sterilization cycles recorded in registry.</div>}
-                        </div>
-                    </div>
-                )}
+                 )}
             </div>
         </div>
 
@@ -424,76 +418,6 @@ const Inventory: React.FC<InventoryProps> = ({
                         <button onClick={handleSaveItem} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all flex items-center gap-3">
                             <Save size={20} /> Save to Registry
                         </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {showCycleModal && (
-            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex justify-center items-center p-4 animate-in fade-in duration-200" role="dialog" aria-labelledby="load-modal-title" aria-modal="true">
-                <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border-4 border-teal-100">
-                    <div className="bg-teal-900 p-8 text-white flex justify-between items-center shrink-0">
-                        <div className="flex items-center gap-4">
-                            <ShieldCheck size={32} className="text-teal-400" aria-hidden="true"/>
-                            <div>
-                                <h3 id="load-modal-title" className="text-2xl font-black uppercase tracking-tighter leading-none">Register Cycle Load</h3>
-                                <p className="text-xs font-bold text-teal-300 uppercase tracking-widest mt-1">Instrument Life-Cycle Traceability</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setShowCycleModal(false)} aria-label="Close load registration"><X size={24}/></button>
-                    </div>
-
-                    <div className="p-8 space-y-6 flex-1 overflow-y-auto no-scrollbar bg-slate-50/30">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="label text-xs">Autoclave Unit</label><select aria-label="Autoclave select" value={newCycle.autoclaveName} onChange={e => setNewCycle({...newCycle, autoclaveName: e.target.value})} className="input text-sm"><option>Autoclave 1</option><option>Autoclave 2</option></select></div>
-                            <div><label className="label text-xs">Cycle Reference #</label><input type="text" value={newCycle.cycleNumber} onChange={e => setNewCycle({...newCycle, cycleNumber: e.target.value})} className="input text-sm font-mono" placeholder="AUTO_XXXX"/></div>
-                        </div>
-                        <div>
-                            <label className="label text-xs">Operating Personnel</label>
-                            <select aria-label="Operating Personnel" value={newCycle.operator} onChange={e => setNewCycle({...newCycle, operator: e.target.value})} className="input text-sm font-bold">
-                                <option value="">- Select Verified Staff -</option>
-                                {STAFF.map(s => <option key={s.id} value={s.name}>{s.name} ({s.role})</option>)}
-                            </select>
-                        </div>
-
-                        <div className="space-y-3">
-                             <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2"><Armchair size={16} className="text-lilac-600"/> Load Composition Registry</label>
-                             <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border-2 border-slate-100 rounded-2xl p-2 bg-white shadow-inner no-scrollbar">
-                                 {branchSets.map(set => {
-                                     const isSelected = newCycle.instrumentSetIds?.includes(set.id);
-                                     return (
-                                         <button 
-                                            key={set.id}
-                                            onClick={() => {
-                                                const current = newCycle.instrumentSetIds || [];
-                                                const next = current.includes(set.id) ? current.filter(i => i !== set.id) : [...current, set.id];
-                                                setNewCycle({...newCycle, instrumentSetIds: next});
-                                            }}
-                                            className={`p-4 rounded-xl border-2 text-left flex justify-between items-center transition-all ${isSelected ? 'bg-teal-50 border-teal-500 shadow-sm' : 'bg-white border-slate-100 opacity-60 hover:opacity-100'}`}
-                                         >
-                                             <div>
-                                                 <div className="text-sm font-black text-slate-800 uppercase tracking-tight leading-none">{set.name}</div>
-                                                 <div className="text-[11px] font-black text-slate-500 uppercase mt-1">Status: {set.status}</div>
-                                             </div>
-                                             {isSelected && <CheckCircle size={20} className="text-teal-600" aria-hidden="true"/>}
-                                         </button>
-                                     );
-                                 })}
-                             </div>
-                        </div>
-
-                        <label className={`flex items-center gap-4 p-5 rounded-3xl border-2 cursor-pointer transition-all shadow-sm ${newCycle.passed ? 'bg-teal-50 border-teal-500' : 'bg-red-50 border-red-500 animate-pulse'}`}>
-                            <input type="checkbox" checked={newCycle.passed} onChange={e => setNewCycle({...newCycle, passed: e.target.checked})} className="w-8 h-8 accent-teal-600 rounded" />
-                            <div>
-                                <span className="font-black text-slate-950 uppercase text-xs tracking-widest">Biological Indicator Passed</span>
-                                <p className="text-[11px] text-slate-700 leading-tight uppercase font-black mt-1">I certify that chemical/biological indicators confirm successful sterilization of this entire load.</p>
-                            </div>
-                        </label>
-                    </div>
-
-                    <div className="p-8 border-t bg-white flex gap-4 shrink-0">
-                        <button onClick={() => setShowCycleModal(false)} className="flex-1 py-5 bg-slate-100 border font-black uppercase text-xs tracking-widest rounded-2xl text-slate-600">Cancel</button>
-                        <button onClick={handleSaveCycle} className="flex-[2] py-5 bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all">Finalize forensic cycle log</button>
                     </div>
                 </div>
             </div>

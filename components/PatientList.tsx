@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft } from 'lucide-react';
+import Fuse from 'fuse.js';
 
 interface PatientListProps {
   patients: Patient[];
@@ -16,15 +17,17 @@ const PatientList: React.FC<PatientListProps> = (props) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { isCollapsed, selectedPatientId, onSelectPatient } = props;
   
+  const fuse = useMemo(() => new Fuse(props.patients, {
+    keys: ['name', 'id', 'phone'],
+    threshold: 0.3,
+  }), [props.patients]);
+
   const filteredPatients = useMemo(() => {
-    if (!searchTerm) return props.patients;
-    const lowercasedTerm = searchTerm.toLowerCase();
-    return props.patients.filter(p =>
-      p.name.toLowerCase().includes(lowercasedTerm) ||
-      p.id.toLowerCase().includes(lowercasedTerm) ||
-      p.phone.includes(lowercasedTerm)
-    );
-  }, [props.patients, searchTerm]);
+    if (!searchTerm.trim()) {
+      return props.patients;
+    }
+    return fuse.search(searchTerm).map(result => result.item);
+  }, [props.patients, searchTerm, fuse]);
 
   const selectedPatient = useMemo(() => 
     props.patients.find(p => p.id === selectedPatientId), 
