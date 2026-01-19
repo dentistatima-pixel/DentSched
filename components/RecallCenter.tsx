@@ -1,13 +1,14 @@
 import React from 'react';
 import { Patient, RecallStatus } from '../types';
-import { Phone, MessageSquare, History, UserCheck, UserX } from 'lucide-react';
+import { Phone, MessageSquare, History, UserCheck, UserX, ArrowLeft } from 'lucide-react';
 
 interface RecallCenterProps {
   patients: Patient[];
   onUpdatePatientRecall: (patientId: string, status: RecallStatus) => void;
+  onBack?: () => void;
 }
 
-const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRecall }) => {
+const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRecall, onBack }) => {
 
   const recallPatients = {
     due: patients.filter(p => p.recallStatus === 'Due'),
@@ -63,6 +64,11 @@ const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRe
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
+            {onBack && (
+              <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                  <ArrowLeft size={24} className="text-slate-600"/>
+              </button>
+            )}
             <div className="bg-teal-600 p-4 rounded-3xl text-white shadow-xl"><History size={36} /></div>
             <div>
                 <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Recall Center</h1>

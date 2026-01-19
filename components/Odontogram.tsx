@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { formatDate } from '../constants';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole, Sparkles, Link, Shield, Star } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole, Sparkles } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -11,7 +10,7 @@ interface OdontogramProps {
   onChartUpdate?: (entry: DentalChartEntry) => void;
 }
 
-type ToolType = 'cursor' | 'exam' | 'restoration' | 'extraction' | 'missing' | 'endo' | 'crown' | 'sealant' | 'implant' | 'bridge' | 'veneer';
+type ToolType = 'cursor' | 'exam' | 'restoration' | 'extraction' | 'missing' | 'endo' | 'crown';
 
 interface ToolDef {
     id: ToolType;
@@ -30,10 +29,6 @@ const TOOLS: ToolDef[] = [
     { id: 'crown', label: 'Crown', icon: Crown, procedure: 'Crown', status: 'Planned', color: 'text-amber-600' },
     { id: 'extraction', label: 'Extract', icon: Scissors, procedure: 'Extraction', status: 'Planned', color: 'text-red-700' },
     { id: 'missing', label: 'Missing', icon: Ghost, procedure: 'Missing', status: 'Existing', color: 'text-slate-500' },
-    { id: 'sealant', label: 'Sealant', icon: Sparkles, procedure: 'Pit and Fissure Sealant', status: 'Planned', color: 'text-sky-600' },
-    { id: 'implant', label: 'Implant', icon: Shield, procedure: 'Dental Implant', status: 'Existing', color: 'text-gray-700' },
-    { id: 'bridge', label: 'Bridge', icon: Link, procedure: 'Fixed Bridge Pontic', status: 'Existing', color: 'text-indigo-600' },
-    { id: 'veneer', label: 'Veneer', icon: Star, procedure: 'Porcelain Veneer', status: 'Planned', color: 'text-pink-500' },
 ];
 
 const GeometricTooth: React.FC<{
@@ -276,7 +271,7 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
               toothNumber: tooth,
               procedure: activeTool.procedure,
               status: activeTool.status,
-              surfaces: ['extraction', 'missing', 'crown', 'endo', 'implant', 'bridge', 'veneer'].includes(activeToolId) ? undefined : surface,
+              surfaces: ['extraction', 'missing', 'crown', 'endo'].includes(activeToolId) ? undefined : surface,
               date: new Date().toISOString().split('T')[0],
               price: 0
           };

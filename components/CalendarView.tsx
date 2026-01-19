@@ -17,7 +17,7 @@ import { useToast } from './ToastSystem';
 interface CalendarViewProps {
   appointments: Appointment[];
   staff: User[];
-  onAddAppointment: (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => void;
+  onAddAppointment: (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment, overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string }) => void;
   onMoveAppointment?: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => void;
   onUpdateAppointmentStatus?: (appointmentId: string, status: AppointmentStatus) => void;
   onPatientSelect?: (patientId: string) => void;
@@ -115,12 +115,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   }, [selectedDate]);
 
   const visibleProviders = useMemo(() => {
-      if (!currentUser) return [];
-      if (currentUser.role === UserRole.DENTIST && viewMode !== 'week') return [currentUser];
-      let branchStaff = staff.filter(u => u.role === UserRole.DENTIST);
-      if (currentBranch) branchStaff = branchStaff.filter(u => u.allowedBranches?.includes(currentBranch));
-      return branchStaff;
-  }, [staff, currentBranch, currentUser, viewMode]);
+    if (!currentUser) return [];
+    if (currentUser.role === UserRole.DENTIST && viewMode !== 'week') {
+        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // Mon, Tue...
+        if (currentUser.roster?.[dayOfWeek] === currentBranch) {
+            return [currentUser];
+        }
+        return [];
+    }
+    let branchStaff = staff.filter(u => u.role === UserRole.DENTIST);
+    if (currentBranch) {
+        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // Mon, Tue...
+        branchStaff = branchStaff.filter(u => u.roster?.[dayOfWeek] === currentBranch);
+    }
+    return branchStaff;
+  }, [staff, currentBranch, currentUser, viewMode, selectedDate]);
 
   const visibleResources = useMemo(() => {
       if (!fieldSettings?.resources) return [];
@@ -206,7 +215,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
 
   const executeOverride = () => {
       if (overrideTarget && selectedManagerId && managerPin === '1234') {
-          onAddAppointment(formattedDate, undefined, overrideTarget.patientId);
+          onAddAppointment(formattedDate, undefined, overrideTarget.patientId, undefined, { isWaitlistOverride: true, authorizedManagerId: selectedManagerId });
           toast.success("Manager Override Verified. Appointment Queued.");
           setOverrideTarget(null);
           setManagerPin('');
@@ -242,6 +251,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             newProviderId = originalApt.providerId;
             newResourceId = colId;
         }
+        
+        const newDayOfWeek = new Date(newDate).toLocaleDateString('en-US', { weekday: 'short' });
+        const provider = staff.find(s => s.id === newProviderId);
+        if (provider && provider.roster && provider.roster[newDayOfWeek] !== (currentBranch || originalApt.branch)) {
+            toast.error("Provider is not rostered for this day/branch.");
+            return;
+        }
+
 
         const isConflict = appointments.some(a => 
             a.id !== appointmentId &&

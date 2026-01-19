@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
-import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck } from 'lucide-react';
+import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface LeaveAndShiftManagerProps {
@@ -10,9 +10,10 @@ interface LeaveAndShiftManagerProps {
     onAddLeaveRequest: (request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => void;
     onApproveLeaveRequest: (id: string, approve: boolean) => void;
     fieldSettings: FieldSettings;
+    onBack?: () => void;
 }
 
-const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onAddLeaveRequest, onApproveLeaveRequest, fieldSettings }) => {
+const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onAddLeaveRequest, onApproveLeaveRequest, fieldSettings, onBack }) => {
     const [showRequestForm, setShowRequestForm] = useState(false);
     const [newRequest, setNewRequest] = useState({
         type: 'Vacation' as LeaveRequest['type'],
@@ -48,6 +49,11 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
     return (
         <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 pb-24">
             <div className="flex items-center gap-4">
+                {onBack && (
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                      <ArrowLeft size={24} className="text-slate-600"/>
+                  </button>
+                )}
                 <div className="bg-rose-600 p-4 rounded-3xl text-white shadow-xl"><UserX size={36} /></div>
                 <div>
                     <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Leave & Shift Management</h1>

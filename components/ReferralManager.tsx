@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Patient, Referral, User as Staff } from '../types';
-import { Send, Users, UserCheck, ChevronRight, Plus } from 'lucide-react';
+import { Send, Users, UserCheck, ChevronRight, Plus, ArrowLeft } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface ReferralManagerProps {
@@ -8,9 +8,10 @@ interface ReferralManagerProps {
     referrals: Referral[];
     onSaveReferral: (referral: Referral) => void;
     staff: Staff[];
+    onBack?: () => void;
 }
 
-const ReferralManager: React.FC<ReferralManagerProps> = ({ patients, referrals, onSaveReferral, staff }) => {
+const ReferralManager: React.FC<ReferralManagerProps> = ({ patients, referrals, onSaveReferral, staff, onBack }) => {
     const [activeTab, setActiveTab] = useState<'incoming' | 'outgoing'>('incoming');
 
     const incomingStats = useMemo(() => {
@@ -41,6 +42,11 @@ const ReferralManager: React.FC<ReferralManagerProps> = ({ patients, referrals, 
     return (
         <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 pb-24">
             <div className="flex items-center gap-4">
+                {onBack && (
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                      <ArrowLeft size={24} className="text-slate-600"/>
+                  </button>
+                )}
                 <div className="bg-amber-600 p-4 rounded-3xl text-white shadow-xl"><Send size={36} /></div>
                 <div>
                     <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Referral Hub</h1>

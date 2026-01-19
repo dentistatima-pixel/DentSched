@@ -79,10 +79,12 @@ const Layout: React.FC<LayoutProps> = ({
   
   const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
   const isAuthorityLocked = isPrcExpired || isMalpracticeExpired;
+  
+  const branchColor = fieldSettings?.branchColors?.[currentBranch] || '#134e4a'; // Fallback to teal-900
 
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
-    : "h-24 bg-teal-900/95 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-teal-800/50 transition-all duration-500";
+    : "h-24 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-black/20 transition-all duration-500";
 
   const confirmDowntime = () => {
     onSwitchSystemStatus?.(SystemStatus.DOWNTIME);
@@ -103,7 +105,7 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Visual Connectivity Bar */}
       <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-400 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
 
-      <header className={headerClass}>
+      <header className={headerClass} style={{ backgroundColor: isDowntime ? undefined : `${branchColor}F2` }}>
              <div className="flex items-center gap-6">
                 <div className="flex flex-col">
                      <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
@@ -154,12 +156,12 @@ const Layout: React.FC<LayoutProps> = ({
                  <div className="relative">
                     <button
                         onClick={() => setIsNotificationPopoverOpen(!isNotificationPopoverOpen)}
-                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isNotificationPopoverOpen ? 'bg-teal-800 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`}
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isNotificationPopoverOpen ? 'bg-black/40 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`}
                         aria-label={`Notifications: ${notificationCount} unread`}
                         aria-expanded={isNotificationPopoverOpen}
                     >
                         <Bell size={22} />
-                        {notificationCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-lilac-500 text-white text-xs font-black flex items-center justify-center rounded-full border-2 border-teal-900 shadow-lg">{notificationCount}</span>}
+                        {notificationCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-lilac-500 text-white text-xs font-black flex items-center justify-center rounded-full border-2" style={{borderColor: branchColor}}>{notificationCount}</span>}
                     </button>
                     {isNotificationPopoverOpen && (
                         <>
@@ -199,6 +201,14 @@ const Layout: React.FC<LayoutProps> = ({
                 </button>
              </div>
       </header>
+      
+      {isAuthorityLocked && (
+        <div className="bg-red-600 text-white p-4 text-center font-black uppercase tracking-widest text-sm z-[60] flex justify-center items-center gap-4 shadow-2xl animate-pulse-red" role="alert">
+          <ShieldAlert size={20}/>
+          <span>CLINICAL AUTHORITY LOCKED: Your credentials have expired.</span>
+          <button onClick={onOpenProfile} className="ml-4 bg-white/90 text-red-700 px-6 py-2 rounded-lg text-xs hover:bg-white transition-colors">Update Profile</button>
+        </div>
+      )}
 
       {isMobileMenuOpen && (
             <div className="fixed inset-0 top-24 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col" role="dialog" aria-modal="true" aria-label="Mobile Navigation">

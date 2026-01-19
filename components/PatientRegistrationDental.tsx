@@ -20,24 +20,33 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
     handleChange({ target: { name: 'registryAnswers', value: currentAnswers } } as any);
   };
 
+  const dentalFields = fieldSettings.identityLayoutOrder
+    .map(id => {
+        const fieldId = id.replace('field_', '');
+        return fieldSettings.identityFields.find(f => f.id === fieldId);
+    })
+    .filter(f => f && f.section === 'DENTAL');
+
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {fieldSettings.dentalHistoryRegistry.map(q => {
-                const isDate = q.toLowerCase().includes('date');
-                const isChecked = (formData.registryAnswers?.[q] as string) || '';
+            {dentalFields.map(field => {
+                if (!field) return null;
+                const isDate = field.type === 'date';
+                const value = (formData as any)[field.id] || '';
                 return (
-                    <div key={q}>
+                    <div key={field.id}>
                         <label className="label flex items-center gap-2">
                             {isDate ? <Calendar size={14}/> : <FileText size={14}/>}
-                            {q}
+                            {field.label}
                         </label>
                         <input 
                             disabled={readOnly} 
-                            type={isDate ? 'date' : 'text'} 
-                            name={q} 
-                            value={isChecked} 
-                            onChange={(e) => handleDynamicAnswerChange(q, e.target.value)} 
+                            type={field.type} 
+                            name={field.id} 
+                            value={value} 
+                            onChange={handleChange} 
                             className="input" 
                         />
                     </div>

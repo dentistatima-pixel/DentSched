@@ -392,6 +392,8 @@ export interface Expense {
   amount: number;
   branch: string;
   staffId?: string;
+  receiptNumber?: string;
+  supplierTIN?: string;
 }
 
 export interface AuditLogEntry {
@@ -433,6 +435,7 @@ export interface ProcedureItem {
   isPhilHealthCovered?: boolean;
   riskAllergies?: string[]; 
   allowedLicenseCategories?: LicenseCategory[];
+  defaultDurationMinutes?: number;
 }
 
 export interface RolePermissions {
@@ -787,7 +790,7 @@ export interface TreatmentPlan {
   reviewedAt?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
-  color?: string; // For Gap 13
+  color?: string;
   financialConsentSignature?: string;
 }
 
@@ -1000,6 +1003,7 @@ export interface FieldSettings {
   shadeGuides: string[];
   restorativeMaterials: string[];
   branches: string[];
+  branchColors?: Record<string, string>;
   resources: ClinicResource[];
   assets: MaintenanceAsset[];
   vendors: Vendor[];

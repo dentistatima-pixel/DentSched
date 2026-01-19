@@ -1,5 +1,5 @@
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup } from './types';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}`;
@@ -124,6 +124,10 @@ export const PATIENTS: Patient[] = [
         ledger: [ {id: 'l1', date: getPastDateStr(30), description: 'Zirconia Crown', type: 'Charge', amount: 20000, balanceAfter: 20000}, {id: 'l2', date: getPastDateStr(29), description: 'GCash Payment', type: 'Payment', amount: 15000, balanceAfter: 5000} ],
         dentalChart: [ { id: 'dc1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(30), price: 20000, planId: 'tp1' } ],
         familyGroupId: 'fam_scott_01',
+    },
+     {
+        id: 'p_fam_02', name: 'Dwight Schrute', firstName: 'Dwight', surname: 'Schrute', dob: '1970-01-20', age: 54, sex: 'Male', phone: '0917-333-4444', email: 'd.schrute@dunder.com', lastVisit: getPastDateStr(365), nextVisit: null, currentBalance: 0, recallStatus: 'Overdue',
+        familyGroupId: 'fam_scott_01', attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
     },
     {
         id: 'p_reliable_01', name: 'Eleanor Shellstrop', firstName: 'Eleanor', surname: 'Shellstrop', dob: '1988-10-25', age: 35, sex: 'Female', phone: '0917-123-4567', email: 'e.shell@thegood.place', lastVisit: getPastDateStr(180), nextVisit: null, currentBalance: 0, recallStatus: 'Due',
@@ -374,7 +378,8 @@ export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
 export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = MOCK_STERILIZATION_CYCLES;
 
 export const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Main', staffId: 'doc1' }
+    { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Main', staffId: 'doc1' },
+    { id: 'exp_2', date: getPastDateStr(5), category: 'Dental Supplies (Consumables)', description: 'Order #4552 from Supplier', amount: 8500, branch: 'Makati Main', receiptNumber: 'OR-12345', supplierTIN: '123-456-789-000' }
 ];
 
 export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
@@ -384,7 +389,8 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
 export const MOCK_AUDIT_LOG_INITIALIZED: AuditLogEntry[] = MOCK_AUDIT_LOG;
 
 export const MOCK_VENDORS: Vendor[] = [
-    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2025-01-15' }
+    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2025-01-15' },
+    { id: 'v2', name: 'Intellicare', type: 'HMO', contactPerson: 'Jane Doe', contactNumber: '0918-987-6543', email: 'claims@intellicare.com.ph', status: 'Active', priceBookId: 'pb_hmo_1' }
 ];
 
 const DEFAULT_SMS: SmsTemplates = {
@@ -647,6 +653,12 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Staff Salaries & Benefits'
   ],
   branches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
+  branchColors: {
+    'Makati Main': '#0d9488', // teal-600
+    'Quezon City Satellite': '#86198f', // lilac-700
+    'BGC Premium': '#fbbf24', // amber-400
+    'Alabang South': '#dc2626' // red-600
+  },
   resources: MOCK_RESOURCES,
   assets: MOCK_ASSETS,
   vendors: MOCK_VENDORS,
@@ -701,14 +713,32 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   },
   practitionerDelays: { 'doc1': 15 }, // For Gap 10
   priceBooks: [
-      { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true }
+      { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true },
+      { id: 'pb_hmo_1', name: 'Intellicare HMO Rates' }
   ],
-  priceBookEntries: DEFAULT_PROCEDURES.map(p => ({
-      priceBookId: 'pb_1',
-      procedureId: p.id,
-      price: Math.floor(Math.random() * 10000) + 500 // Dummy prices for now
-  })),
+  priceBookEntries: [
+    ...DEFAULT_PROCEDURES.map(p => ({
+        priceBookId: 'pb_1',
+        procedureId: p.id,
+        price: Math.floor(Math.random() * 5000) + 1000 // Dummy prices for now
+    })),
+    ...DEFAULT_PROCEDURES.map(p => ({
+        priceBookId: 'pb_hmo_1',
+        procedureId: p.id,
+        price: Math.floor((Math.floor(Math.random() * 5000) + 1000) * 0.8) // 20% discount for HMO
+    }))
+  ],
   familyGroups: [
-      { id: 'fam_scott_01', familyName: 'Scott Family', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01'] }
+      { id: 'fam_scott_01', familyName: 'Scott-Schrute Family', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
+  ],
+  clinicalProtocolRules: [
+    { 
+        id: 'rule_surg_clearance', 
+        name: 'Surgical Clearance Protocol (PDA Rule 4)', 
+        triggerProcedureCategories: ['Oral Surgery'], 
+        requiresMedicalConditions: CRITICAL_CLEARANCE_CONDITIONS, 
+        requiresDocumentCategory: 'Medical Clearance', 
+        alertMessage: "REFERRAL HARD-STOP: Medical clearance is REQUIRED for a high-risk patient before any surgical procedure. No valid clearance found on file within the last 3 months."
+    }
   ]
 };

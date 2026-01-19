@@ -1,23 +1,28 @@
-
 import React from 'react';
 import { User, FieldSettings, UserRole } from '../types';
-import { Users2, MapPin } from 'lucide-react';
+import { Users2, MapPin, ArrowLeft } from 'lucide-react';
 
 interface RosterViewProps {
   staff: User[];
   fieldSettings: FieldSettings;
   currentUser: User;
   onUpdateStaffRoster: (staffId: string, day: string, branch: string) => void;
+  onBack?: () => void;
 }
 
-const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings, currentUser, onUpdateStaffRoster }) => {
+const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings, currentUser, onUpdateStaffRoster, onBack }) => {
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dentists = staff.filter(s => s.role === UserRole.DENTIST);
-  const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT;
+  const isAdmin = currentUser.role === UserRole.ADMIN;
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex items-center gap-4">
+        {onBack && (
+          <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+              <ArrowLeft size={24} className="text-slate-600"/>
+          </button>
+        )}
         <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-xl">
           <Users2 size={36} />
         </div>

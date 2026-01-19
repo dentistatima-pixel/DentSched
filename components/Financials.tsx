@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
@@ -6,7 +5,7 @@ import {
     History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, 
     AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, 
     Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, Activity, Target, 
-    Scale, Layers, ArrowRight, Shield, PenTool, Fingerprint
+    Scale, Layers, ArrowRight, Shield, PenTool, Fingerprint, ArrowLeft
 } from 'lucide-react';
 import { 
     HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
@@ -45,6 +44,7 @@ interface FinancialsProps {
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
   onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => void;
+  onBack?: () => void;
 }
 
 const CashReconciliationTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">Cash Reconciliation Interface Syncing...</div>;
@@ -56,7 +56,7 @@ const Financials: React.FC<FinancialsProps> = (props) => {
   const { 
     claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
     onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch,
-    governanceTrack, setGovernanceTrack, onAddPayrollPeriod
+    governanceTrack, setGovernanceTrack, onAddPayrollPeriod, onBack
   } = props;
   
   const [activeTab, setActiveTab] = useState<string>('analytics');
@@ -238,9 +238,14 @@ const Financials: React.FC<FinancialsProps> = (props) => {
   };
 
   return (
-    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24" role="main" aria-label="Financial Management System">
+    <div className={`h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 ${isStatutory ? 'statutory-mode' : ''}`} role="main" aria-label="Financial Management System">
       <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
+              {onBack && (
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                      <ArrowLeft size={24} className="text-slate-600"/>
+                  </button>
+              )}
               <div className={`p-4 rounded-3xl shadow-xl transition-all duration-500 ${isStatutory ? 'bg-lilac-600 text-white rotate-6' : 'bg-teal-600 text-white'}`} aria-hidden="true">
                   {isStatutory ? <ShieldCheck size={36} /> : <Activity size={36} />}
               </div>
@@ -275,7 +280,12 @@ const Financials: React.FC<FinancialsProps> = (props) => {
           )}
       </header>
 
-      <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white flex-1 flex flex-col overflow-hidden relative">
+      <div className={`bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 flex-1 flex flex-col overflow-hidden relative transition-colors ${isStatutory ? 'border-lilac-100' : 'border-white'}`}>
+        {isStatutory && (
+            <div className="bg-lilac-600 text-white p-4 text-center font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3">
+                <ShieldCheck size={20} /> Official Registry
+            </div>
+        )}
         <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar gap-2 pt-2" role="tablist" aria-label="Financial modules">
             {trackTabs.map(tab => (
                  <button 
@@ -284,14 +294,14 @@ const Financials: React.FC<FinancialsProps> = (props) => {
                     aria-selected={activeTab === tab.id}
                     aria-controls={`${tab.id}-panel`}
                     onClick={() => setActiveTab(tab.id)} 
-                    className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-3 ${activeTab === tab.id ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
+                    className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-3 ${activeTab === tab.id ? `${isStatutory ? 'border-lilac-600 text-lilac-900' : 'border-teal-600 text-teal-900'} bg-white` : `border-transparent text-slate-500 hover:${isStatutory ? 'text-lilac-700 border-lilac-200' : 'text-teal-700 border-teal-200'} hover:bg-white/50`}`}
                 >
                     <tab.icon size={18} aria-hidden="true" /> {tab.label}
                 </button>
             ))}
         </div>
         
-        <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 no-scrollbar" id={`${activeTab}-panel`}>
+        <div className={`flex-1 overflow-y-auto p-10 no-scrollbar transition-colors ${isStatutory ? 'bg-lilac-50/20' : 'bg-slate-50/30'}`} id={`${activeTab}-panel`}>
             {renderContent()}
         </div>
 
@@ -389,13 +399,11 @@ const PayrollTab: React.FC<any> = ({ appointments, staff, expenses, fieldSetting
     
     const handleCreatePeriod = () => {
         if (!newPeriod.startDate || !newPeriod.endDate) return;
-        if (onAddPayrollPeriod) {
-            onAddPayrollPeriod({
-                providerId: selectedDentistId,
-                ...newPeriod,
-                status: 'Open'
-            });
-        }
+        onAddPayrollPeriod({
+            providerId: selectedDentistId,
+            ...newPeriod,
+            status: 'Open'
+        });
         setIsCreatingPeriod(false);
         setNewPeriod({ startDate: '', endDate: '' });
     };

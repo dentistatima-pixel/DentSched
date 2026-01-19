@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
@@ -235,6 +234,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         <RegistrationDental 
                             formData={formData} 
                             handleChange={handleChange} 
+                            onUpdateChart={() => {}} // This prop is not used for history logging
                             readOnly={readOnly}
                             fieldSettings={fieldSettings} 
                         />

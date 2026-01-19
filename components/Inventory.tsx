@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale, ShoppingBag, Download, User as UserIcon, ClipboardCheck, ArrowUpCircle, EyeOff, BarChart2, Armchair, ShieldCheck, Thermometer } from 'lucide-react';
+import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale, ShoppingBag, Download, User as UserIcon, ClipboardCheck, ArrowUpCircle, EyeOff, BarChart2, Armchair, ShieldCheck, Thermometer, ArrowLeft } from 'lucide-react';
 import { StockItem, StockCategory, SterilizationCycle, User, UserRole, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry, AppointmentStatus, InstrumentSet } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate, STAFF } from '../constants';
@@ -19,6 +19,7 @@ interface InventoryProps {
   onUpdateSettings?: (s: FieldSettings) => void;
   appointments?: Appointment[];
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  onBack?: () => void;
 }
 
 const TOLERANCE_MAP: Record<StockCategory, number> = {
@@ -32,7 +33,7 @@ const TOLERANCE_MAP: Record<StockCategory, number> = {
 const Inventory: React.FC<InventoryProps> = ({ 
     stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser, 
     currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings,
-    appointments = [], logAction
+    appointments = [], logAction, onBack
 }) => {
   const toast = useToast();
   const complexity = fieldSettings?.features.inventoryComplexity || 'SIMPLE';
@@ -195,6 +196,11 @@ const Inventory: React.FC<InventoryProps> = ({
     <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20" role="main" aria-label="Supply Chain and Sterilization System">
         <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4">
+                {onBack && (
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                      <ArrowLeft size={24} className="text-slate-600"/>
+                  </button>
+                )}
                 <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-xl" aria-hidden="true"><Package size={36} /></div>
                 <div>
                     <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">{isAdvanced ? 'Clinic Logistics' : 'Stock Control'}</h1>

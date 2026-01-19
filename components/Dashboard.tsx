@@ -37,7 +37,7 @@ interface DashboardProps {
   onConfirmFollowUp?: (appointmentId: string) => void;
   onQuickQueue: () => void;
   onQuickAddPatient: () => void;
-  onNavigate: (tab: string) => void;
+  onNavigateToQueue: (queue: string) => void;
 }
 
 const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: string } } = {
@@ -56,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   appointments, currentUser, patients, onAddPatient, onPatientSelect, onAddAppointment,
   onUpdateAppointmentStatus, fieldSettings, tasks = [], onToggleTask, onCompleteRegistration,
   syncConflicts = [], onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp, onQuickQueue, staff = [],
-  onQuickAddPatient, onNavigate
+  onQuickAddPatient, onNavigateToQueue
 }) => {
   const toast = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -98,9 +98,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     const completedToday = todaysFullSchedule.filter(a => a.status === AppointmentStatus.COMPLETED);
     const production = completedToday.reduce((sum, apt) => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        if (!proc) return sum;
-        // Correctly find the price from priceBookEntries
-        const priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
+        const patient = getPatient(apt.patientId);
+        if (!proc || !patient) return sum;
+
+        // Gap 7 Fix: Find price book for patient's insurance
+        const patientHMO = fieldSettings?.vendors.find(v => v.type === 'HMO' && v.name === patient.insuranceProvider);
+        let priceBookId = patientHMO?.priceBookId;
+
+        // Fallback to default
+        if (!priceBookId) {
+            priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
+        }
+        
         const priceEntry = fieldSettings?.priceBookEntries?.find(
             pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId
         );
@@ -111,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       patientsSeen: completedToday.length,
       noShows: todaysFullSchedule.filter(a => a.status === AppointmentStatus.NO_SHOW).length
     };
-  }, [todaysFullSchedule, fieldSettings]);
+  }, [todaysFullSchedule, fieldSettings, patients]);
 
   const actionItems = useMemo(() => {
     const items = [];
@@ -124,14 +133,16 @@ const Dashboard: React.FC<DashboardProps> = ({
         a.date >= twentyFourHoursAgo.split('T')[0] &&
         !a.followUpConfirmed
     );
+    const pendingRegistrations = patients.filter(p => !p.dpaConsent);
 
-    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => onNavigate('admin') });
-    if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning, action: () => onVerifyDowntimeEntry && onVerifyDowntimeEntry(downtimeEntries[0].id) });
-    if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert, action: () => onVerifyMedHistory && onVerifyMedHistory(medHistoryEntries[0].id) });
-    if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle, action: () => onConfirmFollowUp && onConfirmFollowUp(postOpPatients[0].id) });
+    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => onNavigateToQueue('sync') });
+    if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning, action: () => onNavigateToQueue('downtime') });
+    if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert, action: () => onNavigateToQueue('med_history') });
+    if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle, action: () => onNavigateToQueue('post_op') });
+    if(pendingRegistrations.length > 0) items.push({ type: 'Pending Registrations', count: pendingRegistrations.length, icon: FileBadge2, action: () => onNavigateToQueue('registrations') });
     
     return items;
-  }, [appointments, syncConflicts, onNavigate, onVerifyDowntimeEntry, onVerifyMedHistory, onConfirmFollowUp]);
+  }, [appointments, syncConflicts, patients, onNavigateToQueue]);
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
@@ -214,8 +225,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <div 
                         key={apt.id} 
                         onClick={() => onPatientSelect(apt.patientId)}
-                        className="relative p-4 rounded-2xl flex flex-col gap-3 transition-all group cursor-pointer bg-white hover:bg-slate-50 border border-slate-100"
+                        className={`relative p-4 rounded-2xl flex flex-col gap-3 transition-all group cursor-pointer bg-white hover:bg-slate-50 border border-slate-100 ${apt.isLate ? 'border-red-300 bg-red-50/50' : ''}`}
                     >
+                        {apt.isLate && <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse"><Clock size={10}/> Late</div>}
                         <div className="flex items-center gap-4">
                             <div className="w-16 shrink-0 font-black text-slate-800 text-sm">{apt.time}</div>
                             <div className="flex-1 min-w-0 truncate">

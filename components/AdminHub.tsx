@@ -1,11 +1,108 @@
 import React from 'react';
-import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX } from 'lucide-react';
+import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageCircle, FileBadge2 } from 'lucide-react';
+import { Appointment, Patient, SyncConflict, User } from '../types';
+import { formatDate } from '../constants';
 
 interface AdminHubProps {
   onNavigate: (tab: 'financials' | 'inventory' | 'recall' | 'referrals' | 'roster' | 'leave') => void;
+  adminQueue: string | null;
+  setAdminQueue: (queue: string | null) => void;
+  appointments: Appointment[];
+  patients: Patient[];
+  syncConflicts: SyncConflict[];
+  onVerifyDowntimeEntry: (id: string) => void;
+  onVerifyMedHistory: (id: string) => void;
+  onConfirmFollowUp: (id: string) => void;
+  onEditPatient: (patient: Patient) => void;
 }
 
-const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
+const AdminHub: React.FC<AdminHubProps> = ({ 
+  onNavigate,
+  adminQueue,
+  setAdminQueue,
+  appointments,
+  patients,
+  syncConflicts,
+  onVerifyDowntimeEntry,
+  onVerifyMedHistory,
+  onConfirmFollowUp,
+  onEditPatient,
+}) => {
+
+  const workQueues = {
+    downtime: {
+      title: 'Downtime Entries',
+      icon: FileWarning,
+      items: appointments.filter(a => a.entryMode === 'MANUAL' && !a.reconciled)
+    },
+    med_history: {
+      title: 'Medical History Verifications',
+      icon: ShieldAlert,
+      items: appointments.filter(a => a.status === 'Arrived' && !a.medHistoryVerified)
+    },
+    post_op: {
+      title: 'Post-Op Follow-Up',
+      icon: MessageCircle,
+      items: appointments.filter(a => ['Surgery', 'Extraction'].includes(a.type) && a.status === 'Completed' && !a.followUpConfirmed)
+    },
+    registrations: {
+      title: 'Pending Registrations',
+      icon: FileBadge2,
+      items: patients.filter(p => !p.dpaConsent)
+    },
+    sync: {
+      title: 'Sync Conflicts',
+      icon: CloudOff,
+      items: syncConflicts.filter(c => !c.resolved)
+    }
+  };
+
+  if (adminQueue && workQueues[adminQueue as keyof typeof workQueues]) {
+    const queue = workQueues[adminQueue as keyof typeof workQueues];
+    return (
+      <div className="p-4 md:p-8 animate-in fade-in duration-500">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => setAdminQueue(null)} className="bg-white p-3 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90"><ArrowLeft size={20} className="text-slate-600"/></button>
+          <div className="flex items-center gap-3">
+            <queue.icon size={28} className="text-teal-700"/>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tighter">{queue.title} ({queue.items.length})</h1>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {queue.items.map((item: any) => {
+            let patient;
+            if (item.patientId) patient = patients.find(p => p.id === item.patientId);
+            else if (item.localData?.patientId) patient = patients.find(p => p.id === item.localData.patientId);
+            else if (item.id && !item.entityType) patient = item; // It's a patient object for registration queue
+
+            return (
+              <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-slate-800">{patient?.name || `ID: ${item.id}`}</p>
+                  <p className="text-xs text-slate-500">{item.date ? `${formatDate(item.date)} ${item.time || ''} - ${item.type || ''}` : `Patient ID: ${item.id}`}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (adminQueue === 'downtime') onVerifyDowntimeEntry(item.id);
+                    if (adminQueue === 'med_history') onVerifyMedHistory(item.id);
+                    if (adminQueue === 'post_op') onConfirmFollowUp(item.id);
+                    if (adminQueue === 'registrations') onEditPatient(item);
+                    // Sync conflicts are more complex, maybe a modal is needed
+                  }}
+                  className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                >
+                  Resolve
+                </button>
+              </div>
+            );
+          })}
+          {queue.items.length === 0 && <p className="text-center text-slate-400 p-10">This work queue is clear.</p>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 animate-in fade-in duration-500">
       <div className="mb-12 text-center">

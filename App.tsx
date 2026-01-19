@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -23,7 +24,7 @@ import RosterView from './components/RosterView'; // Import RosterView
 import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safety alert modal
 import LeaveAndShiftManager from './components/LeaveAndShiftManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest } from './types';
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -31,6 +32,7 @@ import CryptoJS from 'crypto-js';
 import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon, User as UserIcon } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 import PrivacyRevocationModal from './components/PrivacyRevocationModal';
+import ConsentCaptureModal from './components/ConsentCaptureModal';
 
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
@@ -91,6 +93,7 @@ function App() {
   const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [adminQueue, setAdminQueue] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
   const [patients, setPatients] = useState<Patient[]>(PATIENTS);
   const [staff, setStaff] = useState<User[]>(STAFF);
@@ -149,9 +152,19 @@ function App() {
   // New Drawer State
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false);
   
-  // Gap 5 state
+  // Gap 1 state
+  const [overrideInfo, setOverrideInfo] = useState<{ isWaitlistOverride: boolean; authorizedManagerId: string; } | null>(null);
+  
+  // Gap 2 state
+  const [pendingConsentAppointment, setPendingConsentAppointment] = useState<Appointment | null>(null);
+  
+  // Gap 4 state
   const [revocationTarget, setRevocationTarget] = useState<{ patient: Patient, category: ConsentCategory } | null>(null);
 
+  const handleNavigateToAdminQueue = (queue: string) => {
+    setAdminQueue(queue);
+    setActiveTab('admin');
+  };
 
   // Gap 9: Real-time LATE status check
   useEffect(() => {
@@ -407,6 +420,7 @@ function App() {
           .replace(/{BookingLink}/g, 'dentsched.ph/book');
 
       const smsCfg = fieldSettings.smsConfig;
+      let sent = false;
       if (smsCfg.mode === 'LOCAL' && smsCfg.gatewayUrl) {
           try {
               const res = await fetch(smsCfg.gatewayUrl, {
@@ -418,11 +432,8 @@ function App() {
                       key: smsCfg.apiKey
                   })
               });
-              if (res.ok) {
-                  logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}" via Capcom Direct: ${message}`);
-              } else {
-                  throw new Error("Gateway error");
-              }
+              if (res.ok) { sent = true; } 
+              else { throw new Error("Gateway error"); }
           } catch (err) {
               logAction('SECURITY_ALERT', 'SmsQueue', patient.id, `Capcom Direct Failure for "${config.label}": ${err}`);
               toast.error("SMS Gateway unreachable.");
@@ -440,19 +451,33 @@ function App() {
                       message: message
                   })
               });
-              if (res.ok) {
-                  logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}" via Cloud Server: ${message}`);
-              } else {
-                  throw new Error("Cloud Gateway error");
-              }
+              if (res.ok) { sent = true; } 
+              else { throw new Error("Cloud Gateway error"); }
           } catch (err) {
               logAction('SECURITY_ALERT', 'SmsQueue', patient.id, `Cloud Gateway Failure for "${config.label}": ${err}`);
               toast.error("SMS Cloud Gateway unreachable.");
           }
       } else {
-          logAction('SEND_SMS', 'SmsQueue', patient.id, `Simulated send for "${config.label}" (${smsCfg.mode}): ${message}`);
+          sent = true; // Simulate send
       }
-  }, [fieldSettings, currentBranch, isOnline, systemStatus, toast, logAction]);
+      
+      if (sent) {
+          const commLog: CommunicationLogEntry = {
+              id: `comm_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              channel: CommunicationChannel.SMS,
+              authorId: currentUser.id,
+              authorName: currentUser.name,
+              content: `[${config.label}] ${message}`
+          };
+          const updatedPatient = { ...patient, communicationLog: [...(patient.communicationLog || []), commLog] };
+          const newPatients = patients.map(p => p.id === patient.id ? updatedPatient : p);
+          setPatients(newPatients);
+          saveToLocal('dentsched_patients', newPatients);
+          logAction('SEND_SMS', 'SmsQueue', patient.id, `Sent "${config.label}" via ${smsCfg.mode} Gateway.`);
+      }
+
+  }, [fieldSettings, currentBranch, isOnline, systemStatus, toast, logAction, patients, currentUser, saveToLocal]);
 
   useEffect(() => {
     if (isAuthenticated && scheduledSms.length > 0) {
@@ -885,7 +910,13 @@ function App() {
 
       const patient = patients.find(p => p.id === apt.patientId);
 
-      // Gap 4.2: Safety Timeout
+      // Gap 2: Consent Capture Gate
+      if (status === AppointmentStatus.SEATED && patient && (patient.age || 99) < 18 && !apt.signedConsentUrl) {
+          setPendingConsentAppointment(apt);
+          return;
+      }
+      
+      // Gap 6.2: Safety Timeout
       if (status === AppointmentStatus.TREATING && patient) {
           const hasRisk = (patient.medicalConditions?.some(c => c !== 'None' && c.trim() !== '')) || (patient.allergies?.some(a => a !== 'None' && a.trim() !== ''));
           if (hasRisk) {
@@ -894,7 +925,7 @@ function App() {
           }
       }
 
-      // Gap 4.1: Medical Clearance Gate
+      // Gap 6.1: Medical Clearance Gate
       if ([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(status)) {
           const procedureIsSurgical = apt.type.toLowerCase().includes('surg') || apt.type.toLowerCase().includes('extract');
           if (procedureIsSurgical && patient) {
@@ -970,7 +1001,14 @@ function App() {
     }
   
     if (isNew) {
-        const newPatient: Patient = { ...patientToSave as Patient, lastVisit: 'First Visit', nextVisit: null, notes: patientToSave.notes || '', recallStatus: 'Due' };
+        const newPatient: Patient = { 
+            dentalChart: [], ledger: [], files: [], perioChart: [], treatmentPlans: [], clearanceRequests: [], consentLogs: [], orthoHistory: [], installmentPlans: [], communicationLog: [],
+            ...patientToSave as Patient, 
+            lastVisit: 'First Visit', 
+            nextVisit: null, 
+            notes: patientToSave.notes || '', 
+            recallStatus: 'Due' 
+        };
         logAction('CREATE', 'Patient', newPatient.id, 'Registered new patient');
         
         if (newPatient.referredById) {
@@ -997,6 +1035,52 @@ function App() {
       setEditingPatient(null);
     }
   };
+  
+  const handleConfirmRevocation = (reason: string, notes: string) => {
+      if (!revocationTarget) return;
+      const { patient, category } = revocationTarget;
+
+      const logEntry: ConsentLogEntry = {
+          category,
+          status: 'Revoked',
+          timestamp: new Date().toISOString(),
+          version: fieldSettings.currentPrivacyVersion
+      };
+      
+      let updatedPatient = { 
+          ...patient,
+          consentLogs: [...(patient.consentLogs || []), logEntry]
+      };
+
+      if (category === 'Clinical') updatedPatient.dpaConsent = false;
+      if (category === 'Marketing') updatedPatient.marketingConsent = false;
+      if (category === 'ThirdParty') updatedPatient.thirdPartyDisclosureConsent = false;
+
+      const newPatients = patients.map(p => p.id === patient.id ? updatedPatient : p);
+      setPatients(newPatients);
+      saveToLocal('dentsched_patients', newPatients);
+      
+      logAction('UPDATE', 'Patient', patient.id, `Consent Revoked for category: ${category}. Reason: ${reason}. Notes: ${notes}`);
+      toast.warning(`Consent for ${category} has been revoked.`);
+      setRevocationTarget(null);
+  };
+
+  const handleConsentSave = async (dataUrl: string) => {
+      if (!pendingConsentAppointment) return;
+      
+      const apt = { ...pendingConsentAppointment, signedConsentUrl: dataUrl };
+      
+      const newAppointments = appointments.map(a => a.id === apt.id ? apt : a);
+      setAppointments(newAppointments);
+      saveToLocal('dentsched_appointments', newAppointments);
+
+      await finalizeUpdateStatus(apt.id, AppointmentStatus.SEATED);
+      
+      logAction('UPDATE', 'Appointment', apt.id, 'Pediatric consent captured and sealed for session.');
+      toast.success("Guardian consent sealed.");
+      setPendingConsentAppointment(null);
+  };
+
 
   const handleSaveQuickAddPatient = (firstName: string, surname: string, phone: string) => {
       const newPatient: Patient = {
@@ -1161,6 +1245,11 @@ function App() {
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
 
+  const selectedPatientLocked = useMemo(() => {
+      if (!selectedPatient) return false;
+      return selectedPatient.consentLogs?.some(log => log.category === 'Clinical' && log.status === 'Revoked') || false;
+  }, [selectedPatient]);
+
   const handleSaveIncident = (incident: ClinicalIncident) => {
     const newIncidents = [...incidents, incident];
     setIncidents(newIncidents);
@@ -1269,7 +1358,7 @@ function App() {
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
           onVerifyMedHistory={handleVerifyMedHistory}
           onConfirmFollowUp={handleConfirmFollowUp}
-          onNavigate={setActiveTab}
+          onNavigateToQueue={handleNavigateToAdminQueue}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
           onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
@@ -1277,11 +1366,12 @@ function App() {
       case 'schedule': return <CalendarView 
           appointments={appointments} 
           staff={staff} 
-          onAddAppointment={(date, time, patientId, aptToEdit) => {
+          onAddAppointment={(date, time, patientId, aptToEdit, override) => {
               setBookingDate(date);
               setBookingTime(time);
               setInitialBookingPatientId(patientId);
               setEditingAppointment(aptToEdit || null);
+              setOverrideInfo(override || null);
               setIsAppointmentModalOpen(true);
           }}
           onMoveAppointment={handleMoveAppointment}
@@ -1313,9 +1403,10 @@ function App() {
                     onSaveReferral={handleSaveReferral}
                     onBack={() => setSelectedPatientId(null)}
                     governanceTrack={governanceTrack}
-                    onToggleTimeline={() => setIsTimelineDrawerOpen(!isTimelineDrawerOpen)}
                     onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
                     onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
+                    readOnly={selectedPatientLocked}
+                    sterilizationCycles={sterilizationCycles}
                 />
             ) : (
               <PatientList 
@@ -1339,9 +1430,19 @@ function App() {
                     if (tab === 'roster') { setActiveTab('roster'); }
                     if (tab === 'leave') { setActiveTab('leave'); }
                 }}
+                adminQueue={adminQueue}
+                setAdminQueue={setAdminQueue}
+                appointments={appointments}
+                patients={patients}
+                syncConflicts={syncConflicts}
+                onVerifyDowntimeEntry={handleOpenReconciliationModal}
+                onVerifyMedHistory={handleVerifyMedHistory}
+                onConfirmFollowUp={handleConfirmFollowUp}
+                onEditPatient={handleEditPatient}
             />
           );
       case 'inventory': return <Inventory 
+          onBack={() => setActiveTab('admin')}
           stock={stock} 
           onUpdateStock={handleUpdateStock} 
           sterilizationCycles={sterilizationCycles}
@@ -1358,6 +1459,7 @@ function App() {
           logAction={logAction}
       />;
       case 'financials': return <Financials 
+          onBack={() => setActiveTab('admin')}
           claims={hmoClaims} 
           expenses={MOCK_EXPENSES} 
           philHealthClaims={philHealthClaims}
@@ -1384,10 +1486,10 @@ function App() {
           setGovernanceTrack={setGovernanceTrack}
           onAddPayrollPeriod={handleAddPayrollPeriod}
       />;
-      case 'recall': return <RecallCenter patients={patients} onUpdatePatientRecall={handleUpdatePatientRecall} />;
-      case 'referrals': return <ReferralManager patients={patients} referrals={referrals} staff={staff} onSaveReferral={handleSaveReferral} />;
-      case 'roster': return <RosterView staff={staff} fieldSettings={fieldSettings} currentUser={currentUser} onUpdateStaffRoster={handleUpdateStaffRoster} />;
-      case 'leave': return <LeaveAndShiftManager staff={staff} currentUser={currentUser} leaveRequests={leaveRequests} onAddLeaveRequest={handleAddLeaveRequest} onApproveLeaveRequest={handleApproveLeaveRequest} fieldSettings={fieldSettings} />;
+      case 'recall': return <RecallCenter onBack={() => setActiveTab('admin')} patients={patients} onUpdatePatientRecall={handleUpdatePatientRecall} />;
+      case 'referrals': return <ReferralManager onBack={() => setActiveTab('admin')} patients={patients} referrals={referrals} staff={staff} onSaveReferral={handleSaveReferral} />;
+      case 'roster': return <RosterView onBack={() => setActiveTab('admin')} staff={staff} fieldSettings={fieldSettings} currentUser={currentUser} onUpdateStaffRoster={handleUpdateStaffRoster} />;
+      case 'leave': return <LeaveAndShiftManager onBack={() => setActiveTab('admin')} staff={staff} currentUser={currentUser} leaveRequests={leaveRequests} onAddLeaveRequest={handleAddLeaveRequest} onApproveLeaveRequest={handleApproveLeaveRequest} fieldSettings={fieldSettings} />;
       case 'field-mgmt': return <FieldManagement 
           settings={fieldSettings} 
           onUpdateSettings={handleUpdateSettings}
@@ -1423,7 +1525,7 @@ function App() {
           onVerifyDowntimeEntry={handleOpenReconciliationModal}
           onVerifyMedHistory={handleVerifyMedHistory}
           onConfirmFollowUp={handleConfirmFollowUp}
-          onNavigate={setActiveTab}
+          onNavigateToQueue={handleNavigateToAdminQueue}
           onQuickQueue={() => setIsQuickTriageModalOpen(true)}
           onQuickAddPatient={() => setIsQuickAddPatientModalOpen(true)}
           currentBranch={currentBranch}
@@ -1449,6 +1551,7 @@ function App() {
         onAddAppointment={() => {
             setInitialBookingPatientId(undefined);
             setEditingAppointment(null);
+            setOverrideInfo(null);
             setIsAppointmentModalOpen(true);
         }}
         currentUser={effectiveUser}
@@ -1487,6 +1590,7 @@ function App() {
             setBookingDate(undefined);
             setBookingTime(undefined);
             setInitialBookingPatientId(undefined);
+            setOverrideInfo(null);
         }}
         patients={patients}
         staff={staff}
@@ -1499,6 +1603,9 @@ function App() {
         existingAppointment={editingAppointment}
         fieldSettings={fieldSettings}
         isDowntime={systemStatus === SystemStatus.DOWNTIME}
+        overrideInfo={overrideInfo}
+        sterilizationCycles={sterilizationCycles}
+        currentBranch={currentBranch}
       />
       <PatientRegistrationModal 
         isOpen={isPatientModalOpen}
@@ -1556,6 +1663,28 @@ function App() {
             staff={staff}
             logAction={logAction}
           />
+      )}
+      {revocationTarget && (
+        <PrivacyRevocationModal
+          isOpen={!!revocationTarget}
+          onClose={() => setRevocationTarget(null)}
+          patient={revocationTarget.patient}
+          category={revocationTarget.category}
+          onConfirm={handleConfirmRevocation}
+        />
+      )}
+      {/* Fix: Removed reference to an undefined 'patient' variable. */}
+      {pendingConsentAppointment && (
+        <ConsentCaptureModal
+            isOpen={!!pendingConsentAppointment}
+            onClose={() => setPendingConsentAppointment(null)}
+            onSave={handleConsentSave}
+            patient={patients.find(p => p.id === pendingConsentAppointment.patientId)!}
+            appointment={pendingConsentAppointment}
+            provider={staff.find(s => s.id === pendingConsentAppointment.providerId)}
+            template={fieldSettings.consentFormTemplates[0]}
+            procedure={fieldSettings.procedures.find(p => p.name === pendingConsentAppointment.type)}
+        />
       )}
     </>
   );

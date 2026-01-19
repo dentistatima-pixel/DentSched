@@ -109,9 +109,9 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                         <span className={`text-4xl font-black tracking-tighter ${currentBalance > 0 ? 'text-red-700' : 'text-slate-800'}`}>₱{currentBalance.toLocaleString()}</span>
                     </div>
                     <div className="flex gap-3">
-                         <button onClick={() => setMode('add_installment')} className="bg-white border-2 border-slate-100 hover:border-lilac-500 text-slate-500 hover:text-lilac-700 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-sm hover:shadow-xl"><Calendar size={18}/> Establish Plan</button>
-                         <button onClick={() => setMode('add_charge')} className="bg-white border-2 border-slate-100 hover:border-teal-500 text-slate-500 hover:text-teal-700 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-sm hover:shadow-xl">Log Charge</button>
-                         <button onClick={() => setMode('add_payment')} className={`${isBirMode ? 'bg-lilac-600 shadow-lilac-600/30' : 'bg-teal-900 shadow-teal-900/30'} text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95`}>
+                         <button onClick={() => setMode('add_installment')} disabled={readOnly} className="bg-white border-2 border-slate-100 hover:border-lilac-500 text-slate-500 hover:text-lilac-700 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-sm hover:shadow-xl disabled:opacity-50 disabled:grayscale"><Calendar size={18}/> Establish Plan</button>
+                         <button onClick={() => setMode('add_charge')} disabled={readOnly} className="bg-white border-2 border-slate-100 hover:border-teal-500 text-slate-500 hover:text-teal-700 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-sm hover:shadow-xl disabled:opacity-50 disabled:grayscale">Log Charge</button>
+                         <button onClick={() => setMode('add_payment')} disabled={readOnly} className={`${isBirMode ? 'bg-lilac-600 shadow-lilac-600/30' : 'bg-teal-900 shadow-teal-900/30'} text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:grayscale`}>
                              {isBirMode ? <Receipt size={20}/> : <DollarSign size={20}/>} {isBirMode ? 'Issue Receipt' : 'Receive Payment'}
                          </button>
                     </div>
@@ -197,7 +197,10 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                 <tr key={entry.id} className="hover:bg-slate-50 transition-colors group">
                                     <td className="p-6 text-slate-400 font-mono text-[11px] font-bold">{formatDate(entry.date)}</td>
                                     <td className="p-6">
-                                        <div className="font-black text-slate-700 uppercase text-xs tracking-tight">{entry.description}</div>
+                                        <div className="font-black text-slate-700 uppercase text-xs tracking-tight flex items-center gap-2">
+                                            {entry.orNumber && <Receipt size={14} className="text-lilac-500" title="Official Receipt Issued"/>}
+                                            {entry.description}
+                                        </div>
                                         <div className="text-[9px] text-slate-400 uppercase font-bold mt-1 tracking-widest">ID: {entry.id}</div>
                                     </td>
                                     {isBirMode && (

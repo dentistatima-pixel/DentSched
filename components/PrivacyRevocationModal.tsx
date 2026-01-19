@@ -13,21 +13,27 @@ interface PrivacyRevocationModalProps {
 const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen, onClose, onConfirm, patient, category }) => {
     const [reason, setReason] = useState('Patient Request');
     const [notes, setNotes] = useState('');
-    const [acknowledgedImpact, setAcknowledgedImpact] = useState(false);
+    const [confirmationText, setConfirmationText] = useState('');
 
     if (!isOpen) return null;
 
     const isClinical = category === 'Clinical';
+    const canConfirm = isClinical ? confirmationText === 'REVOKE' : true;
+
+    const handleConfirm = () => {
+        if (!canConfirm) return;
+        onConfirm(reason, notes);
+    };
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-red-100">
-                <div className="p-6 border-b border-red-50 bg-red-50 flex justify-between items-center shrink-0">
+            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border-4 border-red-200">
+                <div className="p-6 border-b border-red-100 bg-red-50 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-red-100 p-2 rounded-xl text-red-600"><ShieldAlert size={24} /></div>
                         <div>
                             <h2 className="text-xl font-black text-red-900 uppercase tracking-tight">Revoke {category} Consent</h2>
-                            <p className="text-xs text-red-700 font-bold uppercase">PDA Compliance Mandatory Check</p>
+                            <p className="text-xs text-red-700 font-bold uppercase">High-Consequence Action</p>
                         </div>
                     </div>
                     <button onClick={onClose}><X size={24} className="text-red-300 hover:text-red-500" /></button>
@@ -37,11 +43,11 @@ const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen,
                     {isClinical && (
                         <div className="bg-red-600 text-white p-6 rounded-3xl shadow-xl shadow-red-600/20 space-y-4 animate-in shake duration-500">
                             <div className="flex gap-4">
-                                <AlertTriangle size={32} className="shrink-0 animate-pulse" />
-                                <h3 className="text-lg font-black uppercase tracking-tighter leading-tight">Critical Impact Warning</h3>
+                                <AlertTriangle size={40} className="shrink-0 animate-pulse" />
+                                <h3 className="text-lg font-black uppercase tracking-tighter leading-tight">CRITICAL IMPACT WARNING</h3>
                             </div>
                             <p className="text-sm font-medium leading-relaxed">
-                                Revoking Clinical Processing Consent will immediately <strong>lock this record</strong>. Staff will be unable to view the Odontogram, write Clinical Notes, or process Insurance Claims. This effectively terminates the clinical relationship for legal compliance.
+                                Revoking Clinical Processing Consent will immediately and permanently <strong>lock this patient's record to read-only</strong>. Staff will be unable to view the Odontogram, write Clinical Notes, or process Insurance Claims. This action may legally terminate the clinical relationship.
                             </p>
                         </div>
                     )}
@@ -72,25 +78,25 @@ const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen,
                             />
                         </div>
 
-                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${acknowledgedImpact ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
-                            <input 
-                                type="checkbox" 
-                                checked={acknowledgedImpact} 
-                                onChange={e => setAcknowledgedImpact(e.target.checked)}
-                                className="w-6 h-6 mt-0.5 accent-teal-600 rounded" 
-                            />
-                            <div className="text-xs font-bold text-slate-700">
-                                I confirm I have informed the patient that this revocation may limit or prevent further clinical treatment.
+                        {isClinical && (
+                            <div>
+                                <label className="text-[10px] font-black text-red-700 uppercase tracking-widest ml-1 mb-2 block">Type "REVOKE" to confirm</label>
+                                <input 
+                                    type="text"
+                                    value={confirmationText}
+                                    onChange={e => setConfirmationText(e.target.value)}
+                                    className="w-full p-4 bg-red-50 border-2 border-red-200 rounded-2xl font-black text-xl text-center text-red-800 outline-none focus:border-red-500 tracking-[0.5em]"
+                                />
                             </div>
-                        </label>
+                        )}
                     </div>
                 </div>
 
                 <div className="p-6 border-t border-slate-100 bg-white flex gap-3 shrink-0">
                     <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-600 font-black uppercase tracking-widest text-xs rounded-2xl">Cancel</button>
                     <button 
-                        onClick={() => onConfirm(reason, notes)}
-                        disabled={!acknowledgedImpact}
+                        onClick={handleConfirm}
+                        disabled={!canConfirm}
                         className="flex-[2] py-4 bg-red-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-red-600/20 disabled:opacity-40 transition-all hover:bg-red-700"
                     >
                         Confirm Revocation

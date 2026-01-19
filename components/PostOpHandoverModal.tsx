@@ -16,18 +16,20 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
     const [checks, setChecks] = useState({
         oral: false,
         written: false,
-        emergency: false
+        emergency: false,
+        medication: false,
     });
 
     if (!isOpen) return null;
 
-    const allChecked = checks.oral && checks.written && checks.emergency;
+    const allChecked = checks.oral && checks.written && checks.emergency && checks.medication;
 
     const handleConfirm = async () => {
         if (!allChecked) return;
         setIsSaving(true);
         try {
             await onConfirm();
+            toast.success("Post-Op Handover Verified and Logged.");
             onClose(); // Close only on success
         } catch (error) {
             toast.error("Failed to update status. Please try again.");
@@ -50,24 +52,28 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
 
                 <div className="p-8 space-y-6">
                     <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
-                        <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                        <AlertTriangle size={24} className="text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-900 font-bold leading-relaxed">
-                            Liability Protection: You must certify that the patient understands their post-treatment responsibilities before clinical release.
+                            <strong>Liability Protection Gate:</strong> You must certify that the patient understands their post-treatment responsibilities before clinical release. This action is logged permanently.
                         </p>
                     </div>
 
                     <div className="space-y-3">
-                        <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.oral ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
-                            <input type="checkbox" checked={checks.oral} onChange={e => setChecks({...checks, oral: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded" />
-                            <span className="text-sm font-bold text-slate-700">Oral instructions delivered and understood</span>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.oral ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.oral} onChange={e => setChecks({...checks, oral: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Oral instructions for home care delivered and understood by patient/guardian.</span>
                         </label>
-                        <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.written ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
-                            <input type="checkbox" checked={checks.written} onChange={e => setChecks({...checks, written: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded" />
-                            <span className="text-sm font-bold text-slate-700">Written care card provided to patient</span>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.medication ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.medication} onChange={e => setChecks({...checks, medication: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Medication dosage, schedule, and potential side effects explained.</span>
                         </label>
-                        <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.emergency ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
-                            <input type="checkbox" checked={checks.emergency} onChange={e => setChecks({...checks, emergency: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded" />
-                            <span className="text-sm font-bold text-slate-700">Emergency contact protocol explained</span>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.written ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.written} onChange={e => setChecks({...checks, written: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Written care card or digital equivalent provided to patient.</span>
+                        </label>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.emergency ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.emergency} onChange={e => setChecks({...checks, emergency: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Emergency contact protocol and when to call explained clearly.</span>
                         </label>
                     </div>
                 </div>
@@ -82,7 +88,7 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                         {isSaving ? (
                             <><RotateCcw size={16} className="animate-spin" /> Verifying...</>
                         ) : (
-                            'Verify & Complete Session'
+                            <><ShieldCheck size={16}/> Verify & Complete Session</>
                         )}
                     </button>
                 </div>

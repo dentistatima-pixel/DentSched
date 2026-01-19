@@ -22,10 +22,14 @@ interface AppointmentModalProps {
   sterilizationCycles?: SterilizationCycle[];
   onManualOverride?: (gateId: string, reason: string) => void;
   isDowntime?: boolean;
+  overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string; } | null;
+  isReconciliationMode?: boolean; // Gap 8
+  // Fix: Add missing currentBranch prop to match usage in App.tsx
+  currentBranch?: string;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({ 
-  isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, onAddToWaitlist, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings, sterilizationCycles = [], onManualOverride, isDowntime
+  isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, onAddToWaitlist, initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings, sterilizationCycles = [], onManualOverride, isDowntime, overrideInfo, isReconciliationMode, currentBranch
 }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'existing' | 'new' | 'block'>('existing');
@@ -40,6 +44,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [blockTitle, setBlockTitle] = useState('');
+  const [charge, setCharge] = useState<number>(0);
 
   // Gap 6: Slot Finder State
   const [showFinder, setShowFinder] = useState(false);
@@ -138,16 +143,65 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const selectedProvider = useMemo(() => staff.find(s => s.id === providerId), [staff, providerId]);
   const selectedPatient = useMemo(() => patients.find(p => p.id === (selectedPatientId || initialPatientId)), [patients, selectedPatientId, initialPatientId]);
 
-  // Conflict Detection
+  // Gap 10: Update conflict detection with practitioner delays
   const hasConflict = useMemo(() => {
-    if (!providerId || !date || !time) return false;
-    return appointments.some(a => 
-      a.id !== existingAppointment?.id &&
-      a.date === date && 
-      a.time === time && 
-      (a.providerId === providerId || (resourceId && a.resourceId === resourceId))
-    );
-  }, [appointments, providerId, date, time, resourceId, existingAppointment]);
+      if (!providerId || !date || !time) return false;
+      const newAppStart = new Date(`${date}T${time}`);
+      const newAppEnd = new Date(newAppStart.getTime() + duration * 60000);
+
+      return appointments.some(apt => {
+          if (apt.id === existingAppointment?.id) return false;
+          if (apt.date !== date) return false;
+          if (apt.providerId !== providerId && apt.resourceId !== resourceId) return false;
+          
+          const practitionerDelay = fieldSettings.practitionerDelays?.[apt.providerId] || 0;
+          const effectiveDuration = apt.durationMinutes + practitionerDelay;
+          
+          const existingAppStart = new Date(`${apt.date}T${apt.time}`);
+          const existingAppEnd = new Date(existingAppStart.getTime() + effectiveDuration * 60000);
+          
+          // Check for overlap
+          return (newAppStart < existingAppEnd && newAppEnd > existingAppStart);
+      });
+  }, [appointments, providerId, date, time, duration, resourceId, existingAppointment, fieldSettings.practitionerDelays]);
+
+
+    // Gap 7: Implement HMO-specific price book logic
+    useEffect(() => {
+        if (procedureType && selectedPatient && fieldSettings) {
+            const proc = fieldSettings.procedures.find(p => p.name === procedureType);
+            if (proc) {
+                const patientHMO = fieldSettings.vendors.find(v => v.type === 'HMO' && v.name === selectedPatient.insuranceProvider);
+                let priceBookId = patientHMO?.priceBookId;
+
+                if (!priceBookId) {
+                    priceBookId = fieldSettings.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
+                }
+                
+                const priceEntry = fieldSettings.priceBookEntries?.find(
+                    pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId
+                );
+                setCharge(priceEntry?.price || 0);
+            }
+        }
+    }, [procedureType, selectedPatient, fieldSettings]);
+
+    // Gap 3: Check for financial consent on treatment plan
+    const financialConsentWarning = useMemo(() => {
+        if (!selectedPatient || !procedureType) return null;
+        const proc = fieldSettings.procedures.find(p => p.name === procedureType);
+        if (!proc) return null;
+
+        const planItem = selectedPatient.dentalChart?.find(item => item.procedure === proc.name && item.planId && item.status === 'Planned');
+        if (planItem?.planId) {
+            const plan = selectedPatient.treatmentPlans?.find(p => p.id === planItem.planId);
+            if (plan?.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
+                return `Warning: The treatment plan "${plan.name}" is pending financial consent.`;
+            }
+        }
+        return null;
+    }, [selectedPatient, procedureType, fieldSettings]);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -180,12 +234,16 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     if (!existingAppointment && selectedPatient) {
         const proc = fieldSettings.procedures.find(p => p.name === procedureType);
         if (proc) {
-            if (proc.name.toLowerCase().includes('surgical') || proc.name.toLowerCase().includes('root canal')) {
-                setDuration(90);
-            } else if (proc.name.toLowerCase().includes('restoration') || proc.name.toLowerCase().includes('crown') || proc.name.toLowerCase().includes('veneer')) {
-                setDuration(60);
-            } else {
-                setDuration(30);
+            if (proc.defaultDurationMinutes) {
+                setDuration(proc.defaultDurationMinutes);
+            } else { // Fallback for procedures without the new property
+                if (proc.name.toLowerCase().includes('surgical') || proc.name.toLowerCase().includes('root canal')) {
+                    setDuration(90);
+                } else if (proc.name.toLowerCase().includes('restoration') || proc.name.toLowerCase().includes('crown') || proc.name.toLowerCase().includes('veneer')) {
+                    setDuration(60);
+                } else {
+                    setDuration(30);
+                }
             }
         }
     }
@@ -207,7 +265,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       patientId: activeTab === 'block' ? 'ADMIN_BLOCK' : (selectedPatientId || initialPatientId!),
       providerId,
       resourceId: resourceId || undefined,
-      branch: existingAppointment?.branch || fieldSettings.branches[0],
+      branch: existingAppointment?.branch || currentBranch || fieldSettings.branches[0],
       date,
       time,
       durationMinutes: duration,
@@ -216,6 +274,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       notes,
       isBlock: activeTab === 'block',
       title: activeTab === 'block' ? blockTitle : undefined,
+      ...overrideInfo
     };
 
     onSave(appointment);
@@ -327,14 +386,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         <div className="bg-teal-900 p-8 text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-4">
             <div className="bg-lilac-500 p-3 rounded-2xl shadow-lg shadow-lilac-900/40">
-              <Calendar size={28} />
+              {isReconciliationMode ? <Database size={28}/> : <Calendar size={28} />}
             </div>
             <div>
               <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">
-                {existingAppointment ? 'Reschedule Session' : 'New Booking'}
+                {isReconciliationMode ? 'Reconcile Downtime Entry' : existingAppointment ? 'Reschedule Session' : 'New Booking'}
               </h2>
               <p className="text-[10px] text-teal-300 font-black uppercase tracking-[0.3em] mt-1">
-                Branch: {existingAppointment?.branch || fieldSettings.branches[0]}
+                Branch: {existingAppointment?.branch || currentBranch || fieldSettings.branches[0]}
               </p>
             </div>
           </div>
@@ -428,11 +487,25 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                             {clinicalAlert.isClear && <div className="pt-2"><span className="px-3 py-1 bg-white text-teal-800 text-[10px] font-black uppercase rounded-full border-2 border-teal-200 shadow-sm">Document Verified</span></div>}
                          </div>
                     )}
-                    <div>
-                      <label className="label">Intended Procedure</label>
-                      <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input text-sm font-bold">
-                        {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                      </select>
+                     {financialConsentWarning && (
+                        <div className="p-4 rounded-2xl bg-amber-100 border-2 border-amber-200 text-amber-900 flex items-center gap-3">
+                            <AlertCircle size={20} className="shrink-0"/>
+                            <p className="text-xs font-bold">{financialConsentWarning}</p>
+                        </div>
+                     )}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="label">Intended Procedure</label>
+                        <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input text-sm font-bold">
+                          {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Quoted Fee (₱)</label>
+                        <div className="input bg-slate-50 border-slate-200 text-teal-800 font-black text-lg">
+                          ₱{charge.toLocaleString()}
+                        </div>
+                      </div>
                     </div>
                     </>
                 )}
@@ -514,7 +587,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <label className="label">Operating Unit</label>
                     <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input font-black uppercase text-xs">
                       <option value="">Full Area Access</option>
-                      {fieldSettings.resources.filter(r => r.branch === (existingAppointment?.branch || fieldSettings.branches[0])).map(r => (
+                      {fieldSettings.resources.filter(r => r.branch === (existingAppointment?.branch || currentBranch || fieldSettings.branches[0])).map(r => (
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
@@ -574,8 +647,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               onClick={handleSaveClick}
               className={`px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 ${hasConflict ? 'bg-orange-600 text-white shadow-orange-600/30' : 'bg-teal-600 text-white shadow-teal-600/30'}`}
             >
-              {hasConflict ? <AlertTriangle size={20}/> : <Save size={20}/>} 
-              {hasConflict ? 'Add to Waitlist' : (existingAppointment ? 'Commit Changes' : 'Confirm Booking')}
+              {hasConflict ? <AlertTriangle size={20}/> : (isReconciliationMode ? <Database size={20}/> : <Save size={20}/>)} 
+              {hasConflict ? 'Add to Waitlist' : (isReconciliationMode ? 'Reconcile Entry' : (existingAppointment ? 'Commit Changes' : 'Confirm Booking'))}
             </button>
           </div>
         )}

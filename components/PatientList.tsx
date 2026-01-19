@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
-import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft } from 'lucide-react';
+import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
 import Fuse from 'fuse.js';
 
 interface PatientListProps {
@@ -134,6 +135,7 @@ const PatientList: React.FC<PatientListProps> = (props) => {
               const isMinor = p.age !== undefined && p.age < 18;
               const isPwdOrMinor = p.isPwd || isMinor;
               const isSelected = p.id === props.selectedPatientId;
+              const isProvisional = !p.dpaConsent;
 
               return (
                   <tr 
@@ -145,6 +147,8 @@ const PatientList: React.FC<PatientListProps> = (props) => {
                         ? 'bg-red-200 hover:bg-red-300' 
                         : isPwdOrMinor 
                         ? 'bg-amber-200 hover:bg-amber-300' 
+                        : isProvisional
+                        ? 'bg-blue-200 hover:bg-blue-300'
                         : 'hover:bg-teal-50'
                     }`} 
                     onClick={() => props.onSelectPatient(p.id)}
@@ -154,10 +158,16 @@ const PatientList: React.FC<PatientListProps> = (props) => {
                           <div className="w-2 h-full absolute top-0 left-0 bg-red-500 shadow-lg group-hover:bg-red-600 transition-colors" />
                       ) : isPwdOrMinor ? (
                           <div className="w-2 h-full absolute top-0 left-0 bg-amber-500 shadow-lg group-hover:bg-amber-600 transition-colors" />
+                      ) : isProvisional ? (
+                          <div className="w-2 h-full absolute top-0 left-0 bg-blue-500 shadow-lg group-hover:bg-blue-600 transition-colors" />
                       ) : null}
                     </td>
                     <td className="p-4">
-                      <div className="font-bold text-slate-800">{p.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">{p.name}</span>
+                        {/* Fix: Removed invalid 'title' prop from lucide-react icon */}
+                        {isProvisional && <FileBadge2 size={14} className="text-blue-600" />}
+                      </div>
                       <div className="text-xs font-mono text-slate-500">{p.id}</div>
                     </td>
                     <td className={`p-4 text-right font-mono font-bold ${p.currentBalance && p.currentBalance > 0 ? 'text-red-600' : 'text-slate-700'}`}>

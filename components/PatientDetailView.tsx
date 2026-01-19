@@ -1,12 +1,10 @@
-
 import React, { useState, useRef } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
-// Fix: Changed import from default to named to resolve module export error.
-import { TreatmentPlan } from './TreatmentPlan';
+import TreatmentPlan from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal'; // Import the new modal
@@ -31,6 +29,8 @@ interface PatientDetailViewProps {
   governanceTrack: GovernanceTrack;
   onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
   onOpenMedicoLegalExport: (patient: Patient) => void;
+  readOnly?: boolean;
+  sterilizationCycles?: SterilizationCycle[];
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -137,7 +137,7 @@ const DiagnosticGallery: React.FC<{
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -187,7 +187,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
   const headerClasses = `
     backdrop-blur-2xl border-b p-4 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
-    ${hasCriticalFlags 
+    ${readOnly
+        ? 'bg-slate-600 border-slate-700'
+        : hasCriticalFlags 
         ? 'bg-red-200 border-red-300' 
         : isPwdOrMinor 
         ? 'bg-amber-200 border-amber-300' 
@@ -232,12 +234,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                                 chart={patient.dentalChart || []} 
                                 onToothClick={() => setActivePatientTab('notes')}
                                 onChartUpdate={(entry) => props.onQuickUpdatePatient({...patient, dentalChart: [...(patient.dentalChart || []), entry]})}
+                                readOnly={readOnly}
                             />
                         )}
                         {activeChartSubTab === 'perio' && (
                             <PerioChart 
                                 data={patient.perioChart || []} 
                                 onSave={(data) => props.onQuickUpdatePatient({...patient, perioChart: data})}
+                                readOnly={readOnly}
                             />
                         )}
                     </div>
@@ -255,6 +259,9 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         patient={patient}
                         logAction={props.logAction}
                         fieldSettings={props.fieldSettings}
+                        readOnly={readOnly}
+                        appointments={props.appointments}
+                        sterilizationCycles={sterilizationCycles}
                     />
                   </div>
               );
@@ -269,6 +276,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                       featureFlags={props.fieldSettings?.features}
                       fieldSettings={props.fieldSettings}
                       onOpenRevocationModal={onOpenRevocationModal}
+                      readOnly={readOnly}
                   />
               );
           case 'financials':
@@ -279,6 +287,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         onUpdatePatient={props.onQuickUpdatePatient}
                         fieldSettings={props.fieldSettings}
                         governanceTrack={governanceTrack}
+                        readOnly={readOnly}
                     />
                   </div>
               );
@@ -298,6 +307,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         referrals={referrals} 
                         onSaveReferral={onSaveReferral} 
                         currentUser={currentUser} 
+                        onOpenRevocationModal={onOpenRevocationModal}
                     />
                 </div>
               );
@@ -430,6 +440,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 overflow-hidden relative">
       
+      {readOnly && (
+          <div className="absolute inset-0 z-[50] bg-slate-800/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+              <div className="bg-red-600 text-white px-8 py-4 rounded-full font-black text-2xl uppercase tracking-[0.3em] shadow-2xl animate-pulse flex items-center gap-4">
+                  <ShieldAlert size={32}/> RECORD LOCKED
+              </div>
+          </div>
+      )}
+
       <ClearanceModal 
         isOpen={isClearanceModalOpen}
         onClose={() => setIsClearanceModalOpen(false)}
@@ -449,10 +467,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
             >
                 <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform"/>
             </button>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tighter truncate uppercase leading-none">{patient.name}</h2>
+            <h2 className={`text-3xl font-black tracking-tighter truncate uppercase leading-none ${readOnly ? 'text-white' : 'text-slate-800'}`}>{patient.name}</h2>
             <button 
                 onClick={() => onEditPatient(patient)}
-                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
+                disabled={readOnly}
+                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90 disabled:opacity-50"
                 title="Edit Patient Details"
             >
                 <Edit size={20}/>
@@ -469,20 +488,20 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
           <div className="flex items-center gap-12">
               <div className="grid grid-cols-2 gap-x-8 gap-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                      <span className="font-black text-slate-400 uppercase tracking-widest">PAT ID -</span>
-                      <span className="font-mono font-black text-slate-700">{patient.id}</span>
+                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>PAT ID -</span>
+                      <span className={`font-mono font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.id}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                      <Phone size={14} className="text-slate-400"/>
-                      <span className="font-mono font-black text-slate-700">{patient.phone}</span>
+                      <Phone size={14} className={readOnly ? 'text-slate-300' : 'text-slate-400'}/>
+                      <span className={`font-mono font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.phone}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                      <span className="font-black text-slate-400 uppercase tracking-widest">AGE -</span>
-                      <span className="font-black text-slate-700">{patient.age} {patient.sex?.toUpperCase()}</span>
+                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>AGE -</span>
+                      <span className={`font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.age} {patient.sex?.toUpperCase()}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                      <span className="font-black text-slate-400 uppercase tracking-widest">BAL -</span>
-                      <span className={`font-black ${patient.currentBalance && patient.currentBalance > 0 ? 'text-red-600' : 'text-teal-600'}`}>
+                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>BAL -</span>
+                      <span className={`font-black ${patient.currentBalance && patient.currentBalance > 0 ? 'text-red-400' : 'text-teal-400'}`}>
                           ₱{patient.currentBalance?.toLocaleString() || '0'}
                       </span>
                   </div>
@@ -538,7 +557,8 @@ const ComplianceTab: React.FC<{
     referrals?: Referral[];
     onSaveReferral?: (referral: Referral) => void;
     currentUser: User;
-}> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser }) => {
+    onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
+}> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser, onOpenRevocationModal }) => {
     const toast = useToast();
     const [incidentType, setIncidentType] = useState('Complication');
     const [incidentDesc, setIncidentDesc] = useState('');
@@ -588,6 +608,30 @@ const ComplianceTab: React.FC<{
     
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-slate-100 shadow-sm space-y-8">
+                 <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
+                    <div className="bg-red-50 p-3 rounded-2xl text-red-600"><ShieldAlert size={32}/></div>
+                    <div>
+                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Consent Registry</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Patient Privacy & Data Rights (RA 10173)</p>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        <span className="font-bold text-sm text-slate-700">Clinical Processing</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        <span className="font-bold text-sm text-slate-700">Marketing Communications</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        <span className="font-bold text-sm text-slate-700">3rd Party Data Sharing</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
+                    </div>
+                </div>
+            </div>
+            
             <div className="bg-white p-10 rounded-[3.5rem] border-2 border-red-50 shadow-sm space-y-8">
                 <div className="flex items-center gap-4 border-b border-red-100 pb-6">
                     <div className="bg-red-50 p-3 rounded-2xl text-red-600"><AlertCircle size={32}/></div>
