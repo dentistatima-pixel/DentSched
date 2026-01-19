@@ -87,6 +87,8 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [surgicalWitnessPin, setSurgicalWitnessPin] = useState('');
   const [pendingSurgicalEntry, setPendingSurgicalEntry] = useState<any>(null);
 
+  const [isBaseline, setIsBaseline] = useState(false);
+
   const isArchitect = currentUser.role === UserRole.SYSTEM_ARCHITECT;
 
   const filteredProcedures = useMemo(() => {
@@ -342,6 +344,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const resetForm = () => {
       setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setToothNum(''); setSelectedProcedure(''); setSelectedPlanId(''); setCharge(''); setSelectedBatchId(''); setSelectedInstrumentSetId(''); setVarianceCount(0); setSelectedResourceId(''); setSelectedCycleId(''); setCapturedPhotos([]); setClinicalPearl('');
       macroSnapshotRef.current = ''; setEditingId(null); setRequireSignOff(false); setHardStopChecked(false);
+      setIsBaseline(false);
   };
 
   const handleEdit = (entry: DentalChartEntry) => {
@@ -349,6 +352,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       setSubjective(entry.subjective || ''); setObjective(entry.objective || ''); setAssessment(entry.assessment || ''); setPlan(entry.plan || '');
       setCharge(entry.price?.toString() || ''); setSelectedBatchId(entry.materialBatchId || ''); setVarianceCount(entry.materialVariance || 0); setSelectedResourceId(entry.resourceId || '');
       setSelectedPlanId(entry.planId || '');
+      setIsBaseline(entry.isBaseline || false);
       setSelectedInstrumentSetId(entry.instrumentSetId || '');
       setSelectedCycleId(entry.sterilizationCycleId || ''); setCapturedPhotos(entry.imageHashes || []);
       const pearlMatch = entry.notes?.match(/PEARL:\s*(.*?)(\[Batch:|$)/);
@@ -393,6 +397,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         date: new Date().toISOString().split('T')[0],
         author: currentUser.name,
         planId: selectedPlanId || undefined,
+        isBaseline: isBaseline,
     };
     if (requireSignOff) { setPendingEntryData(entryData); setShowSignaturePad(true); return; }
     if (isSurgicalProcedure) { setPendingSurgicalEntry(entryData); setShowSurgicalWitness(true); return; }
@@ -508,6 +513,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                     <div className="absolute inset-0 bg-gradient-to-r from-teal-900 to-transparent pointer-events-none" />
                     <div className="flex gap-10 items-center relative z-10">
                         <div className="flex flex-col"><span className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Forensic Score</span><span className={`text-2xl font-black ${isAuthenticNarrative ? 'text-white' : 'text-red-400'}`}>{uniquenessScore}%</span></div>
+                        <label className="flex items-center gap-4 cursor-pointer group">
+                          <input type="checkbox" checked={isBaseline} onChange={e => setIsBaseline(e.target.checked)} className="w-8 h-8 accent-amber-400 rounded-xl shadow-lg" />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] group-hover:text-amber-400 transition-colors">Set as Baseline</span>
+                            <span className="text-[8px] font-bold text-teal-500 uppercase tracking-tighter">Initial patient state record</span>
+                          </div>
+                        </label>
                         <label className="flex items-center gap-4 cursor-pointer group">
                           <input type="checkbox" checked={requireSignOff} onChange={e => setRequireSignOff(e.target.checked)} className="w-8 h-8 accent-lilac-500 rounded-xl shadow-lg" />
                           <div className="flex flex-col">

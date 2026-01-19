@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key } from 'lucide-react';
-import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry } from '../types';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon } from 'lucide-react';
+import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS } from '../constants';
 import { useToast } from './ToastSystem';
@@ -45,6 +45,9 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [blockTitle, setBlockTitle] = useState('');
   const [charge, setCharge] = useState<number>(0);
+
+  // Gap 5 State
+  const [createLedgerEntry, setCreateLedgerEntry] = useState(true);
 
   // Gap 6: Slot Finder State
   const [showFinder, setShowFinder] = useState(false);
@@ -142,6 +145,29 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const dentists = staff.filter(s => s.role === UserRole.DENTIST || s.role === UserRole.DENTAL_ASSISTANT);
   const selectedProvider = useMemo(() => staff.find(s => s.id === providerId), [staff, providerId]);
   const selectedPatient = useMemo(() => patients.find(p => p.id === (selectedPatientId || initialPatientId)), [patients, selectedPatientId, initialPatientId]);
+  const selectedProcedureDef = useMemo(() => {
+    return fieldSettings.procedures.find(p => p.name === procedureType);
+  }, [procedureType, fieldSettings.procedures]);
+
+  const availableResources = useMemo(() => {
+    const allBranchResources = fieldSettings.resources.filter(r => r.branch === (existingAppointment?.branch || currentBranch || fieldSettings.branches[0]));
+
+    if (selectedProcedureDef?.requiresXray) {
+        return allBranchResources.filter(r => r.type === ResourceType.XRAY);
+    }
+    
+    // Default to chairs/consultation if not xray
+    return allBranchResources.filter(r => r.type === ResourceType.CHAIR || r.type === ResourceType.CONSULTATION);
+  }, [fieldSettings.resources, currentBranch, existingAppointment, selectedProcedureDef]);
+
+  useEffect(() => {
+    if (availableResources.length > 0 && !availableResources.some(r => r.id === resourceId)) {
+        setResourceId(availableResources[0].id); // auto-select first available
+    } else if (availableResources.length === 0 && selectedProcedureDef?.requiresXray) {
+        setResourceId(''); // no available resource
+    }
+  }, [availableResources, resourceId, selectedProcedureDef]);
+
 
   // Gap 10: Update conflict detection with practitioner delays
   const hasConflict = useMemo(() => {
@@ -277,14 +303,56 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       ...overrideInfo
     };
 
-    // Gap 4: Explicitly set reconciled status on save
-    if (isReconciliationMode) {
-        (appointment as any).reconciled = true;
-    }
-
     onSave(appointment);
     onClose();
   };
+
+  const handleReconcileAndCharge = () => {
+    if (!selectedPatient || !onSavePatient || !existingAppointment) {
+        toast.error("Patient or appointment context is missing for reconciliation.");
+        return;
+    }
+
+    // 1. Create Ledger Entry if checked
+    if (createLedgerEntry) {
+        const finalCharge = charge;
+        if (finalCharge > 0) {
+            const currentBalance = selectedPatient.currentBalance || 0;
+            const newBalance = currentBalance + finalCharge;
+            const newEntry: LedgerEntry = {
+                id: `l_recon_${Date.now()}`,
+                date: date,
+                description: `(Reconciled) ${procedureType}`,
+                type: 'Charge',
+                amount: finalCharge,
+                balanceAfter: newBalance,
+            };
+            const updatedPatient: Partial<Patient> = {
+                ...selectedPatient,
+                ledger: [...(selectedPatient.ledger || []), newEntry],
+                currentBalance: newBalance
+            };
+            onSavePatient(updatedPatient);
+            toast.info(`Ledger charge of ₱${finalCharge.toLocaleString()} created.`);
+        }
+    }
+
+    // 2. Save reconciled appointment
+    const appointment: Appointment = {
+        ...existingAppointment,
+        providerId,
+        resourceId: resourceId || undefined,
+        date,
+        time,
+        durationMinutes: duration,
+        type: procedureType,
+        notes,
+        status: existingAppointment.status,
+        reconciled: true,
+    };
+    onSave(appointment);
+    onClose();
+};
 
   // --- PATIENT-FIRST UI LOGIC ---
 
@@ -530,6 +598,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <label className="label">Internal Narrative</label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24 text-sm" placeholder="Clinical prep notes, special requests..." />
                   </div>
+                {isReconciliationMode && (
+                    <div className="bg-amber-50 p-4 rounded-xl border-2 border-amber-200">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" checked={createLedgerEntry} onChange={e => setCreateLedgerEntry(e.target.checked)} className="w-5 h-5 accent-teal-600" />
+                            <span className="text-sm font-bold text-slate-700">Create corresponding financial charge for this session.</span>
+                        </label>
+                    </div>
+                )}
               </div>
 
               {/* Column 2: When & Who */}
@@ -596,14 +672,20 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </div>
                   <div>
                     <label className="label">Operating Unit</label>
-                    <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input font-black uppercase text-xs">
+                    <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input font-black uppercase text-xs" disabled={availableResources.length === 0 && !!selectedProcedureDef?.requiresXray}>
                       <option value="">Full Area Access</option>
-                      {fieldSettings.resources.filter(r => r.branch === (existingAppointment?.branch || currentBranch || fieldSettings.branches[0])).map(r => (
+                      {availableResources.map(r => (
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
                   </div>
                 </div>
+                 {availableResources.length === 0 && selectedProcedureDef?.requiresXray && (
+                    <div className="p-4 bg-red-50 text-red-800 rounded-2xl border-2 border-red-200 text-xs font-bold flex items-center gap-3">
+                        <AlertTriangle size={20} className="shrink-0" />
+                        No X-Ray compatible resource is available for this branch. This procedure cannot be booked.
+                    </div>
+                 )}
 
                 <div>
                     <label className="label">Manual Time Selection</label>
@@ -654,13 +736,23 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         {(selectedPatient || activeTab === 'block') && !showWaitlistForm && (
           <div className="p-8 border-t border-slate-100 bg-white flex justify-end gap-4 shrink-0">
             <button onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
-            <button 
-              onClick={handleSaveClick}
-              className={`px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 ${hasConflict ? 'bg-orange-600 text-white shadow-orange-600/30' : 'bg-teal-600 text-white shadow-teal-600/30'}`}
-            >
-              {hasConflict ? <AlertTriangle size={20}/> : (isReconciliationMode ? <Database size={20}/> : <Save size={20}/>)} 
-              {hasConflict ? 'Add to Waitlist' : (isReconciliationMode ? 'Reconcile Entry' : (existingAppointment ? 'Commit Changes' : 'Confirm Booking'))}
-            </button>
+            {isReconciliationMode ? (
+                <button 
+                    onClick={handleReconcileAndCharge}
+                    className="px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 bg-amber-600 text-white shadow-amber-600/30 hover:scale-105 active:scale-95"
+                >
+                    <FinanceIcon size={20}/> {createLedgerEntry ? 'Create Charge & Reconcile' : 'Reconcile Clinical Data'}
+                </button>
+            ) : (
+                <button 
+                    onClick={handleSaveClick}
+                    disabled={availableResources.length === 0 && !!selectedProcedureDef?.requiresXray}
+                    className={`px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center gap-3 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:grayscale ${hasConflict ? 'bg-orange-600 text-white shadow-orange-600/30' : 'bg-teal-600 text-white shadow-teal-600/30'}`}
+                >
+                    {hasConflict ? <AlertTriangle size={20}/> : <Save size={20}/>} 
+                    {hasConflict ? 'Add to Waitlist' : (existingAppointment ? 'Commit Changes' : 'Confirm Booking')}
+                </button>
+            )}
           </div>
         )}
       </div>

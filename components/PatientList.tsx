@@ -51,7 +51,8 @@ const PatientList: React.FC<PatientListProps> = (props) => {
         }
     });
 
-    if (patient.takingBloodThinners) {
+    // Fix: Access registryAnswers for takingBloodThinners check.
+    if (patient.registryAnswers?.['Taking Blood Thinners? (Aspirin, Warfarin, etc.)'] === 'Yes') {
         flags.push({ type: 'Alert', value: 'Taking Blood Thinners' });
     }
 

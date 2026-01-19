@@ -2,7 +2,7 @@
 import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup } from './types';
 
 // Generators for mock data
-export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}`;
+export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
 // --- DATE UTILITY ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
@@ -187,22 +187,26 @@ export const PATIENTS: Patient[] = [
             'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
         ],
         otherConditions: 'Perpetual Stomach Ache',
-        goodHealth: false,
-        underMedicalTreatment: true,
-        medicalTreatmentDetails: 'Currently undergoing treatment for anxiety and hypertension.',
-        seriousIllness: true,
-        seriousIllnessDetails: 'Coronary artery bypass graft (CABG) in 2018.',
-        lastHospitalizationDetails: 'For the aforementioned heart surgery.',
-        lastHospitalizationDate: '2018-05-20',
-        takingMedications: true,
+        registryAnswers: {
+          'Are you in good health?': 'No',
+          'Are you under medical treatment now?*': 'Yes',
+          'Are you under medical treatment now?*_details': 'Currently undergoing treatment for anxiety and hypertension.',
+          'Have you ever had serious illness or surgical operation?*': 'Yes',
+          'Have you ever had serious illness or surgical operation?*_details': 'Coronary artery bypass graft (CABG) in 2018.',
+          'Have you ever been hospitalized?*': 'Yes',
+          'Have you ever been hospitalized?*_details': 'For the aforementioned heart surgery.',
+          'Have you ever been hospitalized?*_date': '2018-05-20',
+          'Are you taking any prescription/non-prescription medication?*': 'Yes',
+          'Are you taking any prescription/non-prescription medication?*_details': 'Lisinopril, Metformin, Warfarin.',
+          'Do you use tobacco products?': 'Yes',
+          'Do you use alcohol, cocaine or other dangerous drugs?': 'Yes',
+          'Taking Blood Thinners? (Aspirin, Warfarin, etc.)': 'Yes',
+          'Taking Bisphosphonates? (Fosamax, Zometa)': 'Yes',
+          'Are you pregnant?': 'No',
+          'Are you nursing?': 'No',
+          'Are you taking birth control pills?': 'No',
+        },
         medicationDetails: 'Lisinopril, Metformin, Warfarin.',
-        takingBloodThinners: true,
-        takingBisphosphonates: true,
-        tobaccoUse: true,
-        alcoholDrugsUse: true,
-        pregnant: false,
-        nursing: false,
-        birthControl: false,
         previousDentist: 'Dr. Michael Realman',
         physicianName: 'Dr. Eleanor Shellstrop',
         physicianSpecialty: 'Cardiologist',
@@ -589,7 +593,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Previous Attending Dentist',
     'Approximate Date of Last Visit'
   ],
-  criticalRiskRegistry: [],
+  criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
   medications: [
       { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days' },

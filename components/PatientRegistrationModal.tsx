@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -25,13 +25,14 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   
+  // Fix: Updated initialFormState to remove properties not on Patient type and added registryAnswers
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, goodHealth: true, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', underMedicalTreatment: false, seriousIllness: false, takingMedications: false, tobaccoUse: false, alcoholDrugsUse: false, pregnant: false, nursing: false, birthControl: false, dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
-    takingBloodThinners: false, takingBisphosphonates: false, heartValveIssues: false, tookBpMedicationToday: true, anesthesiaReaction: false, respiratoryIssues: false,
+    id: '', sex: undefined, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
     dentalChart: [],
     registrationSignature: '',
-    registrationSignatureTimestamp: ''
+    registrationSignatureTimestamp: '',
+    registryAnswers: {}
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -225,21 +226,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
                     </div>
 
-                    {/* Section IV: Dental History */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 border-b-4 border-amber-600 pb-2">
-                            <FileText size={24} className="text-amber-700"/>
-                            <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tighter">Section IV. Dental History</h3>
-                        </div>
-                        <RegistrationDental 
-                            formData={formData} 
-                            handleChange={handleChange} 
-                            onUpdateChart={() => {}} // This prop is not used for history logging
-                            readOnly={readOnly}
-                            fieldSettings={fieldSettings} 
-                        />
-                    </div>
-
                     {/* Section III-V: Medical/Physician */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-lilac-600 pb-2">
@@ -247,6 +233,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Section V & VI. Clinical Medical History</h3>
                         </div>
                         <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
+                    </div>
+                    
+                    {/* Dental History Section Added */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-blue-600 pb-2">
+                            <Activity size={24} className="text-blue-700"/>
+                            <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tighter">Section IV. Dental History</h3>
+                        </div>
+                        <RegistrationDental 
+                            formData={formData} 
+                            handleChange={handleChange} 
+                            readOnly={readOnly} 
+                            fieldSettings={fieldSettings}
+                        />
                     </div>
                 </div>
             </div>

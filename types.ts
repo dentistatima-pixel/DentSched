@@ -712,7 +712,6 @@ export interface Patient {
   medicationDetails?: string;
   allergies?: string[];
   medicalConditions?: string[];
-  takingBloodThinners?: boolean;
   registryAnswers?: Record<string, any>;
   isAnonymized?: boolean;
   referredById?: string;
@@ -720,7 +719,6 @@ export interface Patient {
   installmentPlans?: InstallmentPlan[];
   guardian?: string;
   guardianMobile?: string;
-  goodHealth?: boolean;
   reportedMedications?: string[];
   responsibleParty?: string;
   fatherName?: string;
@@ -736,22 +734,9 @@ export interface Patient {
   lastHospitalizationDetails?: string;
   lastHospitalizationDate?: string;
   medicationDetails_old?: string;
-  underMedicalTreatment?: boolean;
-  seriousIllness?: boolean;
-  takingMedications?: boolean;
-  tobaccoUse?: boolean;
-  alcoholDrugsUse?: boolean;
-  pregnant?: boolean;
-  nursing?: boolean;
-  birthControl?: boolean;
   clinicalMediaConsent?: boolean;
   thirdPartyDisclosureConsent?: boolean;
   thirdPartyAttestation?: boolean;
-  takingBisphosphonates?: boolean;
-  heartValveIssues?: boolean;
-  tookBpMedicationToday?: boolean;
-  anesthesiaReaction?: boolean;
-  respiratoryIssues?: boolean;
   guardianIdType?: string;
   guardianIdNumber?: string;
   relationshipToPatient?: string;
@@ -767,6 +752,7 @@ export interface Patient {
   registrationPhotoHash?: string;
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
+  registrationStatus?: 'Provisional' | 'Complete';
 }
 
 export enum TreatmentPlanStatus {
@@ -803,10 +789,11 @@ export interface PinboardTask {
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
+export type DentalChartEntryType = 'Restorative' | 'General' | 'Perio' | 'Ortho';
 
 export interface DentalChartEntry {
   id: string;
-  toothNumber: number;
+  toothNumber?: number;
   procedure: string;
   status: TreatmentStatus;
   surfaces?: string;
@@ -859,6 +846,14 @@ export interface DentalChartEntry {
   planId?: string;
   patientSignature?: string;
   patientSignatureTimestamp?: string;
+  entryType?: DentalChartEntryType;
+  isVoided?: boolean;
+  voidDetails?: {
+    reason: string;
+    userId: string;
+    userName: string;
+    timestamp: string;
+  };
 }
 
 export interface PerioMeasurement {

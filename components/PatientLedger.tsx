@@ -10,9 +10,10 @@ interface PatientLedgerProps {
     readOnly?: boolean;
     fieldSettings?: FieldSettings;
     governanceTrack?: GovernanceTrack;
+    onUpdateSettings?: (settings: FieldSettings) => void;
 }
 
-const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings, governanceTrack }) => {
+const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings, governanceTrack, onUpdateSettings }) => {
     const toast = useToast();
     const isBirMode = governanceTrack === 'STATUTORY';
     
@@ -26,6 +27,14 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     const [instDesc, setInstDesc] = useState('');
     const [instTotal, setInstTotal] = useState('');
     const [instMonthly, setInstMonthly] = useState('');
+
+    useEffect(() => {
+        if (mode === 'add_payment' && isBirMode && fieldSettings) {
+            setOrNumber(fieldSettings.taxConfig.nextOrNumber.toString());
+        } else {
+            setOrNumber('');
+        }
+    }, [mode, isBirMode, fieldSettings]);
 
     const ledger = useMemo(() => {
         const baseLedger = patient.ledger || [];
@@ -74,6 +83,16 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
             orNumber: isBirMode ? orNumber : undefined,
             orDate: isBirMode ? date : undefined
         };
+        
+        if (isBirMode && onUpdateSettings && fieldSettings) {
+            onUpdateSettings({
+                ...fieldSettings,
+                taxConfig: {
+                    ...fieldSettings.taxConfig,
+                    nextOrNumber: (fieldSettings.taxConfig.nextOrNumber || 0) + 1
+                }
+            });
+        }
 
         onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
         setMode('view'); setAmount(''); setDescription(''); setOrNumber('');
@@ -162,6 +181,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                         required 
                                         value={orNumber} 
                                         onChange={e => setOrNumber(e.target.value)} 
+                                        disabled={isBirMode}
                                         placeholder="Booklet Reference Number" 
                                         className="w-full p-6 bg-lilac-50 border-2 border-lilac-100 rounded-[2rem] font-black text-3xl text-lilac-950 outline-none focus:border-lilac-500 transition-all shadow-inner tracking-widest text-center" 
                                     />

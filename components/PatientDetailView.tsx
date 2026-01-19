@@ -4,7 +4,8 @@ import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, S
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
-import TreatmentPlan from './TreatmentPlan';
+// Fix: Renamed import to avoid name collision with the TreatmentPlan type.
+import TreatmentPlanModule from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal'; // Import the new modal
@@ -34,6 +35,8 @@ interface PatientDetailViewProps {
   sterilizationCycles?: SterilizationCycle[];
   prefill?: Partial<DentalChartEntry> | null;
   onClearPrefill?: () => void;
+  onPrefillNote?: (entry: DentalChartEntry) => void;
+  onUpdateSettings?: (settings: FieldSettings) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -140,7 +143,7 @@ const DiagnosticGallery: React.FC<{
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -162,7 +165,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     const criticalConditions = props.fieldSettings?.criticalRiskRegistry || [];
     (p.allergies || []).forEach(a => { if (a !== 'None') flags.push({ type: 'Allergy', value: a }); });
     (p.medicalConditions || []).forEach(c => { if (c !== 'None') flags.push({ type: 'Condition', value: c }); });
-    if (p.takingBloodThinners) flags.push({ type: 'Alert', value: 'Blood Thinners' });
+    // Fix: Access registryAnswers for takingBloodThinners check.
+    if (p.registryAnswers?.['Taking Blood Thinners? (Aspirin, Warfarin, etc.)'] === 'Yes') flags.push({ type: 'Alert', value: 'Blood Thinners' });
     return flags;
   };
   
@@ -236,7 +240,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                             <Odontogram 
                                 chart={patient.dentalChart || []} 
                                 onToothClick={() => setActivePatientTab('notes')}
-                                onChartUpdate={(entry) => props.onQuickUpdatePatient({...patient, dentalChart: [...(patient.dentalChart || []), entry]})}
+                                onChartUpdate={(entry) => {
+                                    onQuickUpdatePatient({...patient, dentalChart: [...(patient.dentalChart || []), entry]});
+                                    setActivePatientTab('notes');
+                                    if (onPrefillNote) {
+                                        onPrefillNote(entry);
+                                    }
+                                }}
                                 readOnly={readOnly}
                             />
                         )}
@@ -273,7 +283,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
           case 'gallery': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
           case 'planning':
               return (
-                  <TreatmentPlan 
+                  <TreatmentPlanModule 
                       patient={patient}
                       onUpdatePatient={props.onQuickUpdatePatient}
                       currentUser={props.currentUser}
@@ -293,6 +303,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         fieldSettings={props.fieldSettings}
                         governanceTrack={governanceTrack}
                         readOnly={readOnly}
+                        onUpdateSettings={onUpdateSettings}
                     />
                   </div>
               );
@@ -325,20 +336,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                 </div>
               );
           case 'profile':
-              const medicalQuestions = [
-                  { q: 'Are you in good health?', a: patient.goodHealth },
-                  { q: 'Under medical treatment now?', a: patient.underMedicalTreatment, d: patient.medicalTreatmentDetails },
-                  { q: 'Had serious illness or surgical operation?', a: patient.seriousIllness, d: patient.seriousIllnessDetails },
-                  { q: 'Ever been hospitalized?', a: patient.lastHospitalizationDetails, d: patient.lastHospitalizationDetails },
-                  { q: 'Taking any prescription/non-prescription medication?', a: patient.takingMedications, d: patient.medicationDetails },
-                  { q: 'Use tobacco products?', a: patient.tobaccoUse },
-                  { q: 'Use alcohol or other dangerous drugs?', a: patient.alcoholDrugsUse },
-                  { q: 'Taking Blood Thinners?', a: patient.takingBloodThinners },
-                  { q: 'Taking Bisphosphonates?', a: patient.takingBisphosphonates },
-                  { q: 'Pregnant?', a: patient.pregnant },
-                  { q: 'Nursing?', a: patient.nursing },
-                  { q: 'Taking birth control pills?', a: patient.birthControl },
-              ];
+              const medicalQuestions = patient.registryAnswers ? Object.entries(patient.registryAnswers)
+                .filter(([q]) => !q.endsWith('_details') && !q.endsWith('_date'))
+                .map(([q, a]) => ({ q, a, d: patient.registryAnswers?.[`${q}_details`] }))
+                : [];
               
               const sortedClearances = (patient.clearanceRequests || []).sort((a,b) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime());
               const sixMonthsAgo = new Date();
@@ -362,10 +363,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                                   <InfoItem label="Other Reported Allergies" value={patient.otherAllergies} icon={AlertCircle} isFlag={!!patient.otherAllergies} />
                                   <InfoItem label="Medical Conditions" value={patient.medicalConditions?.length ? patient.medicalConditions : 'None'} icon={ShieldAlert} isFlag={(patient.medicalConditions?.length || 0) > 1 || patient.medicalConditions?.[0] !== 'None'} />
                                   {medicalQuestions.map((item, index) => {
-                                      const displayValue = typeof item.a === 'boolean' ? (item.a ? 'Yes' : 'No') : item.a || 'No Answer';
+                                      const displayValue = item.a || 'No Answer';
                                       const fullValue = item.d ? `${displayValue} - ${item.d}` : displayValue;
                                       return (
-                                          <InfoItem key={index} label={item.q} value={fullValue} isFlag={item.a === true || (typeof item.a === 'string' && item.a.length > 0)} />
+                                          <InfoItem key={index} label={item.q.replace('*', '')} value={fullValue} isFlag={item.a === 'Yes'} />
                                       );
                                   })}
                                   <InfoItem label="Physician Name" value={patient.physicianName} icon={UserIcon} />
