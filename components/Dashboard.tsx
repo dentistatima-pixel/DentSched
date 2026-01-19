@@ -3,7 +3,7 @@ import {
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle
+  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, FieldSettings, 
@@ -133,15 +133,22 @@ const Dashboard: React.FC<DashboardProps> = ({
         a.date >= twentyFourHoursAgo.split('T')[0] &&
         !a.followUpConfirmed
     );
-    const pendingRegistrations = patients.filter(p => !p.dpaConsent);
+    // Problem 4 Fix: Use registrationStatus instead of dpaConsent
+    const pendingRegistrations = patients.filter(p => p.registrationStatus === 'Provisional');
+    const professionalismReviews = patients.flatMap(p => 
+        (p.dentalChart || [])
+            .filter(note => note.needsProfessionalismReview)
+            .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+    );
 
     if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => onNavigateToQueue('sync') });
     if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning, action: () => onNavigateToQueue('downtime') });
     if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert, action: () => onNavigateToQueue('med_history') });
     if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle, action: () => onNavigateToQueue('post_op') });
     if(pendingRegistrations.length > 0) items.push({ type: 'Pending Registrations', count: pendingRegistrations.length, icon: FileBadge2, action: () => onNavigateToQueue('registrations') });
+    if(professionalismReviews.length > 0) items.push({ type: 'Professionalism Review', count: professionalismReviews.length, icon: FileSearch, action: () => onNavigateToQueue('professionalism_review') });
     
-    return items;
+    return items.sort((a,b) => b.count - a.count);
   }, [appointments, syncConflicts, patients, onNavigateToQueue]);
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
@@ -216,7 +223,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 const isPwdOrMinor = patient.isPwd || isMinor;
                 const balance = patient.currentBalance || 0;
                 const medicalAlerts = (patient.allergies?.filter(a => a !== 'None').length || 0) + (patient.medicalConditions?.filter(c => c !== 'None').length || 0);
-                const isProvisional = !patient.dpaConsent;
+                // Problem 4 Fix: Use registrationStatus instead of dpaConsent
+                const isProvisional = patient.registrationStatus === 'Provisional';
                 const needsClearance = patient.medicalConditions?.some(c => (fieldSettings?.criticalRiskRegistry || []).includes(c)) && !patient.clearanceRequests?.some(r => r.status === 'Approved');
 
                 const config = statusTextConfig[apt.status] || { color: 'text-slate-400', label: apt.status };

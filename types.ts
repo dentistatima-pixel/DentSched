@@ -141,6 +141,7 @@ export interface ReconciliationRecord {
     verifiedByName?: string;
     explanation?: string; 
     timestamp: string;
+    sessionId: string;
 }
 
 export interface CashSession {
@@ -780,6 +781,7 @@ export interface DentalChartEntry {
   price?: number;
   appointmentId?: string;
   author?: string;
+  authorId?: string;
   authorRole?: string;
   authorPrc?: string;
   authorPtr?: string;
@@ -863,6 +865,7 @@ export interface LedgerEntry {
   orDate?: string;
   allocations?: { chargeId: string; amount: number }[];
   paidAmount?: number;
+  reconciliationId?: string;
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';

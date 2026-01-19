@@ -1,25 +1,26 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState } from 'react';
+import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
+// Fix: Import missing icons 'Smartphone', 'Banknote', and 'Building2'.
 import { 
-  FieldSettings, User, UserRole, AuditLogEntry, Patient, ClinicalIncident, 
-  RegistrationField, ProcedureItem, Medication, HospitalAffiliation, PayrollAdjustmentTemplate, ClinicResource, MaintenanceAsset, ResourceType, Appointment, DaySchedule, SmsTemplateConfig, DentalChartEntry
-} from '../types';
-import { 
-  Plus, Trash2, Edit2, Sliders, Settings, ChevronRight, DollarSign, 
-  Box, MapPin, User as UserIcon, Pill, 
-  ShieldAlert, ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
-  Sparkles, Zap, Monitor, Wrench, ClipboardList, 
-  Armchair, FileText, 
-  ArrowUp, ArrowDown, X, LayoutPanelLeft, Move, PanelLeftClose, PanelLeftOpen, CheckCircle2, Pencil, Droplets, FlaskConical, Hash, HeartPulse, Building2, CreditCard, Percent, Banknote, Phone, AlertTriangle, Fingerprint, Search, ShieldCheck as VerifiedIcon, Scale, Globe, Lock, ShieldQuestion, FileSignature, Clock, RefreshCw, AlertCircle, Download, ArrowRight, Link, Smartphone, MessageSquare,
-  MousePointer2, PlusCircle, Cloud, Server, Key, Printer, FileWarning, BarChart3, GraduationCap,
-  Camera, Stethoscope, FileBox, Check, Save, BarChart2
+  Sliders, Settings, ChevronRight, DollarSign, Box, MapPin, User as UserIcon, Pill, 
+  ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
+  Sparkles, Zap, Wrench, ClipboardList, Armchair, LayoutPanelLeft, Fingerprint, Key, Printer,
+  Smartphone, Banknote, Building2
 } from 'lucide-react';
-import { useToast } from './ToastSystem';
-import { formatDate } from '../constants';
+
+// Import newly created components
 import FormBuilder from './FormBuilder';
 import ProcedureCatalog from './ProcedureCatalog';
 import AuditTrailViewer from './AuditTrailViewer';
 import SmsHub from './SmsHub';
-
+import PracticeBranding from './PracticeBranding';
+import PharmacyRegistry from './PharmacyRegistry';
+import MaterialsRegistry from './MaterialsRegistry';
+import FinancialSettings from './FinancialSettings';
+import StaffRegistry from './StaffRegistry';
+import InfrastructureManager from './InfrastructureManager';
+import ComplianceCenter from './ComplianceCenter';
+import PrintoutsHub from './PrintoutsHub';
 
 interface FieldManagementProps {
   settings: FieldSettings;
@@ -30,32 +31,13 @@ interface FieldManagementProps {
   onPurgePatient: (id: string) => void;
   auditLogVerified: boolean | null;
   encryptionKey: string | null;
-  incidents: ClinicalIncident[];
-  onSaveIncident: (i: ClinicalIncident) => void;
   appointments: Appointment[];
   currentUser: User;
   onStartImpersonating: (user: User) => void;
 }
 
-const BRANCH_PREFIXES: Record<string, string> = {
-    'Makati Main': 'mkt',
-    'Quezon City Satellite': 'qzc',
-    'BGC Premium': 'bgc',
-    'Alabang South': 'alb'
-};
-
-const FieldManagement: React.FC<FieldManagementProps> = ({ 
-  settings, onUpdateSettings, auditLogVerified, staff, auditLog, patients, onPurgePatient, appointments, currentUser, onStartImpersonating
-}) => {
-    const toast = useToast();
+const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
-    
-    // States for Modals/Forms that remain in this component
-    const [editingMedication, setEditingMedication] = useState<Partial<Medication> | null>(null);
-    const [editingAdjustment, setEditingAdjustment] = useState<Partial<PayrollAdjustmentTemplate> | null>(null);
-    const [editingAffiliation, setEditingAffiliation] = useState<Partial<HospitalAffiliation> | null>(null);
-    const [editingResource, setEditingResource] = useState<Partial<ClinicResource> | null>(null);
-    const [editingAsset, setEditingAsset] = useState<Partial<MaintenanceAsset> | null>(null);
 
     const sidebarGroups = [
         { key: 'core', label: 'Practice Identity', icon: Activity, items: [
@@ -75,7 +57,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             { id: 'paymentModes', label: 'Payment & Tax', icon: Banknote },
             { id: 'payrollAdjustments', label: 'Adjustment Catalog', icon: Sliders },
             { id: 'expenseCategories', label: 'Expense Chart', icon: ClipboardList },
-            { id: 'staff', label: 'Clinician Registry', icon: UserIcon }
         ]},
         { key: 'infrastructure', label: 'V. Infrastructure', icon: Wrench, items: [
             { id: 'branches', label: 'Branch Locations', icon: MapPin },
@@ -88,93 +69,67 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
             { id: 'npc_compliance', label: 'Compliance Center', icon: Shield },
             { id: 'retention', label: 'Retention Monitor', icon: Archive }
         ]},
-        { key: 'testing', label: 'VII. Testing', icon: Zap, items: [
+        { key: 'staff', label: 'VII. Staff Management', icon: UserIcon, items: [
+            { id: 'staff', label: 'Clinician Registry', icon: UserIcon },
             { id: 'privilege_elevation', label: 'Privilege Elevation', icon: Key }
         ]}
     ];
 
-    const handleUpdateRegistryOptions = (key: string, nextOptions: string[]) => {
-        onUpdateSettings({ ...settings, [key]: nextOptions });
-        toast.success("Registry synchronized.");
-    };
-
-    const handleSaveMedication = () => {
-        if (!editingMedication?.genericName) return;
-        const next = editingMedication.id
-            ? settings.medications.map(m => m.id === editingMedication.id ? editingMedication as Medication : m)
-            : [...settings.medications, { ...editingMedication, id: `med_${Date.now()}` } as Medication];
-        onUpdateSettings({ ...settings, medications: next });
-        setEditingMedication(null);
-    };
-
-    const handleSaveAdjustment = () => {
-        if (!editingAdjustment?.label) return;
-        const next = editingAdjustment.id
-            ? settings.payrollAdjustmentTemplates.map(a => a.id === editingAdjustment.id ? editingAdjustment as PayrollAdjustmentTemplate : a)
-            : [...settings.payrollAdjustmentTemplates, { ...editingAdjustment, id: `adj_${Date.now()}` } as PayrollAdjustmentTemplate];
-        onUpdateSettings({ ...settings, payrollAdjustmentTemplates: next });
-        setEditingAdjustment(null);
-    };
-
-    const handleSaveAffiliation = () => {
-        if (!editingAffiliation?.name) return;
-        const next = editingAffiliation.id
-            ? settings.hospitalAffiliations.map(a => a.id === editingAffiliation.id ? editingAffiliation as HospitalAffiliation : a)
-            : [...settings.hospitalAffiliations, { ...editingAffiliation, id: `hosp_${Date.now()}` } as HospitalAffiliation];
-        onUpdateSettings({ ...settings, hospitalAffiliations: next });
-        setEditingAffiliation(null);
-    };
-     const generateResourceUid = (branch: string, existing: ClinicResource[]) => {
-        const prefix = BRANCH_PREFIXES[branch] || branch.substring(0, 3).toLowerCase();
-        const branchIds = existing
-            .filter(r => r.branch === branch && r.id.startsWith(prefix))
-            .map(r => {
-                const numPart = r.id.replace(prefix, '');
-                return parseInt(numPart);
-            })
-            .filter(n => !isNaN(n));
-        
-        const nextNum = branchIds.length > 0 ? Math.max(...branchIds) + 1 : 1001;
-        return `${prefix}${nextNum.toString().padStart(4, '0')}`;
-    };
-
-    const handleSaveResource = () => {
-        if (!editingResource?.name) return;
-        const next = editingResource.id
-            ? settings.resources.map(r => r.id === editingResource.id ? editingResource as ClinicResource : r)
-            : [...settings.resources, { ...editingResource } as ClinicResource];
-        onUpdateSettings({ ...settings, resources: next });
-        setEditingResource(null);
-        toast.success("Resource mapping updated.");
-    };
-
-    const handleSaveAsset = () => {
-        if (!editingAsset?.name) return;
-        const next = editingAsset.id
-            ? settings.assets.map(a => a.id === editingAsset.id ? editingAsset as MaintenanceAsset : a)
-            : [...settings.assets, { ...editingAsset, id: `ast_${Date.now()}` } as MaintenanceAsset];
-        onUpdateSettings({ ...settings, assets: next });
-        setEditingAsset(null);
-        toast.success("Asset record synchronized.");
-    };
-
     const renderContent = () => {
         switch (activeRegistry) {
-            case 'patient_registry_form':
-                return <FormBuilder settings={settings} onUpdateSettings={onUpdateSettings} />;
-            case 'procedures':
-                return <ProcedureCatalog settings={settings} onUpdateSettings={onUpdateSettings} />;
+            // Core Identity
+            case 'branding':
+                return <PracticeBranding settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'sms_hub':
-                return <SmsHub settings={settings} onUpdateSettings={onUpdateSettings} />;
+                return <SmsHub settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            case 'printouts_hub':
+                return <PrintoutsHub />;
+
+            // Admission Design
+            case 'patient_registry_form':
+                return <FormBuilder settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+
+            // Clinical Catalog
+            case 'procedures':
+                return <ProcedureCatalog settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            case 'medications':
+                return <PharmacyRegistry settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            case 'shadeGuides':
+                return <MaterialsRegistry settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+
+            // Financial & HR
+            case 'paymentModes':
+            case 'payrollAdjustments':
+            case 'expenseCategories':
+                return <FinancialSettings settings={props.settings} onUpdateSettings={props.onUpdateSettings} initialTab={activeRegistry} />;
+
+            // Infrastructure
+            case 'branches':
+            case 'resources':
+            case 'assets':
+            case 'hospitalAffiliations':
+                return <InfrastructureManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} initialTab={activeRegistry} />;
+
+            // Governance
             case 'audit_trail':
-                return <AuditTrailViewer auditLog={auditLog} auditLogVerified={auditLogVerified} />;
-            // Other cases can be extracted similarly
-            // Fallback for non-extracted components:
+                return <AuditTrailViewer auditLog={props.auditLog} auditLogVerified={props.auditLogVerified} />;
+            case 'npc_compliance':
+            case 'retention':
+                return <ComplianceCenter settings={props.settings} onUpdateSettings={props.onUpdateSettings} patients={props.patients} onPurgePatient={props.onPurgePatient} initialTab={activeRegistry} />;
+            
+            // Staff Management
+            case 'staff':
+            case 'privilege_elevation':
+                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} initialTab={activeRegistry} />;
+
             default:
                 return (
-                    <div className="p-20 text-center">
-                        <h3 className="text-xl font-bold text-slate-400">Component not extracted yet.</h3>
-                        <p className="text-slate-500">The content for "{activeRegistry}" would be displayed here.</p>
+                    <div className="p-20 text-center flex flex-col items-center justify-center h-full">
+                        <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center mb-6">
+                            <Settings size={48} className="text-slate-300" />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-400">Settings Hub</h3>
+                        <p className="text-slate-500 mt-2 max-w-sm">Select a configuration module from the sidebar to manage practice-wide settings and registries.</p>
                     </div>
                 );
         }
@@ -209,29 +164,6 @@ const FieldManagement: React.FC<FieldManagementProps> = ({
                     {renderContent()}
                 </div>
             </div>
-
-            {/* MODALS for non-extracted components */}
-            {editingMedication && (
-                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingMedication(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-lilac-900 border-b border-lilac-50 pb-4 mb-2">Pharmacy Entry</h3><div className="space-y-4"><div><label className="label text-[10px]">Generic Name (RA 6675)</label><input type="text" value={editingMedication.genericName} onChange={e => setEditingMedication({...editingMedication, genericName: e.target.value})} className="input text-lg font-black" /></div><div><label className="label text-[10px]">Commercial Brand Name</label><input type="text" value={editingMedication.brandName} onChange={e => setEditingMedication({...editingMedication, brandName: e.target.value})} className="input" placeholder="Optional" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Dosage Form</label><input type="text" value={editingMedication.dosage} onChange={e => setEditingMedication({...editingMedication, dosage: e.target.value})} className="input" placeholder="e.g. 500mg" /></div><div><label className="label text-[10px]">S2 Controlled Substance</label><button onClick={() => setEditingMedication({...editingMedication, isS2Controlled: !editingMedication.isS2Controlled})} className={`w-full py-3 rounded-xl border-2 transition-all font-black text-[10px] uppercase ${editingMedication.isS2Controlled ? 'bg-amber-100 border-amber-500 text-amber-900 shadow-md' : 'bg-white border-slate-100 text-slate-400'}`}>{editingMedication.isS2Controlled ? '💊 S2 Active' : 'Regular'}</button></div></div><div><label className="label text-[10px]">Default Sig (Instructions)</label><textarea value={editingMedication.instructions} onChange={e => setEditingMedication({...editingMedication, instructions: e.target.value})} className="input h-20 text-xs font-bold" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingMedication(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveMedication} className="flex-[2] py-4 bg-lilac-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-lilac-600/20">Register Drug</button></div></div></div>
-            )}
-            {editingResource && (
-                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingResource(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-teal-900 border-b border-teal-50 pb-4 mb-2">Resource Detail</h3><div className="space-y-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 shadow-inner flex items-center justify-between">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">SYSTEM ASSET UID</label>
-                            <div className="text-2xl font-black font-mono text-teal-800 leading-none">{editingResource.id}</div>
-                        </div>
-                        <ShieldCheck size={32} className="text-teal-600 opacity-20"/>
-                    </div>
-                    <div><label className="label text-[10px]">Resource Narrative</label><input type="text" value={editingResource.name} onChange={e => setEditingResource({...editingResource, name: e.target.value})} className="input" placeholder="e.g. Chair Alpha" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Classification</label><select value={editingResource.type} onChange={e => setEditingResource({...editingResource, type: e.target.value as any})} className="input"><option value={ResourceType.CHAIR}>Dental Chair</option><option value={ResourceType.XRAY}>Imaging Unit</option><option value={ResourceType.CONSULTATION}>Consultation</option></select></div><div><label className="label text-[10px]">Site</label><select value={editingResource.branch} onChange={e => {
-                        const newBranch = e.target.value;
-                        const newId = generateResourceUid(newBranch, settings.resources);
-                        setEditingResource({...editingResource, branch: newBranch, id: newId});
-                    }} className="input">{settings.branches.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div><div><label className="label text-[10px]">Hex Color Key</label><input type="color" value={editingResource.colorCode} onChange={e => setEditingResource({...editingResource, colorCode: e.target.value})} className="w-full h-12 rounded-xl" /></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingResource(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveResource} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Commit to Grid</button></div></div></div>
-            )}
-            {editingAsset && (
-                <div className="fixed inset-0 z-[100] flex justify-center items-center p-4"><div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingAsset(null)}/><div className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95"><h3 className="text-xl font-black uppercase tracking-widest text-lilac-900 border-b border-lilac-50 pb-4 mb-2">Asset Life-Cycle</h3><div className="space-y-4"><div><label className="label text-[10px]">Equipment Narrative</label><input type="text" value={editingAsset.name} onChange={e => setEditingAsset({...editingAsset, name: e.target.value})} className="input" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Brand/Make</label><input type="text" value={editingAsset.brand} onChange={e => setEditingAsset({...editingAsset, brand: e.target.value})} className="input" /></div><div><label className="label text-[10px]">Serial Number (UID)</label><input type="text" value={editingAsset.serialNumber} onChange={e => setEditingAsset({...editingAsset, serialNumber: e.target.value})} className="input font-mono" /></div></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Last Maintenance</label><input type="date" value={editingAsset.lastService} onChange={e => setEditingAsset({...editingAsset, lastService: e.target.value})} className="input" /></div><div><label className="label text-[10px]">Cycle Months</label><input type="number" value={editingAsset.frequencyMonths} onChange={e => setEditingAsset({...editingAsset, frequencyMonths: parseInt(e.target.value)})} className="input" /></div></div><div><label className="label text-[10px]">Operational Status</label><select value={editingAsset.status} onChange={e => setEditingAsset({...editingAsset, status: e.target.value as any})} className="input"><option value="Ready">Ready</option><option value="Service Due">Service Due</option><option value="Down">Down / Out-of-Service</option></select></div></div><div className="flex gap-3 pt-4"><button onClick={() => setEditingAsset(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveAsset} className="flex-[2] py-4 bg-lilac-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-lilac-600/20">Sync Record</button></div></div></div>
-            )}
         </div>
     );
 };

@@ -29,7 +29,7 @@ interface FinancialsProps {
   currentUser: StaffUser;
   onUpdatePhilHealthClaim?: (updatedClaim: PhilHealthClaim) => void;
   reconciliations?: ReconciliationRecord[];
-  onSaveReconciliation?: (record: ReconciliationRecord) => void;
+  onSaveReconciliation: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
   cashSessions?: CashSession[];
   onSaveCashSession?: (session: CashSession) => void;
   currentBranch: string;
@@ -43,19 +43,395 @@ interface FinancialsProps {
   onResolveCommissionDispute: (id: string) => void;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
-  onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => void;
+  // Fix: Corrected the return type for onAddPayrollPeriod to match the implementation in App.tsx.
+  onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => PayrollPeriod | undefined;
   onBack?: () => void;
+  onStartCashSession?: (openingBalance: number) => void;
+  onCloseCashSession?: (sessionId: string) => void;
 }
 
-const CashReconciliationTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">Cash Reconciliation Interface Syncing...</div>;
-const DebtAgingTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">A/R Aging Analysis Interface Syncing...</div>;
-const PhilHealthClaimsTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">PhilHealth Statutory Registry Syncing...</div>;
-const HMOClaimsTab: React.FC<any> = () => <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 text-slate-500 font-bold italic">HMO Claims Management Interface Syncing...</div>;
+// Problem 2 Fix: Implemented functional Cash Reconciliation Tab
+const CashReconciliationTab: React.FC<{
+  onSave: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
+  currentUser: StaffUser;
+  currentBranch: string;
+  reconciliations: ReconciliationRecord[];
+  cashSessions: CashSession[];
+  patients: Patient[];
+  fieldSettings?: FieldSettings;
+  onStartSession: (openingBalance: number) => void;
+  onCloseSession: (sessionId: string) => void;
+}> = ({ onSave, currentUser, currentBranch, reconciliations, cashSessions, patients, fieldSettings, onStartSession, onCloseSession }) => {
+    const [form, setForm] = useState({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
+    const [openingBalance, setOpeningBalance] = useState('');
+
+    const activeSession = useMemo(() => cashSessions.find(s => s.branch === currentBranch && s.status === 'Open'), [cashSessions, currentBranch]);
+    
+    const sessionPayments = useMemo(() => {
+        if (!activeSession) return [];
+        const cashPaymentModes = (fieldSettings?.paymentModes || []).filter(pm => pm.toLowerCase().includes('cash')).map(pm => pm.toLowerCase());
+        
+        return patients.flatMap(p => p.ledger || [])
+            .filter(l => 
+                l.type === 'Payment' &&
+                new Date(l.date) >= new Date(activeSession.startTime) &&
+                cashPaymentModes.some(mode => l.description.toLowerCase().includes(mode))
+            );
+    }, [activeSession, patients, fieldSettings]);
+
+    const systemExpected = useMemo(() => {
+        if (!activeSession) return 0;
+        const paymentTotal = sessionPayments.reduce((sum, l) => sum + l.amount, 0);
+        return activeSession.openingBalance + paymentTotal;
+    }, [activeSession, sessionPayments]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setForm(prev => ({...prev, [name]: value}));
+    };
+    
+    const handleSubmit = () => {
+        const cash = parseFloat(form.actualCash) || 0;
+        const card = parseFloat(form.actualCard) || 0;
+        const ewallet = parseFloat(form.actualEWallet) || 0;
+        const actualTotal = cash + card + ewallet;
+        
+        onSave({
+            date: new Date().toISOString().split('T')[0],
+            branch: currentBranch,
+            expectedTotal: systemExpected,
+            actualCash: cash,
+            actualCard: card,
+            actualEWallet: ewallet,
+            discrepancy: actualTotal - systemExpected,
+            notes: form.notes,
+            verifiedBy: currentUser.id,
+            verifiedByName: currentUser.name,
+            sessionId: activeSession!.id,
+        });
+        if (activeSession) {
+            onCloseSession(activeSession.id);
+        }
+        setForm({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
+    };
+
+    if (!activeSession) {
+        return (
+             <div className="bg-white p-8 rounded-[2.5rem] border-4 border-teal-100 shadow-xl space-y-6 max-w-md mx-auto">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter text-center">Start of Day Session</h3>
+                <p className="text-sm text-center text-slate-500">No active cash session for {currentBranch}. Enter opening balance to begin.</p>
+                <div>
+                    <label className="label text-xs">Opening Cash Balance (₱)</label>
+                    <input type="number" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)} className="input text-center font-black text-2xl" autoFocus/>
+                </div>
+                <button onClick={() => onStartSession(parseFloat(openingBalance) || 0)} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold uppercase text-xs">Start Session</button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+            <div className="md:col-span-1 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">End of Day Reconciliation</h3>
+                <div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label className="label text-xs">System Expected (₱)</label>
+                        <div className="font-black text-2xl text-teal-700">{systemExpected.toLocaleString()}</div>
+                    </div>
+                    <div><label className="label text-xs">Actual Cash Count (₱)</label><input type="number" name="actualCash" value={form.actualCash} onChange={handleChange} className="input" /></div>
+                    <div><label className="label text-xs">Actual Card Slips (₱)</label><input type="number" name="actualCard" value={form.actualCard} onChange={handleChange} className="input" /></div>
+                    <div><label className="label text-xs">Actual E-Wallet (₱)</label><input type="number" name="actualEWallet" value={form.actualEWallet} onChange={handleChange} className="input" /></div>
+                    <div><label className="label text-xs">Notes/Explanation</label><textarea name="notes" value={form.notes} onChange={handleChange} className="input h-24" /></div>
+                </div>
+                <button onClick={handleSubmit} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold uppercase text-xs">Save & Close Session</button>
+            </div>
+            <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                 <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6">Active Session Details</h3>
+                 <div className="space-y-3">
+                     <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex justify-between">
+                         <span className="font-bold text-slate-500">Opening Balance</span>
+                         <span className="font-black text-slate-800">₱{activeSession.openingBalance.toLocaleString()}</span>
+                     </div>
+                     <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex justify-between">
+                         <span className="font-bold text-slate-500">Session Cash Payments</span>
+                         <span className="font-black text-teal-700">₱{(systemExpected - activeSession.openingBalance).toLocaleString()}</span>
+                     </div>
+                      <div className="p-4 bg-teal-50 border-2 border-teal-100 rounded-xl flex justify-between">
+                         <span className="font-bold text-teal-800">System Expected Total</span>
+                         <span className="font-black text-teal-800">₱{systemExpected.toLocaleString()}</span>
+                     </div>
+                 </div>
+            </div>
+        </div>
+    );
+};
+
+const DebtAgingTab: React.FC<{ patients: Patient[] }> = ({ patients }) => {
+    const agingBuckets = useMemo(() => {
+        const buckets: { [key: string]: { patients: Patient[], total: number } } = {
+            '0-30 Days': { patients: [], total: 0 },
+            '31-60 Days': { patients: [], total: 0 },
+            '61-90 Days': { patients: [], total: 0 },
+            '90+ Days': { patients: [], total: 0 },
+        };
+        const now = new Date();
+        patients.filter(p => (p.currentBalance || 0) > 0).forEach(p => {
+            const lastVisitDate = p.lastVisit === 'First Visit' ? new Date() : new Date(p.lastVisit);
+            if (isNaN(lastVisitDate.getTime())) return;
+            const daysOutstanding = Math.floor((now.getTime() - lastVisitDate.getTime()) / (1000 * 3600 * 24));
+            
+            let bucketKey: string;
+            if (daysOutstanding <= 30) bucketKey = '0-30 Days';
+            else if (daysOutstanding <= 60) bucketKey = '31-60 Days';
+            else if (daysOutstanding <= 90) bucketKey = '61-90 Days';
+            else bucketKey = '90+ Days';
+            
+            buckets[bucketKey].patients.push(p);
+            buckets[bucketKey].total += p.currentBalance || 0;
+        });
+        return buckets;
+    }, [patients]);
+
+    const bucketColors: { [key: string]: string } = {
+        '0-30 Days': 'border-teal-200',
+        '31-60 Days': 'border-amber-200',
+        '61-90 Days': 'border-orange-300',
+        '90+ Days': 'border-red-300',
+    };
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Object.entries(agingBuckets).map(([title, data]) => {
+                // Fix: Cast 'data' to explicitly type it and resolve property access errors.
+                const typedData = data as { patients: Patient[], total: number };
+                return (
+                    <div key={title} className={`bg-white rounded-[2.5rem] border-4 ${bucketColors[title]} shadow-sm flex flex-col`}>
+                        <div className="p-6 border-b border-slate-100">
+                            <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">{title}</h3>
+                            <p className="text-3xl font-black text-slate-800 mt-2">₱{typedData.total.toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 space-y-2 flex-1 overflow-y-auto no-scrollbar">
+                            {typedData.patients.map(p => (
+                                <div key={p.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:bg-white cursor-pointer">
+                                    <p className="font-bold text-sm text-slate-800 group-hover:text-teal-700">{p.name}</p>
+                                    <div className="flex justify-between items-center mt-1">
+                                        <span className="text-xs text-slate-400 font-mono">{p.id}</span>
+                                        <span className="text-red-600 font-black text-xs">₱{p.currentBalance?.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {typedData.patients.length === 0 && <p className="text-xs text-center text-slate-400 italic p-8">No accounts in this period.</p>}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+const PhilHealthClaimsTab: React.FC<{
+  claims: PhilHealthClaim[],
+  patients: Patient[],
+  onUpdateClaim?: (claim: PhilHealthClaim) => void
+}> = ({ claims, patients, onUpdateClaim }) => {
+    return (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6">PhilHealth Claims Registry</h3>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="text-xs font-black uppercase text-slate-400 tracking-wider bg-slate-50">
+                            <th className="p-4 text-left">Patient</th>
+                            <th className="p-4 text-left">Procedure</th>
+                            <th className="p-4 text-right">Amount</th>
+                            <th className="p-4 text-center">Status</th>
+                            <th className="p-4 text-left">Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {claims.map(claim => {
+                            const patient = patients.find(p => p.id === claim.patientId);
+                            return (
+                                <tr key={claim.id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-bold">{patient?.name}</td>
+                                    <td className="p-4">{claim.procedureName}</td>
+                                    <td className="p-4 text-right font-mono">₱{claim.amountClaimed.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                                            claim.status === PhilHealthClaimStatus.PAID ? 'bg-teal-50 text-teal-700 border-teal-100' : 
+                                            claim.status === PhilHealthClaimStatus.REJECTED ? 'bg-red-50 text-red-700 border-red-100' : 
+                                            'bg-slate-100 text-slate-600 border-slate-200'
+                                        }`}>{claim.status}</span>
+                                    </td>
+                                    <td className="p-4 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td>
+                                </tr>
+                            );
+                        })}
+                         {claims.length === 0 && <tr><td colSpan={5} className="text-center p-12 text-slate-400 italic">No PhilHealth claims recorded.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const HMOClaimsTab: React.FC<{
+  claims: HMOClaim[],
+  patients: Patient[]
+}> = ({ claims, patients }) => {
+    return (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6">HMO Claims Management</h3>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="text-xs font-black uppercase text-slate-400 tracking-wider bg-slate-50">
+                            <th className="p-4 text-left">Patient</th>
+                             <th className="p-4 text-left">Provider</th>
+                            <th className="p-4 text-left">Procedure</th>
+                            <th className="p-4 text-right">Amount</th>
+                            <th className="p-4 text-center">Status</th>
+                            <th className="p-4 text-left">Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {claims.map(claim => {
+                            const patient = patients.find(p => p.id === claim.patientId);
+                            return (
+                                <tr key={claim.id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-bold">{patient?.name}</td>
+                                    <td className="p-4 font-bold text-blue-700">{claim.hmoProvider}</td>
+                                    <td className="p-4">{claim.procedureName}</td>
+                                    <td className="p-4 text-right font-mono">₱{claim.amountClaimed.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                                            claim.status === HMOClaimStatus.PAID ? 'bg-teal-50 text-teal-700 border-teal-100' : 
+                                            claim.status === HMOClaimStatus.REJECTED ? 'bg-red-50 text-red-700 border-red-100' : 
+                                            'bg-slate-100 text-slate-600 border-slate-200'
+                                        }`}>{claim.status}</span>
+                                    </td>
+                                    <td className="p-4 font-mono text-xs">{formatDate(claim.dateSubmitted)}</td>
+                                </tr>
+                            );
+                        })}
+                        {claims.length === 0 && <tr><td colSpan={6} className="text-center p-12 text-slate-400 italic">No HMO claims recorded.</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+interface PayrollTabProps {
+  appointments: Appointment[];
+  staff: StaffUser[];
+  patients: Patient[];
+  fieldSettings?: FieldSettings;
+  currentUser: StaffUser;
+  payrollPeriods: PayrollPeriod[];
+  payrollAdjustments: PayrollAdjustment[];
+  commissionDisputes: CommissionDispute[];
+  onUpdatePayrollPeriod: (p: PayrollPeriod) => void;
+  onAddAdjustment: (a: PayrollAdjustment) => void;
+  onApproveAdjustment: (id: string) => void;
+  onAddCommissionDispute: (d: CommissionDispute) => void;
+  onResolveCommissionDispute: (id: string) => void;
+  onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => PayrollPeriod | undefined;
+}
+
+const PayrollTab: React.FC<PayrollTabProps> = (props) => {
+    const { staff, payrollPeriods, onAddPayrollPeriod, appointments, patients, fieldSettings, payrollAdjustments } = props;
+    const [selectedProviderId, setSelectedProviderId] = useState<string>('');
+    const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
+    const toast = useToast();
+
+    const handleCreatePeriod = () => {
+        if (!selectedProviderId || !onAddPayrollPeriod) return;
+        const today = new Date();
+        const startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+        onAddPayrollPeriod({ providerId: selectedProviderId, startDate, endDate, status: PayrollStatus.OPEN });
+        toast.success("New payroll period created.");
+    }
+
+    const providerPeriods = useMemo(() => payrollPeriods.filter(p => p.providerId === selectedProviderId), [payrollPeriods, selectedProviderId]);
+
+    const statementData = useMemo(() => {
+        if (!selectedPeriodId || !selectedProviderId || !fieldSettings) return null;
+        const period = payrollPeriods.find(p => p.id === selectedPeriodId);
+        const provider = staff.find(s => s.id === selectedProviderId);
+        if (!period || !provider) return null;
+        
+        const providerAppointments = appointments.filter(a => 
+            a.providerId === selectedProviderId && 
+            a.date >= period.startDate && 
+            a.date <= period.endDate &&
+            a.status === AppointmentStatus.COMPLETED
+        );
+
+        const commissionItems = providerAppointments.map(apt => {
+            const proc = fieldSettings.procedures.find(p => p.name === apt.type);
+            const patient = patients.find(p => p.id === apt.patientId);
+            if (!proc || !patient) return null;
+
+            const patientHMO = fieldSettings.vendors.find(v => v.type === 'HMO' && v.name === patient.insuranceProvider);
+            let priceBookId = patientHMO?.priceBookId || fieldSettings.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
+            
+            const priceEntry = fieldSettings.priceBookEntries?.find(pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId);
+            const price = priceEntry?.price || 0;
+            const commission = price * (provider.commissionRate || 0);
+            return { apt, patientName: patient.name, price, commission };
+        }).filter(Boolean);
+
+        const grossProduction = commissionItems.reduce((sum, item) => sum + (item?.price || 0), 0);
+        const totalCommission = commissionItems.reduce((sum, item) => sum + (item?.commission || 0), 0);
+
+        const adjustments = payrollAdjustments.filter(adj => adj.periodId === selectedPeriodId && adj.status === 'Approved');
+        const totalAdjustments = adjustments.reduce((sum, adj) => sum + adj.amount, 0);
+
+        return {
+            period, provider, commissionItems, grossProduction, totalCommission, adjustments, totalAdjustments, netPayout: totalCommission + totalAdjustments
+        };
+    }, [selectedPeriodId, selectedProviderId, payrollPeriods, staff, appointments, patients, fieldSettings, payrollAdjustments]);
+
+    return (
+        <div className="space-y-8">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center">
+                <div className="flex gap-4">
+                    <select value={selectedProviderId} onChange={e => { setSelectedProviderId(e.target.value); setSelectedPeriodId(''); }} className="input w-64"><option value="">Select Practitioner</option>{staff.filter(s => s.role === UserRole.DENTIST).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                    <select value={selectedPeriodId} onChange={e => setSelectedPeriodId(e.target.value)} disabled={!selectedProviderId} className="input w-64"><option value="">Select Period</option>{providerPeriods.map(p => <option key={p.id} value={p.id}>{formatDate(p.startDate)} - {formatDate(p.endDate)}</option>)}</select>
+                </div>
+                <button onClick={handleCreatePeriod} disabled={!selectedProviderId || !onAddPayrollPeriod} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50">Create Period</button>
+            </div>
+
+            {statementData && (
+                 <div className="bg-white p-8 rounded-[2.5rem] border-2 border-teal-100 shadow-xl space-y-6">
+                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">Payout Statement: {statementData.provider.name}</h3>
+                     <div className="grid grid-cols-3 gap-6">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200"><label className="label text-xs">Gross Production</label><div className="font-black text-2xl text-slate-800">₱{statementData.grossProduction.toLocaleString()}</div></div>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200"><label className="label text-xs">Total Commission</label><div className="font-black text-2xl text-teal-700">₱{statementData.totalCommission.toLocaleString()}</div></div>
+                        <div className="bg-teal-50 p-4 rounded-xl border-2 border-teal-200"><label className="label text-xs">Net Payout</label><div className="font-black text-3xl text-teal-800">₱{statementData.netPayout.toLocaleString()}</div></div>
+                     </div>
+                     <div>
+                        <h4 className="font-bold text-sm mb-2">Commission Breakdown</h4>
+                        <div className="max-h-60 overflow-y-auto border rounded-xl">
+                            <table className="w-full text-xs">
+                                <thead className="bg-slate-100 sticky top-0"><tr><th className="p-2 text-left">Date</th><th className="p-2 text-left">Patient</th><th className="p-2 text-left">Procedure</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Commission</th></tr></thead>
+                                <tbody>{statementData.commissionItems.map((item, i) => item && <tr key={i} className="border-t"><td className="p-2">{formatDate(item.apt.date)}</td><td className="p-2">{item.patientName}</td><td className="p-2">{item.apt.type}</td><td className="p-2 text-right">₱{item.price.toLocaleString()}</td><td className="p-2 text-right font-bold text-teal-700">₱{item.commission.toLocaleString()}</td></tr>)}</tbody>
+                            </table>
+                        </div>
+                     </div>
+                 </div>
+            )}
+        </div>
+    );
+};
+
 
 const Financials: React.FC<FinancialsProps> = (props) => {
   const { 
-    claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff, currentUser, 
-    onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, onSaveCashSession, currentBranch,
+    claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff = [], currentUser, 
+    onUpdatePhilHealthClaim, reconciliations = [], onSaveReconciliation, cashSessions = [], onStartCashSession, onCloseCashSession, currentBranch,
     governanceTrack, setGovernanceTrack, onAddPayrollPeriod, onBack
   } = props;
   
@@ -201,262 +577,79 @@ const Financials: React.FC<FinancialsProps> = (props) => {
                 <Analytics patients={filteredPatients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />
             </div>
         );
-      case 'reconciliation': return <CashReconciliationTab patients={filteredPatients} currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} onSaveSession={onSaveCashSession} fieldSettings={fieldSettings} />;
-      case 'payroll': return (
-        <PayrollTab 
-            appointments={appointments || []} 
-            staff={staff || []} 
-            expenses={filteredExpenses} 
-            fieldSettings={fieldSettings} 
-            currentUser={currentUser}
-            payrollPeriods={props.payrollPeriods}
-            payrollAdjustments={props.payrollAdjustments}
-            commissionDisputes={props.commissionDisputes}
-            onUpdatePayrollPeriod={props.onUpdatePayrollPeriod}
-            onAddAdjustment={props.onAddPayrollAdjustment}
-            onApproveAdjustment={props.onApproveAdjustment}
-            onAddCommissionDispute={props.onAddCommissionDispute}
-            onResolveCommissionDispute={props.onResolveCommissionDispute}
-            onAddPayrollPeriod={onAddPayrollPeriod}
-        />
-      );
+      case 'reconciliation': return <CashReconciliationTab currentBranch={currentBranch} currentUser={currentUser} reconciliations={reconciliations} onSave={onSaveReconciliation} cashSessions={cashSessions} patients={patients} fieldSettings={fieldSettings} onStartSession={onStartCashSession!} onCloseSession={onCloseCashSession!} />;
+      case 'payroll': return <PayrollTab {...props} patients={patients} />;
       case 'aging': return <DebtAgingTab patients={filteredPatients} />;
-      case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients} onUpdateClaim={onUpdatePhilHealthClaim} />;
-      case 'claims': return <HMOClaimsTab claims={claims} patients={patients} />;
+      case 'philhealth': return <PhilHealthClaimsTab claims={philHealthClaims} patients={patients || []} onUpdateClaim={onUpdatePhilHealthClaim} />;
+      case 'claims': return <HMOClaimsTab claims={claims} patients={patients || []} />;
       case 'expenses': 
         return (
             <div className="space-y-6">
                 <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm text-center">
                     <Package size={48} className="text-slate-200 mx-auto mb-4" aria-hidden="true"/>
-                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{isStatutory ? 'Official Purchase Journal' : 'Operational Overhead Analysis'}</h3>
-                    <p className="text-sm text-slate-600 mt-2 font-bold uppercase tracking-widest">Resource tracking and clinic functioning expenditures.</p>
+                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{isStatutory ? 'Official Purchase Journal' : 'Operational'}</h3>
                 </div>
             </div>
-        );
-      default: return <div className="p-10 text-center text-slate-500 italic font-bold">Module interface synchronizing...</div>;
+        )
+      default: return null;
     }
   };
 
   return (
-    <div className={`h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 ${isStatutory ? 'statutory-mode' : ''}`} role="main" aria-label="Financial Management System">
-      <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex items-center gap-4">
-              {onBack && (
+    <div className="h-full flex flex-col gap-8 animate-in fade-in duration-500">
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+                {onBack && (
                   <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
                       <ArrowLeft size={24} className="text-slate-600"/>
                   </button>
-              )}
-              <div className={`p-4 rounded-3xl shadow-xl transition-all duration-500 ${isStatutory ? 'bg-lilac-600 text-white rotate-6' : 'bg-teal-600 text-white'}`} aria-hidden="true">
-                  {isStatutory ? <ShieldCheck size={36} /> : <Activity size={36} />}
-              </div>
-              <div>
-                  <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">{isStatutory ? 'Registry Monitor' : 'Practice Pulse'}</h1>
-                  <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest border ${isStatutory ? 'bg-lilac-50 border-lilac-200 text-lilac-700' : 'bg-teal-50 border-teal-200 text-teal-800'}`}>
-                          {isStatutory ? 'Statutory Audit Active' : 'Real-World Business Intelligence'}
-                      </span>
-                      {isStatutory && <span className="text-xs font-bold text-slate-500 uppercase italic tracking-tight">NPC/BIR Compliance Mode</span>}
-                  </div>
-              </div>
-          </div>
-          
-          {isBirEnabled && (
-            <div className="bg-slate-200/50 p-1.5 rounded-[1.5rem] flex gap-2 border border-slate-300 shadow-inner" role="group" aria-label="Compliance Track Toggle">
-                  <button 
-                      onClick={() => { setGovernanceTrack('STATUTORY'); setActiveTab('analytics'); }}
-                      className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isStatutory ? 'bg-white text-lilac-800 shadow-xl border border-lilac-100 scale-105' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-                      aria-pressed={isStatutory}
-                  >
-                      <Receipt size={16} aria-hidden="true"/> Statutory Registry (BIR)
-                  </button>
-                  <button 
-                      onClick={() => { setGovernanceTrack('OPERATIONAL'); setActiveTab('analytics'); }}
-                      className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!isStatutory ? 'bg-white text-teal-800 shadow-xl border border-lilac-100 scale-105' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-                      aria-pressed={!isStatutory}
-                  >
-                      <Target size={16} aria-hidden="true"/> Operational Pulse (Real)
-                  </button>
+                )}
+                <div className="bg-teal-600 p-4 rounded-3xl text-white shadow-xl"><DollarSign size={36} /></div>
+                <div>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Financial Hub</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Practice Revenue & Expense Analytics</p>
+                </div>
             </div>
-          )}
-      </header>
 
-      <div className={`bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 flex-1 flex flex-col overflow-hidden relative transition-colors ${isStatutory ? 'border-lilac-100' : 'border-white'}`}>
-        {isStatutory && (
-            <div className="bg-lilac-600 text-white p-4 text-center font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3">
-                <ShieldCheck size={20} /> Official Registry
-            </div>
-        )}
-        <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar gap-2 pt-2" role="tablist" aria-label="Financial modules">
-            {trackTabs.map(tab => (
-                 <button 
-                    key={tab.id} 
-                    role="tab"
-                    aria-selected={activeTab === tab.id}
-                    aria-controls={`${tab.id}-panel`}
-                    onClick={() => setActiveTab(tab.id)} 
-                    className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 transition-all whitespace-nowrap flex items-center gap-3 ${activeTab === tab.id ? `${isStatutory ? 'border-lilac-600 text-lilac-900' : 'border-teal-600 text-teal-900'} bg-white` : `border-transparent text-slate-500 hover:${isStatutory ? 'text-lilac-700 border-lilac-200' : 'text-teal-700 border-teal-200'} hover:bg-white/50`}`}
-                >
-                    <tab.icon size={18} aria-hidden="true" /> {tab.label}
-                </button>
-            ))}
-        </div>
-        
-        <div className={`flex-1 overflow-y-auto p-10 no-scrollbar transition-colors ${isStatutory ? 'bg-lilac-50/20' : 'bg-slate-50/30'}`} id={`${activeTab}-panel`}>
-            {renderContent()}
-        </div>
-
-        {!isStatutory && (
-            <div className="absolute bottom-0 left-0 right-0 bg-lilac-700 text-white px-8 py-3 flex items-center justify-center gap-4 z-50 shadow-[0_-8px_30px_rgba(162,28,175,0.4)] animate-in slide-in-from-bottom-full duration-1000" role="complementary">
-                <Shield size={16} className="animate-bounce shrink-0" aria-hidden="true"/>
-                <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">
-                    INTERNAL MANAGEMENT AID ONLY: THESE METRICS REPRESENT CLINICAL WORKFLOW AND OPERATIONAL ESTIMATES. THIS IS NOT AN ACCOUNTING RECORD AND DOES NOT REFLECT STATUTORY TAX DECLARATIONS. CLINICAL DECISIONS REMAIN THE SOLE RESPONSIBILITY OF THE DENTIST.
-                </span>
-            </div>
-        )}
-      </div>
-
-      {isStatutory && (
-          <div className="flex justify-center animate-in slide-in-from-bottom-2">
-              <button className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] flex items-center gap-4 shadow-2xl hover:bg-slate-800 hover:-translate-y-1 transition-all active:scale-95 group">
-                  <Download size={20} className="text-teal-400 group-hover:animate-bounce" aria-hidden="true"/> Compile Official Journals for External Audit
-              </button>
-          </div>
-      )}
-    </div>
-  );
-};
-
-const PayrollTab: React.FC<any> = ({ appointments, staff, expenses, fieldSettings, currentUser, payrollPeriods, payrollAdjustments, commissionDisputes, onUpdatePayrollPeriod, onAddAdjustment, onApproveAdjustment, onAddCommissionDispute: onAddDispute, onResolveCommissionDispute: onResolveDispute, onAddPayrollPeriod }) => {
-    const toast = useToast();
-    const dentists = staff.filter((s: StaffUser) => s.role === UserRole.DENTIST);
-    const [selectedDentistId, setSelectedDentistId] = useState<string>(currentUser.role === UserRole.DENTIST ? currentUser.id : dentists[0]?.id || '');
-    const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
-    
-    const [isCreatingPeriod, setIsCreatingPeriod] = useState(false);
-    const [newPeriod, setNewPeriod] = useState({ startDate: '', endDate: '' });
-
-    const [disputeModal, setDisputeModal] = useState<{ itemId: string, itemName: string } | null>(null);
-    const [disputeNote, setDisputeNote] = useState('');
-    const [adjModal, setAdjModal] = useState(false);
-    const [adjForm, setAdjForm] = useState({ reason: '', amount: '' });
-
-    const isAdmin = currentUser.role === UserRole.ADMIN;
-    const currentDentist = staff.find((s: StaffUser) => s.id === selectedDentistId);
-    const isEligibleForSplit = useMemo(() => currentDentist?.role === UserRole.DENTIST, [currentDentist]);
-    
-    const dentistPeriods = useMemo(() => payrollPeriods.filter((p: PayrollPeriod) => p.providerId === selectedDentistId), [payrollPeriods, selectedDentistId]);
-    
-    useEffect(() => {
-        if (dentistPeriods.length > 0) {
-            setSelectedPeriodId(dentistPeriods[0].id);
-        } else {
-            setSelectedPeriodId('');
-        }
-    }, [dentistPeriods]);
-
-    const period = useMemo(() => dentistPeriods.find(p => p.id === selectedPeriodId), [dentistPeriods, selectedPeriodId]);
-
-    const isLocked = period?.status === PayrollStatus.LOCKED;
-    const isClosed = period?.status === PayrollStatus.CLOSED;
-
-    const { grossProduction, labFees, netBase, baseCommission, finalPayout, periodAppointments } = useMemo(() => {
-        if (!period) return { grossProduction: 0, labFees: 0, netBase: 0, baseCommission: 0, finalPayout: 0, periodAppointments: [] };
-        
-        const periodAppointments = appointments.filter((a: Appointment) => 
-            a.providerId === selectedDentistId && 
-            a.status === AppointmentStatus.COMPLETED &&
-            a.date >= period.startDate &&
-            a.date <= period.endDate
-        );
-
-        let gross = 0;
-        periodAppointments.forEach((apt: Appointment) => {
-            const proc = fieldSettings?.procedures.find((p: any) => p.name === apt.type);
-            if (proc) {
-                const priceEntry = fieldSettings?.priceBookEntries?.find((pbe: any) => pbe.procedureId === proc.id);
-                gross += (priceEntry?.price || 0);
-            }
-        });
-
-        const labs = expenses.filter((e: Expense) => e.staffId === selectedDentistId && e.category === 'Lab Fee' && e.date >= period.startDate && e.date <= period.endDate).reduce((s: number, e: Expense) => s + e.amount, 0);
-        const net = gross - labs;
-        const commissionRate = currentDentist?.commissionRate || 0.30;
-        const base = isEligibleForSplit ? (net * commissionRate) : 0;
-        
-        const adjTotal = payrollAdjustments
-            .filter((a: PayrollAdjustment) => a.periodId === period.id && a.status === 'Approved')
-            .reduce((s: number, a: PayrollAdjustment) => s + a.amount, 0);
-
-        return {
-            grossProduction: gross,
-            labFees: labs,
-            netBase: net,
-            baseCommission: base,
-            finalPayout: base + adjTotal,
-            periodAppointments
-        };
-    }, [period, appointments, selectedDentistId, fieldSettings, expenses, currentDentist, isEligibleForSplit, payrollAdjustments]);
-    
-    const handleCreatePeriod = () => {
-        if (!newPeriod.startDate || !newPeriod.endDate) return;
-        onAddPayrollPeriod({
-            providerId: selectedDentistId,
-            ...newPeriod,
-            status: 'Open'
-        });
-        setIsCreatingPeriod(false);
-        setNewPeriod({ startDate: '', endDate: '' });
-    };
-
-    const logAction = async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {};
-
-    // ... other handlers remain the same
-    
-    return (
-        <div className="space-y-6" role="region" aria-label="Fee Split Management">
-            {isAdmin && (
-                 <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <select value={selectedDentistId} onChange={e => setSelectedDentistId(e.target.value)} className="bg-slate-50 border border-slate-200 p-2 rounded-xl text-sm font-black outline-none focus:border-teal-500">
-                            {dentists.map((d: StaffUser) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </select>
-                        <select value={selectedPeriodId} onChange={e => setSelectedPeriodId(e.target.value)} className="bg-slate-50 border border-slate-200 p-2 rounded-xl text-sm font-black outline-none focus:border-teal-500">
-                            {dentistPeriods.map((p: PayrollPeriod) => <option key={p.id} value={p.id}>{formatDate(p.startDate)} - {formatDate(p.endDate)}</option>)}
-                        </select>
-                        <button onClick={() => setIsCreatingPeriod(true)} className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200"><Plus size={16}/></button>
+            {isBirEnabled && (
+                 <div className="bg-white rounded-[2rem] p-2 flex items-center justify-between border-2 border-slate-100 shadow-sm">
+                    <div className="flex gap-2">
+                        <button onClick={() => setGovernanceTrack('OPERATIONAL')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${governanceTrack === 'OPERATIONAL' ? 'bg-teal-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+                            <Activity size={14}/> Operational
+                        </button>
+                        <button onClick={() => setGovernanceTrack('STATUTORY')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${governanceTrack === 'STATUTORY' ? 'bg-lilac-700 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+                            <Shield size={14}/> Statutory
+                        </button>
+                    </div>
+                    <div className="px-4 text-right">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Governance Track</div>
+                        <div className={`text-xs font-black uppercase tracking-widest ${isStatutory ? 'text-lilac-700' : 'text-teal-700'}`}>{isStatutory ? 'BIR Compliance Mode' : 'Internal Operations'}</div>
                     </div>
                  </div>
             )}
-             {isCreatingPeriod && (
-                <div className="bg-white p-6 rounded-2xl border-2 border-dashed border-teal-400 flex items-end gap-4 animate-in zoom-in-95">
-                    <div className="flex-1"><label className="label text-xs">Start Date</label><input type="date" value={newPeriod.startDate} onChange={e => setNewPeriod({...newPeriod, startDate: e.target.value})} className="input" /></div>
-                    <div className="flex-1"><label className="label text-xs">End Date</label><input type="date" value={newPeriod.endDate} onChange={e => setNewPeriod({...newPeriod, endDate: e.target.value})} className="input" /></div>
-                    <button onClick={handleCreatePeriod} className="px-6 py-3 bg-teal-600 text-white rounded-xl text-xs font-black">Create Period</button>
-                    <button onClick={() => setIsCreatingPeriod(false)} className="p-3 bg-slate-100 rounded-xl"><X size={16}/></button>
-                </div>
-             )}
-
-            {period ? (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-4 gap-6">
-                        <div className="bg-white p-6 rounded-2xl border-2 border-teal-100"><div className="text-xs font-black text-teal-700 uppercase">Gross Production</div><div className="text-2xl font-black mt-1">₱{grossProduction.toLocaleString()}</div></div>
-                        <div className="bg-white p-6 rounded-2xl border-2 border-slate-100"><div className="text-xs font-black text-slate-500 uppercase">Net Base</div><div className="text-2xl font-black mt-1">₱{netBase.toLocaleString()}</div></div>
-                        <div className="bg-white p-6 rounded-2xl border-2 border-slate-100"><div className="text-xs font-black text-slate-500 uppercase">Adjustments</div><div className="text-2xl font-black mt-1">₱{(finalPayout - baseCommission).toLocaleString()}</div></div>
-                        <div className="bg-teal-900 text-white p-6 rounded-2xl"><div className="text-xs font-black text-teal-300 uppercase">Final Payout</div><div className="text-2xl font-black mt-1">₱{finalPayout.toLocaleString()}</div></div>
-                    </div>
-                    {/* Placeholder for tabs */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200 min-h-[300px]">
-                        <p className="text-center text-slate-400 font-bold italic p-10">Detailed production, adjustments, and disputes will be shown here.</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="p-20 text-center bg-white rounded-2xl border-dashed border-2">
-                    <p className="font-bold text-slate-500">No payroll period selected or created for this practitioner.</p>
-                </div>
-            )}
         </div>
-    );
-};
+        
+        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white flex-1 flex flex-col overflow-hidden relative">
+            <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar" role="tablist">
+                {trackTabs.map(tab => (
+                    <button 
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        onClick={() => setActiveTab(tab.id)} 
+                        className={`py-6 px-4 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === tab.id ? 'border-teal-600 text-teal-900' : 'border-transparent text-slate-500 hover:text-teal-700 hover:border-teal-200'}`}
+                    >
+                        <tab.icon size={16} strokeWidth={activeTab === tab.id ? 3 : 2} /> {tab.label}
+                    </button>
+                ))}
+            </div>
 
+            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 no-scrollbar">
+                {renderContent()}
+            </div>
+        </div>
+    </div>
+  );
+};
 
 export default Financials;

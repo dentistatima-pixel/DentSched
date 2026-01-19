@@ -1,5 +1,8 @@
 
 
+
+
+
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -51,7 +54,7 @@ const PatientList: React.FC<PatientListProps> = (props) => {
         }
     });
 
-    // Fix: Access registryAnswers for takingBloodThinners check.
+    // Problem 6 Fix: Use the full question string as the key.
     if (patient.registryAnswers?.['Taking Blood Thinners? (Aspirin, Warfarin, etc.)'] === 'Yes') {
         flags.push({ type: 'Alert', value: 'Taking Blood Thinners' });
     }
@@ -136,7 +139,8 @@ const PatientList: React.FC<PatientListProps> = (props) => {
               const isMinor = p.age !== undefined && p.age < 18;
               const isPwdOrMinor = p.isPwd || isMinor;
               const isSelected = p.id === props.selectedPatientId;
-              const isProvisional = !p.dpaConsent;
+              // Problem 4 Fix: Use registrationStatus instead of dpaConsent
+              const isProvisional = p.registrationStatus === 'Provisional';
 
               return (
                   <tr 

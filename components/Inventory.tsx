@@ -249,6 +249,14 @@ const Inventory: React.FC<InventoryProps> = ({
                             >
                                 <Armchair size={18} aria-hidden="true"/> Set Management
                             </button>
+                             <button 
+                                role="tab"
+                                aria-selected={activeTab === 'forecasting'}
+                                onClick={() => setActiveTab('forecasting')} 
+                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
+                            >
+                                <TrendingUp size={18} aria-hidden="true"/> Forecasting
+                            </button>
                             <button 
                                 role="tab"
                                 aria-selected={activeTab === 'procurement'}
@@ -375,6 +383,52 @@ const Inventory: React.FC<InventoryProps> = ({
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                 )}
+                 {activeTab === 'forecasting' && (
+                    <div className="space-y-6">
+                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Supply Chain Forecasting</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {branchStock.map(item => {
+                                const metric = predictiveMetrics[item.id];
+                                return (
+                                    <div key={item.id} className={`p-6 rounded-3xl border-2 shadow-sm ${metric.isAtRisk ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100'}`}>
+                                        <div className="font-black text-slate-800 uppercase">{item.name}</div>
+                                        <div className="flex justify-between items-end mt-4">
+                                            <div>
+                                                <div className="text-xs font-bold text-slate-500">Days Left</div>
+                                                <div className={`text-3xl font-black ${metric.daysLeft < 999 ? 'text-teal-700' : 'text-slate-400'}`}>{metric.daysLeft < 999 ? Math.round(metric.daysLeft) : '∞'}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs font-bold text-slate-500">Burn Rate</div>
+                                                <div className="text-lg font-bold text-slate-600">{metric.burnRate.toFixed(2)}/day</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                 )}
+                 {activeTab === 'procurement' && (
+                    <div className="space-y-6">
+                         <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Procurement & Orders</h3>
+                         <div className="bg-white p-8 rounded-3xl border shadow-sm">
+                            <h4 className="font-bold text-lg mb-4">New Purchase Order</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <select className="input"><option>Select Vendor</option></select>
+                                <input type="date" className="input" />
+                            </div>
+                            <div className="mt-4 border-t pt-4">
+                                <p className="font-bold mb-2">Items</p>
+                                <div className="flex gap-4 items-center">
+                                    <select className="input flex-1"><option>Select Item</option></select>
+                                    <input type="number" placeholder="Qty" className="input w-24"/>
+                                    <button className="p-2 bg-teal-100 text-teal-700 rounded-lg"><Plus size={16}/></button>
+                                </div>
+                            </div>
+                            <button onClick={() => toast.success("Purchase Order submitted.")} className="mt-6 bg-teal-600 text-white px-6 py-3 rounded-lg text-sm font-bold">Submit Purchase Order</button>
+                         </div>
                     </div>
                  )}
             </div>

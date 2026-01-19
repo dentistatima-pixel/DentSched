@@ -1,9 +1,15 @@
 
+
+
+
+
+
 import React, { useState, useRef } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
+import { Odontonotes } from './Odontonotes';
+// Fix: Import the Odontogram component.
 import Odontogram from './Odontogram';
-import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
 import TreatmentPlanModule from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
@@ -42,6 +48,7 @@ interface PatientDetailViewProps {
   onPrefillNote?: (entry: DentalChartEntry) => void;
   onUpdateSettings?: (settings: FieldSettings) => void;
   onRequestProtocolOverride: (rule: ClinicalProtocolRule, continuation: () => void) => void;
+  onDeleteClinicalNote?: (patientId: string, noteId: string) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -148,7 +155,7 @@ const DiagnosticGallery: React.FC<{
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride } = props;
+  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -282,6 +289,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         entries={patient.dentalChart || []}
                         onAddEntry={(e) => props.onQuickUpdatePatient({...patient, dentalChart: [...(patient.dentalChart || []), e]})}
                         onUpdateEntry={(e) => props.onQuickUpdatePatient({...patient, dentalChart: (patient.dentalChart || []).map(item => item.id === e.id ? e : item)})}
+                        onDeleteEntry={(noteId) => onDeleteClinicalNote?.(patient.id, noteId)}
                         currentUser={props.currentUser}
                         procedures={props.fieldSettings?.procedures || []}
                         inventory={stock}

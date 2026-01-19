@@ -1,8 +1,6 @@
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon } from 'lucide-react';
-import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType } from '../types';
+import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
@@ -27,12 +25,13 @@ interface AppointmentModalProps {
   overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string; } | null;
   isReconciliationMode?: boolean;
   currentBranch: string;
+  onProcedureSafetyCheck?: (patientId: string, procedureName: string, continuation: () => void) => void;
 }
 
 const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isOpen, onClose, patients, staff, appointments, onSave, onSavePatient,
     initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings,
-    isDowntime, overrideInfo, isReconciliationMode, currentBranch
+    isDowntime, overrideInfo, isReconciliationMode, currentBranch, onProcedureSafetyCheck
 }) => {
     const toast = useToast();
     const [patientId, setPatientId] = useState('');
@@ -79,6 +78,13 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         }
     }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, patients, fieldSettings]);
 
+    useEffect(() => {
+        if (isOpen && patientId && procedureType && onProcedureSafetyCheck && !existingAppointment) { // Don't re-check on edit
+            onProcedureSafetyCheck(patientId, procedureType, () => {});
+        }
+    }, [isOpen, patientId, procedureType, existingAppointment]);
+
+
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPatientSearch(e.target.value);
         if (e.target.value) {
@@ -119,9 +125,17 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             authorizedManagerId: overrideInfo?.authorizedManagerId,
             entryMode: isDowntime ? 'MANUAL' : 'AUTO',
         };
+        
+        const continuation = () => {
+            onSave(appointment);
+            onClose();
+        };
 
-        onSave(appointment);
-        onClose();
+        if (onProcedureSafetyCheck && !existingAppointment) {
+            onProcedureSafetyCheck(patientId, procedureType, continuation);
+        } else {
+            continuation();
+        }
     };
 
     if (!isOpen) return null;
@@ -200,8 +214,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </form>
 
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
-                    <button onClick={handleSubmit} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2">
+                    <button type="button" onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
+                    <button type="submit" form="appointment-form" onClick={handleSubmit} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 flex items-center gap-2">
                         <Save size={16} /> {existingAppointment ? 'Save Changes' : 'Book Appointment'}
                     </button>
                 </div>

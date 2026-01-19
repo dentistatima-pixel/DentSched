@@ -1,5 +1,7 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// Fix: Add Activity to lucide-react imports
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
@@ -33,7 +35,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     perioChart: [],
     registrationSignature: '',
     registrationSignatureTimestamp: '',
-    registryAnswers: {}
+    registryAnswers: {},
+    registrationStatus: 'Provisional'
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -79,6 +82,12 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         return newData;
     });
   }, [readOnly]);
+
+  // Problem 6 Fix: Dedicated handler for structured medical registry data
+  const handleRegistryChange = (newRegistryAnswers: Record<string, any>) => {
+    if (readOnly) return;
+    setFormData(prev => ({ ...prev, registryAnswers: newRegistryAnswers }));
+  };
 
   const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions', value: string) => {
     if (readOnly) return;
@@ -159,7 +168,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const savePatientRecord = (data: Partial<Patient>) => {
     const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...data, name: fullName });
+    // Problem 4 Fix: Set registration status to Complete on save
+    onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
     onClose();
   };
 
@@ -264,7 +274,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <Heart size={24} className="text-lilac-700"/>
                             <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Section V & VI. Clinical Medical History</h3>
                         </div>
-                        <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
+                        {/* Problem 6 Fix: Pass onRegistryChange instead of generic handleChange */}
+                        <RegistrationMedical 
+                            registryAnswers={formData.registryAnswers || {}}
+                            onRegistryChange={handleRegistryChange}
+                            allergies={formData.allergies || []}
+                            onAllergyChange={handleArrayChange}
+                            medicalConditions={formData.medicalConditions || []}
+                            onConditionChange={handleArrayChange}
+                            readOnly={readOnly} 
+                            fieldSettings={fieldSettings} 
+                        />
                     </div>
                     
                     {/* Dental History Section Added */}

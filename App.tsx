@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -25,12 +23,12 @@ import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safe
 import ProtocolOverrideModal from './components/ProtocolOverrideModal'; // Import for Gap 3
 import LeaveAndShiftManager from './components/LeaveAndShiftManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
-import { Appointment, User, Patient, FieldSettings, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest, ClinicalProtocolRule, InstrumentSet } from './types';
+import { Appointment, User, Patient, FieldSettings, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest, ClinicalProtocolRule, InstrumentSet, Expense } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import CryptoJS from 'crypto-js';
-import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon, User as UserIcon, Key } from 'lucide-react';
+import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, MessageSquare, X, CloudOff, FileWarning, MessageCircle as MessageIcon, User as UserIcon, Key, FileSearch } from 'lucide-react';
 import { getTrustedTime } from './services/timeService';
 import PrivacyRevocationModal from './components/PrivacyRevocationModal';
 import ConsentCaptureModal from './components/ConsentCaptureModal';
@@ -167,6 +165,7 @@ function App() {
   const [patients, setPatients] = useState<Patient[]>(PATIENTS);
   const [staff, setStaff] = useState<User[]>(STAFF);
   const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
+  const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES); // Problem 6 Fix
   const [sterilizationCycles, setSterilizationCycles] = useState<SterilizationCycle[]>(MOCK_STERILIZATION_CYCLES);
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
   const [tasks, setTasks] = useState<PinboardTask[]>([]);
@@ -229,7 +228,9 @@ function App() {
   const [prefillNote, setPrefillNote] = useState<Partial<DentalChartEntry> | null>(null);
 
   const [isSafetyAlertOpen, setIsSafetyAlertOpen] = useState(false);
-  const [safetyAlertConfig, setSafetyAlertConfig] = useState({ title: '', message: '' });
+  const [safetyAlertConfig, setSafetyAlertConfig] = useState<any>({ title: '', message: '' });
+  const [clearancePatient, setClearancePatient] = useState<Patient | null>(null);
+  const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
 
   // --- GAP 4: Protocol Override State ---
   const [isProtocolOverrideOpen, setIsProtocolOverrideOpen] = useState(false);
@@ -604,9 +605,41 @@ function App() {
 
   const handleApproveLeaveRequest = (id: string, approve: boolean) => {
     if (readOnlyLockdown) return lockdownToast();
-    setLeaveRequests(prev => prev.map(req => 
-        req.id === id ? { ...req, status: approve ? 'Approved' : 'Rejected' } : req
+    const req = leaveRequests.find(r => r.id === id);
+    if (!req) return;
+
+    setLeaveRequests(prev => prev.map(r => 
+        r.id === id ? { ...r, status: approve ? 'Approved' : 'Rejected' } : r
     ));
+
+    if (approve) {
+        const staffMember = staff.find(s => s.id === req.staffId);
+        if (!staffMember) return;
+
+        const newBlocks: Appointment[] = [];
+        const startDate = new Date(req.startDate);
+        const endDate = new Date(req.endDate);
+
+        for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
+            const newBlock: Appointment = {
+                id: generateUid('apt_block'),
+                patientId: 'ADMIN_BLOCK',
+                providerId: req.staffId,
+                branch: staffMember.defaultBranch, 
+                date: d.toLocaleDateString('en-CA'),
+                time: '09:00',
+                durationMinutes: 540, // 9 hours
+                type: 'Clinical Block',
+                isBlock: true,
+                title: `${req.type} Leave`,
+                status: AppointmentStatus.SCHEDULED,
+            };
+            newBlocks.push(newBlock);
+        }
+        setAppointments(prev => [...prev, ...newBlocks]);
+        logAction('CREATE_BATCH', 'Appointment', req.id, `Created ${newBlocks.length} clinical blocks for approved leave.`);
+    }
+
     logAction('UPDATE_STATUS', 'LeaveRequest', id, `Request ${approve ? 'Approved' : 'Rejected'}.`);
     toast.success(`Leave request ${approve ? 'approved' : 'rejected'}.`);
   };
@@ -661,6 +694,252 @@ function App() {
     setIsPrivacyRevocationOpen(false);
     setRevocationTarget(null);
     toast.warning(`Consent for ${category} has been permanently revoked for ${patient.name}.`);
+  };
+
+  // Problem 4: Unwired Payroll Period Creation - FIX
+  const handleAddPayrollPeriod = (period: Omit<PayrollPeriod, 'id'>): PayrollPeriod | undefined => {
+      if (readOnlyLockdown) { lockdownToast(); return; }
+      const newPeriod: PayrollPeriod = {
+          ...period,
+          id: `pp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      };
+      setPayrollPeriods(prev => [...prev, newPeriod].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()));
+      logAction('CREATE', 'PayrollPeriod', newPeriod.id, `Created new payroll period for ${newPeriod.providerId}.`);
+      return newPeriod;
+  };
+
+  // Problem 5: Placeholder Financial Modules (Reconciliation Handler) -> Problem 2 in new list
+  const handleSaveReconciliation = (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    const newRecord: ReconciliationRecord = {
+        ...record,
+        id: `recon_${Date.now()}`,
+        timestamp: new Date().toISOString()
+    };
+    setReconciliations(prev => [newRecord, ...prev]);
+    logAction('CREATE', 'Reconciliation', newRecord.id, `New reconciliation saved for branch ${record.branch}.`);
+    toast.success("Cash reconciliation record saved.");
+  };
+
+  // --- Problem 3: Incomplete Admin & Staff Management Logic ---
+  const handleStartImpersonating = (userToImpersonate: User) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    if (currentUser.id === userToImpersonate.id) return;
+    
+    logAction('SECURITY_ALERT', 'System', userToImpersonate.id, `Impersonation started by ${currentUser.name} for user ${userToImpersonate.name}.`);
+    setOriginalUser(currentUser);
+    setCurrentUser(userToImpersonate);
+    toast.warning(`Now impersonating ${userToImpersonate.name}. All actions are logged under your authority.`);
+    setActiveTab('dashboard');
+  };
+
+  const handleStopImpersonating = () => {
+    if (originalUser) {
+        logAction('SECURITY_ALERT', 'System', currentUser.id, `Impersonation stopped. Reverted to ${originalUser.name}.`);
+        setCurrentUser(originalUser);
+        setOriginalUser(null);
+        toast.info("Impersonation stopped. Session returned to original user.");
+    }
+  };
+    
+  const handlePurgePatient = (patientId: string) => {
+      if (readOnlyLockdown) { lockdownToast(); return; }
+      if (window.confirm("Are you sure you want to permanently purge this patient record? This action cannot be undone and will be logged.")) {
+          setPatients(prev => prev.filter(p => p.id !== patientId));
+          setAppointments(prev => prev.filter(a => a.patientId !== patientId));
+          logAction('DELETE', 'Patient', patientId, 'Patient record and all associated appointments purged from system.');
+          toast.success("Patient record purged.");
+          setSelectedPatientId(null);
+      }
+  };
+  
+  const handlePerformTransfer = (transfer: StockTransfer) => {
+      if (readOnlyLockdown) { lockdownToast(); return; }
+      setStock(prevStock => {
+          const nextStock = [...prevStock];
+          const fromIndex = nextStock.findIndex(s => s.id === transfer.itemId);
+          
+          if (fromIndex === -1 || nextStock[fromIndex].quantity < transfer.quantity) {
+              toast.error("Transfer failed: Insufficient stock.");
+              return prevStock;
+          }
+          
+          nextStock[fromIndex] = { ...nextStock[fromIndex], quantity: nextStock[fromIndex].quantity - transfer.quantity };
+
+          const toIndex = nextStock.findIndex(s => s.name === transfer.itemName && s.branch === transfer.toBranch);
+          if (toIndex > -1) {
+              nextStock[toIndex] = { ...nextStock[toIndex], quantity: nextStock[toIndex].quantity + transfer.quantity };
+          } else {
+              const newItem: StockItem = {
+                  ...nextStock[fromIndex],
+                  id: generateUid('stk'),
+                  branch: transfer.toBranch,
+                  quantity: transfer.quantity,
+              };
+              nextStock.push(newItem);
+          }
+          return nextStock;
+      });
+      setTransfers(prev => [transfer, ...prev]);
+      logAction('TRANSFER', 'StockItem', transfer.itemId, `Transferred ${transfer.quantity} of ${transfer.itemName} from ${transfer.fromBranch} to ${transfer.toBranch}.`);
+      toast.success("Stock transfer completed.");
+  };
+
+  const handleUpdatePatientRecall = (patientId: string, status: RecallStatus) => {
+      if (readOnlyLockdown) { lockdownToast(); return; }
+      setPatients(prev => prev.map(p => p.id === patientId ? { ...p, recallStatus: status } : p));
+      logAction('UPDATE', 'Patient', patientId, `Recall status updated to ${status}.`);
+  };
+
+  const handleUpdatePayrollPeriod = (period: PayrollPeriod) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    setPayrollPeriods(prev => prev.map(p => p.id === period.id ? period : p));
+  };
+  
+  const handleAddPayrollAdjustment = (adj: PayrollAdjustment) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    setPayrollAdjustments(prev => [...prev, adj]);
+  };
+
+  const handleApproveAdjustment = (id: string) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    setPayrollAdjustments(prev => prev.map(a => a.id === id ? { ...a, status: 'Approved', verifiedBy: currentUser.name } : a));
+  };
+
+  const handleAddCommissionDispute = (dispute: CommissionDispute) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    setCommissionDisputes(prev => [...prev, dispute]);
+  };
+  
+  const handleResolveCommissionDispute = (id: string) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    setCommissionDisputes(prev => prev.map(d => d.id === id ? { ...d, status: 'Resolved' } : d));
+  };
+
+  const handleClearProfessionalismReview = (patientId: string, noteId: string) => {
+      if (readOnlyLockdown) { lockdownToast(); return; }
+      setPatients(prev => prev.map(p => {
+          if (p.id === patientId) {
+              return { ...p, dentalChart: p.dentalChart?.map(note => note.id === noteId ? { ...note, needsProfessionalismReview: false } : note) };
+          }
+          return p;
+      }));
+      logAction('VERIFY', 'ClinicalNote', noteId, 'Professionalism review flag cleared.');
+      toast.success("Note approved for sealing.");
+  };
+  
+  // Problem 3 Fix: Handler for saving clinical incidents
+  const handleSaveIncident = (incident: Omit<ClinicalIncident, 'id'>) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    const newIncident: ClinicalIncident = {
+      ...incident,
+      id: `inc_${Date.now()}`
+    };
+    setIncidents(prev => [newIncident, ...prev]);
+    logAction('CREATE', 'ClinicalIncident', newIncident.id, `New incident report filed: ${incident.type}.`);
+    toast.success("Clinical incident report logged successfully.");
+  };
+
+  // Problem 2 Fix: Handler for deleting unsealed clinical notes
+  const handleDeleteClinicalNote = (patientId: string, noteId: string) => {
+    if (readOnlyLockdown) { lockdownToast(); return; }
+    if (window.confirm("Are you sure you want to delete this unsealed clinical note? This action is irreversible and will be logged.")) {
+      setPatients(prev => prev.map(p => {
+        if (p.id === patientId) {
+          const noteToDelete = p.dentalChart?.find(note => note.id === noteId);
+          if (noteToDelete && noteToDelete.sealedHash) {
+            toast.error("Cannot delete a digitally sealed forensic record.");
+            return p;
+          }
+          if (noteToDelete && currentUser.id !== noteToDelete.authorId) {
+            toast.error("Only the original author can delete an unsealed note.");
+            return p;
+          }
+          return {
+            ...p,
+            dentalChart: p.dentalChart?.filter(note => note.id !== noteId)
+          };
+        }
+        return p;
+      }));
+      logAction('DELETE', 'ClinicalNote', noteId, 'Unsealed clinical note deleted.');
+      toast.success("Clinical note deleted.");
+    }
+  };
+
+  // Problem 1 Fix: Appointment Safety Check Handler
+  const handleProcedureSafetyCheck = (patientId: string, procedureName: string, continuation: () => void) => {
+    if (!fieldSettings.features.enableClinicalProtocolAlerts) {
+        continuation();
+        return;
+    }
+
+    const patient = patients.find(p => p.id === patientId);
+    const procedure = fieldSettings.procedures.find(p => p.name === procedureName);
+    if (!patient || !procedure) {
+        continuation();
+        return;
+    }
+
+    const rules = fieldSettings.clinicalProtocolRules || [];
+    for (const rule of rules) {
+        const procedureCategoryMatch = rule.triggerProcedureCategories.includes(procedure.category || '');
+        const medicalConditionMatch = rule.requiresMedicalConditions.some(cond => (patient.medicalConditions || []).includes(cond));
+        
+        if (procedureCategoryMatch && medicalConditionMatch) {
+            const threeMonthsAgo = new Date();
+            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+            const hasValidClearance = (patient.clearanceRequests || []).some(cr =>
+                cr.status === 'Approved' &&
+                cr.approvedAt &&
+                new Date(cr.approvedAt) >= threeMonthsAgo
+            );
+
+            if (!hasValidClearance) {
+                setSafetyAlertConfig({
+                    title: rule.name,
+                    message: rule.alertMessage,
+                    actionLabel: "Log Medical Clearance",
+                    onAction: () => {
+                        setClearancePatient(patient);
+                        setIsClearanceModalOpen(true);
+                    },
+                    onOverride: () => {
+                        handleRequestProtocolOverride(rule, continuation);
+                    },
+                    overrideLabel: "Request Manager Override"
+                });
+                setIsSafetyAlertOpen(true);
+                return; 
+            }
+        }
+    }
+    continuation();
+  };
+
+  // Problem 2 Fix: Cash Session Handlers
+  const handleStartCashSession = (openingBalance: number) => {
+      if (cashSessions.some(s => s.branch === currentBranch && s.status === 'Open')) {
+          toast.error("An active session is already running for this branch.");
+          return;
+      }
+      const newSession: CashSession = {
+          id: `cs_${Date.now()}`,
+          branch: currentBranch,
+          openedBy: currentUser.id,
+          openedByName: currentUser.name,
+          startTime: new Date().toISOString(),
+          openingBalance,
+          status: 'Open'
+      };
+      setCashSessions(prev => [...prev, newSession]);
+      toast.success("Cash session started for " + currentBranch);
+  };
+
+  const handleCloseCashSession = (sessionId: string) => {
+      setCashSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: 'Closed', endTime: new Date().toISOString() } : s));
+      toast.info("Cash session closed.");
   };
 
   const renderActiveTab = () => {
@@ -733,6 +1012,7 @@ function App() {
                 prefill={prefillNote}
                 onClearPrefill={handleClearPrefill}
                 onRequestProtocolOverride={handleRequestProtocolOverride}
+                onDeleteClinicalNote={handleDeleteClinicalNote}
               />
             </div>
           </div>
@@ -749,6 +1029,7 @@ function App() {
           onVerifyMedHistory={handleVerifyMedHistory}
           onConfirmFollowUp={handleConfirmFollowUp}
           onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }}
+          onClearProfessionalismReview={handleClearProfessionalismReview}
         />;
       case 'field-mgmt':
         return <FieldManagement 
@@ -758,18 +1039,16 @@ function App() {
                   staff={staff}
                   auditLog={auditLog}
                   patients={patients}
-                  onPurgePatient={() => {}}
+                  onPurgePatient={handlePurgePatient}
                   encryptionKey={encryptionKey}
-                  incidents={incidents}
-                  onSaveIncident={()=>{}}
                   appointments={appointments}
                   currentUser={currentUser}
-                  onStartImpersonating={()=>{}}
+                  onStartImpersonating={handleStartImpersonating}
                />;
       case 'financials':
         return <Financials 
                   claims={hmoClaims} 
-                  expenses={MOCK_EXPENSES} 
+                  expenses={expenses} 
                   philHealthClaims={philHealthClaims}
                   patients={patients}
                   appointments={appointments}
@@ -782,13 +1061,17 @@ function App() {
                   payrollPeriods={payrollPeriods}
                   payrollAdjustments={payrollAdjustments}
                   commissionDisputes={commissionDisputes}
-                  onUpdatePayrollPeriod={()=>{}}
-                  onAddPayrollAdjustment={()=>{}}
-                  onApproveAdjustment={()=>{}}
-                  onAddCommissionDispute={()=>{}}
-                  onResolveCommissionDispute={()=>{}}
+                  onUpdatePayrollPeriod={handleUpdatePayrollPeriod}
+                  onAddPayrollAdjustment={handleAddPayrollAdjustment}
+                  onApproveAdjustment={handleApproveAdjustment}
+                  onAddCommissionDispute={handleAddCommissionDispute}
+                  onResolveCommissionDispute={handleResolveCommissionDispute}
                   governanceTrack={governanceTrack}
                   setGovernanceTrack={setGovernanceTrack}
+                  onAddPayrollPeriod={handleAddPayrollPeriod}
+                  onSaveReconciliation={handleSaveReconciliation} 
+                  onStartCashSession={handleStartCashSession}
+                  onCloseCashSession={handleCloseCashSession}
                   onBack={() => setActiveTab('admin')}
                />
       case 'inventory':
@@ -799,7 +1082,7 @@ function App() {
                   currentBranch={currentBranch}
                   availableBranches={fieldSettings.branches}
                   transfers={transfers}
-                  onPerformTransfer={() => {}}
+                  onPerformTransfer={handlePerformTransfer}
                   fieldSettings={fieldSettings}
                   onUpdateSettings={handleUpdateSettings}
                   onBack={() => setActiveTab('admin')}
@@ -807,7 +1090,7 @@ function App() {
       case 'recall':
         return <RecallCenter 
                   patients={patients}
-                  onUpdatePatientRecall={() => {}}
+                  onUpdatePatientRecall={handleUpdatePatientRecall}
                   onBack={() => setActiveTab('admin')}
                 />
       case 'referrals':
@@ -876,6 +1159,8 @@ function App() {
           fieldSettings={fieldSettings}
           onGenerateReport={()=>{}}
           onEnterKioskMode={() => setIsInKioskMode(true)}
+          impersonatingUser={originalUser}
+          onStopImpersonating={handleStopImpersonating}
           notifications={[]}
           onNotificationClick={()=>{}}
           isProfileOpen={isProfileOpen}
@@ -907,6 +1192,7 @@ function App() {
         isReconciliationMode={isReconciliationMode}
         currentBranch={currentBranch}
         onSavePatient={handleSavePatient}
+        onProcedureSafetyCheck={handleProcedureSafetyCheck}
       />
       <PatientRegistrationModal
         isOpen={isPatientModalOpen}
@@ -979,6 +1265,27 @@ function App() {
                 setOverrideContinuation(null);
             }}
             onConfirm={handleConfirmOverride}
+        />
+      )}
+      <SafetyAlertModal 
+        isOpen={isSafetyAlertOpen}
+        onClose={() => setIsSafetyAlertOpen(false)}
+        {...safetyAlertConfig}
+      />
+      {isClearanceModalOpen && clearancePatient && (
+        <ClearanceModal
+            isOpen={isClearanceModalOpen}
+            onClose={() => setIsClearanceModalOpen(false)}
+            patient={clearancePatient}
+            currentUser={currentUser}
+            onSave={(clearance) => {
+                const updatedPatient = {
+                    ...clearancePatient,
+                    clearanceRequests: [...(clearancePatient.clearanceRequests || []), { ...clearance, id: `cr_${Date.now()}`, patientId: clearancePatient.id }]
+                };
+                handleSavePatient(updatedPatient);
+                setIsClearanceModalOpen(false);
+            }}
         />
       )}
       <GeminiAssistant />

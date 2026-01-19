@@ -1,12 +1,15 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry } from '../types';
+// Fix: Add 'Activity' to lucide-react imports to resolve 'Cannot find name' error.
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity } from 'lucide-react';
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from './types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
+import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-import { PDA_INFORMED_CONSENT_TEXTS, generateUid } from '../constants';
+import { PDA_INFORMED_CONSENT_TEXTS, generateUid } from './constants';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -24,15 +27,15 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   
-  // Fix: Removed properties from initialFormState that are no longer part of the Patient type and added registryAnswers to store dynamic medical history.
-  // Fix: Removed invalid properties from initialFormState to match the Patient type.
   const initialFormState: Partial<Patient> = {
     id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     isPwd: false,
     dentalChart: [],
+    perioChart: [],
     registrationSignature: '',
     registrationSignatureTimestamp: '',
-    registryAnswers: {}
+    registryAnswers: {},
+    registrationStatus: 'Provisional'
   };
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
@@ -79,7 +82,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     });
   }, [readOnly]);
 
-  // Fix: Removed 'reportedMedications' from the type, as it does not exist on the Patient type.
+  const handleRegistryChange = (newRegistryAnswers: Record<string, any>) => {
+    if (readOnly) return;
+    setFormData(prev => ({ ...prev, registryAnswers: newRegistryAnswers }));
+  };
+
   const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
@@ -90,6 +97,37 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         return { ...prev, [category]: nextArray };
     });
   }, [readOnly]);
+
+  const handlePerioChange = (toothNumber: number, index: number, value: string) => {
+    if (readOnly) return;
+    const numVal = value === '' ? null : parseInt(value);
+    if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
+
+    setFormData(prev => {
+        const existingChart = prev.perioChart || [];
+        let toothMeasurement = existingChart.find(m => m.toothNumber === toothNumber);
+
+        if (!toothMeasurement) {
+            toothMeasurement = {
+                toothNumber,
+                pocketDepths: [null, null, null, null, null, null],
+                recession: [null, null, null, null, null, null],
+                bleeding: [false, false, false, false, false, false],
+                mobility: null,
+            };
+        }
+
+        const newDepths = [...toothMeasurement.pocketDepths];
+        newDepths[index] = numVal;
+
+        const updatedMeasurement = { ...toothMeasurement, pocketDepths: newDepths, date: new Date().toISOString().split('T')[0] };
+
+        const newChart = existingChart.filter(m => m.toothNumber !== toothNumber);
+        newChart.push(updatedMeasurement);
+        
+        return { ...prev, perioChart: newChart };
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +166,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const savePatientRecord = (data: Partial<Patient>) => {
     const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...data, name: fullName });
+    onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
     onClose();
   };
 
@@ -139,7 +177,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");
     
-    // Auto-save after signature
     setTimeout(() => savePatientRecord(updatedData), 500);
   };
 
@@ -149,7 +186,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-end md:items-center p-0 md:p-4"}>
       <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
         
-        {/* PDA Branding Header */}
         <div className={`flex flex-col md:flex-row justify-between items-center p-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
           <div className="flex items-center gap-4 mb-4 md:mb-0">
             <div className="bg-white p-2 rounded-xl shadow-lg border-2 border-teal-500">
@@ -171,11 +207,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           )}
         </div>
 
-        {/* Mega-Form Body */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-12 pb-48">
                 
-                {/* Verbatim Page 2 Informed Consent Integration */}
                 <div className="bg-white border-2 border-teal-100 p-8 rounded-[2.5rem] shadow-sm space-y-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -218,7 +252,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 </div>
 
                 <div className="space-y-16">
-                    {/* Section I: Identity & II: Guardianship Integration */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-teal-600 pb-2">
                             <Users size={24} className="text-teal-700"/>
@@ -227,19 +260,83 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
                     </div>
 
-                    {/* Section III-V: Medical/Physician */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-lilac-600 pb-2">
                             <Heart size={24} className="text-lilac-700"/>
                             <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Section V & VI. Clinical Medical History</h3>
                         </div>
-                        <RegistrationMedical formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} />
+                        <RegistrationMedical 
+                            registryAnswers={formData.registryAnswers || {}}
+                            onRegistryChange={handleRegistryChange}
+                            allergies={formData.allergies || []}
+                            onAllergyChange={handleArrayChange}
+                            medicalConditions={formData.medicalConditions || []}
+                            onConditionChange={handleArrayChange}
+                            readOnly={readOnly} 
+                            fieldSettings={fieldSettings} 
+                        />
+                    </div>
+                    
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-blue-600 pb-2">
+                            <Activity size={24} className="text-blue-700"/>
+                            <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tighter">Section IV. Dental History</h3>
+                        </div>
+                        <RegistrationDental 
+                            formData={formData} 
+                            handleChange={handleChange} 
+                            readOnly={readOnly} 
+                            fieldSettings={fieldSettings}
+                        />
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-amber-600 pb-2">
+                            <Activity size={24} className="text-amber-700"/>
+                            <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tighter">Baseline Periodontal Charting</h3>
+                        </div>
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-x-auto">
+                            <p className="text-xs text-slate-500 mb-4 font-bold">Enter pocket depths for Ramfjord index teeth to establish a baseline. Leave blank if not applicable.</p>
+                            <table className="w-full text-center">
+                                <thead>
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <th className="p-2">Tooth</th>
+                                        <th className="p-2">Distobuccal</th>
+                                        <th className="p-2">Mid-Buccal</th>
+                                        <th className="p-2">Mesiobuccal</th>
+                                        <th className="p-2">Distolingual</th>
+                                        <th className="p-2">Mid-Lingual</th>
+                                        <th className="p-2">Mesiolingual</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[16, 21, 24, 36, 41, 44].map(toothNum => {
+                                        const m = formData.perioChart?.find(p => p.toothNumber === toothNum);
+                                        return (
+                                        <tr key={toothNum}>
+                                            <td className="p-2 font-black text-lg text-slate-700">{toothNum}</td>
+                                            {[0,1,2,3,4,5].map(i => (
+                                                <td key={i} className="p-1">
+                                                    <input 
+                                                        type="number"
+                                                        value={m?.pocketDepths[i] ?? ''}
+                                                        onChange={(e) => handlePerioChange(toothNum, i, e.target.value)}
+                                                        min="0"
+                                                        max="15"
+                                                        className="input h-12 w-16 text-center font-black text-lg"
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    )})}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        {/* Fixed Footer */}
         <div className="p-4 md:p-6 border-t border-slate-200 bg-white/80 backdrop-blur-md shrink-0 flex justify-end gap-4 z-10">
             {!isKiosk && <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>}
             <button 

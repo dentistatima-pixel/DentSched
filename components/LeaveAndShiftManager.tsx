@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
-import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft } from 'lucide-react';
+import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft, Phone } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface LeaveAndShiftManagerProps {
@@ -11,9 +11,10 @@ interface LeaveAndShiftManagerProps {
     onApproveLeaveRequest: (id: string, approve: boolean) => void;
     fieldSettings: FieldSettings;
     onBack?: () => void;
+    onUpdateStaffRoster?: (staffId: string, day: string, branch: string) => void; // For Roster management
 }
 
-const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onAddLeaveRequest, onApproveLeaveRequest, fieldSettings, onBack }) => {
+const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onAddLeaveRequest, onApproveLeaveRequest, fieldSettings, onBack, onUpdateStaffRoster }) => {
     const [showRequestForm, setShowRequestForm] = useState(false);
     const [newRequest, setNewRequest] = useState({
         type: 'Vacation' as LeaveRequest['type'],
@@ -23,20 +24,8 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
     });
 
     const isAdmin = currentUser.role === UserRole.ADMIN;
-
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-CA');
-    const todayDay = today.toLocaleDateString('en-US', { weekday: 'long' });
-
-    const onDutyToday = useMemo(() => {
-        const approvedLeaveToday = leaveRequests.filter(r => r.status === 'Approved' && todayStr >= r.startDate && todayStr <= r.endDate).map(r => r.staffId);
-        
-        return staff.filter(s => {
-            if (approvedLeaveToday.includes(s.id)) return false;
-            const dayKey = todayDay.slice(0, 3);
-            return s.roster && s.roster[dayKey] && s.roster[dayKey] !== 'Off';
-        });
-    }, [staff, leaveRequests, todayStr, todayDay]);
+    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dentists = staff.filter(s => s.role === UserRole.DENTIST);
 
     const handleSubmitRequest = () => {
         onAddLeaveRequest({
@@ -62,7 +51,7 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-3 space-y-8">
                     <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Pending Leave Requests</h3>
@@ -89,6 +78,57 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                             {leaveRequests.filter(r => r.status === 'Pending').length === 0 && <p className="text-center text-sm text-slate-400 font-bold p-10 italic">No pending requests.</p>}
                         </div>
                     </div>
+                    
+                    {/* Shift Management Section */}
+                    <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+                        <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6">Weekly Shift Roster</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm min-w-[800px]">
+                                <thead className="bg-slate-50 border-b border-slate-100 text-xs font-black uppercase text-slate-500 tracking-[0.2em]">
+                                    <tr>
+                                        <th className="p-5 text-left">Practitioner</th>
+                                        {weekDays.map(day => <th key={day} className="p-5 text-center">{day}</th>)}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {dentists.map(dentist => (
+                                        <tr key={dentist.id} className="group hover:bg-slate-50/50 transition-colors">
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-4">
+                                                    <img src={dentist.avatar} alt={dentist.name} className="w-10 h-10 rounded-full border-2 border-white shadow" />
+                                                    <div>
+                                                        <div className="font-black text-slate-800 uppercase tracking-tight">{dentist.name}</div>
+                                                        <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">{dentist.specialization}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            {weekDays.map(day => {
+                                                const assignment = dentist.roster?.[day];
+                                                return (
+                                                    <td key={day} className="p-5 text-center">
+                                                        <select
+                                                            value={assignment || 'Off'}
+                                                            onChange={(e) => onUpdateStaffRoster?.(dentist.id, day, e.target.value)}
+                                                            className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] font-bold uppercase tracking-tight focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                                                            disabled={!isAdmin}
+                                                        >
+                                                            <option value="Off">Day Off</option>
+                                                            {fieldSettings.branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+                                                        </select>
+                                                        {isAdmin && 
+                                                            <label className="flex items-center justify-center gap-2 mt-2 text-xs text-slate-500">
+                                                                <input type="checkbox" className="w-4 h-4 rounded" /> On Call
+                                                            </label>
+                                                        }
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                     {showRequestForm && (
                         <div className="bg-white p-8 rounded-[3rem] border-2 border-teal-100 shadow-2xl space-y-6 animate-in zoom-in-95">
@@ -102,23 +142,6 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                              <div className="flex gap-4"><button onClick={() => setShowRequestForm(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase">Cancel</button><button onClick={handleSubmitRequest} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Submit</button></div>
                         </div>
                     )}
-
-                </div>
-                <div className="lg:col-span-1 bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
-                     <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6 flex items-center gap-3"><UserCheck size={24} className="text-teal-600"/> Today's On-Duty Roster</h3>
-                     <div className="space-y-4">
-                        {onDutyToday.map(s => (
-                             <div key={s.id} className="p-4 bg-teal-50 border border-teal-100 rounded-2xl flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <img src={s.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-                                    <div>
-                                        <div className="font-black text-sm text-slate-800 uppercase tracking-tight">{s.name}</div>
-                                        <div className="text-xs text-teal-700 font-bold uppercase">{s.roster?.[todayDay.slice(0,3)]}</div>
-                                    </div>
-                                </div>
-                             </div>
-                        ))}
-                     </div>
                 </div>
             </div>
         </div>

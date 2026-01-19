@@ -1,8 +1,13 @@
+
+
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PerioMeasurement } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart, Sparkles } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
+import { useDictation } from '../hooks/useDictation';
 
 interface PerioChartProps {
     data: PerioMeasurement[];
@@ -197,6 +202,12 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
     const [showGraph, setShowGraph] = useState(true);
     const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
     
+    // Problem 2: Add dictation state and hook
+    const [dictatedValue, setDictatedValue] = useState('');
+    const { isRecording, toggleRecording } = useDictation({
+        s: setDictatedValue, o: () => {}, a: () => {}, p: () => {}
+    });
+
     const historicalDates = useMemo(() => {
         const dates = Array.from(new Set(data.map(m => m.date))).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime());
         return dates as string[];
@@ -264,6 +275,22 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         });
     };
 
+    // Problem 2: Process dictated value
+    useEffect(() => {
+        if (dictatedValue && focusedSite) {
+            const spokenWord = dictatedValue.trim().split(' ').pop()?.toLowerCase() || '';
+            const num = parseInt(spokenWord);
+            if (!isNaN(num) && num >= 0 && num <= 15) {
+                handleValueChange(focusedSite.tooth, 'pocketDepths', focusedSite.index, num.toString());
+            } else if (spokenWord === 'bleeding' || spokenWord === 'bleed') {
+                toggleBleeding(focusedSite.tooth, focusedSite.index);
+                advanceFocus(focusedSite);
+            }
+            setDictatedValue(''); // Clear it to process next value
+        }
+    }, [dictatedValue, focusedSite]);
+
+
     const handleMobilityChange = (tooth: number, value: string) => {
         if (readOnly) return;
         const numVal = value === '' ? null : parseInt(value) as 0|1|2|3;
@@ -282,7 +309,19 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
     };
 
     const saveAll = () => {
-        const arrayData = Object.values(measurements);
+// Fix: Rewrote object creation to be more explicit, avoiding spread syntax on 'm' which was causing a compile-time error.
+// Fix: Explicitly type 'm' as PerioMeasurement to resolve property access errors.
+const arrayData = Object.values(measurements).map((m: PerioMeasurement) => {
+    const newMeasurement: PerioMeasurement = {
+        toothNumber: m.toothNumber,
+        pocketDepths: m.pocketDepths,
+        recession: m.recession,
+        bleeding: m.bleeding,
+        mobility: m.mobility,
+        date: new Date().toISOString().split('T')[0]
+    };
+    return newMeasurement;
+});
         onSave(arrayData);
         toast.success("Periodontal record synchronized.");
     };
@@ -303,7 +342,12 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                         <button onClick={() => setCompareMode(!compareMode)} className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all flex items-center gap-2 ${compareMode ? 'bg-lilac-600 border-lilac-600 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400'}`}><ArrowRightLeft size={16}/> Comp: {formatDate(previousDate)}</button>
                     )}
                     {!readOnly && (
+                        <>
+                        <button onClick={() => toggleRecording('s')} className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all flex items-center gap-2 ${isRecording ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'bg-white border-slate-100 text-slate-400'}`}>
+                            {isRecording ? <MicOff size={16}/> : <Mic size={16}/>} {isRecording ? 'Listening...' : 'Dictate'}
+                        </button>
                         <button onClick={saveAll} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-teal-600/30 hover:bg-teal-700 transition-all flex items-center gap-3"><Save size={18} /> Save Record</button>
+                        </>
                     )}
                 </div>
             </div>
