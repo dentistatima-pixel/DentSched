@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -22,9 +20,11 @@ import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager'; // Import new component
 import RosterView from './components/RosterView'; // Import RosterView
 import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safety alert modal
+import ProtocolOverrideModal from './components/ProtocolOverrideModal'; // Import for Gap 3
 import LeaveAndShiftManager from './components/LeaveAndShiftManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry } from './types';
+// Fix: Import `ClearanceRequest` to resolve typing error on save.
+import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest, ClinicalProtocolRule } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -33,6 +33,9 @@ import { Lock, FileText, CheckCircle, ShieldCheck, ShieldAlert, AlertTriangle, M
 import { getTrustedTime } from './services/timeService';
 import PrivacyRevocationModal from './components/PrivacyRevocationModal';
 import ConsentCaptureModal from './components/ConsentCaptureModal';
+import FinancialConsentModal from './components/FinancialConsentModal';
+import ClearanceModal from './components/ClearanceModal';
+
 
 const CANARY_KEY = 'dentsched_auth_canary';
 const SALT_KEY = 'dentsched_security_salt';
@@ -144,7 +147,10 @@ function App() {
   const [pendingPostOpAppointment, setPendingPostOpAppointment] = useState<Appointment | null>(null);
   const [pendingSafetyTimeout, setPendingSafetyTimeout] = useState<{ appointmentId: string, status: AppointmentStatus, patient: Patient } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [safetyAlert, setSafetyAlert] = useState<{ title: string; message: string } | null>(null);
+  const [safetyAlert, setSafetyAlert] = useState<{ title: string; message: string; onAction?: () => void; actionLabel?: string; onOverride?: () => void; overrideLabel?: string; } | null>(null);
+
+  // Fix: Add state for the pending consent appointment modal
+  const [pendingConsentAppointment, setPendingConsentAppointment] = useState<Appointment | null>(null);
 
   const [isMedicoLegalExportOpen, setIsMedicoLegalExportOpen] = useState(false);
   const [medicoLegalExportPatient, setMedicoLegalExportPatient] = useState<Patient | null>(null);
@@ -156,10 +162,21 @@ function App() {
   const [overrideInfo, setOverrideInfo] = useState<{ isWaitlistOverride: boolean; authorizedManagerId: string; } | null>(null);
   
   // Gap 2 state
-  const [pendingConsentAppointment, setPendingConsentAppointment] = useState<Appointment | null>(null);
+  const [pendingFinancialConsent, setPendingFinancialConsent] = useState<{plan: TreatmentPlan, patient: Patient, appointment: Appointment} | null>(null);
+  
+  // Gap 3 state
+  const [pendingProtocolOverride, setPendingProtocolOverride] = useState<{ rule: ClinicalProtocolRule; appointmentId: string; status: AppointmentStatus } | null>(null);
+  
+  // Gap 4 state
+  const [notePrefill, setNotePrefill] = useState<Partial<DentalChartEntry> | null>(null);
+
   
   // Gap 4 state
   const [revocationTarget, setRevocationTarget] = useState<{ patient: Patient, category: ConsentCategory } | null>(null);
+
+  // Gap 5 state
+  const [clearanceModalPatient, setClearanceModalPatient] = useState<Patient | null>(null);
+
 
   const handleNavigateToAdminQueue = (queue: string) => {
     setAdminQueue(queue);
@@ -785,6 +802,21 @@ function App() {
   };
 
   const handleSaveAppointment = (newAppointment: Appointment) => {
+    // Gap 2: Financial Consent Gate
+    const patient = patients.find(p => p.id === newAppointment.patientId);
+    const proc = fieldSettings.procedures.find(p => p.name === newAppointment.type);
+    if (patient && proc && !editingAppointment) { // Only gate new appointments
+        const planItem = patient.dentalChart?.find(item => item.procedure === proc.name && item.planId && item.status === 'Planned');
+        if (planItem?.planId) {
+            const plan = patient.treatmentPlans?.find(p => p.id === planItem.planId);
+            if (plan?.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
+                setPendingFinancialConsent({ patient, plan, appointment: newAppointment });
+                setIsAppointmentModalOpen(false);
+                return; // Stop saving, open consent modal instead
+            }
+        }
+    }
+    
     const isManual = systemStatus === SystemStatus.DOWNTIME;
     const existing = appointments.find(a => a.id === newAppointment.id);
     
@@ -794,10 +826,9 @@ function App() {
         isPendingSync: !isOnline,
         entryMode: newAppointment.entryMode || (isManual ? 'MANUAL' as const : 'AUTO' as const),
         reconciled: newAppointment.reconciled || !isManual,
+        ...(overrideInfo || {}) // Gap 1: Ensure override info is saved
     } as Appointment;
     
-    const patient = patients.find(p => p.id === newAppointment.patientId);
-
     if (existing && patient) {
         if (existing.date !== newAppointment.date || existing.time !== newAppointment.time) {
             triggerSms('reschedule', patient, { date: newAppointment.date, time: newAppointment.time, procedure: newAppointment.type });
@@ -850,7 +881,7 @@ function App() {
     setIsReconciliationMode(false);
   };
 
-  const finalizeUpdateStatus = async (id: string, status: AppointmentStatus): Promise<void> => {
+  const finalizeUpdateStatus = useCallback(async (id: string, status: AppointmentStatus): Promise<void> => {
       const apt = appointments.find(a => a.id === id);
       if (!apt) throw new Error("Appointment not found");
       const patient = patients.find(p => p.id === apt.patientId);
@@ -902,7 +933,7 @@ function App() {
       saveToLocal('dentsched_appointments', newAppointments);
 
       logAction('UPDATE', 'Appointment', id, `Updated status to ${status}.`);
-  };
+  }, [appointments, patients, fieldSettings.procedures, stock, isOnline, saveToLocal, logAction, triggerSms, toast]);
 
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
       const apt = appointments.find(a => a.id === appointmentId);
@@ -925,7 +956,7 @@ function App() {
           }
       }
 
-      // Gap 6.1: Medical Clearance Gate
+      // Gap 6.1: Medical Clearance Gate & Gap 3: Protocol Override
       if ([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(status)) {
           const procedureIsSurgical = apt.type.toLowerCase().includes('surg') || apt.type.toLowerCase().includes('extract');
           if (procedureIsSurgical && patient) {
@@ -935,10 +966,23 @@ function App() {
                   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
                   const hasValidClearance = patient.clearanceRequests?.some(r => r.status === 'Approved' && r.approvedAt && new Date(r.approvedAt) > threeMonthsAgo);
                   if (!hasValidClearance) {
-                      setSafetyAlert({
-                          title: "REFERRAL HARD-STOP (PDA Rule 4)",
-                          message: "Medical clearance is REQUIRED for a high-risk patient before any surgical procedure. No valid clearance found on file within the last 3 months."
-                      });
+                      const rule = fieldSettings.clinicalProtocolRules?.find(r => r.id === 'rule_surg_clearance');
+                      if (rule) {
+                        setSafetyAlert({
+                            title: rule.name,
+                            message: rule.alertMessage,
+                            actionLabel: "Log Clearance Now",
+                            onAction: () => setClearanceModalPatient(patient),
+                            overrideLabel: "Override Protocol",
+                            onOverride: () => {
+                                if ([UserRole.DENTIST, UserRole.SYSTEM_ARCHITECT, UserRole.ADMIN].includes(currentUser.role)) {
+                                    setPendingProtocolOverride({ rule, appointmentId, status });
+                                } else {
+                                    toast.error("Protocol override requires senior practitioner privileges.");
+                                }
+                            }
+                        });
+                      }
                       logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Hard-Stop Triggered: Attempted surgical seating on high-risk patient without verified medical clearance.`);
                       return;
                   }
@@ -1243,6 +1287,11 @@ function App() {
     setIsMedicoLegalExportOpen(true);
   };
 
+  // Fix: Define onOpenRevocationModal handler to set state for the revocation modal.
+  const onOpenRevocationModal = (patient: Patient, category: ConsentCategory) => {
+      setRevocationTarget({ patient, category });
+  };
+
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
 
   const selectedPatientLocked = useMemo(() => {
@@ -1367,6 +1416,13 @@ function App() {
           appointments={appointments} 
           staff={staff} 
           onAddAppointment={(date, time, patientId, aptToEdit, override) => {
+              // Gap 3: Patient Record Lock Check
+              const patientForBooking = patients.find(p => p.id === (patientId || aptToEdit?.patientId));
+              if (patientForBooking?.consentLogs?.some(log => log.category === 'Clinical' && log.status === 'Revoked')) {
+                  toast.error("PATIENT RECORD LOCKED: Clinical consent has been revoked. No new clinical entries can be made.");
+                  return;
+              }
+
               setBookingDate(date);
               setBookingTime(time);
               setInitialBookingPatientId(patientId);
@@ -1382,6 +1438,7 @@ function App() {
           currentBranch={currentBranch}
           fieldSettings={fieldSettings}
           waitlist={waitlist}
+          onPrefillNote={setNotePrefill}
       />;
       case 'patients': 
         return (
@@ -1403,10 +1460,12 @@ function App() {
                     onSaveReferral={handleSaveReferral}
                     onBack={() => setSelectedPatientId(null)}
                     governanceTrack={governanceTrack}
-                    onOpenRevocationModal={(p, c) => setRevocationTarget({ patient: p, category: c })}
+                    onOpenRevocationModal={onOpenRevocationModal}
                     onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
                     readOnly={selectedPatientLocked}
                     sterilizationCycles={sterilizationCycles}
+                    prefill={notePrefill}
+                    onClearPrefill={() => setNotePrefill(null)}
                 />
             ) : (
               <PatientList 
@@ -1653,6 +1712,10 @@ function App() {
             onClose={() => setSafetyAlert(null)}
             title={safetyAlert.title}
             message={safetyAlert.message}
+            onAction={safetyAlert.onAction}
+            actionLabel={safetyAlert.actionLabel}
+            onOverride={safetyAlert.onOverride}
+            overrideLabel={safetyAlert.overrideLabel}
         />
       )}
       {isMedicoLegalExportOpen && medicoLegalExportPatient && (
@@ -1664,6 +1727,18 @@ function App() {
             logAction={logAction}
           />
       )}
+       {pendingProtocolOverride && (
+          <ProtocolOverrideModal
+              isOpen={!!pendingProtocolOverride}
+              rule={pendingProtocolOverride.rule}
+              onCancel={() => setPendingProtocolOverride(null)}
+              onConfirm={(reason) => {
+                  logAction('OVERRIDE', 'SafetyProtocol', pendingProtocolOverride.appointmentId, `Override for rule "${pendingProtocolOverride.rule.name}". Reason: ${reason}`);
+                  finalizeUpdateStatus(pendingProtocolOverride.appointmentId, pendingProtocolOverride.status);
+                  setPendingProtocolOverride(null);
+              }}
+          />
+      )}
       {revocationTarget && (
         <PrivacyRevocationModal
           isOpen={!!revocationTarget}
@@ -1673,7 +1748,6 @@ function App() {
           onConfirm={handleConfirmRevocation}
         />
       )}
-      {/* Fix: Removed reference to an undefined 'patient' variable. */}
       {pendingConsentAppointment && (
         <ConsentCaptureModal
             isOpen={!!pendingConsentAppointment}
@@ -1685,6 +1759,54 @@ function App() {
             template={fieldSettings.consentFormTemplates[0]}
             procedure={fieldSettings.procedures.find(p => p.name === pendingConsentAppointment.type)}
         />
+      )}
+      {pendingFinancialConsent && (
+        <FinancialConsentModal
+          isOpen={!!pendingFinancialConsent}
+          onClose={() => setPendingFinancialConsent(null)}
+          onSave={(signatureData) => {
+            const { plan, patient: consentingPatient, appointment } = pendingFinancialConsent;
+            const totalQuote = (consentingPatient.dentalChart || []).filter(i => i.planId === plan.id).reduce((s, i) => s + (i.price || 0), 0);
+            const updatedPlans = (consentingPatient.treatmentPlans || []).map(p => p.id === plan.id ? { ...p, status: TreatmentPlanStatus.APPROVED, originalQuoteAmount: totalQuote, financialConsentSignature: signatureData } : p);
+            
+            const updatedPatient = { ...consentingPatient, treatmentPlans: updatedPlans };
+            const newPatientsState = patients.map(p => p.id === updatedPatient.id ? updatedPatient : p);
+            setPatients(newPatientsState);
+            saveToLocal('dentsched_patients', newPatientsState);
+
+            logAction('FINANCIAL_CONSENT', 'TreatmentPlan', plan.id, 'Patient financial consent captured and sealed.');
+            toast.success('Financial consent sealed. Proceeding with booking.');
+            
+            // Re-submit the appointment for saving
+            handleSaveAppointment(appointment);
+            setPendingFinancialConsent(null);
+          }}
+          patient={pendingFinancialConsent.patient}
+          plan={pendingFinancialConsent.plan}
+          planItems={(pendingFinancialConsent.patient.dentalChart || []).filter(i => i.planId === pendingFinancialConsent.plan.id)}
+        />
+      )}
+      {clearanceModalPatient && (
+          <ClearanceModal 
+            isOpen={!!clearanceModalPatient}
+            onClose={() => setClearanceModalPatient(null)}
+            patient={clearanceModalPatient}
+            currentUser={currentUser}
+            onSave={(newClearance) => {
+                const clearanceRequest: ClearanceRequest = {
+                    ...newClearance,
+                    id: `cr_${Date.now()}`,
+                    patientId: clearanceModalPatient.id,
+                };
+                const updatedPatient: Patient = {
+                    ...clearanceModalPatient,
+                    clearanceRequests: [...(clearanceModalPatient.clearanceRequests || []), clearanceRequest],
+                };
+                handleQuickUpdatePatient(updatedPatient);
+                logAction('CREATE', 'ClearanceRequest', clearanceRequest.id, `Logged new medical clearance from ${clearanceRequest.doctorName}.`);
+                setClearanceModalPatient(null);
+            }}
+          />
       )}
     </>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key } from 'lucide-react';
 import { Patient, User as Staff, AppointmentType, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS } from '../constants';
@@ -277,6 +277,11 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       ...overrideInfo
     };
 
+    // Gap 4: Explicitly set reconciled status on save
+    if (isReconciliationMode) {
+        (appointment as any).reconciled = true;
+    }
+
     onSave(appointment);
     onClose();
   };
@@ -399,6 +404,12 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
         </div>
+        
+        {overrideInfo && (
+            <div className="bg-lilac-600 text-white p-4 text-center font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 animate-pulse">
+                <Key size={16}/> Manager Override Active
+            </div>
+        )}
 
         {!existingAppointment && !selectedPatient && (
           <div className="flex bg-slate-50 border-b border-slate-100 shrink-0" role="tablist">

@@ -437,9 +437,18 @@ const PayrollTab: React.FC<any> = ({ appointments, staff, expenses, fieldSetting
              )}
 
             {period ? (
-                <>
-                {/* Rest of the component uses 'period' and 'periodAppointments' */}
-                </>
+                <div className="space-y-6">
+                    <div className="grid grid-cols-4 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border-2 border-teal-100"><div className="text-xs font-black text-teal-700 uppercase">Gross Production</div><div className="text-2xl font-black mt-1">₱{grossProduction.toLocaleString()}</div></div>
+                        <div className="bg-white p-6 rounded-2xl border-2 border-slate-100"><div className="text-xs font-black text-slate-500 uppercase">Net Base</div><div className="text-2xl font-black mt-1">₱{netBase.toLocaleString()}</div></div>
+                        <div className="bg-white p-6 rounded-2xl border-2 border-slate-100"><div className="text-xs font-black text-slate-500 uppercase">Adjustments</div><div className="text-2xl font-black mt-1">₱{(finalPayout - baseCommission).toLocaleString()}</div></div>
+                        <div className="bg-teal-900 text-white p-6 rounded-2xl"><div className="text-xs font-black text-teal-300 uppercase">Final Payout</div><div className="text-2xl font-black mt-1">₱{finalPayout.toLocaleString()}</div></div>
+                    </div>
+                    {/* Placeholder for tabs */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 min-h-[300px]">
+                        <p className="text-center text-slate-400 font-bold italic p-10">Detailed production, adjustments, and disputes will be shown here.</p>
+                    </div>
+                </div>
             ) : (
                 <div className="p-20 text-center bg-white rounded-2xl border-dashed border-2">
                     <p className="font-bold text-slate-500">No payroll period selected or created for this practitioner.</p>

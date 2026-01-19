@@ -198,7 +198,8 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
                                     <td className="p-6 text-slate-400 font-mono text-[11px] font-bold">{formatDate(entry.date)}</td>
                                     <td className="p-6">
                                         <div className="font-black text-slate-700 uppercase text-xs tracking-tight flex items-center gap-2">
-                                            {entry.orNumber && <Receipt size={14} className="text-lilac-500" title="Official Receipt Issued"/>}
+                                            {/* Fix: lucide-react icons do not accept a 'title' prop. Wrapped in a span for tooltip. */}
+                                            {entry.orNumber && <span title="Official Receipt Issued"><Receipt size={14} className="text-lilac-500" /></span>}
                                             {entry.description}
                                         </div>
                                         <div className="text-[9px] text-slate-400 uppercase font-bold mt-1 tracking-widest">ID: {entry.id}</div>

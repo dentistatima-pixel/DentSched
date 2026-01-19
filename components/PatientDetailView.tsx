@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
@@ -9,6 +9,7 @@ import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal'; // Import the new modal
 import { useToast } from './ToastSystem';
+import PhilHealthCF4Generator from './PhilHealthCF4Generator';
 
 interface PatientDetailViewProps {
   patient: Patient | null;
@@ -31,6 +32,8 @@ interface PatientDetailViewProps {
   onOpenMedicoLegalExport: (patient: Patient) => void;
   readOnly?: boolean;
   sterilizationCycles?: SterilizationCycle[];
+  prefill?: Partial<DentalChartEntry> | null;
+  onClearPrefill?: () => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -137,7 +140,7 @@ const DiagnosticGallery: React.FC<{
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles } = props;
+  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -262,6 +265,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         readOnly={readOnly}
                         appointments={props.appointments}
                         sterilizationCycles={sterilizationCycles}
+                        prefill={prefill}
+                        onClearPrefill={onClearPrefill}
                     />
                   </div>
               );
@@ -294,12 +299,20 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
           case 'compliance':
               return (
                 <div className="space-y-6">
-                    <button
-                        onClick={() => onOpenMedicoLegalExport(patient)}
-                        className="mb-4 bg-red-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-900/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
-                    >
-                        <FileUp size={16}/> Export Medico-Legal Report
-                    </button>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => onOpenMedicoLegalExport(patient)}
+                            className="bg-red-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-900/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                        >
+                            <FileUp size={16}/> Export Medico-Legal Report
+                        </button>
+                        <PhilHealthCF4Generator 
+                            patient={patient} 
+                            currentUser={currentUser} 
+                            odontogram={patient.dentalChart || []} 
+                            appointments={appointments}
+                        />
+                    </div>
                     <ComplianceTab 
                         patient={patient} 
                         incidents={incidents} 

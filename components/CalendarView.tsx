@@ -1,11 +1,10 @@
-
 import React,
 { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart, DentalChartEntry
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, 
@@ -26,11 +25,12 @@ interface CalendarViewProps {
   currentBranch?: string;
   fieldSettings?: FieldSettings;
   waitlist?: WaitlistEntry[];
+  onPrefillNote?: (prefill: Partial<DentalChartEntry>) => void;
 }
 
 const RELIABILITY_THRESHOLD = 70;
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings, waitlist = [] }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings, waitlist = [], onPrefillNote }) => {
   const toast = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
@@ -211,6 +211,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       }
 
       onAddAppointment(formattedDate, undefined, entry.patientId);
+  };
+  
+  const handleOpenChartWithPrefill = () => {
+    if (inspected && onPrefillNote && onPatientSelect) {
+        onPrefillNote({
+            procedure: inspected.apt.type,
+            resourceId: inspected.apt.resourceId
+        });
+        onPatientSelect(inspected.patient.id);
+        setInspected(null);
+    } else if (inspected && onPatientSelect) {
+        onPatientSelect(inspected.patient.id);
+        setInspected(null);
+    }
   };
 
   const executeOverride = () => {
@@ -460,7 +474,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                        </div>
                   </div>
                   <div className="shrink-0 pt-4 border-t border-slate-100">
-                      <button onClick={() => onPatientSelect?.(inspected.patient.id)} className="w-full py-4 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Open Full Chart</button>
+                      <button onClick={handleOpenChartWithPrefill} className="w-full py-4 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Open Full Chart</button>
                   </div>
               </div>
           )}
