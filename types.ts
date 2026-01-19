@@ -597,15 +597,6 @@ export interface User {
   payoutHandle?: string;
 }
 
-export enum AppointmentType {
-  CONSULTATION = 'Consultation',
-  ROOT_CANAL = 'Root Canal',
-  EXTRACTION = 'Extraction',
-  SURGERY = 'Surgery',
-  ORAL_PROPHYLAXIS = 'Oral Prophylaxis',
-  WHITENING = 'Whitening'
-}
-
 export interface Appointment {
   id: string;
   patientId: string;
@@ -615,7 +606,7 @@ export interface Appointment {
   date: string;
   time: string;
   durationMinutes: number;
-  type: string | AppointmentType;
+  type: string;
   status: AppointmentStatus;
   isBlock?: boolean;
   title?: string;
@@ -717,15 +708,7 @@ export interface Patient {
   referredById?: string;
   orthoHistory?: OrthoAdjustment[];
   installmentPlans?: InstallmentPlan[];
-  guardian?: string;
-  guardianMobile?: string;
-  reportedMedications?: string[];
   responsibleParty?: string;
-  fatherName?: string;
-  fatherOccupation?: string;
-  motherName?: string;
-  motherOccupation?: string;
-  mobile2?: string;
   previousDentist?: string;
   otherAllergies?: string;
   otherConditions?: string;
@@ -733,13 +716,9 @@ export interface Patient {
   seriousIllnessDetails?: string;
   lastHospitalizationDetails?: string;
   lastHospitalizationDate?: string;
-  medicationDetails_old?: string;
   clinicalMediaConsent?: boolean;
   thirdPartyDisclosureConsent?: boolean;
   thirdPartyAttestation?: boolean;
-  guardianIdType?: string;
-  guardianIdNumber?: string;
-  relationshipToPatient?: string;
   physicianName?: string;
   physicianSpecialty?: string;
   physicianAddress?: string;

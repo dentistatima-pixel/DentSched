@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry } from '../types';
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
@@ -25,11 +26,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   
-  // Fix: Updated initialFormState to remove properties not on Patient type and added registryAnswers
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
-    isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
+    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
+    isPwd: false,
     dentalChart: [],
+    perioChart: [],
     registrationSignature: '',
     registrationSignatureTimestamp: '',
     registryAnswers: {}
@@ -79,7 +80,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     });
   }, [readOnly]);
 
-  const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => {
+  const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
         const currentArray = (prev[category] as string[]) || [];
@@ -89,6 +90,37 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         return { ...prev, [category]: nextArray };
     });
   }, [readOnly]);
+
+  const handlePerioChange = (toothNumber: number, index: number, value: string) => {
+    if (readOnly) return;
+    const numVal = value === '' ? null : parseInt(value);
+    if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
+
+    setFormData(prev => {
+        const existingChart = prev.perioChart || [];
+        let toothMeasurement = existingChart.find(m => m.toothNumber === toothNumber);
+
+        if (!toothMeasurement) {
+            toothMeasurement = {
+                toothNumber,
+                pocketDepths: [null, null, null, null, null, null],
+                recession: [null, null, null, null, null, null],
+                bleeding: [false, false, false, false, false, false],
+                mobility: null,
+            };
+        }
+
+        const newDepths = [...toothMeasurement.pocketDepths];
+        newDepths[index] = numVal;
+
+        const updatedMeasurement = { ...toothMeasurement, pocketDepths: newDepths, date: new Date().toISOString().split('T')[0] };
+
+        const newChart = existingChart.filter(m => m.toothNumber !== toothNumber);
+        newChart.push(updatedMeasurement);
+        
+        return { ...prev, perioChart: newChart };
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,14 +232,14 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
-                            <input type="checkbox" name="dpaConsent" checked={formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <input type="checkbox" name="dpaConsent" checked={!!formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
                             <div>
                                 <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span>
                                 <p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.</p>
                             </div>
                         </label>
                         <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.clinicalMediaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
-                            <input type="checkbox" name="clinicalMediaConsent" checked={formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
+                            <input type="checkbox" name="clinicalMediaConsent" checked={!!formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
                             <div>
                                 <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Scale size={12}/> TREATMENT AUTHORIZATION *</span>
                                 <p className="text-[11px] text-slate-600 mt-1 font-bold">I certify that I have read the General Authorization above and agree to the terms of clinical care and liability.</p>
@@ -247,6 +279,51 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             readOnly={readOnly} 
                             fieldSettings={fieldSettings}
                         />
+                    </div>
+
+                    {/* Baseline Perio Section */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b-4 border-amber-600 pb-2">
+                            <Activity size={24} className="text-amber-700"/>
+                            <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tighter">Baseline Periodontal Charting</h3>
+                        </div>
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-x-auto">
+                            <p className="text-xs text-slate-500 mb-4 font-bold">Enter pocket depths for Ramfjord index teeth to establish a baseline. Leave blank if not applicable.</p>
+                            <table className="w-full text-center">
+                                <thead>
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <th className="p-2">Tooth</th>
+                                        <th className="p-2">Distobuccal</th>
+                                        <th className="p-2">Mid-Buccal</th>
+                                        <th className="p-2">Mesiobuccal</th>
+                                        <th className="p-2">Distolingual</th>
+                                        <th className="p-2">Mid-Lingual</th>
+                                        <th className="p-2">Mesiolingual</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[16, 21, 24, 36, 41, 44].map(toothNum => {
+                                        const m = formData.perioChart?.find(p => p.toothNumber === toothNum);
+                                        return (
+                                        <tr key={toothNum}>
+                                            <td className="p-2 font-black text-lg text-slate-700">{toothNum}</td>
+                                            {[0,1,2,3,4,5].map(i => (
+                                                <td key={i} className="p-1">
+                                                    <input 
+                                                        type="number"
+                                                        value={m?.pocketDepths[i] ?? ''}
+                                                        onChange={(e) => handlePerioChange(toothNum, i, e.target.value)}
+                                                        min="0"
+                                                        max="15"
+                                                        className="input h-12 w-16 text-center font-black text-lg"
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    )})}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>

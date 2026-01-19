@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet, TreatmentPlan, SterilizationCycle } from '../types';
+import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet, TreatmentPlan, SterilizationCycle, ClinicalMacro, ClinicalProtocolRule } from '../types';
 import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, Scale, History, Link } from 'lucide-react';
 import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
 import { useToast } from './ToastSystem';
@@ -8,20 +7,9 @@ import EPrescriptionModal from './EPrescriptionModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import CryptoJS from 'crypto-js';
 import { getTrustedTime } from '../services/timeService';
+import { useClinicalNotePermissions } from '../hooks/useClinicalNotePermissions';
+import { useDictation } from '../hooks/useDictation';
 
-interface ClinicalMacro {
-    label: string;
-    s: string;
-    o: string;
-    a: string;
-    p: string;
-}
-
-const QUICK_FILLS: ClinicalMacro[] = [
-    { label: 'Routine Exam', s: 'Patient in for routine checkup. No acute pain reported.', o: 'Soft tissues normal. Visual exam complete.', a: 'Good oral hygiene.', p: 'Recalled in 6 months.' },
-    { label: 'Simple Filling', s: 'Occasional sensitivity to cold.', o: 'Localized caries identified.', a: 'Dentin Caries.', p: 'Composite restoration performed.' },
-    { label: 'Perio Case', s: 'Bleeding while brushing.', o: 'Generalized subgingival calculus.', a: 'Chronic Periodontitis.', p: 'Scaling and root planing performed.' }
-];
 
 interface OdontonotesProps {
   entries: DentalChartEntry[];
@@ -39,11 +27,11 @@ interface OdontonotesProps {
   patient?: Patient;
   appointments?: Appointment[];
   incidents?: ClinicalIncident[];
-  // Fix: Add missing sterilizationCycles prop
   sterilizationCycles?: SterilizationCycle[];
+  onRequestProtocolOverride?: (rule: ClinicalProtocolRule, continuation: () => void) => void;
 }
 
-const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, onDeleteEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction, fieldSettings, patient, appointments = [], incidents = [], sterilizationCycles = [] }) => {
+const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, onDeleteEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction, fieldSettings, patient, appointments = [], incidents = [], sterilizationCycles = [], onRequestProtocolOverride }) => {
   const toast = useToast();
   const isAdvancedInventory = fieldSettings?.features.inventoryComplexity === 'ADVANCED';
   
@@ -60,7 +48,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [varianceCount, setVarianceCount] = useState(0); 
   const [selectedResourceId, setSelectedResourceId] = useState('');
   const [selectedCycleId, setSelectedCycleId] = useState('');
-  const [isRecording, setIsRecording] = useState<string | null>(null); 
   const [clinicalPearl, setClinicalPearl] = useState('');
   
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
@@ -75,9 +62,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [showHardStopConsent, setShowHardStopConsent] = useState(false);
   const [hardStopText, setHardStopText] = useState('');
   const [hardStopChecked, setHardStopChecked] = useState(false);
-  
-  const recognitionRef = useRef<any>(null);
-
+    
   const [showWitnessModal, setShowWitnessModal] = useState(false);
   const [witnessPin, setWitnessPin] = useState('');
   const [pendingSealEntry, setPendingSealEntry] = useState<DentalChartEntry | null>(null);
@@ -88,6 +73,13 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   const [pendingSurgicalEntry, setPendingSurgicalEntry] = useState<any>(null);
 
   const [isBaseline, setIsBaseline] = useState(false);
+
+  const { isRecording, toggleRecording } = useDictation({
+    s: setSubjective,
+    o: setObjective,
+    a: setAssessment,
+    p: setPlan,
+  });
 
   const isArchitect = currentUser.role === UserRole.SYSTEM_ARCHITECT;
 
@@ -109,38 +101,23 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
     );
   }, [patient, appointments]);
 
-  const isPediatricBlocked = useMemo(() => {
-    if (!patient || (patient.age || 0) >= 18 || isArchitect) return false;
-    const hasTodayConsent = !!activeAppointmentToday?.signedConsentUrl;
-    const hasFullGuardian = patient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
-    return !hasTodayConsent || !hasFullGuardian;
-  }, [patient, activeAppointmentToday, isArchitect]);
-
-  const hasActiveComplication = useMemo(() => {
-    if (!patient) return false;
-    return incidents.some(i => i.patientId === patient.id && i.type === 'Complication' && !i.advisoryCallSigned);
-  }, [incidents, patient]);
-
-  const isPrcExpired = useMemo(() => {
-    if (!currentUser.prcLicense || !currentUser.prcExpiry) return false;
-    return new Date(currentUser.prcExpiry) < new Date();
-  }, [currentUser.prcExpiry, currentUser.prcLicense]);
-
-  const isMalpracticeExpired = useMemo(() => {
-    if (!currentUser.malpracticeExpiry) return false;
-    return new Date(currentUser.malpracticeExpiry) < new Date();
-  }, [currentUser.malpracticeExpiry]);
-
   const activeProcedureDef = useMemo(() => {
       return procedures.find(p => p.name === selectedProcedure);
   }, [selectedProcedure, procedures]);
+
+  const { isLockedForAction, getLockReason } = useClinicalNotePermissions(
+    currentUser,
+    patient,
+    activeAppointmentToday,
+    incidents,
+    isArchitect,
+    activeProcedureDef
+  );
 
   const isHighRiskProcedure = useMemo(() => {
     const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
     return highRiskCats.includes(activeProcedureDef?.category || '');
   }, [activeProcedureDef]);
-
-  const isIndemnityLocked = isMalpracticeExpired && isHighRiskProcedure;
 
   const selectedSet = useMemo(() => {
     return fieldSettings?.instrumentSets?.find(s => s.id === selectedInstrumentSetId);
@@ -181,18 +158,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
   }, [subjective, objective, assessment, plan]);
 
   const isAuthenticNarrative = uniquenessScore > 10;
-  
-  const getLockReason = () => {
-    if (isPrcExpired) return "Practitioner PRC license is expired. Update profile to restore authority.";
-    if (isIndemnityLocked) return "Malpractice insurance is expired. High-risk procedures are suspended.";
-    if (hasActiveComplication) return "Patient has an unresolved clinical complication that requires sign-off.";
-    if (isPediatricBlocked) return "Minor patient requires guardian consent for today's session.";
-    if (!activeAppointmentToday && !isArchitect) return "No active appointment found for today. Notes can only be added during a session.";
-    return "Mandatory clinical gate triggered. Commitment functions suspended for regulatory protocol.";
-  };
-
-  const isLockedForAction = isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || (!activeAppointmentToday && !isArchitect);
-
 
   useEffect(() => {
     if (selectedProcedure && fieldSettings) {
@@ -238,23 +203,6 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
       const s = fill.s || ''; const o = fill.o || ''; const a = fill.a || ''; const p = fill.p || '';
       setSubjective(s); setObjective(o); setAssessment(a); setPlan(p);
       macroSnapshotRef.current = (s + o + a + p).trim();
-  };
-
-  const toggleRecording = (field: 's'|'o'|'a'|'p') => {
-      if (isRecording === field) { recognitionRef.current?.stop(); setIsRecording(null); return; }
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
-      const recognition = new SpeechRecognition();
-      recognition.onstart = () => setIsRecording(field);
-      recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          const setter = field === 's' ? setSubjective : field === 'o' ? setObjective : field === 'a' ? setAssessment : setPlan;
-          setter(prev => prev ? `${prev} ${transcript}` : transcript);
-          setIsRecording(null);
-      };
-      recognition.onerror = () => setIsRecording(null);
-      recognitionRef.current = recognition;
-      recognition.start();
   };
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -366,7 +314,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
         toast.error(`SCOPE VIOLATION (RA 9484): Your license category (${currentUser.licenseCategory}) does not permit the recording of ${selectedProcedure}.`);
         return;
     }
-    if (isPrcExpired || isIndemnityLocked || hasActiveComplication || isPediatricBlocked || !pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile) || (!activeAppointmentToday && !isArchitect)) return;
+    if (isLockedForAction || !pearlIsValid || !isAuthenticNarrative || (isTraceabilityRequired && !isSetSterile)) return;
     const stopText = getHardStopText(selectedProcedure);
     if (stopText && !hardStopChecked) {
         setHardStopText(stopText);
@@ -460,7 +408,7 @@ const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdate
                  </div>
                  <div className="flex gap-3">
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner border border-slate-200 gap-1" role="group">
-                        {QUICK_FILLS.map(q => <button key={q.label} type="button" onClick={() => applyQuickFill(q)} className="px-4 py-2 bg-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-100 hover:border-teal-500 transition-all shadow-sm">{q.label}</button>)}
+                        {(fieldSettings?.smartPhrases || []).map(q => <button key={q.id} type="button" onClick={() => applyQuickFill(q)} className="px-4 py-2 bg-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-100 hover:border-teal-500 transition-all shadow-sm">{q.label}</button>)}
                     </div>
                     <button type="button" onClick={() => photoInputRef.current?.click()} className="px-6 py-3 bg-lilac-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-lilac-600/30 transition-all hover:scale-105"><Camera size={18}/> Imaging</button>
                     <button type="button" onClick={() => setIsRxModalOpen(true)} className="px-6 py-3 bg-teal-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-teal-600/30 transition-all hover:scale-105"><Pill size={18}/> Rx</button>

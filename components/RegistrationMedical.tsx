@@ -82,7 +82,7 @@ interface BooleanFieldProps {
     placeholder?: string;
     showDate?: boolean;
     formData: Partial<Patient>;
-    handleChange: any;
+    handleChange: (e: { target: { name: string; value: any; }}) => void;
     readOnly?: boolean;
     fieldSettings: FieldSettings;
     designMode: boolean;
@@ -91,14 +91,28 @@ interface BooleanFieldProps {
 }
 
 const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, formData, handleChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
-    const val = (formData as any)[q.replace(/\W/g, '_')];
-    const isYes = val === true;
-    const subVal = (formData as any)[`${q.replace(/\W/g, '_')}_details`] || '';
-    const dateVal = (formData as any)[`${q.replace(/\W/g, '_')}_date`] || '';
+    const val = formData.registryAnswers?.[q];
+    const isYes = val === 'Yes';
+    const subVal = (formData.registryAnswers?.[`${q}_details`] as string) || '';
+    const dateVal = (formData.registryAnswers?.[`${q}_date`] as string) || '';
     const needsDetails = q.includes('*');
     const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(q);
     
     const resolvedType = type as 'question' | 'condition' | 'allergy' | 'physician';
+
+    const handleAnswerChange = (answer: 'Yes' | 'No') => {
+        if (readOnly) return;
+        const currentAnswers = formData.registryAnswers || {};
+        const newAnswers = { ...currentAnswers, [q]: answer };
+        handleChange({ target: { name: 'registryAnswers', value: newAnswers } });
+    };
+
+    const handleDetailChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>, detailType: 'details' | 'date') => {
+        if (readOnly) return;
+        const currentAnswers = formData.registryAnswers || {};
+        const newAnswers = { ...currentAnswers, [`${q}_${detailType}`]: e.target.value };
+        handleChange({ target: { name: 'registryAnswers', value: newAnswers } });
+    };
 
     return (
         <DesignWrapper id={q} type={resolvedType} key={q} className={className} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
@@ -113,15 +127,15 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                 <div className="flex gap-3 shrink-0">
                     <button 
                         type="button" 
-                        onClick={() => !readOnly && handleChange({ target: { name: q.replace(/\W/g, '_'), value: true, type: 'checkbox', checked: true } } as any)} 
+                        onClick={() => handleAnswerChange('Yes')}
                         className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}
                     >
                         Yes
                     </button>
                     <button 
                         type="button" 
-                        onClick={() => !readOnly && handleChange({ target: { name: q.replace(/\W/g, '_'), value: false, type: 'checkbox', checked: false } } as any)} 
-                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${val === false ? 'bg-slate-600 border-slate-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}
+                        onClick={() => handleAnswerChange('No')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${val === 'No' ? 'bg-slate-600 border-slate-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}
                     >
                         No
                     </button>
@@ -134,7 +148,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                                 <input 
                                     type="date"
                                     value={dateVal}
-                                    onChange={(e) => !readOnly && handleChange({ target: { name: `${q.replace(/\W/g, '_')}_date`, value: e.target.value } } as any)}
+                                    onChange={(e) => handleDetailChange(e, 'date')}
                                     className="w-full p-4 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500 shadow-inner"
                                 />
                             </div>
@@ -142,9 +156,9 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                         <div>
                             <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Clinical Specification Narrative *</label>
                             <ControlledTextarea 
-                                name={`${q.replace(/\W/g, '_')}_details`}
+                                name={`${q}_details`}
                                 value={subVal} 
-                                onChange={(e: any) => !readOnly && handleChange({ target: { name: `${q.replace(/\W/g, '_')}_details`, value: e.target.value } } as any)}
+                                onChange={(e: any) => handleDetailChange(e, 'details')}
                                 placeholder={placeholder}
                                 className="w-full p-4 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500 shadow-inner"
                             />
@@ -158,8 +172,8 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  handleArrayChange: (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => void;
+  handleChange: (e: any) => void;
+  handleArrayChange: (category: 'allergies' | 'medicalConditions', value: string) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings; 
   isMasked?: boolean;
@@ -320,10 +334,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
     });
 
     fieldSettings.identityQuestionRegistry.forEach(q => {
-        const val = (formData as any)[q.replace(/\W/g, '_')];
-        const isYes = val === true;
+        const val = formData.registryAnswers?.[q];
+        const isYes = val === 'Yes';
         if (isYes && (q.includes('*') || critRegistry.includes(q))) {
-            const details = (formData as any)[`${q.replace(/\W/g, '_')}_details`];
+            const details = formData.registryAnswers?.[`${q}_details`] as string;
             flags.push({ label: `ALERT: ${q.replace('*', '')}`, details: details || "Positive Finding", icon: ShieldAlert });
         }
     });
@@ -340,7 +354,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <h3 className="font-bold text-lg text-slate-800">Clinical Data Sharing Authorization</h3>
             </div>
             <label className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${formData.practiceCommConsent ? 'bg-teal-50 border-teal-700 shadow-md' : 'bg-white border-slate-200'}`}>
-                <input type="checkbox" name="practiceCommConsent" checked={formData.practiceCommConsent} onChange={handleChange} disabled={readOnly} className="w-6 h-6 accent-teal-700 rounded mt-1 shrink-0" />
+                <input type="checkbox" name="practiceCommConsent" checked={!!formData.practiceCommConsent} onChange={handleChange} disabled={readOnly} className="w-6 h-6 accent-teal-700 rounded mt-1 shrink-0" />
                 <div>
                     <span className="font-extrabold text-teal-900 uppercase text-xs">Clinical Coordination Consent *</span>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">I authorize clinical data sharing with relevant specialists for coordinated patient care.</p>
@@ -446,5 +460,4 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
     </div>
   );
 };
-// Fix: change export to be a non-memoized default export
 export default RegistrationMedical;

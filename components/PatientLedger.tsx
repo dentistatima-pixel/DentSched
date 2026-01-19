@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack } from '../types';
 import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
-import { formatDate } from '../constants';
+import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
 
 interface PatientLedgerProps {
@@ -54,7 +55,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
 
         const newBalance = currentBalance + total;
         const newEntry: LedgerEntry = {
-            id: Math.random().toString(36).substr(2, 9), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
+            id: generateUid('l'), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
         };
 
         onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
@@ -74,7 +75,7 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
 
         const newBalance = currentBalance - val;
         const newEntry: LedgerEntry = { 
-            id: Math.random().toString(36).substr(2, 9), 
+            id: generateUid('l'), 
             date, 
             description: isBirMode ? `OR# ${orNumber} - ${description}` : description, 
             type: 'Payment', 

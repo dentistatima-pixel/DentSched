@@ -1,11 +1,12 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import PatientList from './components/PatientList';
 import PatientDetailView from './components/PatientDetailView';
-import { AppointmentModal } from './components/AppointmentModal';
+import AppointmentModal from './components/AppointmentModal';
 import PatientRegistrationModal from './components/PatientRegistrationModal';
 import FieldManagement from './components/FieldManagement';
 import KioskView from './components/KioskView';
@@ -24,8 +25,7 @@ import SafetyAlertModal from './components/SafetyAlertModal'; // Import new safe
 import ProtocolOverrideModal from './components/ProtocolOverrideModal'; // Import for Gap 3
 import LeaveAndShiftManager from './components/LeaveAndShiftManager'; // Import new component
 import { STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES, MOCK_STERILIZATION_CYCLES, CRITICAL_CLEARANCE_CONDITIONS, formatDate, MOCK_WAITLIST, generateUid } from './constants';
-// Fix: Import `ClearanceRequest` to resolve typing error on save.
-import { Appointment, User, Patient, FieldSettings, AppointmentType, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest, ClinicalProtocolRule } from './types';
+import { Appointment, User, Patient, FieldSettings, UserRole, AppointmentStatus, PinboardTask, AuditLogEntry, StockItem, DentalChartEntry, SterilizationCycle, HMOClaim, PhilHealthClaim, PhilHealthClaimStatus, HMOClaimStatus, ClinicalIncident, Referral, ReconciliationRecord, StockTransfer, RecallStatus, TriageLevel, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PayrollStatus, SyncIntent, SyncConflict, SystemStatus, LabStatus, ScheduledSms, AppNotification, WaitlistEntry, GovernanceTrack, ConsentCategory, LeaveRequest, CommunicationLogEntry, CommunicationChannel, ConsentLogEntry, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest, ClinicalProtocolRule, InstrumentSet } from './types';
 import { useToast } from './components/ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -36,6 +36,7 @@ import PrivacyRevocationModal from './components/PrivacyRevocationModal';
 import ConsentCaptureModal from './components/ConsentCaptureModal';
 import FinancialConsentModal from './components/FinancialConsentModal';
 import ClearanceModal from './components/ClearanceModal';
+import GeminiAssistant from './components/GeminiAssistant';
 
 
 const CANARY_KEY = 'dentsched_auth_canary';
@@ -204,6 +205,7 @@ function App() {
   const [bookingTime, setBookingTime] = useState<string | undefined>(undefined);
   const [initialBookingPatientId, setInitialBookingPatientId] = useState<string | undefined>(undefined);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [bookingOverrideInfo, setBookingOverrideInfo] = useState<{ isWaitlistOverride: boolean; authorizedManagerId: string; } | null>(null);
 
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -212,15 +214,24 @@ function App() {
 
   const [showTimeline, setShowTimeline] = useState(false);
   
+  // --- GAP 1 MODAL STATES ---
+  const [isSafetyTimeoutOpen, setIsSafetyTimeoutOpen] = useState(false);
+  const [safetyTimeoutPatient, setSafetyTimeoutPatient] = useState<Patient | null>(null);
+  const [isPostOpHandoverOpen, setIsPostOpHandoverOpen] = useState(false);
+  const [postOpAppointment, setPostOpAppointment] = useState<Appointment | null>(null);
   const [isPrivacyRevocationOpen, setIsPrivacyRevocationOpen] = useState(false);
   const [revocationTarget, setRevocationTarget] = useState<{patient: Patient, category: ConsentCategory} | null>(null);
-
   const [isMedicoLegalExportOpen, setIsMedicoLegalExportOpen] = useState(false);
   const [medicoLegalPatient, setMedicoLegalPatient] = useState<Patient | null>(null);
+  // ConsentCaptureModal state would also go here if needed from App.tsx
+
+  // --- GAP 5 PREFILL STATE ---
+  const [prefillNote, setPrefillNote] = useState<Partial<DentalChartEntry> | null>(null);
 
   const [isSafetyAlertOpen, setIsSafetyAlertOpen] = useState(false);
   const [safetyAlertConfig, setSafetyAlertConfig] = useState({ title: '', message: '' });
 
+  // --- GAP 4: Protocol Override State ---
   const [isProtocolOverrideOpen, setIsProtocolOverrideOpen] = useState(false);
   const [overrideRule, setOverrideRule] = useState<ClinicalProtocolRule | null>(null);
   const [overrideContinuation, setOverrideContinuation] = useState<(() => void) | null>(null);
@@ -229,9 +240,38 @@ function App() {
 
   const [isQuickAddPatientOpen, setIsQuickAddPatientOpen] = useState(false);
 
-  // --- Gap 4: Audit Trail Lockdown ---
+  // --- GAP 4: Audit Trail Lockdown ---
   const readOnlyLockdown = useMemo(() => isAuditLogVerified === false, [isAuditLogVerified]);
   const lockdownToast = () => toast.error("System Locked: Data modification disabled due to integrity issue.");
+
+  // --- GAP 5: Audit Log Implementation ---
+  const logAction = (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
+    if (readOnlyLockdown) return;
+    
+    setAuditLog(prevLog => {
+        const lastLog = prevLog[prevLog.length - 1];
+        const previousHash = lastLog ? lastLog.hash : '0'.repeat(64);
+        
+        const timestamp = new Date().toISOString();
+        const payload = `${timestamp}|${currentUser.id}|${action}|${entityId}|${previousHash}`;
+        const hash = CryptoJS.SHA256(payload).toString();
+
+        const newLogEntry: AuditLogEntry = {
+            id: generateUid('al'),
+            timestamp,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            action,
+            entity,
+            entityId,
+            details,
+            hash,
+            previousHash,
+            impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined
+        };
+        return [...prevLog, newLogEntry];
+    });
+  };
 
   useEffect(() => {
     const loadedLog = MOCK_AUDIT_LOG; // Simulating loading from storage
@@ -251,11 +291,60 @@ function App() {
   const handleSavePatient = (patientData: Partial<Patient>) => {
     if (readOnlyLockdown) return lockdownToast();
     const isNew = !patients.some(p => p.id === patientData.id);
+    const oldPatient = isNew ? null : patients.find(p => p.id === patientData.id);
+    
+    const finalPatient = isNew 
+        ? patientData as Patient 
+        : { ...oldPatient, ...patientData } as Patient;
+
     const updatedPatients = isNew
-      ? [...patients, patientData as Patient]
-      : patients.map(p => p.id === patientData.id ? { ...p, ...patientData } as Patient : p);
+      ? [...patients, finalPatient]
+      : patients.map(p => p.id === finalPatient.id ? finalPatient : p);
     
     setPatients(updatedPatients);
+    logAction(isNew ? 'CREATE' : 'UPDATE', 'Patient', finalPatient.id, generateDiff(oldPatient, finalPatient));
+
+    // Supply Chain Logic
+    const newOrUpdatedEntries = finalPatient.dentalChart?.filter(newEntry => {
+      const oldEntry = oldPatient?.dentalChart?.find(old => old.id === newEntry.id);
+      return !oldEntry || JSON.stringify(oldEntry) !== JSON.stringify(newEntry);
+    });
+  
+    if (newOrUpdatedEntries && newOrUpdatedEntries.length > 0) {
+      let stockUpdated = false;
+      let settingsUpdated = false;
+      const nextStock = [...stock];
+      const nextInstrumentSets = [...(fieldSettings.instrumentSets || [])];
+  
+      newOrUpdatedEntries.forEach(entry => {
+        if (entry.materialBatchId) {
+          const stockIndex = nextStock.findIndex(s => s.id === entry.materialBatchId);
+          if (stockIndex > -1) {
+            nextStock[stockIndex] = { ...nextStock[stockIndex], quantity: nextStock[stockIndex].quantity - 1 };
+            stockUpdated = true;
+          }
+        }
+        if (entry.instrumentSetId) {
+          const setIndex = nextInstrumentSets.findIndex(s => s.id === entry.instrumentSetId);
+          if (setIndex > -1 && nextInstrumentSets[setIndex].status === 'Sterile') {
+            nextInstrumentSets[setIndex] = { 
+              ...nextInstrumentSets[setIndex], 
+              status: 'Used',
+              lastCycleId: entry.sterilizationCycleId || nextInstrumentSets[setIndex].lastCycleId
+            };
+            settingsUpdated = true;
+          }
+        }
+      });
+  
+      if (stockUpdated) {
+        setStock(nextStock);
+      }
+      if (settingsUpdated) {
+        setFieldSettings(prev => ({ ...prev, instrumentSets: nextInstrumentSets }));
+      }
+    }
+
     setIsPatientModalOpen(false);
     setEditingPatient(null);
   };
@@ -263,11 +352,14 @@ function App() {
   const handleSaveAppointment = (appointment: Appointment) => {
     if (readOnlyLockdown) return lockdownToast();
     const isNew = !appointments.some(a => a.id === appointment.id);
+    const oldApt = isNew ? null : appointments.find(a => a.id === appointment.id);
+
     const updatedAppointments = isNew
       ? [...appointments, appointment]
       : appointments.map(a => a.id === appointment.id ? appointment : a);
     
     setAppointments(updatedAppointments);
+    logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', appointment.id, generateDiff(oldApt, appointment));
     setIsAppointmentModalOpen(false);
     setEditingAppointment(null);
   };
@@ -284,9 +376,31 @@ function App() {
 
   const handleUpdateAppointmentStatus = (appointmentId: string, status: AppointmentStatus) => {
     if (readOnlyLockdown) return lockdownToast();
+    const appointment = appointments.find(a => a.id === appointmentId);
+    const patient = patients.find(p => p.id === appointment?.patientId);
+
+    if (patient && appointment) {
+        // --- GAP 1: Safety Timeout Trigger ---
+        const isHighRisk = patient.medicalConditions?.some(c => CRITICAL_CLEARANCE_CONDITIONS.includes(c));
+        if (isHighRisk && (status === AppointmentStatus.SEATED || status === AppointmentStatus.TREATING)) {
+            setSafetyTimeoutPatient(patient);
+            setIsSafetyTimeoutOpen(true);
+            // We show the modal but still update the status optimistically
+        }
+
+        // --- GAP 1: Post-Op Handover Trigger ---
+        const isSurgical = appointment.type.toLowerCase().includes('surgery') || appointment.type.toLowerCase().includes('extraction');
+        if (isSurgical && status === AppointmentStatus.COMPLETED) {
+            setPostOpAppointment(appointment);
+            setIsPostOpHandoverOpen(true);
+            return; // Halt status update until handover is confirmed
+        }
+    }
+    
     setAppointments(prev => prev.map(apt => 
       apt.id === appointmentId ? { ...apt, status } : apt
     ));
+    logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
   };
   
   const handleAddPatient = () => {
@@ -295,18 +409,31 @@ function App() {
     setIsPatientModalOpen(true);
   };
 
-  const handleAddAppointment = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment) => {
+  const handleAddAppointment = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment, overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string; }) => {
     if (readOnlyLockdown) return lockdownToast();
     setBookingDate(date);
     setBookingTime(time);
     setInitialBookingPatientId(patientId);
     setEditingAppointment(appointmentToEdit || null);
+    setBookingOverrideInfo(overrideInfo || null);
     setIsAppointmentModalOpen(true);
   };
 
   const handleSwitchUser = (user: User) => {
-      setCurrentUser(user);
-      setIsProfileOpen(false);
+    // This function is now used for both switching and saving the current user's profile.
+    const isSaveOperation = staff.some(s => s.id === user.id);
+    
+    if (isSaveOperation) {
+        // This is a save operation from the profile modal
+        setStaff(prevStaff => prevStaff.map(s => (s.id === user.id ? user : s)));
+        logAction('UPDATE', 'User', user.id, `Profile updated for ${user.name}.`);
+        toast.success("Profile updated successfully.");
+    }
+
+    // This handles both switching to a new user and updating the view for the current user after a save
+    setCurrentUser(user);
+    
+    setIsProfileOpen(false);
   };
   
   const handleUpdateSettings = (newSettings: FieldSettings) => {
@@ -319,7 +446,222 @@ function App() {
     setActiveTab(tab);
   };
   
-  // App logic remains the same...
+  // --- GAP 5: Prefill Note Handler ---
+  const handlePrefillNote = (entry: Partial<DentalChartEntry>) => {
+    setPrefillNote(entry);
+    setActiveTab('patients');
+  };
+  const handleClearPrefill = () => setPrefillNote(null);
+
+  // --- GAP 1: Modal Openers ---
+  const handleOpenMedicoLegalExport = (patient: Patient) => {
+      setMedicoLegalPatient(patient);
+      setIsMedicoLegalExportOpen(true);
+  };
+  const handleOpenRevocationModal = (patient: Patient, category: ConsentCategory) => {
+      setRevocationTarget({ patient, category });
+      setIsPrivacyRevocationOpen(true);
+  };
+
+  const handleCompleteRegistration = (patientId: string) => {
+      if (readOnlyLockdown) return lockdownToast();
+      const patientToComplete = patients.find(p => p.id === patientId);
+      if (patientToComplete) {
+          setEditingPatient(patientToComplete);
+          setIsPatientModalOpen(true);
+      }
+  };
+  
+  // --- GAP 1: Quick Intake Handlers ---
+  const handleQuickAddPatient = (firstName: string, surname: string, phone: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+
+    const newPatient: Patient = {
+        id: generateUid('p'),
+        firstName,
+        surname,
+        phone,
+        name: `${firstName} ${surname}`,
+        registrationStatus: 'Provisional',
+        dob: '',
+        lastVisit: 'First Visit',
+        nextVisit: null,
+        recallStatus: 'Due',
+        email: '',
+    };
+
+    setPatients(prev => [...prev, newPatient]);
+    logAction('CREATE', 'Patient', newPatient.id, 'Provisional patient record created via Quick Intake.');
+    toast.success(`Provisional record for ${newPatient.name} created.`);
+    setIsQuickAddPatientOpen(false);
+  };
+  
+  const handleQuickTriage = (name: string, phone: string, complaint: string, isEmergency: boolean) => {
+    if (readOnlyLockdown) return lockdownToast();
+    
+    const [firstName, ...surnameParts] = name.split(' ');
+    const surname = surnameParts.join(' ');
+    const triageLevel: TriageLevel = isEmergency ? 'Level 1: Trauma/Bleeding' : 'Level 3: Appliance/Maintenance';
+
+    const newPatient: Patient = {
+        id: generateUid('p'),
+        firstName,
+        surname,
+        phone,
+        name,
+        registrationStatus: 'Provisional',
+        chiefComplaint: complaint,
+        dob: '',
+        lastVisit: 'First Visit',
+        nextVisit: null,
+        recallStatus: 'Due',
+        email: '',
+    };
+    
+    setPatients(prev => [...prev, newPatient]);
+    logAction('CREATE', 'Patient', newPatient.id, 'Provisional patient record created via Walk-In.');
+
+    const newAppointment: Appointment = {
+        id: generateUid('apt'),
+        patientId: newPatient.id,
+        providerId: staff.find(s => s.role === UserRole.DENTIST)?.id || 'doc1',
+        branch: currentBranch,
+        date: new Date().toLocaleDateString('en-CA'),
+        time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        durationMinutes: 30,
+        type: `Walk-In: ${complaint}`,
+        status: AppointmentStatus.ARRIVED,
+        triageLevel: triageLevel,
+        queuedAt: new Date().toISOString(),
+    };
+
+    setAppointments(prev => [...prev, newAppointment]);
+    logAction('CREATE', 'Appointment', newAppointment.id, 'Walk-in triage appointment created.');
+    toast.success(`${name} added to triage queue.`);
+    setIsQuickTriageModalOpen(false);
+  };
+
+  // --- GAP 2: Admin Hub Handlers ---
+  const handleVerifyDowntimeEntry = (id: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+    setAppointments(prev => prev.map(apt => apt.id === id ? { ...apt, reconciled: true } : apt));
+    logAction('VERIFY', 'Appointment', id, 'Downtime entry reconciled.');
+    toast.success("Downtime entry reconciled.");
+  };
+
+  const handleVerifyMedHistory = (id: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+    setAppointments(prev => prev.map(apt => apt.id === id ? { ...apt, medHistoryVerified: true, medHistoryVerifiedAt: new Date().toISOString() } : apt));
+    logAction('VERIFY', 'Appointment', id, 'Medical history verified at chairside.');
+    toast.success("Medical history verified for appointment.");
+  };
+
+  const handleConfirmFollowUp = (id: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+    setAppointments(prev => prev.map(apt => apt.id === id ? { ...apt, followUpConfirmed: true, followUpConfirmedAt: new Date().toISOString() } : apt));
+    logAction('VERIFY', 'Appointment', id, 'Post-op follow-up call confirmed.');
+    toast.success("Post-op follow-up confirmed.");
+  };
+
+  // --- GAP 3: Staff Management Handlers ---
+  const handleSaveReferral = (referral: Omit<Referral, 'id'>) => {
+    if (readOnlyLockdown) return lockdownToast();
+    const newReferral = { ...referral, id: generateUid('ref') };
+    setReferrals(prev => [...prev, newReferral]);
+    logAction('CREATE', 'Referral', newReferral.id, `Referred patient to ${newReferral.referredTo}.`);
+    toast.success("Referral logged successfully.");
+  };
+
+  const handleUpdateStaffRoster = (staffId: string, day: string, branch: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+    setStaff(prev => prev.map(s => {
+        if (s.id === staffId) {
+            const newRoster = { ...(s.roster || {}), [day]: branch === 'Off' ? undefined : branch };
+            // clean up undefined
+            Object.keys(newRoster).forEach(key => newRoster[key] === undefined && delete newRoster[key]);
+            logAction('UPDATE', 'Staff', staffId, `Roster updated for ${day}: ${branch}.`);
+            return { ...s, roster: newRoster };
+        }
+        return s;
+    }));
+    toast.success("Roster updated.");
+  };
+
+  const handleAddLeaveRequest = (request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => {
+    if (readOnlyLockdown) return lockdownToast();
+    const staffMember = staff.find(s => s.id === request.staffId);
+    if (!staffMember) return;
+    const newRequest: LeaveRequest = {
+        ...request,
+        id: generateUid('leave'),
+        staffName: staffMember.name,
+        status: 'Pending'
+    };
+    setLeaveRequests(prev => [newRequest, ...prev]);
+    logAction('CREATE', 'LeaveRequest', newRequest.id, `Leave request submitted for ${staffMember.name}.`);
+    toast.info("Leave request submitted for approval.");
+  };
+
+  const handleApproveLeaveRequest = (id: string, approve: boolean) => {
+    if (readOnlyLockdown) return lockdownToast();
+    setLeaveRequests(prev => prev.map(req => 
+        req.id === id ? { ...req, status: approve ? 'Approved' : 'Rejected' } : req
+    ));
+    logAction('UPDATE_STATUS', 'LeaveRequest', id, `Request ${approve ? 'Approved' : 'Rejected'}.`);
+    toast.success(`Leave request ${approve ? 'approved' : 'rejected'}.`);
+  };
+
+  // --- GAP 4: Protocol Override Handlers ---
+  const handleRequestProtocolOverride = (rule: ClinicalProtocolRule, continuation: () => void) => {
+    if (readOnlyLockdown) return lockdownToast();
+    const canOverride = currentUser.role === UserRole.SYSTEM_ARCHITECT || currentUser.role === UserRole.ADMIN;
+    if (!canOverride) {
+        toast.error("You do not have permission to override clinical protocols.");
+        return;
+    }
+    setOverrideRule(rule);
+    setOverrideContinuation(() => continuation);
+    setIsProtocolOverrideOpen(true);
+  };
+  
+  const handleConfirmOverride = (reason: string) => {
+    if (overrideContinuation) {
+        overrideContinuation();
+        logAction('OVERRIDE_PROTOCOL', 'ClinicalProtocol', overrideRule!.id, `Reason: ${reason}`);
+        toast.warning(`Protocol "${overrideRule?.name}" overridden.`);
+    }
+    setIsProtocolOverrideOpen(false);
+    setOverrideRule(null);
+    setOverrideContinuation(null);
+  };
+
+  // --- GAP 5: Consent Revocation Handler ---
+  const handleConfirmRevocation = (patient: Patient, category: ConsentCategory, reason: string, notes: string) => {
+    if (readOnlyLockdown) return lockdownToast();
+    
+    const consentLogEntry: ConsentLogEntry = {
+        category,
+        status: 'Revoked',
+        timestamp: new Date().toISOString(),
+        version: fieldSettings.currentPrivacyVersion,
+    };
+    
+    const updatedPatient: Patient = {
+        ...patient,
+        dpaConsent: category === 'Clinical' ? false : patient.dpaConsent,
+        marketingConsent: category === 'Marketing' ? false : patient.marketingConsent,
+        thirdPartyDisclosureConsent: category === 'ThirdParty' ? false : patient.thirdPartyDisclosureConsent,
+        consentLogs: [...(patient.consentLogs || []), consentLogEntry]
+    };
+
+    setPatients(prev => prev.map(p => p.id === patient.id ? updatedPatient : p));
+    
+    logAction('REVOKE_CONSENT', 'Patient', patient.id, `Consent revoked for category: ${category}. Reason: ${reason}. Notes: ${notes}`);
+    
+    setIsPrivacyRevocationOpen(false);
+    setRevocationTarget(null);
+    toast.warning(`Consent for ${category} has been permanently revoked for ${patient.name}.`);
+  };
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -334,10 +676,12 @@ function App() {
                   onPatientSelect={handlePatientSelect}
                   onAddAppointment={handleAddAppointment}
                   onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+                  onCompleteRegistration={handleCompleteRegistration}
                   onQuickQueue={() => setIsQuickTriageModalOpen(true)}
                   onQuickAddPatient={() => setIsQuickAddPatientOpen(true)}
                   staff={staff}
                   onNavigateToQueue={(queue) => { setActiveTab('admin'); setAdminQueue(queue); }}
+                  currentBranch={currentBranch}
                />;
       case 'schedule':
         return <CalendarView 
@@ -351,6 +695,7 @@ function App() {
                   patients={patients}
                   currentBranch={currentBranch}
                   fieldSettings={fieldSettings}
+                  onPrefillNote={handlePrefillNote}
                />;
       case 'patients':
         return (
@@ -370,19 +715,24 @@ function App() {
                 patient={selectedPatient}
                 appointments={appointments}
                 staff={staff}
+                stock={stock}
+                sterilizationCycles={sterilizationCycles}
                 currentUser={currentUser}
                 onQuickUpdatePatient={handleSavePatient}
                 onBookAppointment={(id) => handleAddAppointment(undefined, undefined, id)}
                 onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }}
                 fieldSettings={fieldSettings}
-                logAction={() => {}}
+                logAction={logAction}
                 incidents={incidents}
                 referrals={referrals}
                 onBack={() => setSelectedPatientId(null)}
                 governanceTrack={governanceTrack}
-                onOpenRevocationModal={()=>{}}
-                onOpenMedicoLegalExport={()=>{}}
+                onOpenRevocationModal={handleOpenRevocationModal}
+                onOpenMedicoLegalExport={handleOpenMedicoLegalExport}
                 readOnly={readOnlyLockdown}
+                prefill={prefillNote}
+                onClearPrefill={handleClearPrefill}
+                onRequestProtocolOverride={handleRequestProtocolOverride}
               />
             </div>
           </div>
@@ -395,9 +745,9 @@ function App() {
           appointments={appointments}
           patients={patients}
           syncConflicts={syncConflicts}
-          onVerifyDowntimeEntry={() => {}}
-          onVerifyMedHistory={() => {}}
-          onConfirmFollowUp={() => {}}
+          onVerifyDowntimeEntry={handleVerifyDowntimeEntry}
+          onVerifyMedHistory={handleVerifyMedHistory}
+          onConfirmFollowUp={handleConfirmFollowUp}
           onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }}
         />;
       case 'field-mgmt':
@@ -464,7 +814,7 @@ function App() {
         return <ReferralManager 
                   patients={patients}
                   referrals={referrals}
-                  onSaveReferral={() => {}}
+                  onSaveReferral={handleSaveReferral}
                   staff={staff}
                   onBack={() => setActiveTab('admin')}
                 />
@@ -473,7 +823,7 @@ function App() {
                   staff={staff}
                   fieldSettings={fieldSettings}
                   currentUser={currentUser}
-                  onUpdateStaffRoster={() => {}}
+                  onUpdateStaffRoster={handleUpdateStaffRoster}
                   onBack={() => setActiveTab('admin')}
                 />
       case 'leave':
@@ -481,8 +831,8 @@ function App() {
                   staff={staff}
                   currentUser={currentUser}
                   leaveRequests={leaveRequests}
-                  onAddLeaveRequest={() => {}}
-                  onApproveLeaveRequest={() => {}}
+                  onAddLeaveRequest={handleAddLeaveRequest}
+                  onApproveLeaveRequest={handleApproveLeaveRequest}
                   fieldSettings={fieldSettings}
                   onBack={() => setActiveTab('admin')}
                 />
@@ -538,7 +888,10 @@ function App() {
 
       <AppointmentModal 
         isOpen={isAppointmentModalOpen}
-        onClose={() => setIsAppointmentModalOpen(false)}
+        onClose={() => {
+            setIsAppointmentModalOpen(false);
+            setBookingOverrideInfo(null);
+        }}
         patients={patients}
         staff={staff}
         appointments={appointments}
@@ -550,8 +903,10 @@ function App() {
         existingAppointment={editingAppointment}
         fieldSettings={fieldSettings}
         isDowntime={systemStatus === SystemStatus.DOWNTIME}
+        overrideInfo={bookingOverrideInfo}
         isReconciliationMode={isReconciliationMode}
         currentBranch={currentBranch}
+        onSavePatient={handleSavePatient}
       />
       <PatientRegistrationModal
         isOpen={isPatientModalOpen}
@@ -565,13 +920,68 @@ function App() {
       <QuickTriageModal
         isOpen={isQuickTriageModalOpen}
         onClose={() => setIsQuickTriageModalOpen(false)}
-        onSave={() => { if(readOnlyLockdown) lockdownToast() }}
+        onSave={handleQuickTriage}
       />
       <QuickAddPatientModal
         isOpen={isQuickAddPatientOpen}
         onClose={() => setIsQuickAddPatientOpen(false)}
-        onSave={() => { if(readOnlyLockdown) lockdownToast() }}
+        onSave={handleQuickAddPatient}
       />
+      
+      {/* --- GAP 1: RENDER MODALS --- */}
+      {isSafetyTimeoutOpen && safetyTimeoutPatient && (
+          <SafetyTimeoutModal 
+              patient={safetyTimeoutPatient} 
+              onConfirm={() => {
+                  setIsSafetyTimeoutOpen(false);
+                  setSafetyTimeoutPatient(null);
+              }}
+          />
+      )}
+      {isPostOpHandoverOpen && postOpAppointment && (
+          <PostOpHandoverModal
+              isOpen={isPostOpHandoverOpen}
+              appointment={postOpAppointment}
+              onClose={() => {
+                  setIsPostOpHandoverOpen(false);
+                  setPostOpAppointment(null);
+              }}
+              onConfirm={async () => {
+                  handleUpdateAppointmentStatus(postOpAppointment.id, AppointmentStatus.COMPLETED);
+              }}
+          />
+      )}
+      {isMedicoLegalExportOpen && medicoLegalPatient && (
+          <MedicoLegalExportModal 
+              isOpen={isMedicoLegalExportOpen}
+              onClose={() => setIsMedicoLegalExportOpen(false)}
+              patient={medicoLegalPatient}
+              staff={staff}
+              logAction={logAction}
+          />
+      )}
+      {isPrivacyRevocationOpen && revocationTarget && (
+          <PrivacyRevocationModal
+              isOpen={isPrivacyRevocationOpen}
+              onClose={() => setIsPrivacyRevocationOpen(false)}
+              patient={revocationTarget.patient}
+              category={revocationTarget.category}
+              onConfirm={(reason, notes) => handleConfirmRevocation(revocationTarget.patient, revocationTarget.category, reason, notes)}
+          />
+      )}
+      {isProtocolOverrideOpen && overrideRule && (
+        <ProtocolOverrideModal
+            isOpen={isProtocolOverrideOpen}
+            rule={overrideRule}
+            onCancel={() => {
+                setIsProtocolOverrideOpen(false);
+                setOverrideRule(null);
+                setOverrideContinuation(null);
+            }}
+            onConfirm={handleConfirmOverride}
+        />
+      )}
+      <GeminiAssistant />
     </>
   );
 }

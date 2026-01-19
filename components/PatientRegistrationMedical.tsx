@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+/* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
@@ -172,7 +173,8 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  handleArrayChange: (category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => void;
+  // Fix: Removed 'reportedMedications' from the type, as it does not exist on the Patient type.
+  handleArrayChange: (category: 'allergies' | 'medicalConditions', value: string) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings; 
   isMasked?: boolean;
@@ -353,7 +355,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <h3 className="font-bold text-lg text-slate-800">Clinical Data Sharing Authorization</h3>
             </div>
             <label className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${formData.practiceCommConsent ? 'bg-teal-50 border-teal-700 shadow-md' : 'bg-white border-slate-200'}`}>
-                <input type="checkbox" name="practiceCommConsent" checked={formData.practiceCommConsent} onChange={handleChange} disabled={readOnly} className="w-6 h-6 accent-teal-700 rounded mt-1 shrink-0" />
+                <input type="checkbox" name="practiceCommConsent" checked={!!formData.practiceCommConsent} onChange={handleChange} disabled={readOnly} className="w-6 h-6 accent-teal-700 rounded mt-1 shrink-0" />
                 <div>
                     <span className="font-extrabold text-teal-900 uppercase text-xs">Clinical Coordination Consent *</span>
                     <p className="text-xs text-slate-600 leading-relaxed mt-1">I authorize clinical data sharing with relevant specialists for coordinated patient care.</p>
@@ -459,5 +461,5 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
     </div>
   );
 };
-
-export default React.memo(RegistrationMedical);
+// Fix: change export to be a non-memoized default export
+export default RegistrationMedical;

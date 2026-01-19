@@ -1,5 +1,5 @@
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
-import { User, UserRole, Patient, Appointment, AppointmentType, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup } from './types';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -195,7 +195,7 @@ export const PATIENTS: Patient[] = [
           'Have you ever had serious illness or surgical operation?*_details': 'Coronary artery bypass graft (CABG) in 2018.',
           'Have you ever been hospitalized?*': 'Yes',
           'Have you ever been hospitalized?*_details': 'For the aforementioned heart surgery.',
-          'Have you ever been hospitalized?*_date': '2018-05-20',
+          'Have you ever been hospitalized?*_date': getPastDateStr(365 * 6),
           'Are you taking any prescription/non-prescription medication?*': 'Yes',
           'Are you taking any prescription/non-prescription medication?*_details': 'Lisinopril, Metformin, Warfarin.',
           'Do you use tobacco products?': 'Yes',
@@ -295,7 +295,7 @@ export const PATIENTS: Patient[] = [
         attendanceStats: { totalBooked: 9, completedCount: 7, noShowCount: 1, lateCancelCount: 1 }, reliabilityScore: 68
     },
     {
-        id: 'p_archive_10', name: 'Mindy St. Claire', firstName: 'Mindy', surname: 'St. Claire', dob: '1975-02-18', age: 49, sex: 'Female', phone: '0932-222-8888', email: 'mindy@themedium.place', lastVisit: '2010-01-15', nextVisit: null, currentBalance: 0, recallStatus: 'Overdue',
+        id: 'p_archive_10', name: 'Mindy St. Claire', firstName: 'Mindy', surname: 'St. Claire', dob: '1975-02-18', age: 49, sex: 'Female', phone: '0932-222-8888', email: 'mindy@themedium.place', lastVisit: getPastDateStr(365 * 14), nextVisit: null, currentBalance: 0, recallStatus: 'Overdue',
         attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100
     },
     {
@@ -393,7 +393,7 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
 export const MOCK_AUDIT_LOG_INITIALIZED: AuditLogEntry[] = MOCK_AUDIT_LOG;
 
 export const MOCK_VENDORS: Vendor[] = [
-    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: '2023-01-15', dsaExpiryDate: '2025-01-15' },
+    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: getPastDateStr(365), dsaExpiryDate: getFutureDateStr(365) },
     { id: 'v2', name: 'Intellicare', type: 'HMO', contactPerson: 'Jane Doe', contactNumber: '0918-987-6543', email: 'claims@intellicare.com.ph', status: 'Active', priceBookId: 'pb_hmo_1' }
 ];
 
@@ -624,7 +624,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
       [UserRole.DENTIST]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
       [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      // Fix: Removed duplicate canDeletePatients property.
       [UserRole.SYSTEM_ARCHITECT]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true, canOverrideClinicalSafety: true }
   },
   currentPrivacyVersion: '1.0',
@@ -676,7 +675,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   consentFormTemplates: [
       { id: 'c1', name: 'General Consent', content: 'I, {PatientName}, authorize treatment.' }
   ],
-// Fix: Corrected the smartPhrases entry to match the ClinicalMacro interface.
   smartPhrases: [
       { id: 'sp1', label: 'Routine Checkup', s: 'Patient in for routine prophylaxis. No acute pain.', o: '', a: '', p: '' }
   ],

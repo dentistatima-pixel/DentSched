@@ -25,9 +25,10 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   
   // Fix: Removed properties from initialFormState that are no longer part of the Patient type and added registryAnswers to store dynamic medical history.
+  // Fix: Removed invalid properties from initialFormState to match the Patient type.
   const initialFormState: Partial<Patient> = {
-    id: '', sex: undefined, allergies: [], medicalConditions: [], reportedMedications: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardian: '', guardianMobile: '', insuranceProvider: '', insuranceNumber: '', phone: '', mobile2: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
-    isPwd: false, guardianIdType: '', guardianIdNumber: '', relationshipToPatient: '',
+    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
+    isPwd: false,
     dentalChart: [],
     registrationSignature: '',
     registrationSignatureTimestamp: '',
@@ -78,7 +79,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     });
   }, [readOnly]);
 
-  const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions' | 'reportedMedications', value: string) => {
+  // Fix: Removed 'reportedMedications' from the type, as it does not exist on the Patient type.
+  const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions', value: string) => {
     if (readOnly) return;
     setFormData(prev => {
         const currentArray = (prev[category] as string[]) || [];

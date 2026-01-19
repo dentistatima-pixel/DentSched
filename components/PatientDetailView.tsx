@@ -1,21 +1,25 @@
+
 import React, { useState, useRef } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import Odontogram from './Odontogram';
 import Odontonotes from './Odontonotes';
 import PerioChart from './PerioChart';
-// Fix: Renamed import to avoid name collision with the TreatmentPlan type.
 import TreatmentPlanModule from './TreatmentPlan';
 import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal'; // Import the new modal
 import { useToast } from './ToastSystem';
 import PhilHealthCF4Generator from './PhilHealthCF4Generator';
+import { summarizePatient } from '../services/geminiService';
+import ReactMarkdown from 'react-markdown';
+
 
 interface PatientDetailViewProps {
   patient: Patient | null;
   appointments: Appointment[];
   staff: User[];
+  stock?: StockItem[];
   currentUser: User;
   onQuickUpdatePatient: (patient: Patient) => void;
   onBookAppointment: (patientId: string) => void;
@@ -37,6 +41,7 @@ interface PatientDetailViewProps {
   onClearPrefill?: () => void;
   onPrefillNote?: (entry: DentalChartEntry) => void;
   onUpdateSettings?: (settings: FieldSettings) => void;
+  onRequestProtocolOverride: (rule: ClinicalProtocolRule, continuation: () => void) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -143,10 +148,21 @@ const DiagnosticGallery: React.FC<{
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings } = props;
+  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    if (!patient) return;
+    setIsLoadingSummary(true);
+    setSummary('');
+    const result = await summarizePatient(patient);
+    setSummary(result || '');
+    setIsLoadingSummary(false);
+  };
 
   if (!patient) {
     return (
@@ -165,7 +181,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     const criticalConditions = props.fieldSettings?.criticalRiskRegistry || [];
     (p.allergies || []).forEach(a => { if (a !== 'None') flags.push({ type: 'Allergy', value: a }); });
     (p.medicalConditions || []).forEach(c => { if (c !== 'None') flags.push({ type: 'Condition', value: c }); });
-    // Fix: Access registryAnswers for takingBloodThinners check.
     if (p.registryAnswers?.['Taking Blood Thinners? (Aspirin, Warfarin, etc.)'] === 'Yes') flags.push({ type: 'Alert', value: 'Blood Thinners' });
     return flags;
   };
@@ -269,6 +284,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         onUpdateEntry={(e) => props.onQuickUpdatePatient({...patient, dentalChart: (patient.dentalChart || []).map(item => item.id === e.id ? e : item)})}
                         currentUser={props.currentUser}
                         procedures={props.fieldSettings?.procedures || []}
+                        inventory={stock}
                         patient={patient}
                         logAction={props.logAction}
                         fieldSettings={props.fieldSettings}
@@ -277,6 +293,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         sterilizationCycles={sterilizationCycles}
                         prefill={prefill}
                         onClearPrefill={onClearPrefill}
+                        onRequestProtocolOverride={onRequestProtocolOverride}
                     />
                   </div>
               );
@@ -347,6 +364,18 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
               return (
                   <div className="space-y-12 animate-in fade-in duration-500">
+                      { (
+                          <div className="bg-white p-6 rounded-[2.5rem] border-2 border-teal-50 shadow-sm space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><Sparkles size={20} className="text-teal-600"/> Clinical AI Summary</h4>
+                              <button onClick={handleGenerateSummary} disabled={isLoadingSummary} className="px-5 py-2.5 bg-teal-50 text-teal-800 rounded-xl font-black uppercase text-[10px] tracking-widest border border-teal-200 hover:bg-teal-100 transition-all flex items-center gap-2 disabled:opacity-50">
+                                {isLoadingSummary ? 'Generating...' : 'Regenerate'}
+                              </button>
+                            </div>
+                            {isLoadingSummary && <div className="text-center p-8 text-slate-400 italic">Analyzing patient record...</div>}
+                            {summary && <div className="prose prose-sm max-w-none text-slate-700 font-medium p-4 bg-slate-50 rounded-2xl border border-slate-100"><ReactMarkdown>{summary}</ReactMarkdown></div>}
+                          </div>
+                      )}
                       <div className="bg-white p-12 rounded-[3.5rem] border-2 border-teal-50 shadow-sm space-y-12">
 
                           {/* I. Clinical Risk & Physician Profile */}

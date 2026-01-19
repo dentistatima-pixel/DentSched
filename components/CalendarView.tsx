@@ -1,14 +1,16 @@
+
+
 import React,
 { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart, DentalChartEntry
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart
 } from 'lucide-react';
 import { 
-  Appointment, User, UserRole, AppointmentType, AppointmentStatus, Patient, 
-  LabStatus, FieldSettings, WaitlistEntry, ClinicResource 
+  Appointment, User, UserRole, AppointmentStatus, Patient, 
+  LabStatus, FieldSettings, WaitlistEntry, ClinicResource, DentalChartEntry
 } from '../types';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
@@ -154,15 +156,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
 
-  const getAppointmentBaseStyle = (type: AppointmentType, status: AppointmentStatus, isPendingSync?: boolean, entryMode?: string) => {
+  const getAppointmentBaseStyle = (type: string, status: AppointmentStatus, isPendingSync?: boolean, entryMode?: string) => {
      let styles = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-600' };
      if (status === AppointmentStatus.ARRIVED) styles = { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-700' };
      else if (status === AppointmentStatus.SEATED) styles = { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900', icon: 'text-blue-700' };
      else if (status === AppointmentStatus.TREATING) styles = { bg: 'bg-lilac-50', border: 'border-lilac-300', text: 'text-lilac-900', icon: 'text-lilac-700' };
      else {
-        switch(type) {
-            case AppointmentType.ROOT_CANAL: case AppointmentType.EXTRACTION: case AppointmentType.SURGERY: styles = { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', icon: 'text-red-600' }; break;
-            case AppointmentType.ORAL_PROPHYLAXIS: case AppointmentType.WHITENING: styles = { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900', icon: 'text-teal-700' }; break;
+        const typeLower = type.toLowerCase();
+        if (typeLower.includes('surg') || typeLower.includes('extract') || typeLower.includes('root canal')) {
+            styles = { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', icon: 'text-red-600' };
+        } else if (typeLower.includes('prophylaxis') || typeLower.includes('whitening')) {
+            styles = { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-900', icon: 'text-teal-700' };
         }
      }
 
@@ -380,7 +384,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                         {slotAppointments.map(apt => {
                                             const patient = getPatient(apt.patientId);
                                             const provider = staff.find(s => s.id === apt.providerId);
-                                            const styles = getAppointmentBaseStyle(apt.type as AppointmentType, apt.status, apt.isPendingSync, apt.entryMode);
+                                            const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
                                             
                                             if (!patient) return null;
 
