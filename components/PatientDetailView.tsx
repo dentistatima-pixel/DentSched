@@ -1,7 +1,6 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 // Fix: Add missing import for 'AppointmentStatus'.
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import { Odontonotes } from './Odontonotes';
 // Fix: Import the Odontogram component.
@@ -47,6 +46,7 @@ interface PatientDetailViewProps {
   onDeleteClinicalNote?: (patientId: string, noteId: string) => void;
   onInitiateFinancialConsent: (plan: TreatmentPlan) => void;
   onSupervisorySeal?: (note: DentalChartEntry) => void;
+  onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -267,7 +267,7 @@ const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, incidents = [], 
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote, onToggleTimeline, onInitiateFinancialConsent, onSupervisorySeal } = props;
+  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote, onToggleTimeline, onInitiateFinancialConsent, onSupervisorySeal, onRecordPaymentWithReceipt } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
@@ -287,6 +287,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     setSummary(result || '');
     setIsLoadingSummary(false);
   };
+
+  const canViewFinancials = useMemo(() => 
+    [UserRole.ADMIN, UserRole.DENTIST, UserRole.SYSTEM_ARCHITECT].includes(currentUser.role),
+  [currentUser.role]);
 
   if (!patient) {
     return (
@@ -350,16 +354,16 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
         ? 'bg-amber-200 border-amber-300' 
         : 'bg-white/80 border-slate-100'}
   `;
-
-  const patientChartTabs = [
+  
+  const patientChartTabs = useMemo(() => [
     { id: 'profile', label: 'Profile', icon: BookUser },
     { id: 'planning', label: 'Treatments', icon: ClipboardList },
     { id: 'chart', label: 'Charts', icon: BarChart },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'gallery', label: 'Xrays', icon: ImageIcon },
-    { id: 'financials', label: 'Ledger', icon: DollarSign },
+    canViewFinancials && { id: 'financials', label: 'Ledger', icon: DollarSign },
     { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
-  ];
+  ].filter(Boolean) as {id: string, label: string, icon: React.ElementType}[], [canViewFinancials]);
 
   const chartSubTabs = [
       { id: 'odontogram', label: 'Odontogram', icon: BarChart },
@@ -448,6 +452,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                   />
               );
           case 'financials':
+              if (!canViewFinancials) return <div className="p-12 text-center bg-red-50 rounded-2xl border-2 border-red-200"><h3 className="font-bold text-red-700">Access Denied</h3><p className="text-sm text-red-600">Your role does not have permission to view financial records.</p></div>;
               return (
                   <div className="h-[800px] rounded-[3rem] overflow-hidden border border-slate-200">
                     <PatientLedger 
@@ -457,6 +462,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         governanceTrack={governanceTrack}
                         readOnly={readOnly}
                         onUpdateSettings={onUpdateSettings}
+                        onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}
                     />
                   </div>
               );

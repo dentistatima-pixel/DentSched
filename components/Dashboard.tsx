@@ -15,8 +15,6 @@ import GlobalSearchModal from './GlobalSearchModal';
 
 interface DashboardProps {
   appointments: Appointment[];
-  patientsCount: number;
-  staffCount: number;
   staff?: User[];
   currentUser: User;
   patients: Patient[];

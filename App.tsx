@@ -29,9 +29,9 @@ import ClearanceModal from './components/ClearanceModal';
 import UserProfileModal from './components/UserProfileModal';
 import GeminiAssistant from './components/GeminiAssistant';
 import { useData } from './dataContext';
-import { Appointment, User, Patient, DentalChartEntry, TreatmentPlan, ConsentCategory, TreatmentPlanStatus, AppointmentStatus, ClinicalProtocolRule } from './types';
+import { Appointment, User, Patient, DentalChartEntry, TreatmentPlan, ConsentCategory, TreatmentPlanStatus, AppointmentStatus, ClinicalProtocolRule, TriageLevel, UserRole } from './types';
 import { useToast } from './components/ToastSystem';
-import { CRITICAL_CLEARANCE_CONDITIONS } from './constants';
+import { CRITICAL_CLEARANCE_CONDITIONS, generateUid } from './constants';
 import { Lock, X } from 'lucide-react';
 
 
@@ -135,6 +135,8 @@ function App() {
   }, []);
 
   const navigateTo = (path: string) => { window.location.hash = path; };
+  
+  const isAdmin = useMemo(() => currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT, [currentUser]);
 
   const selectedPatientId = route.path === 'patients' ? route.param : null;
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId) || null, [selectedPatientId, patients]);
@@ -211,6 +213,60 @@ function App() {
       // Logic for this is now mostly in the data context, but the modal trigger stays here
       continuation(); // Simplified for now
   };
+
+  const handleQuickAddPatientSave = (firstName: string, surname: string, phone: string) => {
+    const newPatient: Partial<Patient> = {
+      firstName,
+      surname,
+      name: `${firstName} ${surname}`.trim(),
+      phone,
+      registrationStatus: 'Provisional',
+      lastVisit: 'First Visit',
+      nextVisit: null,
+      recallStatus: 'Due'
+    };
+    handleSavePatient(newPatient);
+    setIsQuickAddPatientOpen(false);
+    toast.success(`Provisional patient ${newPatient.name} created.`);
+  };
+
+  const handleQuickTriageSave = (name: string, phone: string, complaint: string, isEmergency: boolean) => {
+    const [firstName, ...surnameParts] = name.split(' ');
+    const surname = surnameParts.join(' ');
+    const newPatientId = generateUid('p_triage');
+
+    const newPatient: Partial<Patient> = {
+      id: newPatientId,
+      firstName: firstName || 'Walk-In',
+      surname: surname || `Patient-${newPatientId.slice(-4)}`,
+      name: name,
+      phone,
+      chiefComplaint: complaint,
+      registrationStatus: 'Provisional',
+      lastVisit: 'First Visit',
+      nextVisit: null,
+      recallStatus: 'Due'
+    };
+    
+    handleSavePatient(newPatient);
+
+    const newAppointment: Appointment = {
+      id: generateUid('apt_triage'),
+      patientId: newPatientId,
+      providerId: staff.find(s => s.role === UserRole.DENTIST)?.id || staff[0].id,
+      branch: currentBranch,
+      date: new Date().toLocaleDateString('en-CA'),
+      time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit'}),
+      durationMinutes: 30,
+      type: complaint || "Triage / Walk-In",
+      status: AppointmentStatus.ARRIVED,
+      triageLevel: isEmergency ? 'Level 2: Acute Pain/Swelling' : 'Level 3: Appliance/Maintenance',
+    };
+    handleSaveAppointment(newAppointment);
+
+    setIsQuickTriageModalOpen(false);
+    toast.success(`Patient ${name} added to triage queue.`);
+  };
   
   const renderRoute = () => {
     const path = route.path;
@@ -220,17 +276,32 @@ function App() {
       case 'patients': return (
           <div className="flex h-full gap-6">
             <div className={`${selectedPatientId ? 'w-28' : 'w-1/3'} transition-all duration-500`}><PatientList patients={patients} selectedPatientId={selectedPatientId} onSelectPatient={handlePatientSelect} onAddPatient={() => setIsPatientModalOpen(true)} fieldSettings={fieldSettings} isCollapsed={!!selectedPatientId} /></div>
-            {/* Fix: Use `prefillNote` state variable for the `prefill` prop. */}
-<div className="flex-1"><PatientDetailView patient={selectedPatient} appointments={appointments} staff={staff} currentUser={currentUser} onQuickUpdatePatient={handleSavePatient} onBookAppointment={(id) => handleAddAppointment(undefined,undefined,id)} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} fieldSettings={fieldSettings} logAction={data.logAction} incidents={incidents} onSaveIncident={data.handleSaveIncident} referrals={referrals} onSaveReferral={data.handleSaveReferral} onBack={() => handlePatientSelect(null)} governanceTrack={governanceTrack} onOpenRevocationModal={(p,c) => setRevocationTarget({patient:p, category:c})} onOpenMedicoLegalExport={(p) => setMedicoLegalPatient(p)} readOnly={isAuditLogVerified === false} sterilizationCycles={data.sterilizationCycles} prefill={prefillNote} onClearPrefill={() => setPrefillNote(null)} onRequestProtocolOverride={(rule, cont) => { setOverrideRule(rule); setOverrideContinuation(() => cont); setIsProtocolOverrideOpen(true); }} onDeleteClinicalNote={data.handleDeleteClinicalNote} onInitiateFinancialConsent={handleInitiateFinancialConsent} onSupervisorySeal={data.handleSupervisorySeal} /></div>
+            <div className="flex-1"><PatientDetailView patient={selectedPatient} appointments={appointments} staff={staff} currentUser={currentUser} onQuickUpdatePatient={handleSavePatient} onBookAppointment={(id) => handleAddAppointment(undefined,undefined,id)} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} fieldSettings={fieldSettings} logAction={data.logAction} incidents={incidents} onSaveIncident={data.handleSaveIncident} referrals={referrals} onSaveReferral={data.handleSaveReferral} onBack={() => handlePatientSelect(null)} governanceTrack={governanceTrack} onOpenRevocationModal={(p,c) => setRevocationTarget({patient:p, category:c})} onOpenMedicoLegalExport={(p) => setMedicoLegalPatient(p)} readOnly={isAuditLogVerified === false} sterilizationCycles={data.sterilizationCycles} prefill={prefillNote} onClearPrefill={() => setPrefillNote(null)} onRequestProtocolOverride={(rule, cont) => { setOverrideRule(rule); setOverrideContinuation(() => cont); setIsProtocolOverrideOpen(true); }} onDeleteClinicalNote={data.handleDeleteClinicalNote} onInitiateFinancialConsent={handleInitiateFinancialConsent} onSupervisorySeal={data.handleSupervisorySeal} onRecordPaymentWithReceipt={data.handleRecordPaymentWithReceipt} /></div>
           </div>);
-      case 'admin': return <AdminHub onNavigate={(tab) => navigateTo(tab)} adminQueue={route.param} setAdminQueue={(q) => navigateTo(q ? `admin/${q}` : 'admin')} appointments={appointments} patients={patients} syncConflicts={syncConflicts} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={handleVerifyMedHistory} onConfirmFollowUp={handleConfirmFollowUp} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onClearProfessionalismReview={()=>{}} incidents={incidents} onResolveIncident={()=>{}} />;
-      case 'field-mgmt': return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} auditLogVerified={isAuditLogVerified} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={data.handlePurgePatient} encryptionKey={null} appointments={appointments} currentUser={currentUser} onStartImpersonating={handleStartImpersonating} onDeactivateStaff={handleDeactivateStaff} onOpenStaffModal={(sm) => { setEditingStaffMember(sm); setIsStaffModalOpen(true); }} />;
-      case 'financials': return <Financials onBack={() => navigateTo('admin')} {...data} />;
-      case 'inventory': return <Inventory onBack={() => navigateTo('admin')} {...data} />;
-      case 'recall': return <RecallCenter onBack={() => navigateTo('admin')} {...data} />;
-      case 'referrals': return <ReferralManager onBack={() => navigateTo('admin')} {...data} />;
-      case 'roster': return <RosterView onBack={() => navigateTo('admin')} {...data} />;
-      case 'leave': return <LeaveAndShiftManager onBack={() => navigateTo('admin')} {...data} />;
+      case 'admin': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <AdminHub onNavigate={(tab) => navigateTo(tab)} adminQueue={route.param} setAdminQueue={(q) => navigateTo(q ? `admin/${q}` : 'admin')} appointments={appointments} patients={patients} syncConflicts={syncConflicts} onVerifyDowntimeEntry={handleVerifyDowntimeEntry} onVerifyMedHistory={handleVerifyMedHistory} onConfirmFollowUp={handleConfirmFollowUp} onEditPatient={(p) => { setEditingPatient(p); setIsPatientModalOpen(true); }} onClearProfessionalismReview={()=>{}} incidents={incidents} onResolveIncident={()=>{}} />;
+      case 'field-mgmt': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <FieldManagement settings={fieldSettings} onUpdateSettings={handleUpdateSettings} auditLogVerified={isAuditLogVerified} staff={staff} auditLog={auditLog} patients={patients} onPurgePatient={data.handlePurgePatient} encryptionKey={null} appointments={appointments} currentUser={currentUser} onStartImpersonating={handleStartImpersonating} onDeactivateStaff={handleDeactivateStaff} onOpenStaffModal={(sm) => { setEditingStaffMember(sm); setIsStaffModalOpen(true); }} />;
+      case 'financials': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <Financials onBack={() => navigateTo('admin')} {...data} />;
+      case 'inventory': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <Inventory onBack={() => navigateTo('admin')} {...data} />;
+      case 'recall': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <RecallCenter onBack={() => navigateTo('admin')} {...data} />;
+      case 'referrals': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <ReferralManager onBack={() => navigateTo('admin')} {...data} />;
+      case 'roster': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <RosterView onBack={() => navigateTo('admin')} {...data} />;
+      case 'leave': 
+        if (!isAdmin) { navigateTo('dashboard'); return null; }
+        return <LeaveAndShiftManager onBack={() => navigateTo('admin')} {...data} />;
       default: return <Dashboard appointments={appointments} patients={patients} currentUser={currentUser} onAddPatient={() => setIsPatientModalOpen(true)} onPatientSelect={handlePatientSelect} onAddAppointment={handleAddAppointment} onUpdateAppointmentStatus={handleUpdateApptStatusWithSafety} onCompleteRegistration={()=>{}} onQuickQueue={()=>{}} onQuickAddPatient={()=>{}} staff={staff} onNavigateToQueue={()=>{}} currentBranch={currentBranch} />;
     }
   };
@@ -245,8 +316,16 @@ function App() {
       </Layout>
       <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} patients={patients} staff={staff} appointments={appointments} onSave={handleSaveAppointment} onAddToWaitlist={data.handleAddToWaitlist} initialDate={bookingDate} initialTime={bookingTime} initialPatientId={initialBookingPatientId} existingAppointment={editingAppointment} fieldSettings={fieldSettings} isDowntime={systemStatus === 'DOWNTIME'} currentBranch={currentBranch} onProcedureSafetyCheck={handleProcedureSafetyCheck} onRequestConsent={handleRequestConsent} />
       <PatientRegistrationModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} initialData={editingPatient} fieldSettings={fieldSettings} patients={patients} />
-      <QuickTriageModal isOpen={isQuickTriageModalOpen} onClose={() => setIsQuickTriageModalOpen(false)} onSave={() => {}} />
-      <QuickAddPatientModal isOpen={isQuickAddPatientOpen} onClose={() => setIsQuickAddPatientOpen(false)} onSave={() => {}} />
+      <QuickTriageModal 
+        isOpen={isQuickTriageModalOpen} 
+        onClose={() => setIsQuickTriageModalOpen(false)} 
+        onSave={handleQuickTriageSave}
+      />
+      <QuickAddPatientModal 
+        isOpen={isQuickAddPatientOpen} 
+        onClose={() => setIsQuickAddPatientOpen(false)} 
+        onSave={handleQuickAddPatientSave}
+      />
       {isSafetyTimeoutOpen && safetyTimeoutPatient && <SafetyTimeoutModal patient={safetyTimeoutPatient} onConfirm={() => setIsSafetyTimeoutOpen(false)} />}
       {isPostOpHandoverOpen && postOpAppointment && <PostOpHandoverModal isOpen={isPostOpHandoverOpen} appointment={postOpAppointment} onClose={() => setIsPostOpHandoverOpen(false)} onConfirm={handlePostOpConfirm} />}
       {isMedicoLegalExportOpen && medicoLegalPatient && <MedicoLegalExportModal isOpen={isMedicoLegalExportOpen} onClose={() => setIsMedicoLegalExportOpen(false)} patient={medicoLegalPatient} staff={staff} logAction={data.logAction} />}

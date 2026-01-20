@@ -735,6 +735,7 @@ export interface Patient {
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
   registrationStatus?: 'Provisional' | 'Complete';
+  isPendingSync?: boolean;
 }
 
 export enum TreatmentPlanStatus {

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
@@ -191,7 +190,6 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
 };
 
 
-// Problem 2 Fix: Implemented functional Cash Reconciliation Tab
 const CashReconciliationTab: React.FC<{
   onSave: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
   currentUser: StaffUser;
@@ -232,6 +230,7 @@ const CashReconciliationTab: React.FC<{
     };
     
     const handleSubmit = () => {
+        if (!activeSession) return;
         const cash = parseFloat(form.actualCash) || 0;
         const card = parseFloat(form.actualCard) || 0;
         const ewallet = parseFloat(form.actualEWallet) || 0;
@@ -248,11 +247,10 @@ const CashReconciliationTab: React.FC<{
             notes: form.notes,
             verifiedBy: currentUser.id,
             verifiedByName: currentUser.name,
-            sessionId: activeSession!.id,
+            sessionId: activeSession.id,
         });
-        if (activeSession) {
-            onCloseSession(activeSession.id);
-        }
+        
+        onCloseSession(activeSession.id);
         setForm({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
     };
 
@@ -275,8 +273,37 @@ const CashReconciliationTab: React.FC<{
     const discrepancy = actualTotal - systemExpected;
 
     return (
-        <div className="space-y-6">
-            {/* ... reconciliation form ... */}
+        <div className="space-y-6 max-w-lg mx-auto">
+            <div className="bg-white p-8 rounded-[2.5rem] border-4 border-teal-100 shadow-xl space-y-6">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">End of Day Session Reconciliation</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                        <label className="label text-xs">System Expected Total</label>
+                        <div className="text-2xl font-black text-teal-700">₱{systemExpected.toLocaleString()}</div>
+                    </div>
+                    <div className={`p-4 rounded-xl ${discrepancy !== 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <label className="label text-xs">Discrepancy</label>
+                        <div className={`text-2xl font-black ${discrepancy !== 0 ? 'text-red-700' : 'text-green-700'}`}>₱{discrepancy.toLocaleString()}</div>
+                    </div>
+                </div>
+                <div>
+                    <label className="label text-xs">Actual Cash Count</label>
+                    <input type="number" name="actualCash" value={form.actualCash} onChange={handleChange} className="input text-lg" />
+                </div>
+                <div>
+                    <label className="label text-xs">Actual Card Slips Total</label>
+                    <input type="number" name="actualCard" value={form.actualCard} onChange={handleChange} className="input text-lg" />
+                </div>
+                <div>
+                    <label className="label text-xs">Actual E-Wallet Total</label>
+                    <input type="number" name="actualEWallet" value={form.actualEWallet} onChange={handleChange} className="input text-lg" />
+                </div>
+                <div>
+                    <label className="label text-xs">Notes (for discrepancies)</label>
+                    <textarea name="notes" value={form.notes} onChange={handleChange} className="input h-24" />
+                </div>
+                <button onClick={handleSubmit} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-600/20">Finalize & Close Session</button>
+            </div>
         </div>
     );
 };
