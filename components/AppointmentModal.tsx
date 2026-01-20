@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon } from 'lucide-react';
+import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
 import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
@@ -11,7 +11,7 @@ interface AppointmentModalProps {
   patients: Patient[];
   staff: Staff[];
   appointments: Appointment[]; 
-  onSave: (appointment: Appointment) => void;
+  onSave: (appointment: Appointment) => Promise<void>;
   onSavePatient?: (patient: Partial<Patient>) => void; 
   onAddToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'patientName'>) => void;
   initialDate?: string;
@@ -36,6 +36,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     onRequestConsent
 }) => {
     const toast = useToast();
+    const [isSaving, setIsSaving] = useState(false);
     const [patientId, setPatientId] = useState('');
     const [providerId, setProviderId] = useState('');
     const [resourceId, setResourceId] = useState('');
@@ -120,72 +121,72 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const finalPatientId = isBlock ? 'ADMIN_BLOCK' : patientId;
-        const patient = patients.find(p => p.id === patientId);
-
-        if (!finalPatientId || !providerId || !date || !time || (isBlock ? !blockTitle : !procedureType) || (isBlock ? false : !patient)) {
-            toast.error("All fields are required.");
-            return;
-        }
-
-        const proposedStart = new Date(`${date}T${time}`);
-        const proposedEnd = new Date(proposedStart.getTime() + parseInt(duration) * 60000);
-
-        const conflictingAppointment = appointments.find(apt => {
-            if (existingAppointment && apt.id === existingAppointment.id) return false;
-
-            const existingStart = new Date(`${apt.date}T${apt.time}`);
-            const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
-
-            const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
-            if (!overlap) return false;
-
-            if (resourceId && apt.resourceId === resourceId) return true;
-            if (!isBlock && apt.providerId === providerId) return true;
-            
-            return false;
-        });
-
-        if (conflictingAppointment) {
-            toast.error("Scheduling Conflict: Time slot overlaps with another appointment.");
-            return;
-        }
-
-        const appointment: Appointment = {
-            id: existingAppointment?.id || `apt_${Date.now()}`,
-            patientId: finalPatientId,
-            providerId,
-            resourceId,
-            branch: currentBranch,
-            date, time,
-            durationMinutes: parseInt(duration),
-            type: isBlock ? 'Clinical Block' : procedureType,
-            status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
-            notes,
-            isBlock,
-            title: isBlock ? blockTitle : undefined,
-            isWaitlistOverride: overrideInfo?.isWaitlistOverride,
-            authorizedManagerId: overrideInfo?.authorizedManagerId,
-            entryMode: isDowntime ? 'MANUAL' : 'AUTO',
-        };
         
-        const finalSaveContinuation = () => {
-            onSave(appointment);
-        };
-        
-        const medicalClearanceContinuation = () => {
-            if(onProcedureSafetyCheck && patient) {
-                onProcedureSafetyCheck(patientId, procedureType, finalSaveContinuation);
-            } else {
-                finalSaveContinuation();
+        const finalSave = async () => {
+            setIsSaving(true);
+            try {
+                const finalPatientId = isBlock ? 'ADMIN_BLOCK' : patientId;
+                const patient = patients.find(p => p.id === patientId);
+
+                if (!finalPatientId || !providerId || !date || !time || (isBlock ? !blockTitle : !procedureType) || (isBlock ? false : !patient)) {
+                    toast.error("All fields are required.");
+                    setIsSaving(false);
+                    return;
+                }
+
+                const proposedStart = new Date(`${date}T${time}`);
+                const proposedEnd = new Date(proposedStart.getTime() + parseInt(duration) * 60000);
+
+                const conflictingAppointment = appointments.find(apt => {
+                    if (existingAppointment && apt.id === existingAppointment.id) return false;
+                    const existingStart = new Date(`${apt.date}T${apt.time}`);
+                    const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
+                    const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
+                    if (!overlap) return false;
+                    if (resourceId && apt.resourceId === resourceId) return true;
+                    if (!isBlock && apt.providerId === providerId) return true;
+                    return false;
+                });
+
+                if (conflictingAppointment) {
+                    toast.error("Scheduling Conflict: Time slot overlaps with another appointment.");
+                    setIsSaving(false);
+                    return;
+                }
+
+                const appointment: Appointment = {
+                    id: existingAppointment?.id || `apt_${Date.now()}`,
+                    patientId: finalPatientId,
+                    providerId,
+                    resourceId,
+                    branch: currentBranch,
+                    date, time,
+                    durationMinutes: parseInt(duration),
+                    type: isBlock ? 'Clinical Block' : procedureType,
+                    status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
+                    notes,
+                    isBlock,
+                    title: isBlock ? blockTitle : undefined,
+                    isWaitlistOverride: overrideInfo?.isWaitlistOverride,
+                    authorizedManagerId: overrideInfo?.authorizedManagerId,
+                    entryMode: isDowntime ? 'MANUAL' : 'AUTO',
+                };
+                
+                await onSave(appointment);
+                onClose();
+            } catch (error: any) {
+                toast.error(error.message || "Could not save appointment.");
+            } finally {
+                setIsSaving(false);
             }
         };
 
+        const patient = patients.find(p => p.id === patientId);
         const procedure = fieldSettings.procedures.find(p => p.name === procedureType);
         if (procedure?.requiresConsent && !existingAppointment && patient) {
-            onRequestConsent(patient, appointment, medicalClearanceContinuation);
+            onRequestConsent(patient, { id: 'temp' } as Appointment, finalSave);
         } else {
-            medicalClearanceContinuation();
+            finalSave();
         }
     };
 
@@ -265,8 +266,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </button>
                     <div className="flex gap-3">
                         <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-widest">Cancel</button>
-                        <button type="submit" form="appointment-form" className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30">
-                            {existingAppointment ? 'Update' : 'Save'} Appointment
+                        <button type="submit" form="appointment-form" disabled={isSaving} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 disabled:opacity-50 flex items-center gap-2">
+                            {isSaving ? <RotateCcw size={16} className="animate-spin" /> : <Save size={16} />}
+                            {isSaving ? 'Saving...' : (existingAppointment ? 'Update' : 'Save')}
                         </button>
                     </div>
                 </div>

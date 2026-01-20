@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -173,7 +174,6 @@ const PatientList: React.FC<PatientListProps> = (props) => {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-800">{p.name}</span>
-                        {/* Fix: Removed invalid 'title' prop from lucide-react icon */}
                         {isProvisional && <FileBadge2 size={14} className="text-blue-600" />}
                       </div>
                       <div className="text-xs font-mono text-slate-500">{p.id}</div>

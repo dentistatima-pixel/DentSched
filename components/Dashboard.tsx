@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -99,13 +100,17 @@ const Dashboard: React.FC<DashboardProps> = ({
         const patient = getPatient(apt.patientId);
         if (!proc || !patient) return sum;
 
-        // Gap 7 Fix: Find price book for patient's insurance
         const patientHMO = fieldSettings?.vendors.find(v => v.type === 'HMO' && v.name === patient.insuranceProvider);
         let priceBookId = patientHMO?.priceBookId;
 
-        // Fallback to default
+        // Fallback to default, removing hardcoded 'pb_1'
         if (!priceBookId) {
-            priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id || 'pb_1';
+            priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id;
+        }
+
+        // If no price book can be determined, we can't calculate a price.
+        if (!priceBookId) {
+            return sum;
         }
         
         const priceEntry = fieldSettings?.priceBookEntries?.find(

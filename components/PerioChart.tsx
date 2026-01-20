@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PerioMeasurement } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart, Sparkles } from 'lucide-react';
@@ -250,78 +246,123 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         }
     };
 
+    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const handleValueChange = (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => {
         if (readOnly) return;
+    
+        const updater = (val: number | null) => {
+          setMeasurements(prev => {
+            const toothData = prev[tooth];
+            if (!toothData) return prev;
+    
+            const newValues = [...(toothData[field] as (number|null)[])];
+            newValues[index] = val;
+            
+            return {
+              ...prev,
+              [tooth]: { ...toothData, [field]: newValues }
+            };
+          });
+        };
+    
         if (value.length === 1 && /^\d$/.test(value)) {
-            const numVal = parseInt(value);
-            setMeasurements(prev => {
-                const toothData = { ...prev[tooth] };
-                const newValues = [...toothData[field]];
-                newValues[index] = numVal;
-                toothData[field] = newValues;
-                return { ...prev, [tooth]: toothData };
-            });
-            advanceFocus({ tooth, index });
+          const numVal = parseInt(value);
+          updater(numVal);
+          advanceFocus({ tooth, index });
+          return;
+        }
+    
+        if (value === '') {
+            updater(null);
             return;
         }
-        const numVal = value === '' ? null : parseInt(value);
-        if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
-        setMeasurements(prev => {
-            const toothData = { ...prev[tooth] };
-            const newValues = [...toothData[field]];
-            newValues[index] = numVal;
-            toothData[field] = newValues;
-            return { ...prev, [tooth]: toothData };
-        });
+        const numVal = parseInt(value);
+        if (!isNaN(numVal) && numVal >= 0 && numVal <= 15) {
+            updater(numVal);
+        }
     };
+    
 
-    // Problem 2: Process dictated value
+    // GAP 2 FIX: Process entire dictated phrase
     useEffect(() => {
         if (dictatedValue && focusedSite) {
-            const spokenWord = dictatedValue.trim().split(' ').pop()?.toLowerCase() || '';
-            const num = parseInt(spokenWord);
-            if (!isNaN(num) && num >= 0 && num <= 15) {
-                handleValueChange(focusedSite.tooth, 'pocketDepths', focusedSite.index, num.toString());
-            } else if (spokenWord === 'bleeding' || spokenWord === 'bleed') {
-                toggleBleeding(focusedSite.tooth, focusedSite.index);
-                advanceFocus(focusedSite);
-            }
+            let currentFocus = { ...focusedSite };
+
+            dictatedValue.trim().split(' ').forEach(word => {
+                const spokenWord = word.toLowerCase();
+                const num = parseInt(spokenWord);
+
+                if (!isNaN(num) && num >= 0 && num <= 15) {
+                    handleValueChange(currentFocus.tooth, 'pocketDepths', currentFocus.index, num.toString());
+                    // Manually advance focus for the next word in the phrase
+                    const { tooth, index } = currentFocus;
+                    if (index < 5) {
+                        currentFocus = { tooth, index: index + 1 };
+                    } else {
+                        const currentIdx = ALL_TEETH.indexOf(tooth);
+                        if (currentIdx < ALL_TEETH.length - 1) {
+                            currentFocus = { tooth: ALL_TEETH[currentIdx + 1], index: 0 };
+                        } else {
+                            // End of chart
+                        }
+                    }
+                } else if (spokenWord === 'bleeding' || spokenWord === 'bleed') {
+                    toggleBleeding(currentFocus.tooth, currentFocus.index);
+                    // Do not advance focus on 'bleed', it applies to the current site
+                }
+            });
+            
+            // Set the final focus after processing the phrase
+            setFocusedSite(currentFocus);
             setDictatedValue(''); // Clear it to process next value
         }
-    }, [dictatedValue, focusedSite]);
+    }, [dictatedValue]);
 
 
+    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const handleMobilityChange = (tooth: number, value: string) => {
         if (readOnly) return;
         const numVal = value === '' ? null : parseInt(value) as 0|1|2|3;
-        setMeasurements(prev => ({ ...prev, [tooth]: { ...prev[tooth], mobility: numVal } }));
+        setMeasurements(prev => {
+            const toothData = prev[tooth];
+            if (!toothData) return prev;
+            return {
+                ...prev,
+                [tooth]: {
+                    ...toothData,
+                    mobility: numVal
+                }
+            };
+        });
     };
 
+    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const toggleBleeding = (tooth: number, index: number) => {
         if (readOnly) return;
         setMeasurements(prev => {
-            const toothData = { ...prev[tooth] };
+            const toothData = prev[tooth];
+            if (!toothData) {
+                return prev;
+            }
+    
             const newBleeding = [...toothData.bleeding];
             newBleeding[index] = !newBleeding[index];
-            toothData.bleeding = newBleeding;
-            return { ...prev, [tooth]: toothData };
+            
+            return {
+                ...prev,
+                [tooth]: {
+                    ...toothData,
+                    bleeding: newBleeding,
+                },
+            };
         });
     };
 
     const saveAll = () => {
-// Fix: Rewrote object creation to be more explicit, avoiding spread syntax on 'm' which was causing a compile-time error.
-// Fix: Explicitly type 'm' as PerioMeasurement to resolve property access errors.
-const arrayData = Object.values(measurements).map((m: PerioMeasurement) => {
-    const newMeasurement: PerioMeasurement = {
-        toothNumber: m.toothNumber,
-        pocketDepths: m.pocketDepths,
-        recession: m.recession,
-        bleeding: m.bleeding,
-        mobility: m.mobility,
-        date: new Date().toISOString().split('T')[0]
-    };
-    return newMeasurement;
-});
+        // Fix: Added a filter to remove any non-object values from the measurements array before spreading.
+        // This prevents a "Spread types may only be created from object types" error if the state gets corrupted.
+        // Fix: Cast `m` to PerioMeasurement to solve TypeScript error where `m` is inferred as a generic `object` which cannot be spread.
+        const arrayData = Object.values(measurements).filter(m => m && typeof m === 'object').map(m => ({ ...(m as PerioMeasurement), date: new Date().toISOString().split('T')[0] }));
         onSave(arrayData);
         toast.success("Periodontal record synchronized.");
     };

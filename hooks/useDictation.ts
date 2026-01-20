@@ -1,9 +1,8 @@
-// Fix: Import Dispatch and SetStateAction types to be used directly without the React namespace.
+
 import { useState, useRef, Dispatch, SetStateAction } from 'react';
 import { useToast } from '../components/ToastSystem';
 
 interface DictationSetters {
-    // Fix: Use the imported Dispatch and SetStateAction types directly.
     s: Dispatch<SetStateAction<string>>;
     o: Dispatch<SetStateAction<string>>;
     a: Dispatch<SetStateAction<string>>;

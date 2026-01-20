@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ToastProvider } from './components/ToastSystem';
 import { DataProvider } from './dataContext';
+import { AppProvider } from './contexts/AppContext';
+import { PatientProvider } from './contexts/PatientContext';
+import { AppointmentProvider } from './contexts/AppointmentContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -51,9 +54,15 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
         <ToastProvider>
-            <DataProvider>
-                <App key="refresh-v16-features" />
-            </DataProvider>
+            <AppProvider>
+                <PatientProvider>
+                    <AppointmentProvider>
+                        <DataProvider>
+                            <App key="refresh-v16-features" />
+                        </DataProvider>
+                    </AppointmentProvider>
+                </PatientProvider>
+            </AppProvider>
         </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>

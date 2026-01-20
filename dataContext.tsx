@@ -7,14 +7,15 @@ import {
   SyncIntent, SyncConflict, SystemStatus, WaitlistEntry,
   GovernanceTrack, ConsentCategory, LeaveRequest, TreatmentPlanStatus, TreatmentPlan, ClearanceRequest,
   ClinicalProtocolRule, InstrumentSet, Expense, HMOClaimStatus, PhilHealthClaimStatus, PayrollStatus, ScheduledSms,
-  // Fix: Import LedgerEntry type to resolve 'Cannot find name' error.
   LedgerEntry
 } from './types';
 import {
-  STAFF, PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES,
+  STAFF, DEFAULT_FIELD_SETTINGS, MOCK_AUDIT_LOG, MOCK_STOCK, MOCK_CLAIMS, MOCK_EXPENSES,
   MOCK_STERILIZATION_CYCLES, generateUid, MOCK_WAITLIST
 } from './constants';
-import CryptoJS from 'crypto-js';
+import { useAppContext } from './contexts/AppContext';
+import { usePatientState } from './contexts/PatientContext';
+import { useAppointmentState } from './contexts/AppointmentContext';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -36,19 +37,12 @@ const generateDiff = (oldObj: any, newObj: any): string => {
 };
 
 interface DataContextType {
-  // State
-  appointments: Appointment[];
-  patients: Patient[];
   staff: User[];
-  currentUser: User;
-  originalUser: User | null;
   stock: StockItem[];
   expenses: Expense[];
   sterilizationCycles: SterilizationCycle[];
   fieldSettings: FieldSettings;
   tasks: PinboardTask[];
-  auditLog: AuditLogEntry[];
-  isAuditLogVerified: boolean | null;
   incidents: ClinicalIncident[];
   referrals: Referral[];
   reconciliations: ReconciliationRecord[];
@@ -62,14 +56,9 @@ interface DataContextType {
   hmoClaims: HMOClaim[];
   philHealthClaims: PhilHealthClaim[];
   scheduledSms: ScheduledSms[];
-  systemStatus: SystemStatus;
-  isOnline: boolean;
   offlineQueue: SyncIntent[];
   syncConflicts: SyncConflict[];
   governanceTrack: GovernanceTrack;
-  
-  // Handlers
-  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   handleSavePatient: (patientData: Partial<Patient>) => Promise<void>;
   handleSaveAppointment: (appointment: Appointment) => Promise<void>;
   handleMoveAppointment: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => Promise<void>;
@@ -102,8 +91,6 @@ interface DataContextType {
   handlePurgePatient: (patientId: string) => Promise<void>;
   handleDeactivateStaff: (userId: string) => Promise<void>;
   handleSaveStaff: (staffData: User) => Promise<void>;
-  handleStartImpersonating: (userToImpersonate: User) => void;
-  handleStopImpersonating: () => void;
   handleDeleteClinicalNote: (patientId: string, noteId: string) => Promise<void>;
   handleSupervisorySeal: (noteToSeal: DentalChartEntry) => Promise<void>;
   handleConfirmRevocation: (patient: Patient, category: ConsentCategory, reason: string, notes: string) => Promise<void>;
@@ -111,26 +98,23 @@ interface DataContextType {
   handleVerifyMedHistory: (appointmentId: string) => Promise<void>;
   handleConfirmFollowUp: (appointmentId: string) => Promise<void>;
   handleRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
-  setCurrentUser: (user: User) => void;
-  setSystemStatus: (status: SystemStatus) => void;
+  setGovernanceTrack: (track: GovernanceTrack) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const toast = useToast();
+  const { isOnline, logAction, currentUser } = useAppContext();
+  const { patients, setPatients } = usePatientState();
+  const { appointments, setAppointments } = useAppointmentState();
 
-  // ... (all useState hooks remain the same)
-  const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
-  const [patients, setPatients] = useState<Patient[]>(PATIENTS);
   const [staff, setStaff] = useState<User[]>(STAFF);
   const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
   const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES);
   const [sterilizationCycles, setSterilizationCycles] = useState<SterilizationCycle[]>(MOCK_STERILIZATION_CYCLES);
   const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
   const [tasks, setTasks] = useState<PinboardTask[]>([]);
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(MOCK_AUDIT_LOG);
-  const [isAuditLogVerified, setIsAuditLogVerified] = useState<boolean | null>(null);
   const [incidents, setIncidents] = useState<ClinicalIncident[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
@@ -144,26 +128,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
   const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
   const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>(SystemStatus.OPERATIONAL);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState<SyncIntent[]>([]);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
-  const [currentUser, setCurrentUser] = useState<User>(STAFF[0]);
-  const [originalUser, setOriginalUser] = useState<User | null>(null);
 
-
-  // --- OFFLINE & SYNC ARCHITECTURE ---
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  const isAuthorityLocked = useMemo(() => {
+    if (currentUser.status === 'Inactive') return true;
+    const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
+    const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
+    return isPrcExpired || isMalpracticeExpired;
+  }, [currentUser]);
 
   useEffect(() => {
     if (isOnline && offlineQueue.length > 0) {
@@ -171,41 +145,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             toast.info(`Syncing ${offlineQueue.length} offline changes...`);
             const queueToProcess = [...offlineQueue];
             setOfflineQueue([]); 
-
-            // Simulate API calls
             await new Promise(res => setTimeout(res, 1500)); 
-
             const processedIds = new Set(queueToProcess.map(intent => intent.payload.id));
-            
             setPatients(prev => prev.map(p => processedIds.has(p.id) ? { ...p, isPendingSync: false } : p));
             setAppointments(prev => prev.map(a => processedIds.has(a.id) ? { ...a, isPendingSync: false } : a));
-            
             toast.success("All offline changes have been synced.");
         };
         syncOfflineQueue();
     }
-  }, [isOnline, offlineQueue, toast]);
-  // --- END OFFLINE & SYNC ARCHITECTURE ---
+  }, [isOnline, offlineQueue, toast, setPatients, setAppointments]);
 
-
-  const logAction = useCallback((action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
-      setAuditLog(prevLog => {
-          const lastLog = prevLog[prevLog.length - 1];
-          const previousHash = lastLog ? lastLog.hash : '0'.repeat(64);
-          const timestamp = new Date().toISOString();
-          const payload = `${timestamp}|${currentUser.id}|${action}|${entityId}|${previousHash}`;
-          const hash = CryptoJS.SHA256(payload).toString();
-
-          const newLogEntry: AuditLogEntry = {
-              id: generateUid('al'), timestamp, userId: currentUser.id, userName: currentUser.name,
-              action, entity, entityId, details, hash, previousHash,
-              impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined
-          };
-          return [...prevLog, newLogEntry];
-      });
-  }, [currentUser, originalUser]);
-  
-  const handleSavePatient = async (patientData: Partial<Patient>) => {
+  const handleSavePatient = async (patientData: Partial<Patient>): Promise<void> => {
+    if (isAuthorityLocked) {
+        toast.error("CLINICAL AUTHORITY LOCKED: Your credentials have expired. Data modification is disabled.");
+        throw new Error("Authority Locked");
+    }
     try {
       const isNew = !patientData.id || !patients.some(p => p.id === patientData.id);
       const action: SyncIntent['action'] = isNew ? 'REGISTER_PATIENT' : 'UPDATE_PATIENT';
@@ -220,10 +174,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setPatients(isNew ? [...patients, finalPatient] : patients.map(p => p.id === finalPatient.id ? finalPatient : p));
       
       if (isOnline) {
-          // Simulate immediate sync confirmation
-          setTimeout(() => {
-              setPatients(prev => prev.map(p => p.id === finalPatientId ? { ...p, isPendingSync: false } : p));
-          }, 300);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setPatients(prev => prev.map(p => p.id === finalPatientId ? { ...p, isPendingSync: false } : p));
           logAction(isNew ? 'CREATE' : 'UPDATE', 'Patient', finalPatient.id, generateDiff(oldPatient, finalPatient));
           toast.success(`Patient "${finalPatient.name}" saved.`);
       } else {
@@ -234,10 +186,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
         console.error("Error saving patient:", error);
         toast.error("An error occurred while saving the patient record.");
+        throw error;
     }
   };
   
-  const handleSaveAppointment = async (appointmentData: Appointment) => {
+  const handleSaveAppointment = async (appointmentData: Appointment): Promise<void> => {
+    if (isAuthorityLocked) {
+        toast.error("CLINICAL AUTHORITY LOCKED: Your credentials have expired. Data modification is disabled.");
+        throw new Error("Authority Locked");
+    }
     try {
       const isNew = !appointments.some(a => a.id === appointmentData.id);
       const action: SyncIntent['action'] = isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT';
@@ -247,9 +204,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAppointments(isNew ? [...appointments, finalAppointment] : appointments.map(a => a.id === finalAppointment.id ? finalAppointment : a));
       
       if (isOnline) {
-          setTimeout(() => {
-              setAppointments(prev => prev.map(a => a.id === finalAppointment.id ? { ...a, isPendingSync: false } : a));
-          }, 300);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setAppointments(prev => prev.map(a => a.id === finalAppointment.id ? { ...a, isPendingSync: false } : a));
           logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', finalAppointment.id, generateDiff(oldApt, finalAppointment));
           toast.success(`Appointment for ${finalAppointment.date} saved.`);
       } else {
@@ -260,10 +216,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch(error) {
         console.error("Error saving appointment:", error);
         toast.error("An error occurred while saving the appointment.");
+        throw error;
     }
   };
   
-  const handleMoveAppointment = async (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => {
+  const handleMoveAppointment = async (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string): Promise<void> => {
     try {
       const originalApt = appointments.find(a => a.id === appointmentId);
       if (!originalApt) return;
@@ -273,9 +230,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedApt : apt));
 
       if(isOnline) {
-          setTimeout(() => {
-              setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
-          }, 300);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
           toast.success("Appointment rescheduled.");
           logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
       } else {
@@ -286,47 +242,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch(error) {
         console.error("Error moving appointment:", error);
         toast.error("An error occurred while rescheduling the appointment.");
+        throw error;
     }
   };
 
-  const handleUpdateAppointmentStatus = async (appointmentId: string, status: AppointmentStatus, additionalData: Partial<Appointment> = {}) => {
-    const originalApt = appointments.find(a => a.id === appointmentId);
-    if (!originalApt) return;
+  const handleUpdateAppointmentStatus = async (appointmentId: string, status: AppointmentStatus, additionalData: Partial<Appointment> = {}): Promise<void> => {
+    try {
+        const originalApt = appointments.find(a => a.id === appointmentId);
+        if (!originalApt) return;
 
-    const updatedApt = { ...originalApt, status, ...additionalData, isPendingSync: !isOnline };
-    
-    setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedApt : apt));
+        const updatedApt = { ...originalApt, status, ...additionalData, isPendingSync: !isOnline };
+        
+        setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedApt : apt));
 
-    if (isOnline) {
-         setTimeout(() => {
-            setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
-        }, 300);
-        logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
-    } else {
-        const intent: SyncIntent = { id: generateUid('sync'), action: 'UPDATE_STATUS', payload: updatedApt, timestamp: new Date().toISOString() };
-        setOfflineQueue(prev => [...prev, intent]);
-        toast.info(`Offline: Status update for appointment saved locally.`);
+        if (isOnline) {
+             await new Promise(resolve => setTimeout(resolve, 300));
+             setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
+            logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
+        } else {
+            const intent: SyncIntent = { id: generateUid('sync'), action: 'UPDATE_STATUS', payload: updatedApt, timestamp: new Date().toISOString() };
+            setOfflineQueue(prev => [...prev, intent]);
+            toast.info(`Offline: Status update for appointment saved locally.`);
+        }
+    } catch (error) {
+        console.error("Error updating appointment status:", error);
+        toast.error("An error occurred while updating the appointment status.");
+        throw error;
     }
   };
 
-  const handleStartImpersonating = (userToImpersonate: User) => {
-    if (currentUser.id === userToImpersonate.id) return;
-    logAction('SECURITY_ALERT', 'System', userToImpersonate.id, `Impersonation started by ${currentUser.name} for user ${userToImpersonate.name}.`);
-    setOriginalUser(currentUser);
-    setCurrentUser(userToImpersonate);
-    toast.warning(`Now impersonating ${userToImpersonate.name}.`);
-  };
-
-  const handleStopImpersonating = () => {
-    if (originalUser) {
-        logAction('SECURITY_ALERT', 'System', currentUser.id, `Impersonation stopped. Reverted to ${originalUser.name}.`);
-        setCurrentUser(originalUser);
-        setOriginalUser(null);
-        toast.info("Impersonation stopped.");
-    }
-  };
-  
-  const handleRecordPaymentWithReceipt = async (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => {
+  const handleRecordPaymentWithReceipt = async (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }): Promise<void> => {
     setPatients(prev => prev.map(p => {
         if (p.id === patientId) {
             const currentBalance = p.currentBalance || 0;
@@ -356,35 +301,40 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     toast.success(`Payment with OR# ${paymentDetails.orNumber} recorded.`);
   };
 
-  // Other handlers
   const createAsyncHandler = <T extends any[]>(handler: (...args: T) => void, successMsg?: string, errorMsg?: string) => {
-    return async (...args: T) => {
+    return async (...args: T): Promise<void> => {
       try {
         await new Promise(resolve => setTimeout(resolve, 100));
         handler(...args);
         if (successMsg) toast.success(successMsg);
       } catch (error) {
         toast.error(errorMsg || "An unexpected error occurred.");
+        throw error;
       }
     };
   };
 
-  const value = {
-      //... (state and other handlers)
-      appointments, patients, staff, currentUser, originalUser, stock, expenses, sterilizationCycles, fieldSettings, tasks, auditLog, isAuditLogVerified,
+  const handlePurgePatient = createAsyncHandler((patientId: string) => {
+    setPatients(prev => prev.filter(p => p.id !== patientId));
+    logAction('SECURITY_ALERT', 'Patient', patientId, 'Patient record permanently purged.');
+  }, "Patient record purged.");
+
+  const handleUpdatePatientRecall = createAsyncHandler((patientId: string, status: RecallStatus) => {
+    setPatients(prev => prev.map(p => p.id === patientId ? { ...p, recallStatus: status } : p));
+  }, "Recall status updated.");
+
+  const value: DataContextType = {
+      staff, stock, expenses, sterilizationCycles, fieldSettings, tasks, 
       incidents, referrals, reconciliations, cashSessions, transfers, waitlist, leaveRequests, payrollPeriods, payrollAdjustments, commissionDisputes,
-      hmoClaims, philHealthClaims, scheduledSms, systemStatus, isOnline, offlineQueue, syncConflicts, governanceTrack,
-      logAction,
+      hmoClaims, philHealthClaims, scheduledSms, offlineQueue, syncConflicts, governanceTrack,
       handleSavePatient,
       handleSaveAppointment,
       handleMoveAppointment,
       handleUpdateAppointmentStatus,
-      handleStartImpersonating,
-      handleStopImpersonating,
-      setCurrentUser,
-      setSystemStatus,
       handleRecordPaymentWithReceipt,
-      // The rest of the handlers are simplified for this fix.
+      setGovernanceTrack,
+      handlePurgePatient,
+      handleUpdatePatientRecall,
       handleSaveStaff: createAsyncHandler((staffData: User) => {
           const isNew = !staffData.id;
           const updated = isNew ? [...staff, {...staffData, id: generateUid('staff')}] : staff.map(s => s.id === staffData.id ? staffData : s);
@@ -403,7 +353,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       handleStartCashSession: async () => {},
       handleCloseCashSession: async () => {},
       handlePerformTransfer: async () => {},
-      handleUpdatePatientRecall: async () => {},
       handleAddPayrollPeriod: async () => undefined,
       handleUpdatePayrollPeriod: async () => {},
       handleAddPayrollAdjustment: async () => {},
@@ -415,7 +364,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       handleUpdatePhilHealthClaim: async () => {},
       handleAddExpense: async () => {},
       handleAddSterilizationCycle: async () => {},
-      handlePurgePatient: async () => {},
       handleDeactivateStaff: async () => {},
       handleDeleteClinicalNote: async () => {},
       handleSupervisorySeal: async () => {},
@@ -434,7 +382,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   };
 
-  return <DataContext.Provider value={value as DataContextType}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
 
 export const useData = () => {

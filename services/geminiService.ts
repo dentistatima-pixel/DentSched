@@ -1,7 +1,8 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Patient } from '../types';
 
+// Fix: Correctly initialize GoogleGenAI with named apiKey parameter.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 export const chatWithAssistant = async (prompt: string, patientContext?: string) => {
@@ -12,11 +13,13 @@ export const chatWithAssistant = async (prompt: string, patientContext?: string)
       USER QUERY: ${prompt}
     `;
 
-    const response = await ai.models.generateContent({
+    // Fix: Correctly call generateContent API.
+    const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: fullPrompt
     });
 
+    // Fix: Access the 'text' property directly, not as a function.
     return response.text;
   } catch (error) {
     console.error("Gemini API call failed:", error);
@@ -52,11 +55,13 @@ export const summarizePatient = async (patient: Patient) => {
         }
       `;
 
-      const response = await ai.models.generateContent({
+      // Fix: Correctly call generateContent API.
+      const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: summaryPrompt
       });
 
+      // Fix: Access the 'text' property directly, not as a function.
       return response.text;
     } catch (error) {
         console.error("Gemini patient summary failed:", error);

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Appointment } from '../types';
@@ -30,7 +31,7 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
         try {
             await onConfirm();
             toast.success("Post-Op Handover Verified and Logged.");
-            onClose(); // Close only on success
+            onClose();
         } catch (error) {
             toast.error("Failed to update status. Please try again.");
             console.error(error);

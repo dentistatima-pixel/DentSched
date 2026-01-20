@@ -1,4 +1,4 @@
-// Fix: Add React import for React.ElementType
+
 import React from 'react';
 
 export enum UserRole {

@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// Fix: Add 'Activity' to lucide-react imports to resolve 'Cannot find name' error.
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from './types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
@@ -14,7 +13,7 @@ import { PDA_INFORMED_CONSENT_TEXTS, generateUid } from './constants';
 interface PatientRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (patient: Partial<Patient>) => void;
+  onSave: (patient: Partial<Patient>) => Promise<void>;
   readOnly?: boolean;
   initialData?: Patient | null;
   fieldSettings: FieldSettings; 
@@ -26,6 +25,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const toast = useToast();
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const initialFormState: Partial<Patient> = {
     id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
@@ -129,55 +129,45 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (readOnly) return;
-    
-    if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
-        (document.activeElement as HTMLElement).blur();
+    if (readOnly || isSaving) return;
+
+    if (!formData.dpaConsent) { toast.error("Compliance Error: You must accept the Data Privacy Consent."); return; }
+    if (!formData.clinicalMediaConsent) { toast.error("Compliance Error: You must acknowledge the General Treatment Authorization."); return; }
+    if (!formData.firstName) { toast.error("Missing Field: First Name is mandatory."); return; }
+    if (!formData.surname) { toast.error("Missing Field: Surname is mandatory."); return; }
+    if (!formData.phone) { toast.error("Missing Field: Mobile Number is mandatory."); return; }
+
+    if (!formData.registrationSignature) {
+      setShowSignaturePad(true);
+      return;
     }
-
-    setTimeout(() => {
-        setFormData(current => {
-            if (!current.dpaConsent) { 
-                toast.error("Compliance Error: You must accept the Data Privacy Consent."); 
-                return current; 
-            }
-
-            if (!current.clinicalMediaConsent) {
-                toast.error("Compliance Error: You must acknowledge the General Treatment Authorization.");
-                return current;
-            }
-
-            if (!current.firstName) { toast.error("Missing Field: First Name is mandatory."); return current; }
-            if (!current.surname) { toast.error("Missing Field: Surname is mandatory."); return current; }
-            if (!current.phone) { toast.error("Missing Field: Mobile Number is mandatory."); return current; }
-
-            if (!current.registrationSignature) {
-              setShowSignaturePad(true);
-              return current;
-            }
-
-            savePatientRecord(current);
-            return current;
-        });
-    }, 100);
+    
+    await savePatientRecord(formData);
   };
 
-  const savePatientRecord = (data: Partial<Patient>) => {
-    const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-    onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
-    onClose();
+  const savePatientRecord = async (data: Partial<Patient>) => {
+    setIsSaving(true);
+    try {
+        const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
+        await onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
+        onClose();
+    } catch (error) {
+        // Error toast is handled by dataContext
+    } finally {
+        setIsSaving(false);
+    }
   };
 
-  const handleSignatureCaptured = (sig: string, hash: string) => {
+  const handleSignatureCaptured = async (sig: string, hash: string) => {
     const timestamp = new Date().toISOString();
     const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: hash };
     setFormData(updatedData);
     setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");
     
-    setTimeout(() => savePatientRecord(updatedData), 500);
+    await savePatientRecord(updatedData);
   };
 
   if (!isOpen) return null;
@@ -283,10 +273,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tighter">Section IV. Dental History</h3>
                         </div>
                         <RegistrationDental 
-                            formData={formData} 
-                            handleChange={handleChange} 
-                            readOnly={readOnly} 
-                            fieldSettings={fieldSettings}
+                            formData={formData}
+                            handleChange={handleChange}
+                            readOnly={readOnly}
                         />
                     </div>
 
@@ -341,9 +330,10 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             {!isKiosk && <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>}
             <button 
                 type="button" 
-                onClick={(e: any) => handleSubmit(e)}
-                className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-                <Save size={18}/> {initialData ? 'Update Record' : 'Register Identity'}
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale">
+                <Save size={18}/> {isSaving ? 'Saving...' : (initialData ? 'Update Record' : 'Register Identity')}
             </button>
         </div>
       </div>

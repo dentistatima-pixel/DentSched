@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck, Scale, Receipt, Activity } from 'lucide-react';
 import { Patient, User, AuditLogEntry, DentalChartEntry } from '../types';
@@ -101,8 +102,6 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         };
 
         const addPractitionerAffidavitFooter = (pDoc: jsPDF) => {
-            // Fix: The type definition for jsPDF.internal does not include getNumberOfPages.
-            // Using internal.pages.length instead, as suggested by the type from the error.
             const pageCount = (pDoc.internal as any).pages.length;
             const author = patient.dentalChart?.find(e => e.author)?.author || 'the attending dentist';
             const clinician = staff.find(s => s.name.includes(author));

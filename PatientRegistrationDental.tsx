@@ -1,7 +1,6 @@
 
-
 import React from 'react';
-import { Patient, FieldSettings } from '../types';
+import { Patient, FieldSettings } from './types';
 import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
 
 interface RegistrationDentalProps {

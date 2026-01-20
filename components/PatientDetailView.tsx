@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-// Fix: Add missing import for 'AppointmentStatus'.
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import { Odontonotes } from './Odontonotes';
-// Fix: Import the Odontogram component.
 import Odontogram from './Odontogram';
 import PerioChart from './PerioChart';
 import TreatmentPlanModule from './TreatmentPlan';
@@ -38,9 +36,6 @@ interface PatientDetailViewProps {
   onOpenMedicoLegalExport: (patient: Patient) => void;
   readOnly?: boolean;
   sterilizationCycles?: SterilizationCycle[];
-  prefill?: Partial<DentalChartEntry> | null;
-  onClearPrefill?: () => void;
-  onPrefillNote?: (entry: DentalChartEntry) => void;
   onUpdateSettings?: (settings: FieldSettings) => void;
   onRequestProtocolOverride: (rule: ClinicalProtocolRule, continuation: () => void) => void;
   onDeleteClinicalNote?: (patientId: string, noteId: string) => void;
@@ -152,7 +147,6 @@ const DiagnosticGallery: React.FC<{
     );
 };
 
-// Fix: Define the missing ComplianceTab component.
 interface ComplianceTabProps {
     patient: Patient;
     incidents?: ClinicalIncident[];
@@ -267,17 +261,27 @@ const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, incidents = [], 
 };
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote, onToggleTimeline, onInitiateFinancialConsent, onSupervisorySeal, onRecordPaymentWithReceipt } = props;
+  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote, onToggleTimeline, onInitiateFinancialConsent, onSupervisorySeal, onRecordPaymentWithReceipt } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
   const [summary, setSummary] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
+  // GAP 3 FIX: Local state management for prefill
+  const [prefillNote, setPrefillNote] = useState<Partial<DentalChartEntry> | null>(null);
+
   useEffect(() => {
-    // When patient changes, reset the active tab to profile
+    // When patient changes, reset the active tab and prefill
     setActivePatientTab('profile');
+    setPrefillNote(null);
   }, [patient?.id]);
+
+  // GAP 3 FIX: Handler to set prefill and switch tabs
+  const handlePrefillNote = (prefillData: Partial<DentalChartEntry>) => {
+    setPrefillNote(prefillData);
+    setActivePatientTab('notes');
+  };
 
   const handleGenerateSummary = async () => {
     if (!patient) return;
@@ -370,6 +374,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
       { id: 'perio', label: 'Perio Matrix', icon: Activity },
   ];
 
+  const handleToothClick = (toothNumber: number) => {
+    handlePrefillNote({ toothNumber });
+  };
+
   const renderTabContent = () => {
       switch(activePatientTab) {
           case 'chart':
@@ -391,13 +399,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         {activeChartSubTab === 'odontogram' && (
                             <Odontogram 
                                 chart={patient.dentalChart || []} 
-                                onToothClick={() => setActivePatientTab('notes')}
+                                onToothClick={handleToothClick}
                                 onChartUpdate={(entry) => {
                                     onQuickUpdatePatient({...patient, dentalChart: [...(patient.dentalChart || []), entry]});
-                                    setActivePatientTab('notes');
-                                    if (onPrefillNote) {
-                                        onPrefillNote(entry);
-                                    }
+                                    handlePrefillNote(entry);
                                 }}
                                 readOnly={readOnly || !isSafetyClearedForCharting}
                             />
@@ -429,8 +434,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         readOnly={readOnly || !isSafetyClearedForCharting}
                         appointments={props.appointments}
                         sterilizationCycles={sterilizationCycles}
-                        prefill={prefill}
-                        onClearPrefill={onClearPrefill}
+                        prefill={prefillNote}
+                        onClearPrefill={() => setPrefillNote(null)}
                         onRequestProtocolOverride={onRequestProtocolOverride}
                         onSupervisorySeal={onSupervisorySeal}
                     />
