@@ -1,11 +1,7 @@
 
-
-
-
-
-
-import React, { useState, useRef } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+// Fix: Add missing import for 'AppointmentStatus'.
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 import { Odontonotes } from './Odontonotes';
 // Fix: Import the Odontogram component.
@@ -33,9 +29,9 @@ interface PatientDetailViewProps {
   fieldSettings?: FieldSettings; 
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   incidents?: ClinicalIncident[];
-  onSaveIncident?: (incident: ClinicalIncident) => void;
+  onSaveIncident?: (incident: Omit<ClinicalIncident, 'id'>) => void;
   referrals?: Referral[];
-  onSaveReferral?: (referral: Referral) => void;
+  onSaveReferral?: (referral: Omit<Referral, 'id'>) => void;
   onToggleTimeline?: () => void;
   onBack?: () => void;
   governanceTrack: GovernanceTrack;
@@ -49,6 +45,8 @@ interface PatientDetailViewProps {
   onUpdateSettings?: (settings: FieldSettings) => void;
   onRequestProtocolOverride: (rule: ClinicalProtocolRule, continuation: () => void) => void;
   onDeleteClinicalNote?: (patientId: string, noteId: string) => void;
+  onInitiateFinancialConsent: (plan: TreatmentPlan) => void;
+  onSupervisorySeal?: (note: DentalChartEntry) => void;
 }
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
@@ -154,13 +152,132 @@ const DiagnosticGallery: React.FC<{
     );
 };
 
+// Fix: Define the missing ComplianceTab component.
+interface ComplianceTabProps {
+    patient: Patient;
+    incidents?: ClinicalIncident[];
+    onSaveIncident?: (incident: Omit<ClinicalIncident, 'id'>) => void;
+    referrals?: Referral[];
+    onSaveReferral?: (referral: Omit<Referral, 'id'>) => void;
+    currentUser: User;
+    onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
+}
+
+const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser, onOpenRevocationModal }) => {
+    const [showIncidentForm, setShowIncidentForm] = useState(false);
+    const [incidentForm, setIncidentForm] = useState({ type: 'Complication', description: '', actionTaken: '' });
+
+    const [showReferralForm, setShowReferralForm] = useState(false);
+    const [referralForm, setReferralForm] = useState({ referredTo: '', reason: '' });
+
+    const handleSaveIncident = () => {
+        if (!onSaveIncident || !incidentForm.description) return;
+        const newIncident: Omit<ClinicalIncident, 'id'> = {
+            date: new Date().toISOString(),
+            type: incidentForm.type,
+            patientId: patient.id,
+            patientName: patient.name,
+            description: incidentForm.description,
+            actionTaken: incidentForm.actionTaken,
+            reportedBy: currentUser.id,
+            reportedByName: currentUser.name,
+        };
+        onSaveIncident(newIncident);
+        setShowIncidentForm(false);
+        setIncidentForm({ type: 'Complication', description: '', actionTaken: '' });
+    };
+
+    const handleSaveReferral = () => {
+        if (!onSaveReferral || !referralForm.referredTo || !referralForm.reason) return;
+        const newReferral: Omit<Referral, 'id'> = {
+            date: new Date().toISOString(),
+            patientId: patient.id,
+            referredTo: referralForm.referredTo,
+            reason: referralForm.reason,
+            status: 'Sent',
+        };
+        onSaveReferral(newReferral);
+        setShowReferralForm(false);
+        setReferralForm({ referredTo: '', reason: '' });
+    };
+
+    return (
+        <div className="space-y-8">
+            {/* Clinical Incidents */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2"><AlertCircle size={16} /> Clinical Incidents</h4>
+                    <button onClick={() => setShowIncidentForm(!showIncidentForm)} className="bg-amber-100 text-amber-800 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1"><Plus size={14} /> Log Incident</button>
+                </div>
+                {showIncidentForm && (
+                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl mb-4">
+                        <select value={incidentForm.type} onChange={e => setIncidentForm({ ...incidentForm, type: e.target.value })} className="input"><option>Complication</option><option>Near Miss</option><option>Patient Complaint</option></select>
+                        <textarea value={incidentForm.description} onChange={e => setIncidentForm({ ...incidentForm, description: e.target.value })} placeholder="Incident Description..." className="input h-20" />
+                        <textarea value={incidentForm.actionTaken} onChange={e => setIncidentForm({ ...incidentForm, actionTaken: e.target.value })} placeholder="Immediate Action Taken..." className="input h-20" />
+                        <div className="flex justify-end gap-2"><button onClick={() => setShowIncidentForm(false)} className="px-3 py-1 text-xs">Cancel</button><button onClick={handleSaveIncident} className="px-3 py-1 text-xs bg-amber-200 rounded">Save</button></div>
+                    </div>
+                )}
+                {incidents?.filter(i => i.patientId === patient.id).map(inc => (
+                    <div key={inc.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs">
+                        <strong>{formatDate(inc.date)} - {inc.type}:</strong> {inc.description} (Action: {inc.actionTaken})
+                    </div>
+                ))}
+            </div>
+
+            {/* Outgoing Referrals */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2"><Send size={16} /> Outgoing Referrals</h4>
+                    <button onClick={() => setShowReferralForm(!showReferralForm)} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1"><Plus size={14} /> New Referral</button>
+                </div>
+                {showReferralForm && (
+                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl mb-4">
+                        <input value={referralForm.referredTo} onChange={e => setReferralForm({ ...referralForm, referredTo: e.target.value })} placeholder="Referred To (Specialist/Clinic)" className="input" />
+                        <textarea value={referralForm.reason} onChange={e => setReferralForm({ ...referralForm, reason: e.target.value })} placeholder="Reason for Referral..." className="input h-20" />
+                        <div className="flex justify-end gap-2"><button onClick={() => setShowReferralForm(false)} className="px-3 py-1 text-xs">Cancel</button><button onClick={handleSaveReferral} className="px-3 py-1 text-xs bg-blue-200 rounded">Save</button></div>
+                    </div>
+                )}
+                {referrals?.filter(r => r.patientId === patient.id).map(ref => (
+                    <div key={ref.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs">
+                        <strong>{formatDate(ref.date)} to {ref.referredTo}:</strong> {ref.reason} (Status: {ref.status})
+                    </div>
+                ))}
+            </div>
+
+            {/* Data Privacy Consent */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Shield size={16} /> Data Privacy Consent</h4>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium">Clinical Data Processing</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="text-xs font-bold text-red-600">Revoke</button>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium">Marketing Communications</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="text-xs font-bold text-red-600">Revoke</button>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium">Third-Party Data Sharing</span>
+                        <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="text-xs font-bold text-red-600">Revoke</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote } = props;
+  const { patient, stock, onBack, onEditPatient, onQuickUpdatePatient, currentUser, logAction, incidents, onSaveIncident, referrals, onSaveReferral, governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, appointments, prefill, onClearPrefill, onPrefillNote, onUpdateSettings, onRequestProtocolOverride, onDeleteClinicalNote, onToggleTimeline, onInitiateFinancialConsent, onSupervisorySeal } = props;
   const [activePatientTab, setActivePatientTab] = useState('profile');
   const [activeChartSubTab, setActiveChartSubTab] = useState('odontogram');
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
   const [summary, setSummary] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  useEffect(() => {
+    // When patient changes, reset the active tab to profile
+    setActivePatientTab('profile');
+  }, [patient?.id]);
 
   const handleGenerateSummary = async () => {
     if (!patient) return;
@@ -213,6 +330,15 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
   const hasCriticalFlags = criticalFlags.length > 0;
   const isMinor = patient.age !== undefined && patient.age < 18;
   const isPwdOrMinor = patient.isPwd || isMinor;
+
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const activeAppointmentToday = appointments.find(a => 
+      a.patientId === patient.id && 
+      a.date === todayStr &&
+      [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)
+  );
+  
+  const isSafetyClearedForCharting = hasCriticalFlags ? !!activeAppointmentToday?.safetyChecklistVerified : true;
 
   const headerClasses = `
     backdrop-blur-2xl border-b p-4 shadow-sm shrink-0 z-20 sticky top-0 transition-all duration-500
@@ -269,14 +395,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                                         onPrefillNote(entry);
                                     }
                                 }}
-                                readOnly={readOnly}
+                                readOnly={readOnly || !isSafetyClearedForCharting}
                             />
                         )}
                         {activeChartSubTab === 'perio' && (
                             <PerioChart 
                                 data={patient.perioChart || []} 
                                 onSave={(data) => props.onQuickUpdatePatient({...patient, perioChart: data})}
-                                readOnly={readOnly}
+                                readOnly={readOnly || !isSafetyClearedForCharting}
                             />
                         )}
                     </div>
@@ -296,12 +422,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                         patient={patient}
                         logAction={props.logAction}
                         fieldSettings={props.fieldSettings}
-                        readOnly={readOnly}
+                        readOnly={readOnly || !isSafetyClearedForCharting}
                         appointments={props.appointments}
                         sterilizationCycles={sterilizationCycles}
                         prefill={prefill}
                         onClearPrefill={onClearPrefill}
                         onRequestProtocolOverride={onRequestProtocolOverride}
+                        onSupervisorySeal={onSupervisorySeal}
                     />
                   </div>
               );
@@ -317,6 +444,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                       fieldSettings={props.fieldSettings}
                       onOpenRevocationModal={onOpenRevocationModal}
                       readOnly={readOnly}
+                      onInitiateFinancialConsent={onInitiateFinancialConsent}
                   />
               );
           case 'financials':
@@ -349,7 +477,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                             appointments={appointments}
                         />
                     </div>
-                    <ComplianceTab 
+                    <ComplianceTab
                         patient={patient} 
                         incidents={incidents} 
                         onSaveIncident={onSaveIncident} 
@@ -381,356 +509,119 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                               </button>
                             </div>
                             {isLoadingSummary && <div className="text-center p-8 text-slate-400 italic">Analyzing patient record...</div>}
-                            {summary && <div className="prose prose-sm max-w-none text-slate-700 font-medium p-4 bg-slate-50 rounded-2xl border border-slate-100"><ReactMarkdown>{summary}</ReactMarkdown></div>}
+                            {summary && <div className="prose prose-sm max-w-none p-4 bg-slate-50 rounded-2xl border border-slate-100"><ReactMarkdown>{summary}</ReactMarkdown></div>}
                           </div>
                       )}
-                      <div className="bg-white p-12 rounded-[3.5rem] border-2 border-teal-50 shadow-sm space-y-12">
-
-                          {/* I. Clinical Risk & Physician Profile */}
-                          <div>
-                              <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-8">
-                                  <div className="bg-lilac-50 p-3 rounded-2xl text-lilac-600"><Heart size={32}/></div>
-                                  <div>
-                                      <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">I. Clinical Risk & Physician Profile</h3>
-                                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Self-reported and clinician verified medical history</p>
-                                  </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  <InfoItem label="Allergies" value={patient.allergies?.length ? patient.allergies : 'None'} icon={AlertCircle} isFlag={(patient.allergies?.length || 0) > 1 || patient.allergies?.[0] !== 'None'} />
-                                  <InfoItem label="Other Reported Allergies" value={patient.otherAllergies} icon={AlertCircle} isFlag={!!patient.otherAllergies} />
-                                  <InfoItem label="Medical Conditions" value={patient.medicalConditions?.length ? patient.medicalConditions : 'None'} icon={ShieldAlert} isFlag={(patient.medicalConditions?.length || 0) > 1 || patient.medicalConditions?.[0] !== 'None'} />
-                                  {medicalQuestions.map((item, index) => {
-                                      const displayValue = item.a || 'No Answer';
-                                      const fullValue = item.d ? `${displayValue} - ${item.d}` : displayValue;
-                                      return (
-                                          <InfoItem key={index} label={item.q.replace('*', '')} value={fullValue} isFlag={item.a === 'Yes'} />
-                                      );
-                                  })}
-                                  <InfoItem label="Physician Name" value={patient.physicianName} icon={UserIcon} />
-                                  <InfoItem label="Physician Specialty" value={patient.physicianSpecialty} icon={Stethoscope} />
-                                  <InfoItem label="Physician Address" value={patient.physicianAddress} icon={MapPin} />
-                                  <InfoItem label="Physician Number" value={patient.physicianNumber} icon={Phone} />
-                              </div>
-                              
-                              <div className="mt-12 pt-8 border-t border-slate-100">
-                                <div className="flex justify-between items-center mb-6">
-                                  <h4 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2"><ShieldCheck size={20} className="text-lilac-600"/> Medical Clearance Registry</h4>
-                                  <button onClick={() => setIsClearanceModalOpen(true)} className="px-5 py-2.5 bg-lilac-50 text-lilac-800 rounded-xl font-black uppercase text-[10px] tracking-widest border border-lilac-200 hover:bg-lilac-100 transition-all flex items-center gap-2"><Plus size={14}/> Log New Clearance</button>
-                                </div>
-                                <div className="space-y-3">
-                                  {sortedClearances.map(cr => {
-                                      const isExpired = !cr.approvedAt || new Date(cr.approvedAt) < sixMonthsAgo;
-                                      return (
-                                        <div key={cr.id} className={`p-5 rounded-2xl border-2 flex items-center justify-between group ${isExpired ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-teal-50 border-teal-200 shadow-sm'}`}>
-                                          <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-xl ${isExpired ? 'bg-slate-200 text-slate-500' : 'bg-teal-600 text-white shadow-lg'}`}><FileText size={20}/></div>
-                                            <div>
-                                              <div className="text-sm font-black text-slate-800 uppercase tracking-tight">{cr.doctorName} ({cr.specialty})</div>
-                                              <div className="text-xs text-slate-500 font-bold mt-1">Verified by: {cr.verifiedByPractitionerName}</div>
-                                            </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <InfoItem label="Patient ID" value={patient.id} icon={Shield} />
+                        <InfoItem label="Contact" value={patient.phone} icon={Phone} />
+                        <InfoItem label="Email" value={patient.email} icon={Mail} />
+                        <InfoItem label="Address" value={patient.homeAddress} icon={MapPin} />
+                        <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
+                        <InfoItem label="Insurance" value={patient.insuranceProvider} icon={Stethoscope} />
+                        {criticalFlags.map(f => <InfoItem key={f.value} label={f.type} value={f.value} icon={ShieldAlert} isFlag />)}
+                        {isPwdOrMinor && <InfoItem label="Special Status" value={isMinor ? `Minor (Age ${patient.age})` : 'PWD'} icon={isMinor ? Baby : UserIcon} isSpecial />}
+                        {patient.guardianProfile && <InfoItem label={`Guardian (${patient.guardianProfile.relationship})`} value={patient.guardianProfile.legalName} icon={BookUser} isSpecial />}
+                      </div>
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                          <h4 className="font-bold mb-4">Medical Clearances</h4>
+                          <button onClick={() => setIsClearanceModalOpen(true)} className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 mb-4"><Plus size={14}/> Log New Clearance</button>
+                          <div className="space-y-2">
+                              {sortedClearances.map(c => {
+                                  const isExpired = c.approvedAt ? new Date(c.approvedAt) < sixMonthsAgo : true;
+                                  return (
+                                      <div key={c.id} className={`p-3 rounded-lg border flex justify-between items-center ${isExpired ? 'bg-slate-100' : 'bg-green-50 border-green-200'}`}>
+                                          <div className="text-xs">
+                                              <span className={`font-black ${isExpired ? 'text-slate-500' : 'text-green-800'}`}>{c.doctorName} ({c.specialty})</span>
+                                              <span className="text-slate-500 ml-2">Approved: {formatDate(c.approvedAt)}</span>
                                           </div>
-                                          <div className="text-right">
-                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isExpired ? 'bg-white border-slate-200 text-slate-500' : 'bg-white border-teal-200 text-teal-700'}`}>
-                                              {isExpired ? 'Expired' : 'Valid'}
-                                            </div>
-                                            <div className="text-[10px] font-black text-slate-400 mt-1">Approved: {formatDate(cr.approvedAt)}</div>
-                                          </div>
-                                        </div>
-                                      );
-                                  })}
-                                  {sortedClearances.length === 0 && <p className="text-center text-xs text-slate-400 italic font-bold p-10 bg-slate-50 rounded-2xl border-dashed">No clearance records on file.</p>}
+                                          {isExpired && <span className="text-xs font-bold text-red-600">EXPIRED</span>}
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                          <h4 className="font-bold mb-4">Medical Question Registry</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {medicalQuestions.map(({q, a, d}) => (
+                                <div key={q} className={`p-3 rounded-lg border ${a === 'Yes' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                                    <p className="text-xs font-bold text-slate-700">{q}</p>
+                                    <p className={`font-black text-sm ${a === 'Yes' ? 'text-amber-800' : 'text-slate-500'}`}>{a} {d && <span className="text-xs font-medium text-slate-500 italic">- {d}</span>}</p>
                                 </div>
-                              </div>
+                              ))}
                           </div>
-
-                          {/* II. Dental History */}
-                          <div>
-                              <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-8 pt-8">
-                                  <div className="bg-teal-50 p-3 rounded-2xl text-teal-600"><Briefcase size={32}/></div>
-                                  <div>
-                                      <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">II. Dental History</h3>
-                                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Previous Dental Care</p>
-                                  </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  <InfoItem label="Previous Dentist" value={patient.previousDentist} icon={Briefcase} />
-                                  <InfoItem label="Last Dental Visit" value={patient.lastVisit} icon={CalendarPlus} />
-                              </div>
-                          </div>
-                          
-                          {/* III. Patient Identity & Contact */}
-                          <div>
-                              <div className="flex items-center gap-4 border-b border-slate-100 pb-6 mb-8 pt-8">
-                                  <div className="bg-teal-50 p-3 rounded-2xl text-teal-600"><UserIcon size={32}/></div>
-                                  <div>
-                                      <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">III. Patient Identity & Contact</h3>
-                                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Registry Data Verified: {formatDate(patient.lastDigitalUpdate)}</p>
-                                  </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                  <InfoItem label="Full Name" value={patient.name} icon={UserIcon} isSpecial={isPwdOrMinor} />
-                                  <InfoItem label="Birth Date" value={formatDate(patient.dob)} icon={CalendarPlus} isSpecial={isPwdOrMinor} />
-                                  <InfoItem label="Age" value={patient.age} isSpecial={isPwdOrMinor} />
-                                  <InfoItem label="Sex" value={patient.sex} />
-                                  <InfoItem label="Civil Status" value={patient.civilStatus} />
-                                  <InfoItem label="Blood Group" value={patient.bloodGroup} icon={AlertCircle} isFlag={!!patient.bloodGroup} />
-                                  <InfoItem label="Mobile" value={patient.phone} icon={Phone} />
-                                  <InfoItem label="Email" value={patient.email} icon={Mail} />
-                                  <InfoItem label="Address" value={patient.homeAddress} icon={MapPin} />
-                                  <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
-                              </div>
-                          </div>
-
                       </div>
                   </div>
               );
-          default: return null;
+          default:
+              return null;
       }
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-slate-50 overflow-hidden relative">
-      
-      {readOnly && (
-          <div className="absolute inset-0 z-[50] bg-slate-800/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-              <div className="bg-red-600 text-white px-8 py-4 rounded-full font-black text-2xl uppercase tracking-[0.3em] shadow-2xl animate-pulse flex items-center gap-4">
-                  <ShieldAlert size={32}/> RECORD LOCKED
-              </div>
-          </div>
-      )}
-
-      <ClearanceModal 
-        isOpen={isClearanceModalOpen}
-        onClose={() => setIsClearanceModalOpen(false)}
-        onSave={handleSaveClearance}
-        patient={patient}
-        currentUser={currentUser}
-      />
-
-      {/* Dynamic Workspace Header */}
-      <header className={headerClasses}>
-        <div className="flex justify-between items-center max-w-[1400px] mx-auto">
-          <div className="flex items-center gap-4">
-            <button 
-                onClick={onBack}
-                className="bg-slate-100 hover:bg-teal-900 hover:text-white p-3 rounded-2xl text-slate-400 transition-all active:scale-90 group"
-                title="Back to Registry"
-            >
-                <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform"/>
-            </button>
-            <h2 className={`text-3xl font-black tracking-tighter truncate uppercase leading-none ${readOnly ? 'text-white' : 'text-slate-800'}`}>{patient.name}</h2>
-            <button 
-                onClick={() => onEditPatient(patient)}
-                disabled={readOnly}
-                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90 disabled:opacity-50"
-                title="Edit Patient Details"
-            >
-                <Edit size={20}/>
-            </button>
-            <button 
-                onClick={props.onToggleTimeline}
-                className="bg-slate-100 hover:bg-teal-50 p-2 rounded-xl text-slate-400 hover:text-teal-600 transition-all active:scale-90"
-                title="Open Clinical Timeline"
-            >
-                <History size={20}/>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-12">
-              <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-                  <div className="flex items-center gap-2 text-sm">
-                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>PAT ID -</span>
-                      <span className={`font-mono font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.id}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <Phone size={14} className={readOnly ? 'text-slate-300' : 'text-slate-400'}/>
-                      <span className={`font-mono font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>AGE -</span>
-                      <span className={`font-black ${readOnly ? 'text-white' : 'text-slate-700'}`}>{patient.age} {patient.sex?.toUpperCase()}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <span className={`font-black uppercase tracking-widest ${readOnly ? 'text-slate-300' : 'text-slate-400'}`}>BAL -</span>
-                      <span className={`font-black ${patient.currentBalance && patient.currentBalance > 0 ? 'text-red-400' : 'text-teal-400'}`}>
-                          ₱{patient.currentBalance?.toLocaleString() || '0'}
-                      </span>
-                  </div>
-              </div>
-
-              <div className="hidden xl:flex items-center gap-3">
-                  {criticalFlags.slice(0, 3).map((flag, i) => (
-                      <div key={i} className="flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-600/20 animate-pulse">
-                          <ShieldAlert size={14}/> {flag.value}
-                      </div>
-                  ))}
-              </div>
-          </div>
+    <div className="h-full flex flex-col bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className={headerClasses}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <button onClick={onBack} className="bg-white/50 p-3 rounded-2xl shadow-sm hover:bg-white transition-all active:scale-90"><ArrowLeft size={24} className="text-slate-600"/></button>
+                    <div className="flex items-center gap-4">
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${patient.name}`} alt={patient.name} className="w-16 h-16 rounded-3xl border-4 border-white shadow-xl" />
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-800 tracking-tight leading-none">{patient.name}</h2>
+                            <div className="flex items-center gap-4 mt-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{patient.sex}, {patient.age} y/o</span>
+                                {patient.reliabilityScore && <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Reliability: {patient.reliabilityScore}%</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button onClick={onToggleTimeline} className="px-6 py-3 bg-white/50 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm hover:bg-white transition-all flex items-center gap-3"><History size={16}/> Timeline</button>
+                    <button onClick={() => onEditPatient(patient)} className="px-6 py-3 bg-white/50 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm hover:bg-white transition-all flex items-center gap-3"><Edit size={16}/> Edit</button>
+                    <button onClick={() => props.onBookAppointment(patient.id)} className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-900/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><CalendarPlus size={20}/> Book</button>
+                </div>
+            </div>
+            {hasCriticalFlags && (
+                <div className="mt-4 p-3 bg-red-600 text-white rounded-xl flex items-center justify-between shadow-lg animate-pulse">
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert size={16} />
+                        <span className="text-xs font-black uppercase tracking-widest">High-Risk Patient: {criticalFlags.map(f => f.value).join(', ')}</span>
+                    </div>
+                    {!isSafetyClearedForCharting && <span className="text-xs font-bold">SAFETY CHECKLIST PENDING</span>}
+                </div>
+            )}
         </div>
-      </header>
 
-      {/* Cockpit Navigation */}
-      <div className="bg-white/50 backdrop-blur-md border-b border-slate-100 px-8 sticky top-[80px] z-10" role="tablist">
-          <div className="max-w-[1400px] mx-auto">
-              <div className="flex gap-2 -mb-px">
-                {patientChartTabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        role="tab"
-                        aria-selected={activePatientTab === tab.id}
-                        onClick={() => setActivePatientTab(tab.id)}
-                        className={`flex items-center gap-3 px-6 py-5 rounded-t-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 border-b-4 ${activePatientTab === tab.id ? 'border-teal-600 text-teal-900' : 'border-transparent text-slate-500 hover:text-teal-700 hover:border-teal-200'}`}
-                    >
-                        <tab.icon size={16} strokeWidth={activePatientTab === tab.id ? 3 : 2} className={activePatientTab === tab.id ? 'text-teal-600' : ''}/> 
-                        {tab.label}
-                    </button>
-                ))}
-              </div>
-          </div>
-      </div>
+        <div className="flex-1 overflow-auto p-8 no-scrollbar bg-slate-50/50">
+            <div className="flex items-start gap-8">
+                <div className="w-56 shrink-0 sticky top-0">
+                    <div className="space-y-2">
+                        {patientChartTabs.map(tab => (
+                            <button key={tab.id} onClick={() => setActivePatientTab(tab.id)} className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left font-black text-xs uppercase tracking-widest transition-all ${activePatientTab === tab.id ? 'bg-teal-900 text-white shadow-xl' : 'hover:bg-white hover:shadow-md'}`}>
+                                <tab.icon size={20} className={activePatientTab === tab.id ? 'text-teal-400' : 'text-slate-400'}/>
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                    {renderTabContent()}
+                </div>
+            </div>
+        </div>
 
-      {/* Main Workspace - Natural Scroll */}
-      <main className="flex-1 overflow-y-auto p-12 no-scrollbar scroll-smooth">
-          <div className="max-w-[1400px] mx-auto animate-in fade-in zoom-in-[0.98] duration-700 pb-48">
-              {renderTabContent()}
-          </div>
-      </main>
-
+        {isClearanceModalOpen && (
+            <ClearanceModal 
+                isOpen={isClearanceModalOpen}
+                onClose={() => setIsClearanceModalOpen(false)}
+                patient={patient}
+                currentUser={currentUser}
+                onSave={handleSaveClearance}
+            />
+        )}
     </div>
   );
-};
-
-
-const ComplianceTab: React.FC<{
-    patient: Patient;
-    incidents?: ClinicalIncident[];
-    onSaveIncident?: (incident: ClinicalIncident) => void;
-    referrals?: Referral[];
-    onSaveReferral?: (referral: Referral) => void;
-    currentUser: User;
-    onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
-}> = ({ patient, incidents = [], onSaveIncident, referrals = [], onSaveReferral, currentUser, onOpenRevocationModal }) => {
-    const toast = useToast();
-    const [incidentType, setIncidentType] = useState('Complication');
-    const [incidentDesc, setIncidentDesc] = useState('');
-    const [incidentAction, setIncidentAction] = useState('');
-    
-    const [referralTo, setReferralTo] = useState('');
-    const [referralReason, setReferralReason] = useState('');
-
-    const handleLogIncident = () => {
-        if (!onSaveIncident || !incidentDesc) {
-            toast.error("Incident description is required.");
-            return;
-        }
-        const newIncident: ClinicalIncident = {
-            id: `inc_${Date.now()}`,
-            date: new Date().toISOString(),
-            type: incidentType,
-            patientId: patient.id,
-            patientName: patient.name,
-            description: incidentDesc,
-            actionTaken: incidentAction,
-            reportedBy: currentUser.id,
-            reportedByName: currentUser.name
-        };
-        onSaveIncident(newIncident);
-        setIncidentDesc(''); setIncidentAction('');
-        toast.success("Clinical incident logged.");
-    };
-
-    const handleCreateReferral = () => {
-        if (!onSaveReferral || !referralTo || !referralReason) {
-            toast.error("Specialist and reason are required.");
-            return;
-        }
-        const newReferral: Referral = {
-            id: `ref_${Date.now()}`,
-            date: new Date().toISOString(),
-            patientId: patient.id,
-            referredTo: referralTo,
-            reason: referralReason,
-            status: 'Sent'
-        };
-        onSaveReferral(newReferral);
-        setReferralTo(''); setReferralReason('');
-        toast.success("Referral created.");
-    };
-    
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-slate-100 shadow-sm space-y-8">
-                 <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-                    <div className="bg-red-50 p-3 rounded-2xl text-red-600"><ShieldAlert size={32}/></div>
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Consent Registry</h3>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Patient Privacy & Data Rights (RA 10173)</p>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                        <span className="font-bold text-sm text-slate-700">Clinical Processing</span>
-                        <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
-                    </div>
-                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                        <span className="font-bold text-sm text-slate-700">Marketing Communications</span>
-                        <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
-                    </div>
-                    <div className="flex justify-between items-center p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                        <span className="font-bold text-sm text-slate-700">3rd Party Data Sharing</span>
-                        <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="text-xs font-bold text-red-600 bg-red-100 px-4 py-2 rounded-lg">Revoke</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-red-50 shadow-sm space-y-8">
-                <div className="flex items-center gap-4 border-b border-red-100 pb-6">
-                    <div className="bg-red-50 p-3 rounded-2xl text-red-600"><AlertCircle size={32}/></div>
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Clinical Incidents</h3>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Medico-Legal Event Log</p>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    <select value={incidentType} onChange={e => setIncidentType(e.target.value)} className="input"><option>Complication</option><option>Adverse Reaction</option><option>Equipment Failure</option></select>
-                    <textarea value={incidentDesc} onChange={e => setIncidentDesc(e.target.value)} placeholder="Describe the incident..." className="input h-24" />
-                    <textarea value={incidentAction} onChange={e => setIncidentAction(e.target.value)} placeholder="Action Taken..." className="input h-24" />
-                    <button onClick={handleLogIncident} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Log Incident</button>
-                </div>
-                <div className="pt-8 border-t border-slate-100 space-y-3">
-                    {incidents.filter(i=> i.patientId === patient.id).map(i => (
-                        <div key={i.id} className="p-4 bg-red-50 border border-red-100 rounded-2xl">
-                            <div className="font-bold text-red-800">{i.type} on {formatDate(i.date)}</div>
-                            <p className="text-xs text-red-700">{i.description}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="bg-white p-10 rounded-[3.5rem] border-2 border-blue-50 shadow-sm space-y-8">
-                 <div className="flex items-center gap-4 border-b border-blue-100 pb-6">
-                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600"><Send size={32}/></div>
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Referral Tracker</h3>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Continuity of Care Monitor</p>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    <input value={referralTo} onChange={e => setReferralTo(e.target.value)} placeholder="Referred to (Specialist/Clinic)" className="input" />
-                    <textarea value={referralReason} onChange={e => setReferralReason(e.target.value)} placeholder="Reason for referral..." className="input h-24" />
-                    <button onClick={handleCreateReferral} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Create Referral</button>
-                </div>
-                <div className="pt-8 border-t border-slate-100 space-y-3">
-                    {referrals.filter(r => r.patientId === patient.id).map(r => (
-                        <div key={r.id} className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-                            <div className="font-bold text-blue-800">To: {r.referredTo} on {formatDate(r.date)}</div>
-                            <p className="text-xs text-blue-700">{r.reason}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    )
 };
 
 export default PatientDetailView;

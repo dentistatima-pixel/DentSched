@@ -1,6 +1,6 @@
 import React from 'react';
-import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageCircle, FileBadge2 } from 'lucide-react';
-import { Appointment, Patient, SyncConflict, User } from '../types';
+import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageCircle, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer } from 'lucide-react';
+import { Appointment, Patient, SyncConflict, User, ClinicalIncident } from '../types';
 import { formatDate } from '../constants';
 
 interface AdminHubProps {
@@ -14,6 +14,9 @@ interface AdminHubProps {
   onVerifyMedHistory: (id: string) => void;
   onConfirmFollowUp: (id: string) => void;
   onEditPatient: (patient: Patient) => void;
+  onClearProfessionalismReview: (patientId: string, noteId: string) => void;
+  incidents: ClinicalIncident[];
+  onResolveIncident: (id: string) => void;
 }
 
 const AdminHub: React.FC<AdminHubProps> = ({ 
@@ -27,7 +30,29 @@ const AdminHub: React.FC<AdminHubProps> = ({
   onVerifyMedHistory,
   onConfirmFollowUp,
   onEditPatient,
+  onClearProfessionalismReview,
+  incidents,
+  onResolveIncident
 }) => {
+
+  const professionalismReviews = patients.flatMap(p => 
+    (p.dentalChart || [])
+        .filter(note => note.needsProfessionalismReview)
+        .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+  );
+
+  const supervisionReviews = patients.flatMap(p => 
+      (p.dentalChart || [])
+          .filter(note => note.isPendingSupervision)
+          .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+  );
+
+  const sealingDeadline = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const notesPastDeadline = patients.flatMap(p => 
+      (p.dentalChart || [])
+          .filter(note => !note.sealedHash && new Date(note.date) < sealingDeadline)
+          .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+  );
 
   const workQueues = {
     downtime: {
@@ -48,12 +73,32 @@ const AdminHub: React.FC<AdminHubProps> = ({
     registrations: {
       title: 'Pending Registrations',
       icon: FileBadge2,
-      items: patients.filter(p => !p.dpaConsent)
+      items: patients.filter(p => p.registrationStatus === 'Provisional')
     },
     sync: {
       title: 'Sync Conflicts',
       icon: CloudOff,
       items: syncConflicts.filter(c => !c.resolved)
+    },
+    incidents: {
+        title: 'Incident Review',
+        icon: AlertTriangle,
+        items: incidents.filter(i => !i.advisoryCallSigned)
+    },
+    professionalism_review: {
+        title: 'Professionalism Review',
+        icon: FileSearch,
+        items: professionalismReviews
+    },
+    supervision_review: {
+        title: 'Supervision Review',
+        icon: UserCheck,
+        items: supervisionReviews
+    },
+    sealing_deadline: {
+        title: 'Notes Past Sealing Deadline',
+        icon: Timer,
+        items: notesPastDeadline
     }
   };
 
@@ -80,7 +125,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
               <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center">
                 <div>
                   <p className="font-bold text-slate-800">{patient?.name || `ID: ${item.id}`}</p>
-                  <p className="text-xs text-slate-500">{item.date ? `${formatDate(item.date)} ${item.time || ''} - ${item.type || ''}` : `Patient ID: ${item.id}`}</p>
+                  <p className="text-xs text-slate-500">{item.date ? `${formatDate(item.date)} ${item.time || ''} - ${item.type || item.procedure || ''}` : `Patient ID: ${item.id}`}</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -88,6 +133,9 @@ const AdminHub: React.FC<AdminHubProps> = ({
                     if (adminQueue === 'med_history') onVerifyMedHistory(item.id);
                     if (adminQueue === 'post_op') onConfirmFollowUp(item.id);
                     if (adminQueue === 'registrations') onEditPatient(item);
+                    if (adminQueue === 'incidents') onResolveIncident(item.id);
+                    if (adminQueue === 'professionalism_review') onClearProfessionalismReview(item.patientId, item.id);
+                    if (adminQueue === 'supervision_review' || adminQueue === 'sealing_deadline') alert('Please review and seal from the patient chart.');
                     // Sync conflicts are more complex, maybe a modal is needed
                   }}
                   className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold"

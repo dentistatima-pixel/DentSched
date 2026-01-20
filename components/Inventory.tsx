@@ -8,7 +8,7 @@ interface InventoryProps {
   stock: StockItem[];
   onUpdateStock: (updatedStock: StockItem[]) => void;
   sterilizationCycles?: SterilizationCycle[];
-  onAddCycle?: (cycle: any) => void;
+  onAddCycle: (cycle: SterilizationCycle) => void;
   currentUser: User;
   currentBranch: string;
   availableBranches: string[];
@@ -165,7 +165,7 @@ const Inventory: React.FC<InventoryProps> = ({
     if (!newCycle.autoclaveName || !newCycle.operator || !onUpdateSettings || !fieldSettings) return;
     const cycle = { ...newCycle, id: `c_${Date.now()}`, date: new Date().toISOString().split('T')[0] } as SterilizationCycle;
     
-    if (onAddCycle) onAddCycle(cycle);
+    onAddCycle(cycle);
 
     if (cycle.passed && cycle.instrumentSetIds && cycle.instrumentSetIds.length > 0) {
         const updatedSets = fieldSettings.instrumentSets?.map(set => 

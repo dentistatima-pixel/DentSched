@@ -1,8 +1,8 @@
-
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ToastProvider } from './components/ToastSystem';
+import { DataProvider } from './dataContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -51,7 +51,9 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
         <ToastProvider>
-            <App key="refresh-v16-features" />
+            <DataProvider>
+                <App key="refresh-v16-features" />
+            </DataProvider>
         </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>

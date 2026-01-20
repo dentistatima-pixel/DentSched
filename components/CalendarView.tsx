@@ -277,13 +277,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
             return;
         }
 
+        const proposedStart = new Date(`${newDate}T${newTime}`);
+        const proposedEnd = new Date(proposedStart.getTime() + originalApt.durationMinutes * 60000);
 
-        const isConflict = appointments.some(a => 
-            a.id !== appointmentId &&
-            a.date === newDate &&
-            a.time === newTime &&
-            (a.providerId === newProviderId || (newResourceId && a.resourceId === newResourceId))
-        );
+        const isConflict = appointments.some(apt => {
+            if (apt.id === appointmentId) return false;
+
+            const existingStart = new Date(`${apt.date}T${apt.time}`);
+            const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
+
+            const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
+            if (!overlap) return false;
+
+            if (newResourceId && apt.resourceId === newResourceId) return true;
+            if (!apt.isBlock && apt.providerId === newProviderId) return true;
+
+            return false;
+        });
 
         if (isConflict) {
             toast.error("Scheduling Conflict: This time slot is already occupied.");

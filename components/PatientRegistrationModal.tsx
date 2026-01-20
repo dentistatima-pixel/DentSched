@@ -83,7 +83,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     });
   }, [readOnly]);
 
-  // Problem 6 Fix: Dedicated handler for structured medical registry data
+  const handleDentalChange = (field: 'previousDentist' | 'lastVisit' | 'notes', value: string) => {
+    if (readOnly) return;
+    setFormData(prev => ({...prev, [field]: value }));
+  };
+
   const handleRegistryChange = (newRegistryAnswers: Record<string, any>) => {
     if (readOnly) return;
     setFormData(prev => ({ ...prev, registryAnswers: newRegistryAnswers }));
@@ -168,7 +172,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
 
   const savePatientRecord = (data: Partial<Patient>) => {
     const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-    // Problem 4 Fix: Set registration status to Complete on save
     onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
     onClose();
   };
@@ -180,7 +183,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");
     
-    // Auto-save after signature
     setTimeout(() => savePatientRecord(updatedData), 500);
   };
 
@@ -190,7 +192,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-end md:items-center p-0 md:p-4"}>
       <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full md:max-w-5xl h-[95vh] md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
         
-        {/* PDA Branding Header */}
         <div className={`flex flex-col md:flex-row justify-between items-center p-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'md:rounded-t-3xl'}`}>
           <div className="flex items-center gap-4 mb-4 md:mb-0">
             <div className="bg-white p-2 rounded-xl shadow-lg border-2 border-teal-500">
@@ -212,11 +213,9 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           )}
         </div>
 
-        {/* Mega-Form Body */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 no-scrollbar">
             <div className="max-w-4xl mx-auto space-y-12 pb-48">
                 
-                {/* Verbatim Page 2 Informed Consent Integration */}
                 <div className="bg-white border-2 border-teal-100 p-8 rounded-[2.5rem] shadow-sm space-y-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -259,7 +258,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 </div>
 
                 <div className="space-y-16">
-                    {/* Section I: Identity & II: Guardianship Integration */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-teal-600 pb-2">
                             <Users size={24} className="text-teal-700"/>
@@ -268,13 +266,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         <RegistrationBasicInfo formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
                     </div>
 
-                    {/* Section III-V: Medical/Physician */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-lilac-600 pb-2">
                             <Heart size={24} className="text-lilac-700"/>
                             <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Section V & VI. Clinical Medical History</h3>
                         </div>
-                        {/* Problem 6 Fix: Pass onRegistryChange instead of generic handleChange */}
                         <RegistrationMedical 
                             registryAnswers={formData.registryAnswers || {}}
                             onRegistryChange={handleRegistryChange}
@@ -287,21 +283,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         />
                     </div>
                     
-                    {/* Dental History Section Added */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-blue-600 pb-2">
                             <Activity size={24} className="text-blue-700"/>
                             <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tighter">Section IV. Dental History</h3>
                         </div>
                         <RegistrationDental 
-                            formData={formData} 
-                            handleChange={handleChange} 
-                            readOnly={readOnly} 
-                            fieldSettings={fieldSettings}
+                           previousDentist={formData.previousDentist}
+                           lastVisit={formData.lastVisit}
+                           notes={formData.notes}
+                           onDentalChange={handleDentalChange}
+                           readOnly={readOnly} 
                         />
                     </div>
 
-                    {/* Baseline Perio Section */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b-4 border-amber-600 pb-2">
                             <Activity size={24} className="text-amber-700"/>
@@ -349,7 +344,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             </div>
         </div>
 
-        {/* Fixed Footer */}
         <div className="p-4 md:p-6 border-t border-slate-200 bg-white/80 backdrop-blur-md shrink-0 flex justify-end gap-4 z-10">
             {!isKiosk && <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>}
             <button 

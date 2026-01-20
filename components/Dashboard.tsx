@@ -3,7 +3,7 @@ import {
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch
+  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, User, UserRole, Patient, FieldSettings, 
@@ -141,12 +141,27 @@ const Dashboard: React.FC<DashboardProps> = ({
             .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
     );
 
+    const supervisionReviews = patients.flatMap(p => 
+        (p.dentalChart || [])
+            .filter(note => note.isPendingSupervision)
+            .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+    );
+    
+    const sealingDeadline = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const notesPastDeadline = patients.flatMap(p => 
+        (p.dentalChart || [])
+            .filter(note => !note.sealedHash && new Date(note.date) < sealingDeadline)
+            .map(note => ({ ...note, patientName: p.name, patientId: p.id }))
+    );
+
     if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => onNavigateToQueue('sync') });
     if(downtimeEntries.length > 0) items.push({ type: 'Downtime Entries', count: downtimeEntries.length, icon: FileWarning, action: () => onNavigateToQueue('downtime') });
     if(medHistoryEntries.length > 0) items.push({ type: 'Med History', count: medHistoryEntries.length, icon: ShieldAlert, action: () => onNavigateToQueue('med_history') });
     if(postOpPatients.length > 0) items.push({ type: 'Post-Op Follow-up', count: postOpPatients.length, icon: MessageCircle, action: () => onNavigateToQueue('post_op') });
     if(pendingRegistrations.length > 0) items.push({ type: 'Pending Registrations', count: pendingRegistrations.length, icon: FileBadge2, action: () => onNavigateToQueue('registrations') });
     if(professionalismReviews.length > 0) items.push({ type: 'Professionalism Review', count: professionalismReviews.length, icon: FileSearch, action: () => onNavigateToQueue('professionalism_review') });
+    if(supervisionReviews.length > 0) items.push({ type: 'Supervision Review', count: supervisionReviews.length, icon: UserCheck, action: () => onNavigateToQueue('supervision_review') });
+    if(notesPastDeadline.length > 0) items.push({ type: 'Notes Past Sealing Deadline', count: notesPastDeadline.length, icon: Timer, action: () => onNavigateToQueue('sealing_deadline') });
     
     return items.sort((a,b) => b.count - a.count);
   }, [appointments, syncConflicts, patients, onNavigateToQueue]);

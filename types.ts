@@ -142,6 +142,7 @@ export interface ReconciliationRecord {
     explanation?: string; 
     timestamp: string;
     sessionId: string;
+    resolutionStatus?: 'Pending Review' | 'Resolved';
 }
 
 export interface CashSession {
@@ -468,7 +469,6 @@ export interface FeatureToggles {
   enableInventory: boolean;
   inventoryComplexity?: 'SIMPLE' | 'ADVANCED';
   enableAnalytics: boolean;
-  enablePatientPortal: boolean;
   enableDigitalConsent: boolean;
   enableAutomatedRecall: boolean;
   enableOnlineForms: boolean;
@@ -595,6 +595,7 @@ export interface User {
   cpdEntries?: CpdEntry[];
   requiredCpdUnits?: number;
   commissionRate?: number;
+  status?: 'Active' | 'Inactive';
   payoutHandle?: string;
 }
 
@@ -640,6 +641,7 @@ export interface Appointment {
   recurrenceRule?: string;
   recurrenceId?: string;
   modifiedAt?: string;
+  safetyChecklistVerified?: boolean;
 }
 
 export interface Patient {
@@ -901,6 +903,7 @@ export interface PurchaseOrder {
 
 export interface PurchaseOrderItem {
   itemId: string;
+  itemName: string;
   quantity: number;
   unitPrice: number;
 }

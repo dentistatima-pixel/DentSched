@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, Send, CheckSquare, Plus, Power, PowerOff } from 'lucide-react';
 import UserProfileModal from './UserProfileModal';
 import { User, Appointment, Patient, UserRole, FieldSettings, PinboardTask, SystemStatus, AppNotification } from '../types';
 
@@ -17,6 +17,7 @@ interface LayoutProps {
   fieldSettings?: FieldSettings; 
   onGenerateReport: () => void;
   tasks?: PinboardTask[];
+  onAddTask?: (text: string, isUrgent: boolean, assignedTo: string) => void;
   onToggleTask?: (id: string) => void;
   onEnterKioskMode?: () => void;
   isOnline?: boolean;
@@ -32,19 +33,24 @@ interface LayoutProps {
   isProfileOpen: boolean;
   onOpenProfile: () => void;
   onCloseProfile: () => void;
+  onStartCashSession: (openingBalance: number) => void;
+  onCloseCashSession: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, activeTab, setActiveTab, onAddAppointment, currentUser, onSwitchUser, staff,
-  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks, onToggleTask, onEnterKioskMode,
+  currentBranch, availableBranches, onChangeBranch, fieldSettings, onGenerateReport, tasks = [], onAddTask, onToggleTask, onEnterKioskMode,
   isOnline = true, pendingSyncCount = 0, systemStatus = SystemStatus.OPERATIONAL, onSwitchSystemStatus,
   installable = false, onInstall, impersonatingUser, onStopImpersonating,
-  notifications, onNotificationClick, isProfileOpen, onOpenProfile, onCloseProfile
+  notifications, onNotificationClick, isProfileOpen, onOpenProfile, onCloseProfile,
+  onStartCashSession, onCloseCashSession
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [isNotificationPopoverOpen, setIsNotificationPopoverOpen] = useState(false);
   const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false); // State for Gap 8
+  const [newTaskText, setNewTaskText] = useState('');
+  const taskInputRef = useRef<HTMLInputElement>(null);
 
   const features = fieldSettings?.features;
   const enableMultiBranch = features?.enableMultiBranch ?? true;
@@ -91,6 +97,23 @@ const Layout: React.FC<LayoutProps> = ({
     setShowDowntimeConfirm(false);
   };
 
+  const handleAddNewTask = () => {
+    if (onAddTask && newTaskText.trim()) {
+      onAddTask(newTaskText, false, currentUser.id);
+      setNewTaskText('');
+      taskInputRef.current?.focus();
+    }
+  };
+  
+  const handleStartSession = () => {
+      const balanceStr = prompt("Enter opening cash balance for today's session:");
+      const balance = parseFloat(balanceStr || '0');
+      if (!isNaN(balance)) {
+          onStartCashSession(balance);
+          setIsMobileMenuOpen(false);
+      }
+  };
+
   return (
     <div className={`h-[100dvh] bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
@@ -99,6 +122,13 @@ const Layout: React.FC<LayoutProps> = ({
           <ShieldAlert size={18} className="animate-pulse"/>
           <span>Warning: Impersonating <strong>{currentUser.name}</strong>.</span>
           <button onClick={onStopImpersonating} className="ml-4 bg-black/80 text-white px-4 py-1.5 rounded-lg text-[10px] hover:bg-black transition-colors">Stop Impersonating</button>
+        </div>
+      )}
+      
+      {currentUser.status === 'Inactive' && (
+        <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
+          <ShieldAlert size={18} />
+          <span>ACCOUNT DEACTIVATED. This session is in read-only mode.</span>
         </div>
       )}
 
@@ -150,6 +180,47 @@ const Layout: React.FC<LayoutProps> = ({
                     >
                         Emergency
                     </button>
+                 </div>
+
+                {/* Pinboard */}
+                 <div className="relative">
+                    <button
+                        onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)}
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-black/40 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`}
+                        aria-label={`Tasks: ${myActiveTasks.length} pending`}
+                        aria-expanded={isTaskPopoverOpen}
+                    >
+                        <StickyNote size={22} />
+                        {myActiveTasks.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs font-black flex items-center justify-center rounded-full border-2" style={{borderColor: branchColor}}>{myActiveTasks.length}</span>}
+                    </button>
+                     {isTaskPopoverOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
+                            <div className="absolute right-0 top-full mt-4 w-96 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800" role="dialog" aria-labelledby="task-title">
+                                <div className="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
+                                    <span id="task-title" className="font-black uppercase tracking-widest text-[10px] text-slate-600">My Pinboard</span>
+                                </div>
+                                <div className="max-h-96 overflow-y-auto p-3 no-scrollbar">
+                                    <div className="space-y-2 p-2">
+                                        {tasks.filter(t => t.assignedTo === currentUser.id).map(task => (
+                                            <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${task.isCompleted ? 'bg-slate-50 opacity-50' : 'hover:bg-teal-50'}`}>
+                                                <button onClick={() => onToggleTask?.(task.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${task.isCompleted ? 'bg-teal-600 border-teal-600' : 'border-slate-300'}`}>
+                                                    {task.isCompleted && <CheckSquare size={14} className="text-white"/>}
+                                                </button>
+                                                <div className={`flex-1 min-w-0 font-bold text-sm ${task.isCompleted ? 'line-through text-slate-400' : 'text-slate-700'}`}>{task.text}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="p-4 border-t bg-slate-50">
+                                    <div className="relative">
+                                        <input ref={taskInputRef} type="text" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddNewTask()} placeholder="Add new task..." className="w-full bg-white rounded-xl p-3 pr-12 text-sm outline-none border-2 border-slate-200 focus:border-teal-500"/>
+                                        <button onClick={handleAddNewTask} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                  </div>
 
                  {/* Notification Hub */}
@@ -224,7 +295,7 @@ const Layout: React.FC<LayoutProps> = ({
                         </div>
                     )}
                     <div className="grid grid-cols-1 gap-3 pt-4">
-                        {installable && (
+                        {installable && onInstall && (
                             <button onClick={onInstall} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-600 hover:bg-teal-500 shadow-xl shadow-teal-900/40 transition-all focus:ring-offset-2 active:scale-95 group">
                                 <div className="bg-white/20 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
                                     <Smartphone size={24} className="text-white" />
@@ -235,6 +306,22 @@ const Layout: React.FC<LayoutProps> = ({
                         <button onClick={() => { onOpenProfile(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
                         <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
                     </div>
+
+                    {currentUser.role === UserRole.ADMIN && (
+                        <div className="pt-6 border-t border-teal-800/50 mt-6">
+                            <h4 className="text-teal-400 uppercase font-black text-xs tracking-widest mb-4">Admin Controls</h4>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={handleStartSession} className="w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] bg-green-600/20 hover:bg-green-600 border border-green-500/30 transition-all focus:ring-offset-2 active:scale-95 group">
+                                    <div className="bg-green-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Power size={20} className="text-white" /></div>
+                                    <span className="font-black uppercase tracking-widest text-xs">Start of Day</span>
+                                </button>
+                                <button onClick={() => { onCloseCashSession(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] bg-red-600/20 hover:bg-red-600 border border-red-500/30 transition-all focus:ring-offset-2 active:scale-95 group">
+                                    <div className="bg-red-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><PowerOff size={20} className="text-white" /></div>
+                                    <span className="font-black uppercase tracking-widest text-xs">End of Day</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
       )}
@@ -255,7 +342,7 @@ const Layout: React.FC<LayoutProps> = ({
 
       <UserProfileModal user={currentUser} isOpen={isProfileOpen} onClose={onCloseProfile} onSave={handleProfileUpdate} fieldSettings={fieldSettings} />
       
-      {/* Gap 8: Downtime Confirmation Modal */}
+      {/* Gap 7: Downtime Confirmation Modal */}
       {showDowntimeConfirm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" role="dialog" aria-modal="true" aria-labelledby="downtime-title">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border-4 border-amber-200 animate-in zoom-in-95">

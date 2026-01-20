@@ -38,7 +38,7 @@ export const formatDate = (dateStr: string | undefined | null) => {
 };
 
 export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
-export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure'];
+export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
 
 export const PDA_INFORMED_CONSENT_TEXTS = {
     GENERAL_AUTHORIZATION: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.",
@@ -65,6 +65,7 @@ export const STAFF: User[] = [
       allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
       colorPreference: '#c026d3', 
       clinicHours: '24/7 System Audit Mode',
+      status: 'Active',
   },
   { 
       id: 'admin1', 
@@ -79,7 +80,8 @@ export const STAFF: User[] = [
       allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
       colorPreference: '#ef4444', 
       clinicHours: 'Mon-Sat 8:00AM - 6:00PM',
-      roster: { 'Mon': 'Makati Main', 'Tue': 'Makati Main', 'Wed': 'Makati Main', 'Thu': 'Makati Main', 'Fri': 'Makati Main' }
+      roster: { 'Mon': 'Makati Main', 'Tue': 'Makati Main', 'Wed': 'Makati Main', 'Thu': 'Makati Main', 'Fri': 'Makati Main' },
+      status: 'Active',
   },
   { 
       id: 'doc1', 
@@ -99,7 +101,8 @@ export const STAFF: User[] = [
       colorPreference: '#14b8a6', 
       defaultConsultationFee: 500.00,
       roster: { 'Mon': 'Makati Main', 'Wed': 'Makati Main', 'Fri': 'Makati Main', 'Tue': 'Quezon City Satellite' },
-      commissionRate: 0.40
+      commissionRate: 0.40,
+      status: 'Active',
   },
   { 
       id: 'doc2', 
@@ -112,7 +115,8 @@ export const STAFF: User[] = [
       defaultBranch: 'Quezon City Satellite',
       allowedBranches: ['Makati Main', 'Quezon City Satellite'], 
       colorPreference: '#c026d3', 
-      commissionRate: 0.30
+      commissionRate: 0.30,
+      status: 'Active',
   }
 ];
 
@@ -708,7 +712,6 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableInventory: true,
       inventoryComplexity: 'SIMPLE',
       enableAnalytics: true,
-      enablePatientPortal: false,
       enableDigitalConsent: true,
       enableAutomatedRecall: true,
       enableOnlineForms: true,

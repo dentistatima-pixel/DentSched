@@ -1,15 +1,18 @@
+
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { User as UserIcon, Key, ShieldAlert } from 'lucide-react';
+import { User as UserIcon, Key, ShieldAlert, UserX, Plus, Edit2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface StaffRegistryProps {
     staff: User[];
     onStartImpersonating: (user: User) => void;
     initialTab?: string;
+    onDeactivateStaff: (userId: string) => void;
+    onOpenStaffModal: (staffMember: Partial<User> | null) => void;
 }
 
-const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, initialTab }) => {
+const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, initialTab, onDeactivateStaff, onOpenStaffModal }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'staff');
     
     return (
@@ -20,14 +23,36 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
             </div>
             
             <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-                <h4 className="font-bold mb-4">Clinician Registry</h4>
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-bold">Clinician Registry</h4>
+                    <button onClick={() => onOpenStaffModal(null)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">
+                        <Plus size={16}/> New Staff Member
+                    </button>
+                </div>
                 <div className="space-y-2">
                     {staff.map(user => (
-                        <div key={user.id} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
-                            <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
-                            <div>
-                                <div className="font-bold text-sm text-slate-800">{user.name}</div>
-                                <div className="text-xs text-slate-500">{user.role}</div>
+                        <div key={user.id} className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${user.status === 'Inactive' ? 'bg-slate-200' : 'bg-slate-50 group'}`}>
+                            <img src={user.avatar} alt={user.name} className={`w-10 h-10 rounded-full ${user.status === 'Inactive' ? 'grayscale' : ''}`} />
+                            <div className="flex-1">
+                                <div className={`font-bold text-sm ${user.status === 'Inactive' ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{user.name}</div>
+                                <div className="text-xs text-slate-500">{user.role} {user.status === 'Inactive' && <span className="font-black text-red-600">(INACTIVE)</span>}</div>
+                            </div>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => onOpenStaffModal(user)} className="p-2 bg-white text-slate-500 rounded-lg hover:bg-blue-100 hover:text-blue-700">
+                                    <Edit2 size={16} />
+                                </button>
+                                {user.status !== 'Inactive' && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm(`Are you sure you want to deactivate ${user.name}'s account? They will lose all system access.`)) {
+                                                onDeactivateStaff(user.id);
+                                            }
+                                        }}
+                                        className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                                    >
+                                        <UserX size={16} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -45,7 +70,8 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                         <button 
                             key={user.id} 
                             onClick={() => onStartImpersonating(user)} 
-                            className="flex items-center gap-2 p-2 pr-4 bg-amber-100 hover:bg-amber-200 rounded-full text-xs font-bold text-amber-800 transition-colors"
+                            disabled={user.status === 'Inactive'}
+                            className="flex items-center gap-2 p-2 pr-4 bg-amber-100 hover:bg-amber-200 rounded-full text-xs font-bold text-amber-800 transition-colors disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                         >
                             <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full"/>
                             Impersonate {user.name}

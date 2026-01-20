@@ -1,56 +1,50 @@
+
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
 
 interface RegistrationDentalProps {
-  formData: Partial<Patient>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  previousDentist?: string;
+  lastDentalVisit?: string;
+  notes?: string;
+  onDentalChange: (field: 'previousDentist' | 'lastDentalVisit' | 'notes', value: string) => void;
   readOnly?: boolean;
-  fieldSettings: FieldSettings;
-  isMasked?: boolean;
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    formData, handleChange, readOnly, fieldSettings, isMasked = false
+    previousDentist, lastDentalVisit, notes, onDentalChange, readOnly
 }) => {
-  const handleDynamicAnswerChange = (q: string, val: string) => {
-    const currentAnswers = { ...(formData.registryAnswers || {}) };
-    currentAnswers[q] = val;
-    handleChange({ target: { name: 'registryAnswers', value: currentAnswers } } as any);
-  };
-
-  const dentalFields = fieldSettings.identityLayoutOrder
-    .map(id => {
-        const fieldId = id.replace('field_', '');
-        return fieldSettings.identityFields.find(f => f.id === fieldId);
-    })
-    .filter(f => f && f.section === 'DENTAL');
-
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {dentalFields.map(field => {
-                if (!field) return null;
-                const isDate = field.type === 'date';
-                const value = (formData as any)[field.id] || '';
-                return (
-                    <div key={field.id}>
-                        <label className="label flex items-center gap-2">
-                            {isDate ? <Calendar size={14}/> : <FileText size={14}/>}
-                            {field.label}
-                        </label>
-                        <input 
-                            disabled={readOnly} 
-                            type={field.type} 
-                            name={field.id} 
-                            value={value} 
-                            onChange={handleChange} 
-                            className="input" 
-                        />
-                    </div>
-                );
-            })}
+            <div>
+                <label className="label flex items-center gap-2">
+                    <FileText size={14}/>
+                    Previous Attending Dentist
+                </label>
+                <input 
+                    disabled={readOnly} 
+                    type="text" 
+                    name="previousDentist" 
+                    value={previousDentist || ''} 
+                    onChange={(e) => onDentalChange('previousDentist', e.target.value)} 
+                    className="input" 
+                />
+            </div>
+            <div>
+                <label className="label flex items-center gap-2">
+                    <Calendar size={14}/>
+                    Approximate Date of Last Visit
+                </label>
+                <input 
+                    disabled={readOnly} 
+                    type="date" 
+                    name="lastDentalVisit" 
+                    value={lastDentalVisit || ''} 
+                    onChange={(e) => onDentalChange('lastDentalVisit', e.target.value)} 
+                    className="input" 
+                />
+            </div>
         </div>
         
         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden">
@@ -60,8 +54,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
             </label>
             <textarea 
                 name="notes"
-                value={formData.notes || ''}
-                onChange={handleChange}
+                value={notes || ''}
+                onChange={(e) => onDentalChange('notes', e.target.value)}
                 disabled={readOnly}
                 placeholder="List prior orthodontic work, restorations, extractions, or specific patient fears..."
                 className="input h-48 resize-none bg-white"

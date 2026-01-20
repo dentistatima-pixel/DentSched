@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { Patient, FieldSettings, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -40,23 +35,31 @@ const PatientList: React.FC<PatientListProps> = (props) => {
 
   const getCriticalFlags = (patient: Patient) => {
     const flags: { type: string; value: string }[] = [];
-    const criticalConditions = props.fieldSettings?.criticalRiskRegistry || [];
+    const criticalRegistry = props.fieldSettings?.criticalRiskRegistry || [];
     
-    (patient.allergies || []).forEach(allergy => {
-        if (criticalConditions.includes(allergy) || (patient.allergies || []).length > 1 && allergy !== 'None') {
-            flags.push({ type: 'Allergy', value: allergy });
-        }
-    });
-
+    // Check medical conditions
     (patient.medicalConditions || []).forEach(condition => {
-        if (criticalConditions.includes(condition) || (patient.medicalConditions || []).length > 1 && condition !== 'None') {
+        if (criticalRegistry.includes(condition)) {
             flags.push({ type: 'Condition', value: condition });
         }
     });
 
-    // Problem 6 Fix: Use the full question string as the key.
-    if (patient.registryAnswers?.['Taking Blood Thinners? (Aspirin, Warfarin, etc.)'] === 'Yes') {
-        flags.push({ type: 'Alert', value: 'Taking Blood Thinners' });
+    // Check allergies
+    (patient.allergies || []).forEach(allergy => {
+        if (criticalRegistry.includes(allergy)) {
+            flags.push({ type: 'Allergy', value: allergy });
+        }
+    });
+    
+    // Check registry answers (boolean questions)
+    if (patient.registryAnswers) {
+        Object.entries(patient.registryAnswers).forEach(([question, answer]) => {
+            if (answer === 'Yes' && criticalRegistry.includes(question)) {
+                // Use a simpler label for the flag
+                const simpleLabel = question.replace(/\?.*$/, '').replace(/\(.*\)/, '').trim();
+                flags.push({ type: 'Alert', value: simpleLabel });
+            }
+        });
     }
 
     return flags;

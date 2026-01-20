@@ -15,16 +15,16 @@ interface TreatmentPlanProps {
   featureFlags?: FeatureToggles;
   fieldSettings?: FieldSettings;
   onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
+  onInitiateFinancialConsent: (plan: TreatmentPlanType) => void;
 }
 
-const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings, onOpenRevocationModal }) => {
+const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings, onOpenRevocationModal, onInitiateFinancialConsent }) => {
     const toast = useToast();
     const isApprovalEnabled = featureFlags?.enableTreatmentPlanApprovals ?? true;
 
     // Local State
     const [isCreating, setIsCreating] = useState(false);
     const [newPlanName, setNewPlanName] = useState('');
-    const [consentPlan, setConsentPlan] = useState<TreatmentPlanType | null>(null);
     
     // Informed Refusal State
     const [refusalModal, setRefusalModal] = useState<DentalChartEntry | null>(null);
@@ -139,6 +139,12 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
 
     const handlePlanAction = (planId: string, action: 'submit' | 'approve' | 'reject' | 'revert_to_draft' | 'delete' | 'toggle_disclosure') => {
         const plan = allPlans.find(p => p.id === planId); if (!plan) return;
+        
+        if (action === 'approve') {
+            onInitiateFinancialConsent(plan);
+            return;
+        }
+
         let updatedPlans: TreatmentPlanType[];
         if (action === 'delete') {
             if (!window.confirm(`Delete plan "${plan.name}"?`)) return;
@@ -151,8 +157,6 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
             if (p.id === planId) {
                 switch (action) {
                     case 'submit': return { ...p, status: TreatmentPlanStatus.PENDING_REVIEW };
-                    case 'approve': 
-                        return { ...p, status: TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                     case 'revert_to_draft': return { ...p, status: TreatmentPlanStatus.DRAFT, reviewNotes: undefined };
                     case 'toggle_disclosure': return { ...p, isComplexityDisclosed: !p.isComplexityDisclosed };
                 }
@@ -324,13 +328,6 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                     <div className="flex gap-3"><button onClick={() => setIsCreating(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs">Cancel</button><button onClick={handleCreatePlan} className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs flex items-center gap-2"><CheckCircle size={16}/> Define Strategy</button></div>
                 </div>
             )}
-            
-            {consentPlan && <FinancialConsentModal isOpen={!!consentPlan} onClose={() => setConsentPlan(null)} patient={patient} plan={consentPlan} planItems={(patient.dentalChart || []).filter(i => i.planId === consentPlan.id)} onSave={(sig) => {
-                const updatedPlans = allPlans.map(p => p.id === consentPlan.id ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignature: sig } : p);
-                onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
-                setConsentPlan(null);
-            }} />}
-
         </div>
     );
 };

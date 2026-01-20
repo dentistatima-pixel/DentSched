@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 // Fix: Import missing icons 'Smartphone', 'Banknote', and 'Building2'.
@@ -34,9 +35,12 @@ interface FieldManagementProps {
   appointments: Appointment[];
   currentUser: User;
   onStartImpersonating: (user: User) => void;
+  onDeactivateStaff: (userId: string) => void;
+  onOpenStaffModal: (staffMember: Partial<User> | null) => void;
 }
 
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
+    const { onOpenStaffModal } = props;
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
 
     const sidebarGroups = [
@@ -120,7 +124,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             // Staff Management
             case 'staff':
             case 'privilege_elevation':
-                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} initialTab={activeRegistry} />;
+                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} initialTab={activeRegistry} onDeactivateStaff={props.onDeactivateStaff} onOpenStaffModal={onOpenStaffModal} />;
 
             default:
                 return (
