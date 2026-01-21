@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
-import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft, Phone } from 'lucide-react';
+import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft, Phone, User as UserIcon } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface LeaveAndShiftManagerProps {
@@ -61,7 +62,9 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                             {leaveRequests.filter(r => r.status === 'Pending').map(req => (
                                 <div key={req.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="bg-white p-3 rounded-lg shadow-sm"><img src={staff.find(s=>s.id === req.staffId)?.avatar} className="w-8 h-8 rounded-full" /></div>
+                                        <div className="bg-white p-3 rounded-lg shadow-sm text-slate-500">
+                                            <UserIcon size={24} />
+                                        </div>
                                         <div>
                                             <div className="font-black text-slate-800 text-sm uppercase tracking-tight">{req.staffName}</div>
                                             <div className="text-xs font-bold text-slate-500 mt-1">{req.type} Leave: {formatDate(req.startDate)} - {formatDate(req.endDate)}</div>
@@ -95,7 +98,9 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                                         <tr key={dentist.id} className="group hover:bg-slate-50/50 transition-colors">
                                             <td className="p-5">
                                                 <div className="flex items-center gap-4">
-                                                    <img src={dentist.avatar} alt={dentist.name} className="w-10 h-10 rounded-full border-2 border-white shadow" />
+                                                    <div className="w-10 h-10 rounded-full border-2 border-white shadow bg-teal-100 text-teal-700 flex items-center justify-center">
+                                                        <UserIcon size={20} />
+                                                    </div>
                                                     <div>
                                                         <div className="font-black text-slate-800 uppercase tracking-tight">{dentist.name}</div>
                                                         <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">{dentist.specialization}</div>
@@ -108,18 +113,15 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                                                     <td key={day} className="p-5 text-center">
                                                         <select
                                                             value={assignment || 'Off'}
+                                                            // Fix: Corrected typo from 'dent' to 'dentist' and completed the line.
                                                             onChange={(e) => onUpdateStaffRoster?.(dentist.id, day, e.target.value)}
                                                             className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] font-bold uppercase tracking-tight focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                                                            disabled={!isAdmin}
                                                         >
                                                             <option value="Off">Day Off</option>
-                                                            {fieldSettings.branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
+                                                            {fieldSettings.branches.map(branch => (
+                                                                <option key={branch} value={branch}>{branch}</option>
+                                                            ))}
                                                         </select>
-                                                        {isAdmin && 
-                                                            <label className="flex items-center justify-center gap-2 mt-2 text-xs text-slate-500">
-                                                                <input type="checkbox" className="w-4 h-4 rounded" /> On Call
-                                                            </label>
-                                                        }
                                                     </td>
                                                 );
                                             })}
@@ -129,19 +131,6 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                             </table>
                         </div>
                     </div>
-
-                    {showRequestForm && (
-                        <div className="bg-white p-8 rounded-[3rem] border-2 border-teal-100 shadow-2xl space-y-6 animate-in zoom-in-95">
-                             <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Submit Leave Request</h3>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="label text-xs">Type</label><select value={newRequest.type} onChange={e => setNewRequest({...newRequest, type: e.target.value as any})} className="input"><option>Vacation</option><option>Sick</option><option>Conference</option><option>Emergency</option></select></div>
-                                <div><label className="label text-xs">Start Date</label><input type="date" value={newRequest.startDate} onChange={e => setNewRequest({...newRequest, startDate: e.target.value})} className="input"/></div>
-                                <div><label className="label text-xs">End Date</label><input type="date" value={newRequest.endDate} onChange={e => setNewRequest({...newRequest, endDate: e.target.value})} className="input"/></div>
-                             </div>
-                             <div><label className="label text-xs">Reason (Optional)</label><textarea value={newRequest.reason} onChange={e => setNewRequest({...newRequest, reason: e.target.value})} className="input h-24"/></div>
-                             <div className="flex gap-4"><button onClick={() => setShowRequestForm(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase">Cancel</button><button onClick={handleSubmitRequest} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Submit</button></div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

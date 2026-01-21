@@ -1,7 +1,6 @@
 
-
 import React,
-{ useState, useEffect, useRef, useMemo } from 'react';
+{ useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
@@ -10,30 +9,35 @@ import {
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentStatus, Patient, 
-  LabStatus, FieldSettings, WaitlistEntry, ClinicResource, DentalChartEntry
+  LabStatus, WaitlistEntry, ClinicResource, DentalChartEntry
 } from '../types';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
+import { useModal } from '../contexts/ModalContext';
+import { useAppContext } from '../contexts/AppContext';
+import { useAppointments } from '../contexts/AppointmentContext';
+import { useStaff } from '../contexts/StaffContext';
+import { usePatient } from '../contexts/PatientContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { useClinicalOps } from '../contexts/ClinicalOpsContext';
+import { useNavigate } from '../contexts/RouterContext';
 
-interface CalendarViewProps {
-  appointments: Appointment[];
-  staff: User[];
-  onAddAppointment: (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment, overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string }) => void;
-  onMoveAppointment?: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => void;
-  onUpdateAppointmentStatus?: (appointmentId: string, status: AppointmentStatus) => void;
-  onPatientSelect?: (patientId: string) => void;
-  currentUser?: User;
-  patients?: Patient[];
-  currentBranch?: string;
-  fieldSettings?: FieldSettings;
-  waitlist?: WaitlistEntry[];
-  onPrefillNote?: (prefill: Partial<DentalChartEntry>) => void;
-}
+interface CalendarViewProps {}
 
 const RELIABILITY_THRESHOLD = 70;
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddAppointment, onMoveAppointment, onUpdateAppointmentStatus, onPatientSelect, currentUser, patients = [], currentBranch, fieldSettings, waitlist = [], onPrefillNote }) => {
+const CalendarView: React.FC<CalendarViewProps> = () => {
   const toast = useToast();
+  const { showModal } = useModal();
+  const navigate = useNavigate();
+
+  const { currentUser, currentBranch } = useAppContext();
+  const { appointments, handleMoveAppointment: onMoveAppointment, handleUpdateAppointmentStatus: onUpdateAppointmentStatus } = useAppointments();
+  const { staff } = useStaff();
+  const { patients } = usePatient();
+  const { fieldSettings } = useSettings();
+  const { waitlist } = useClinicalOps();
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
   const [viewDimension, setViewDimension] = useState<'provider' | 'chair'>('provider');
@@ -45,11 +49,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   const longPressTimer = useRef<number | null>(null);
 
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
-  const [overrideConfirmed, setOverrideConfirmed] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState('');
   const [managerPin, setManagerPin] = useState('');
+  const [overrideConfirmed, setOverrideConfirmed] = useState(false);
 
-  // --- Drag and Drop State ---
   const [dragOverInfo, setDragOverInfo] = useState<{colId: string, hour: number, dateIso: string} | null>(null);
 
 
@@ -179,6 +182,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
      }
      return styles;
   };
+  
+  const openAppointmentModal = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment, overrideInfo?: any) => {
+    showModal('appointment', { initialDate: date, initialTime: time, initialPatientId: patientId, existingAppointment: appointmentToEdit, overrideInfo });
+  };
 
   const handleMouseDown = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -198,7 +205,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
   };
 
   const handleSlotClick = (colId: string, hour: number, dateIso: string) => {
-      onAddAppointment(dateIso, `${hour.toString().padStart(2, '0')}:00`);
+      openAppointmentModal(dateIso, `${hour.toString().padStart(2, '0')}:00`);
   };
 
   const handleWaitlistAssign = (entry: WaitlistEntry) => {
@@ -214,30 +221,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
           return;
       }
 
-      onAddAppointment(formattedDate, undefined, entry.patientId);
+      openAppointmentModal(formattedDate, undefined, entry.patientId);
   };
   
   const handleOpenChartWithPrefill = () => {
-    if (inspected && onPrefillNote && onPatientSelect) {
-        onPrefillNote({
-            procedure: inspected.apt.type,
-            resourceId: inspected.apt.resourceId
-        });
-        onPatientSelect(inspected.patient.id);
-        setInspected(null);
-    } else if (inspected && onPatientSelect) {
-        onPatientSelect(inspected.patient.id);
+    if (inspected) {
+        const query = new URLSearchParams();
+        query.set('prefill_procedure', inspected.apt.type);
+        if (inspected.apt.resourceId) {
+            query.set('prefill_resourceId', inspected.apt.resourceId);
+        }
+        navigate(`patients/${inspected.patient.id}?${query.toString()}`);
         setInspected(null);
     }
   };
 
   const executeOverride = () => {
-      if (overrideTarget && selectedManagerId && managerPin === '1234') {
-          onAddAppointment(formattedDate, undefined, overrideTarget.patientId, undefined, { isWaitlistOverride: true, authorizedManagerId: selectedManagerId });
+      const manager = authorizedManagers.find(m => m.id === selectedManagerId);
+      if (overrideTarget && manager && manager.pin === managerPin) {
+          openAppointmentModal(formattedDate, undefined, overrideTarget.patientId, undefined, { isWaitlistOverride: true, authorizedManagerId: selectedManagerId });
           toast.success("Manager Override Verified. Appointment Queued.");
           setOverrideTarget(null);
           setManagerPin('');
-      } else if (managerPin !== '1234') {
+      } else {
           toast.error("Invalid Manager PIN.");
       }
   };
@@ -396,17 +402,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
                                             const provider = staff.find(s => s.id === apt.providerId);
                                             const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
                                             
-                                            if (!patient) return null;
+                                            if (!patient && !apt.isBlock) return null;
+                                            
+                                            if(apt.isBlock) {
+                                              return (
+                                                  <div key={apt.id} className="rounded-xl p-3 bg-slate-100 border-2 border-slate-200 text-slate-500 cursor-not-allowed">
+                                                      <div className="font-black text-sm uppercase tracking-tight truncate">{apt.title}</div>
+                                                      <div className="text-xs uppercase font-bold text-slate-400 mt-1 truncate">{apt.type}</div>
+                                                  </div>
+                                              )
+                                            }
 
                                             return (
                                                 <div 
                                                     key={apt.id} 
                                                     draggable
                                                     onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) }}
-                                                    onMouseDown={(e) => handleMouseDown(e, apt, patient)} 
-                                                    onMouseUp={(e) => handleMouseUp(e, apt, patient)}
+                                                    onMouseDown={(e) => handleMouseDown(e, apt, patient!)} 
+                                                    onMouseUp={(e) => handleMouseUp(e, apt, patient!)}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    onDoubleClick={(e) => { e.stopPropagation(); onAddAppointment(undefined, undefined, undefined, apt); }}
+                                                    onDoubleClick={(e) => { e.stopPropagation(); openAppointmentModal(undefined, undefined, undefined, apt); }}
                                                     className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-black text-slate-600">{apt.time}</span>
@@ -456,7 +471,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
               </div>
               <div className="flex gap-2">
                   <button onClick={() => { setInspected({ apt: peeked.apt, patient: peeked.patient }); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Inspect</button>
-                  <button onClick={() => { onAddAppointment(undefined, undefined, undefined, peeked.apt); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Edit</button>
+                  <button onClick={() => { openAppointmentModal(undefined, undefined, undefined, peeked.apt); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Edit</button>
               </div>
           </div>
       )}
@@ -495,7 +510,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
       </div>
 
       {/* --- WAITLIST SIDE PANEL --- */}
-      <div className={`fixed top-16 bottom-20 right-0 w-96 bg-white border-l border-slate-300 shadow-2xl z-40 transition-transform duration-500 ease-in-out ${showWaitlist ? 'translate-x-0' : 'translate-x-full'}`} role="complementary" aria-label="Waitlist Management">
+      <div className={`fixed top-24 bottom-8 right-0 w-96 bg-white border-l border-slate-300 shadow-2xl z-40 transition-transform duration-500 ease-in-out ${showWaitlist ? 'translate-x-0' : 'translate-x-full'}`} role="complementary" aria-label="Waitlist Management">
           <div className="h-full flex flex-col">
               <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                   <div className="flex items-center gap-3">
@@ -506,7 +521,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, staff, onAddA
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                  {waitlist.map(entry => {
+                  {(waitlist || []).map(entry => {
                       const patient = getPatient(entry.patientId);
                       const isUnreliable = (patient?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD;
                       const hasBalance = (patient?.currentBalance ?? 0) > 0;

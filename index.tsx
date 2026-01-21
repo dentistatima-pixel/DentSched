@@ -1,11 +1,18 @@
+
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ToastProvider } from './components/ToastSystem';
-import { DataProvider } from './dataContext';
 import { AppProvider } from './contexts/AppContext';
+import { ModalProvider } from './contexts/ModalContext';
 import { PatientProvider } from './contexts/PatientContext';
 import { AppointmentProvider } from './contexts/AppointmentContext';
+import { StaffProvider } from './contexts/StaffContext';
+import { InventoryProvider } from './contexts/InventoryContext';
+import { FinancialProvider } from './contexts/FinancialContext';
+import { SettingsProvider } from './contexts/SettingsContext';
+import { ClinicalOpsProvider } from './contexts/ClinicalOpsContext';
+import { Router } from './contexts/RouterContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -28,8 +35,20 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
+  logErrorToService(error: Error, errorInfo: ErrorInfo) {
+    // In a real production app, this would send a report to a service 
+    // like Sentry, LogRocket, or a custom backend endpoint.
+    console.log("SIMULATING: Sending error to remote logging service...", {
+      error: error.toString(),
+      stack: errorInfo.componentStack,
+    });
+  }
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Also log to console for development
     console.error("Uncaught error:", error, errorInfo);
+    // Send to conceptual remote logging service
+    this.logErrorToService(error, errorInfo);
   }
 
   render() {
@@ -55,13 +74,25 @@ root.render(
     <ErrorBoundary>
         <ToastProvider>
             <AppProvider>
-                <PatientProvider>
-                    <AppointmentProvider>
-                        <DataProvider>
-                            <App key="refresh-v16-features" />
-                        </DataProvider>
-                    </AppointmentProvider>
-                </PatientProvider>
+                <SettingsProvider>
+                  <ModalProvider>
+                    <PatientProvider>
+                        <AppointmentProvider>
+                            <StaffProvider>
+                                <InventoryProvider>
+                                    <FinancialProvider>
+                                        <ClinicalOpsProvider>
+                                          <Router>
+                                              <App />
+                                          </Router>
+                                        </ClinicalOpsProvider>
+                                    </FinancialProvider>
+                                </InventoryProvider>
+                            </StaffProvider>
+                        </AppointmentProvider>
+                    </PatientProvider>
+                  </ModalProvider>
+                </SettingsProvider>
             </AppProvider>
         </ToastProvider>
     </ErrorBoundary>

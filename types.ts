@@ -575,8 +575,9 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  pin?: string;
   licenseCategory?: LicenseCategory;
-  avatar: string;
+  avatar?: string;
   specialization?: string;
   prcLicense?: string;
   prcExpiry?: string;

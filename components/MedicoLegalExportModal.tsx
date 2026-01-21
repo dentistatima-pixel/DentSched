@@ -6,17 +6,20 @@ import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { formatDate } from '../constants';
+import { useStaff } from '../contexts/StaffContext';
+import { useAppContext } from '../contexts/AppContext';
 
 interface MedicoLegalExportModalProps {
     isOpen: boolean;
     onClose: () => void;
     patient: Patient;
-    staff: User[];
-    logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
-const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen, onClose, patient, staff, logAction }) => {
+const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen, onClose, patient }) => {
     const toast = useToast();
+    const { staff } = useStaff();
+    const { logAction } = useAppContext();
+    
     const [options, setOptions] = useState({
         includeNarrative: true,
         includeForensicAudit: true,

@@ -1,19 +1,16 @@
 
-
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
 
 interface RegistrationDentalProps {
-  previousDentist?: string;
-  lastVisit?: string;
-  notes?: string;
-  onDentalChange: (field: 'previousDentist' | 'lastVisit' | 'notes', value: string) => void;
+  formData: Partial<Patient>;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   readOnly?: boolean;
 }
 
 const RegistrationDental: React.FC<RegistrationDentalProps> = ({ 
-    previousDentist, lastVisit, notes, onDentalChange, readOnly
+    formData, handleChange, readOnly
 }) => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -27,8 +24,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                     disabled={readOnly} 
                     type="text" 
                     name="previousDentist" 
-                    value={previousDentist || ''} 
-                    onChange={(e) => onDentalChange('previousDentist', e.target.value)} 
+                    value={formData.previousDentist || ''} 
+                    onChange={handleChange} 
                     className="input" 
                 />
             </div>
@@ -41,8 +38,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                     disabled={readOnly} 
                     type="date" 
                     name="lastVisit" 
-                    value={lastVisit || ''} 
-                    onChange={(e) => onDentalChange('lastVisit', e.target.value)} 
+                    value={formData.lastVisit || ''} 
+                    onChange={handleChange} 
                     className="input" 
                 />
             </div>
@@ -55,8 +52,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
             </label>
             <textarea 
                 name="notes"
-                value={notes || ''}
-                onChange={(e) => onDentalChange('notes', e.target.value)}
+                value={formData.notes || ''}
+                onChange={handleChange}
                 disabled={readOnly}
                 placeholder="List prior orthodontic work, restorations, extractions, or specific patient fears..."
                 className="input h-48 resize-none bg-white"

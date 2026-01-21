@@ -91,7 +91,7 @@ interface BooleanFieldProps {
     onFieldClick?: any;
 }
 
-const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, registryAnswers, onRegistryChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
+const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, registryAnswers, onRegistryChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
     const val = registryAnswers?.[q];
     const isYes = val === 'Yes';
     const subVal = (registryAnswers?.[`${q}_details`] as string) || '';
@@ -232,7 +232,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
         const allergy = id.replace('al_', '');
         const isSelected = (allergies || []).includes(allergy);
         return (
-            <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+            <DesignWrapper key={id} id={id} type="allergy" className="col-span-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                 <button 
                     type="button" 
                     onClick={() => !readOnly && onAllergyChange('allergies', allergy)}
@@ -298,7 +298,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-red-50 text-red-600 rounded-2xl"><HeartPulse size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">MEDICAL HISTORY</h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-6">
                 {mainMedicalOrder.map(id => renderSection(id))}
             </div>
         </div>
@@ -309,7 +309,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-lilac-50 text-lilac-600 rounded-2xl"><ShieldAlert size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">Allergies</h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-6">
                 {allergiesOrder.map(id => renderSection(id))}
             </div>
         </div>
@@ -319,7 +319,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-slate-50 text-slate-700 rounded-2xl"><ClipboardList size={24}/></div>
                 <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight">Diagnostic Conditions Registry</h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4">
                 {fieldSettings.medicalConditions.map(condition => {
                     const isSelected = (medicalConditions || []).includes(condition);
                     const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(condition);

@@ -1,6 +1,6 @@
-
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup } from './types';
+// Fix: Add CommunicationChannel to imports for type safety.
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel } from './types';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -60,7 +60,7 @@ export const STAFF: User[] = [
       id: 'ARCHITECT_01', 
       name: 'System Architect (Lead Designer)', 
       role: UserRole.SYSTEM_ARCHITECT, 
-      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Architect',
+      pin: '0000',
       specialization: 'Technical Audit & Design Integrity',
       defaultBranch: 'Makati Main',
       allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
@@ -72,7 +72,7 @@ export const STAFF: User[] = [
       id: 'admin1', 
       name: 'Sarah Connor', 
       role: UserRole.ADMIN, 
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+      pin: '1234',
       specialization: 'Clinic Director',
       prcLicense: 'ADMIN-001', 
       ptrNumber: 'PTR-MAIN-001',
@@ -88,8 +88,8 @@ export const STAFF: User[] = [
       id: 'doc1', 
       name: 'Dr. Alexander Crentist', 
       role: UserRole.DENTIST, 
+      pin: '4321',
       licenseCategory: 'DENTIST',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
       specialization: 'General Dentistry',
       prcLicense: '0123456',
       prcExpiry: getFutureDateStr(15), 
@@ -109,8 +109,8 @@ export const STAFF: User[] = [
       id: 'doc2', 
       name: 'Dr. Maria Clara', 
       role: UserRole.DENTIST, 
+      pin: '5678',
       licenseCategory: 'DENTIST',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maria',
       specialization: 'Pediatric Dentistry',
       prcLicense: '0654321',
       defaultBranch: 'Quezon City Satellite',
@@ -130,6 +130,12 @@ export const PATIENTS: Patient[] = [
         dentalChart: [ { id: 'dc1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(30), price: 20000, planId: 'tp1' } ],
         familyGroupId: 'fam_scott_01',
         registrationStatus: 'Complete',
+        communicationLog: [
+          // Fix: Use CommunicationChannel enum for type safety.
+          { id: 'comm1', timestamp: getPastDateStr(30), channel: CommunicationChannel.SYSTEM, authorId: 'system', authorName: 'dentsched', content: 'Welcome to the practice, Michael!' },
+          // Fix: Use CommunicationChannel enum for type safety.
+          { id: 'comm2', timestamp: getPastDateStr(2), channel: CommunicationChannel.SMS, authorId: 'admin1', authorName: 'Sarah Connor', content: 'Appointment reminder for tomorrow at 10 AM.' }
+        ]
     },
      {
         id: 'p_fam_02', name: 'Dwight Schrute', firstName: 'Dwight', surname: 'Schrute', dob: '1970-01-20', age: 54, sex: 'Male', phone: '0917-333-4444', email: 'd.schrute@dunder.com', lastVisit: getPastDateStr(365), nextVisit: null, currentBalance: 0, recallStatus: 'Overdue',
@@ -616,12 +622,12 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
   medications: [
-      { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days' },
+      { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days', contraindicatedAllergies: ['Penicillin'] },
       { id: 'm2', genericName: 'Clindamycin', brandName: 'Dalacin C', dosage: '300mg', instructions: '1 capsule every 8 hours for 5 days' },
-      { id: 'm3', genericName: 'Co-Amoxiclav', brandName: 'Augmentin', dosage: '625mg', instructions: '1 tablet every 12 hours for 7 days' },
+      { id: 'm3', genericName: 'Co-Amoxiclav', brandName: 'Augmentin', dosage: '625mg', instructions: '1 tablet every 12 hours for 7 days', contraindicatedAllergies: ['Penicillin'] },
       { id: 'm4', genericName: 'Mefenamic Acid', brandName: 'Ponstan', dosage: '500mg', instructions: '1 capsule every 8 hours as needed for pain' },
-      { id: 'm5', genericName: 'Ibuprofen', brandName: 'Advil', dosage: '400mg', instructions: '1 tablet every 6 hours as needed for pain' },
-      { id: 'm6', genericName: 'Celecoxib', brandName: 'Celebrex', dosage: '200mg', instructions: '1 capsule every 12 hours for 3 to 5 days' },
+      { id: 'm5', genericName: 'Ibuprofen', brandName: 'Advil', dosage: '400mg', instructions: '1 tablet every 6 hours as needed for pain', interactions: ['Warfarin', 'Aspirin'] },
+      { id: 'm6', genericName: 'Celecoxib', brandName: 'Celebrex', dosage: '200mg', instructions: '1 capsule every 12 hours for 3 to 5 days', interactions: ['Warfarin'] },
       { id: 'm7', genericName: 'Paracetamol', brandName: 'Biogesic', dosage: '500mg', instructions: '1-2 tablets every 4 hours for fever/mild pain' },
       { id: 'm8', genericName: 'Chlorhexidine Gluconate', brandName: 'Orahex', dosage: '0.12%', instructions: 'Swish 15ml for 30 seconds twice daily' },
       { id: 'm9', genericName: 'Tranexamic Acid', brandName: 'Hemostan', dosage: '500mg', instructions: '1 capsule every 8 hours (for bleeding control)' }
@@ -696,7 +702,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       { id: 'c1', name: 'General Consent', content: 'I, {PatientName}, authorize treatment.' }
   ],
   smartPhrases: [
-      { id: 'sp1', label: 'Routine Checkup', s: 'Patient in for routine prophylaxis. No acute pain.', o: '', a: '', p: '' }
+      { id: 'sp1', label: 'Routine Checkup', s: 'Patient in for routine prophylaxis. No acute pain.', o: 'No significant findings on visual examination. Plaque and calculus present on posterior teeth.', a: 'Generalized gingivitis.', p: 'Performed oral prophylaxis. Provided oral hygiene instructions.' },
+      { id: 'sp2', label: 'Simple Restoration', s: 'Patient reports sensitivity on upper right quadrant.', o: 'Visual inspection reveals caries on tooth #16 occlusal surface.', a: 'Occlusal caries, tooth #16.', p: 'Administered local anesthesia. Placed composite restoration on #16-O. Advised patient on post-op sensitivity.' }
   ],
   paymentModes: ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Credit Card', 'HMO Direct Payout', 'Check'],
   taxConfig: {

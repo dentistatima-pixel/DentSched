@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, FieldSettings, UserRole } from '../types';
-import { Users2, MapPin, ArrowLeft } from 'lucide-react';
+import { Users2, MapPin, ArrowLeft, User as UserIcon } from 'lucide-react';
 
 interface RosterViewProps {
   staff: User[];
@@ -52,7 +52,9 @@ const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings, currentUs
                 <tr key={dentist.id} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="p-5">
                     <div className="flex items-center gap-4">
-                      <img src={dentist.avatar} alt={dentist.name} className="w-10 h-10 rounded-full border-2 border-white shadow" />
+                      <div className="w-10 h-10 rounded-full border-2 border-white shadow bg-teal-100 text-teal-700 flex items-center justify-center">
+                        <UserIcon size={20} />
+                      </div>
                       <div>
                         <div className="font-black text-slate-800 uppercase tracking-tight">{dentist.name}</div>
                         <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">{dentist.specialization}</div>

@@ -1,39 +1,53 @@
+
 import React from 'react';
 import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageCircle, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer } from 'lucide-react';
 import { Appointment, Patient, SyncConflict, User, ClinicalIncident } from '../types';
 import { formatDate } from '../constants';
 
 interface AdminHubProps {
-  onNavigate: (tab: 'financials' | 'inventory' | 'recall' | 'referrals' | 'roster' | 'leave') => void;
   adminQueue: string | null;
-  setAdminQueue: (queue: string | null) => void;
   appointments: Appointment[];
   patients: Patient[];
-  syncConflicts: SyncConflict[];
-  onVerifyDowntimeEntry: (id: string) => void;
+  incidents: ClinicalIncident[];
+  onVerifyDowntime: (id: string) => void;
   onVerifyMedHistory: (id: string) => void;
   onConfirmFollowUp: (id: string) => void;
-  onEditPatient: (patient: Patient) => void;
-  onClearProfessionalismReview: (patientId: string, noteId: string) => void;
-  incidents: ClinicalIncident[];
+  onSavePatient: (patient: Partial<Patient>) => void;
   onResolveIncident: (id: string) => void;
+  onShowModal: (type: string, props: any) => void;
+  onNavigate: (path: string) => void;
 }
 
 const AdminHub: React.FC<AdminHubProps> = ({ 
-  onNavigate,
   adminQueue,
-  setAdminQueue,
   appointments,
   patients,
-  syncConflicts,
-  onVerifyDowntimeEntry,
+  incidents,
+  onVerifyDowntime,
   onVerifyMedHistory,
   onConfirmFollowUp,
-  onEditPatient,
-  onClearProfessionalismReview,
-  incidents,
-  onResolveIncident
+  onSavePatient,
+  onResolveIncident,
+  onShowModal,
+  onNavigate,
 }) => {
+  const syncConflicts: SyncConflict[] = []; // Placeholder
+
+  const setAdminQueue = (queue: string | null) => onNavigate(queue ? `admin/${queue}` : 'admin');
+
+  const onEditPatient = (patient: Patient) => {
+    onShowModal('patientRegistration', { initialData: patient });
+  };
+  
+  const onClearProfessionalismReview = async (patientId: string, noteId: string) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) return;
+
+      const updatedChart = patient.dentalChart?.map(note => 
+        note.id === noteId ? { ...note, needsProfessionalismReview: false } : note
+      );
+      await onSavePatient({ ...patient, dentalChart: updatedChart });
+  };
 
   const professionalismReviews = patients.flatMap(p => 
     (p.dentalChart || [])
@@ -105,7 +119,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
   if (adminQueue && workQueues[adminQueue as keyof typeof workQueues]) {
     const queue = workQueues[adminQueue as keyof typeof workQueues];
     return (
-      <div className="p-4 md:p-8 animate-in fade-in duration-500">
+      <div className="p-8 animate-in fade-in duration-500">
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => setAdminQueue(null)} className="bg-white p-3 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90"><ArrowLeft size={20} className="text-slate-600"/></button>
           <div className="flex items-center gap-3">
@@ -129,7 +143,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
                 </div>
                 <button 
                   onClick={() => {
-                    if (adminQueue === 'downtime') onVerifyDowntimeEntry(item.id);
+                    if (adminQueue === 'downtime') onVerifyDowntime(item.id);
                     if (adminQueue === 'med_history') onVerifyMedHistory(item.id);
                     if (adminQueue === 'post_op') onConfirmFollowUp(item.id);
                     if (adminQueue === 'registrations') onEditPatient(item);
@@ -152,13 +166,13 @@ const AdminHub: React.FC<AdminHubProps> = ({
   }
 
   return (
-    <div className="p-4 md:p-8 animate-in fade-in duration-500">
+    <div className="p-8 animate-in fade-in duration-500">
       <div className="mb-12 text-center">
-        <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter">Administration Hub</h1>
+        <h1 className="text-5xl font-black text-slate-800 tracking-tighter">Administration Hub</h1>
         <p className="text-lg text-slate-500 mt-2 font-medium">Select a module to manage practice resources.</p>
       </div>
 
-      <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="max-w-screen-xl mx-auto grid gap-8 admin-hub-grid">
         {/* Financials Card */}
         <button
           onClick={() => onNavigate('financials')}

@@ -10,6 +10,7 @@ import CryptoJS from 'crypto-js';
 import { getTrustedTime } from '../services/timeService';
 import { useClinicalNotePermissions } from '../hooks/useClinicalNotePermissions';
 import { useDictation } from '../hooks/useDictation';
+import { useAppContext } from '../contexts/AppContext';
 
 
 interface OdontonotesProps {
@@ -37,6 +38,7 @@ type SoapData = Pick<DentalChartEntry, 'subjective' | 'objective' | 'assessment'
 
 export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, onDeleteEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction, fieldSettings, patient, appointments = [], incidents = [], sterilizationCycles = [], onRequestProtocolOverride, onSupervisorySeal }) => {
   const toast = useToast();
+  const { isAuthorityLocked } = useAppContext();
   const isAdvancedInventory = fieldSettings?.features.inventoryComplexity === 'ADVANCED';
   
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
@@ -63,7 +65,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, o
     return appointments.find(a => a.patientId === patient?.id && a.date === today && a.status !== AppointmentStatus.CANCELLED) || null;
   }, [appointments, patient]);
 
-  const { isLockedForAction, getLockReason } = useClinicalNotePermissions(currentUser, patient, activeAppointmentToday, incidents, isArchitect);
+  const { isLockedForAction, getLockReason } = useClinicalNotePermissions(currentUser, patient, activeAppointmentToday, incidents, isArchitect, isAuthorityLocked);
   
   // EPrescription Modal
   const [showRx, setShowRx] = useState(false);

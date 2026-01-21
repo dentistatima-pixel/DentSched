@@ -1,7 +1,5 @@
-
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
-// Fix: Import missing icons 'Smartphone', 'Banknote', and 'Building2'.
 import { 
   Sliders, Settings, ChevronRight, DollarSign, Box, MapPin, User as UserIcon, Pill, 
   ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
@@ -9,7 +7,6 @@ import {
   Smartphone, Banknote, Building2
 } from 'lucide-react';
 
-// Import newly created components
 import FormBuilder from './FormBuilder';
 import ProcedureCatalog from './ProcedureCatalog';
 import AuditTrailViewer from './AuditTrailViewer';
@@ -22,6 +19,7 @@ import StaffRegistry from './StaffRegistry';
 import InfrastructureManager from './InfrastructureManager';
 import ComplianceCenter from './ComplianceCenter';
 import PrintoutsHub from './PrintoutsHub';
+import { useModal } from '../contexts/ModalContext';
 
 interface FieldManagementProps {
   settings: FieldSettings;
@@ -36,11 +34,10 @@ interface FieldManagementProps {
   currentUser: User;
   onStartImpersonating: (user: User) => void;
   onDeactivateStaff: (userId: string) => void;
-  onOpenStaffModal: (staffMember: Partial<User> | null) => void;
 }
 
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
-    const { onOpenStaffModal } = props;
+    const { showModal } = useModal();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
 
     const sidebarGroups = [
@@ -78,6 +75,10 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             { id: 'privilege_elevation', label: 'Privilege Elevation', icon: Key }
         ]}
     ];
+
+    const handleOpenStaffModal = (staffMember: Partial<User> | null) => {
+        showModal('userProfile', { user: staffMember || {}, isStaffEdit: true });
+    };
 
     const renderContent = () => {
         switch (activeRegistry) {
@@ -124,7 +125,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             // Staff Management
             case 'staff':
             case 'privilege_elevation':
-                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} initialTab={activeRegistry} onDeactivateStaff={props.onDeactivateStaff} onOpenStaffModal={onOpenStaffModal} />;
+                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} initialTab={activeRegistry} onDeactivateStaff={props.onDeactivateStaff} onOpenStaffModal={handleOpenStaffModal} />;
 
             default:
                 return (

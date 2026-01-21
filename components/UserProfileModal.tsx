@@ -1,20 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
-import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent } from 'lucide-react';
+import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent, UserCircle } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface UserProfileModalProps {
   user: User;
   isOpen: boolean;
   onClose: () => void;
   onSave?: (updatedUser: User) => void;
-  fieldSettings?: FieldSettings; 
 }
 
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClose, onSave, fieldSettings }) => {
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClose, onSave }) => {
   const toast = useToast();
+  const { fieldSettings } = useSettings();
   const [activeTab, setActiveTab] = useState<'profile' | 'cpd'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<User>(user);
@@ -45,7 +45,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
       onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !fieldSettings) return null;
 
   const totalCpd = (formData.cpdEntries || []).reduce((s, e) => s + e.units, 0);
   const requiredCpd = formData.requiredCpdUnits || 15;
@@ -64,8 +64,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
         
         <div className="bg-teal-900 text-white p-6 relative shrink-0">
           <div className="flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full border-4 border-teal-600 shadow-xl mb-4 bg-white relative group">
-                <img src={formData.avatar} alt={formData.name} className="w-full h-full rounded-full object-cover" />
+            <div className="w-24 h-24 rounded-full border-4 border-teal-600 shadow-xl mb-4 bg-teal-200 relative group flex items-center justify-center">
+                <UserCircle size={60} className="text-teal-700"/>
                 <div className="absolute bottom-0 right-0">
                     <input 
                         type="color" 
@@ -201,7 +201,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
             )}
 
             {activeTab === 'cpd' && (
-                <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="space-y-6 animate-in fade-in duration-300">
                     <div className="bg-white p-6 rounded-2xl border border-teal-100 shadow-sm text-center">
                         <div className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4">PRC Renewal Readiness</div>
                         <div className="relative w-32 h-32 mx-auto">

@@ -1,9 +1,49 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Helper function to check if the user has one of the allowed roles.
+    function hasRole(allowedRoles) {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role in allowedRoles;
     }
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Staff can be read by any authenticated user, but only written by Admins or System Architects.
+    match /staff/{staffId} {
+      allow read: if request.auth != null;
+      allow write: if hasRole(['Administrator', 'System Architect']);
+    }
+
+    // Patients can be read by any authenticated user, but only created/updated
+    // by Admins, Dentists and Architects. Deletion is restricted to Admins/Architects.
+    match /patients/{patientId} {
+      allow read, create, update: if request.auth != null && hasRole(['Administrator', 'System Architect', 'Dentist']);
+      allow delete: if hasRole(['Administrator', 'System Architect']);
+    }
+
+    // Appointments can be managed by Admins, Dentists and Architects
+    match /appointments/{appointmentId} {
+      allow read, write: if request.auth != null && hasRole(['Administrator', 'System Architect', 'Dentist']);
+    }
+    
+    // Settings can only be managed by Admins and Architects
+    match /settings/{docId} {
+        allow read: if request.auth != null;
+        allow write: if hasRole(['Administrator', 'System Architect']);
+    }
+
+    // Inventory can be managed by clinical staff
+     match /inventory/{docId} {
+        allow read, write: if request.auth != null && hasRole(['Administrator', 'System Architect', 'Dentist', 'Dental Assistant']);
+     }
+
+    // Financials are restricted to Admins and Architects
+     match /financials/{docId} {
+         allow read, write: if hasRole(['Administrator', 'System Architect']);
+     }
   }
 }

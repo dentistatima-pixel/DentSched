@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
 
@@ -7,6 +8,7 @@ export const useClinicalNotePermissions = (
     activeAppointmentToday: Appointment | null,
     incidents: ClinicalIncident[],
     isArchitect: boolean,
+    isAuthorityLocked: boolean,
     activeProcedureDef?: ProcedureItem
 ) => {
     const isPediatricBlocked = useMemo(() => {
@@ -20,11 +22,6 @@ export const useClinicalNotePermissions = (
         if (!patient) return false;
         return incidents.some(i => i.patientId === patient.id && i.type === 'Complication' && !i.advisoryCallSigned);
     }, [incidents, patient]);
-
-    const isPrcExpired = useMemo(() => {
-        if (!currentUser.prcLicense || !currentUser.prcExpiry) return false;
-        return new Date(currentUser.prcExpiry) < new Date();
-    }, [currentUser.prcExpiry, currentUser.prcLicense]);
     
     const isMalpracticeExpired = useMemo(() => {
         if (!currentUser.malpracticeExpiry) return false;
@@ -39,15 +36,15 @@ export const useClinicalNotePermissions = (
     const isIndemnityLocked = isMalpracticeExpired && isHighRiskProcedure;
 
     const isLockedForAction = useMemo(() => 
-        isPrcExpired || 
+        isAuthorityLocked || 
         isIndemnityLocked || 
         hasActiveComplication || 
         isPediatricBlocked || 
         (!activeAppointmentToday && !isArchitect),
-    [isPrcExpired, isIndemnityLocked, hasActiveComplication, isPediatricBlocked, activeAppointmentToday, isArchitect]);
+    [isAuthorityLocked, isIndemnityLocked, hasActiveComplication, isPediatricBlocked, activeAppointmentToday, isArchitect]);
 
     const getLockReason = () => {
-        if (isPrcExpired) return "Practitioner PRC license is expired. Update profile to restore authority.";
+        if (isAuthorityLocked) return "Practitioner PRC license is expired. Update profile to restore authority.";
         if (isIndemnityLocked) return "Malpractice insurance is expired. High-risk procedures are suspended.";
         if (hasActiveComplication) return "Patient has an unresolved clinical complication that requires sign-off.";
         if (isPediatricBlocked) return "Minor patient requires guardian consent for today's session.";

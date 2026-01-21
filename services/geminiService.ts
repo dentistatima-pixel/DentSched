@@ -23,7 +23,7 @@ export const chatWithAssistant = async (prompt: string, patientContext?: string)
     return response.text;
   } catch (error) {
     console.error("Gemini API call failed:", error);
-    return "Sorry, I'm having trouble connecting to the AI assistant right now.";
+    throw new Error("Sorry, I'm having trouble connecting to the AI assistant right now.");
   }
 };
 
@@ -65,6 +65,6 @@ export const summarizePatient = async (patient: Patient) => {
       return response.text;
     } catch (error) {
         console.error("Gemini patient summary failed:", error);
-        return "Could not generate patient summary.";
+        throw new Error("Could not generate patient summary.");
     }
 }

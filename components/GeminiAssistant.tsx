@@ -17,10 +17,15 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ patientContext }) => 
     if (!prompt.trim()) return;
     setIsLoading(true);
     setResponse('');
-    const res = await chatWithAssistant(prompt, patientContext);
-    setResponse(res || '');
-    setIsLoading(false);
-    setPrompt('');
+    try {
+        const res = await chatWithAssistant(prompt, patientContext);
+        setResponse(res || '');
+    } catch (error: any) {
+        setResponse(error.message || 'An error occurred.');
+    } finally {
+        setIsLoading(false);
+        setPrompt('');
+    }
   };
 
   if (!isOpen) {

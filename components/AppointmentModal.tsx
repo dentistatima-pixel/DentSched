@@ -1,41 +1,45 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
 import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
+import { useModal } from './ModalContext';
+import { validateAppointment } from '../services/validationService';
+import { usePatient } from '../contexts/PatientContext';
+import { useStaff } from '../contexts/StaffContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { useAppointments } from '../contexts/AppointmentContext';
 
 interface AppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  patients: Patient[];
-  staff: Staff[];
-  appointments: Appointment[]; 
   onSave: (appointment: Appointment) => Promise<void>;
-  onSavePatient?: (patient: Partial<Patient>) => void; 
   onAddToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'patientName'>) => void;
   initialDate?: string;
   initialTime?: string;
   initialPatientId?: string;
   existingAppointment?: Appointment | null;
-  fieldSettings: FieldSettings; 
-  sterilizationCycles?: SterilizationCycle[];
-  onManualOverride?: (gateId: string, reason: string) => void;
-  isDowntime?: boolean;
   overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string; } | null;
+  isDowntime?: boolean;
   isReconciliationMode?: boolean;
   currentBranch: string;
-  onProcedureSafetyCheck?: (patientId: string, procedureName: string, continuation: () => void) => void;
-  onRequestConsent: (patient: Patient, appointment: Appointment, continuation: () => void) => void;
+  readOnly?: boolean;
 }
 
 const AppointmentModal: React.FC<AppointmentModalProps> = ({
-    isOpen, onClose, patients, staff, appointments, onSave, onSavePatient, onAddToWaitlist,
-    initialDate, initialTime, initialPatientId, existingAppointment, fieldSettings,
-    isDowntime, overrideInfo, isReconciliationMode, currentBranch, onProcedureSafetyCheck,
-    onRequestConsent
+    isOpen, onClose, onSave, onAddToWaitlist,
+    initialDate, initialTime, initialPatientId, existingAppointment, 
+    isDowntime, overrideInfo, isReconciliationMode, currentBranch, readOnly = false
 }) => {
     const toast = useToast();
+    const { showModal } = useModal();
+    const { patients } = usePatient();
+    const { staff } = useStaff();
+    const { fieldSettings } = useSettings();
+    const { appointments } = useAppointments();
+
     const [isSaving, setIsSaving] = useState(false);
     const [patientId, setPatientId] = useState('');
     const [providerId, setProviderId] = useState('');
@@ -81,13 +85,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         }
     }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, patients, fieldSettings]);
 
-    useEffect(() => {
-        if (isOpen && patientId && procedureType && onProcedureSafetyCheck && !existingAppointment) { // Don't re-check on edit
-            // The main safety check is now in handleSubmit, but we can keep this for future real-time checks
-        }
-    }, [isOpen, patientId, procedureType, existingAppointment]);
-
-
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPatientSearch(e.target.value);
         if (e.target.value) {
@@ -119,74 +116,42 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     };
 
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        const finalSave = async () => {
-            setIsSaving(true);
-            try {
-                const finalPatientId = isBlock ? 'ADMIN_BLOCK' : patientId;
-                const patient = patients.find(p => p.id === patientId);
-
-                if (!finalPatientId || !providerId || !date || !time || (isBlock ? !blockTitle : !procedureType) || (isBlock ? false : !patient)) {
-                    toast.error("All fields are required.");
-                    setIsSaving(false);
-                    return;
-                }
-
-                const proposedStart = new Date(`${date}T${time}`);
-                const proposedEnd = new Date(proposedStart.getTime() + parseInt(duration) * 60000);
-
-                const conflictingAppointment = appointments.find(apt => {
-                    if (existingAppointment && apt.id === existingAppointment.id) return false;
-                    const existingStart = new Date(`${apt.date}T${apt.time}`);
-                    const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
-                    const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
-                    if (!overlap) return false;
-                    if (resourceId && apt.resourceId === resourceId) return true;
-                    if (!isBlock && apt.providerId === providerId) return true;
-                    return false;
-                });
-
-                if (conflictingAppointment) {
-                    toast.error("Scheduling Conflict: Time slot overlaps with another appointment.");
-                    setIsSaving(false);
-                    return;
-                }
-
-                const appointment: Appointment = {
-                    id: existingAppointment?.id || `apt_${Date.now()}`,
-                    patientId: finalPatientId,
-                    providerId,
-                    resourceId,
-                    branch: currentBranch,
-                    date, time,
-                    durationMinutes: parseInt(duration),
-                    type: isBlock ? 'Clinical Block' : procedureType,
-                    status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
-                    notes,
-                    isBlock,
-                    title: isBlock ? blockTitle : undefined,
-                    isWaitlistOverride: overrideInfo?.isWaitlistOverride,
-                    authorizedManagerId: overrideInfo?.authorizedManagerId,
-                    entryMode: isDowntime ? 'MANUAL' : 'AUTO',
-                };
-                
-                await onSave(appointment);
-                onClose();
-            } catch (error: any) {
-                toast.error(error.message || "Could not save appointment.");
-            } finally {
+        setIsSaving(true);
+        try {
+            const appointmentData: Partial<Appointment> = {
+                id: existingAppointment?.id || generateUid('apt'),
+                patientId: isBlock ? 'ADMIN_BLOCK' : patientId,
+                providerId,
+                resourceId,
+                branch: currentBranch,
+                date,
+                time,
+                durationMinutes: parseInt(duration),
+                type: isBlock ? 'Clinical Block' : procedureType,
+                status: existingAppointment?.status || AppointmentStatus.SCHEDULED,
+                notes,
+                isBlock,
+                title: isBlock ? blockTitle : undefined,
+                isWaitlistOverride: overrideInfo?.isWaitlistOverride,
+                authorizedManagerId: overrideInfo?.authorizedManagerId,
+                entryMode: isDowntime ? 'MANUAL' : 'AUTO',
+            };
+            
+            const errors = validateAppointment(appointmentData, appointments, existingAppointment?.id);
+            if (errors) {
+                Object.values(errors).forEach(errorMsg => toast.error(errorMsg));
                 setIsSaving(false);
+                return;
             }
-        };
-
-        const patient = patients.find(p => p.id === patientId);
-        const procedure = fieldSettings.procedures.find(p => p.name === procedureType);
-        if (procedure?.requiresConsent && !existingAppointment && patient) {
-            onRequestConsent(patient, { id: 'temp' } as Appointment, finalSave);
-        } else {
-            finalSave();
+            
+            await onSave(appointmentData as Appointment);
+            onClose();
+        } catch (error: any) {
+            toast.error(error.message || "Could not save appointment.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -206,7 +171,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 <form id="appointment-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
                     <div className="relative">
                         <label className="label">Patient</label>
-                        <input type="text" value={patientSearch} onChange={handleSearch} className="input" placeholder="Search by name, ID, or phone" />
+                        <input type="text" value={patientSearch} onChange={handleSearch} className="input" placeholder="Search by name, ID, or phone" disabled={readOnly} />
                         {searchResults.length > 0 && (
                             <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-10">
                                 {searchResults.map(p => (
@@ -219,14 +184,14 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <div className="grid grid-cols-2 gap-6">
                         <div>
                             <label className="label">Provider</label>
-                            <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">
+                            <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input" disabled={readOnly}>
                                 <option value="">Select Provider</option>
                                 {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="label">Resource / Chair</label>
-                            <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input">
+                            <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="input" disabled={readOnly}>
                                 <option value="">Select Resource</option>
                                 {fieldSettings.resources.filter(r => r.branch === currentBranch).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                             </select>
@@ -234,15 +199,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-3 gap-6">
-                        <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" /></div>
-                        <div><label className="label">Time</label><input type="time" step="900" value={time} onChange={e => setTime(e.target.value)} className="input" /></div>
-                        <div><label className="label">Duration (min)</label><input type="number" step="15" value={duration} onChange={e => setDuration(e.target.value)} className="input" /></div>
+                        <div><label className="label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" disabled={readOnly}/></div>
+                        <div><label className="label">Time</label><input type="time" step="900" value={time} onChange={e => setTime(e.target.value)} className="input" disabled={readOnly}/></div>
+                        <div><label className="label">Duration (min)</label><input type="number" step="15" value={duration} onChange={e => setDuration(e.target.value)} className="input" disabled={readOnly}/></div>
                     </div>
                     
                     {!isBlock ? (
                         <div>
                             <label className="label">Procedure Type</label>
-                            <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input">
+                            <select value={procedureType} onChange={e => setProcedureType(e.target.value)} className="input" disabled={readOnly}>
                                 <option value="">Select Procedure...</option>
                                 {fieldSettings.procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                             </select>
@@ -250,23 +215,23 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     ) : (
                          <div>
                             <label className="label">Block Title</label>
-                            <input type="text" value={blockTitle} onChange={e => setBlockTitle(e.target.value)} className="input"/>
+                            <input type="text" value={blockTitle} onChange={e => setBlockTitle(e.target.value)} className="input" disabled={readOnly}/>
                          </div>
                     )}
 
                     <div>
                         <label className="label">Notes</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24" placeholder="Clinical notes for the appointment..."></textarea>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24" placeholder="Clinical notes for the appointment..." disabled={readOnly}></textarea>
                     </div>
                 </form>
 
                 <div className="p-6 border-t border-slate-100 flex justify-between items-center shrink-0">
-                    <button type="button" onClick={handleWaitlist} className="px-6 py-3 bg-amber-100 text-amber-800 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-amber-200 transition-all">
+                    <button type="button" onClick={handleWaitlist} disabled={readOnly} className="px-6 py-3 bg-amber-100 text-amber-800 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-amber-200 transition-all disabled:opacity-50 disabled:grayscale">
                         Add to Waitlist
                     </button>
                     <div className="flex gap-3">
                         <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-widest">Cancel</button>
-                        <button type="submit" form="appointment-form" disabled={isSaving} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 disabled:opacity-50 flex items-center gap-2">
+                        <button type="submit" form="appointment-form" disabled={isSaving || readOnly} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 disabled:opacity-50 flex items-center gap-2">
                             {isSaving ? <RotateCcw size={16} className="animate-spin" /> : <Save size={16} />}
                             {isSaving ? 'Saving...' : (existingAppointment ? 'Update' : 'Save')}
                         </button>

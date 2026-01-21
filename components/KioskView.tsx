@@ -1,22 +1,23 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Patient, AuditLogEntry } from '../types';
+import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
+import { STAFF } from '../constants';
+import { usePatient } from '../contexts/PatientContext';
 
 interface KioskViewProps {
-  patients: Patient[];
-  onUpdatePatient: (patient: Partial<Patient>) => void;
   onExitKiosk: () => void;
-  fieldSettings: any;
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
 }
 
 type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affirmation' | 'update' | 'thankyou';
 
-const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExitKiosk, fieldSettings, logAction }) => {
+const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
   const toast = useToast();
+  const { patients, handleSavePatient: onUpdatePatient } = usePatient();
   const [step, setStep] = useState<KioskStep>('welcome');
   
   const [identifier, setIdentifier] = useState('');
@@ -119,8 +120,11 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
 
   const handleExitClick = () => {
       const pin = prompt("Staff PIN to Exit:");
-      if (pin === '1234') onExitKiosk();
-      else toast.error("Incorrect PIN");
+      if (pin && STAFF.some(s => s.pin === pin)) {
+          onExitKiosk();
+      } else {
+          toast.error("Incorrect PIN");
+      }
   };
 
   return (
@@ -387,7 +391,6 @@ const KioskView: React.FC<KioskViewProps> = ({ patients, onUpdatePatient, onExit
                     onClose={() => setStep('welcome')}
                     onSave={handlePatientSave}
                     initialData={foundPatient}
-                    fieldSettings={fieldSettings}
                     isKiosk={true} 
                  />
             </div>
