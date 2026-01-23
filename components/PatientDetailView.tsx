@@ -10,6 +10,7 @@ import { summarizePatient } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
+import { usePatient } from '../contexts/PatientContext';
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
@@ -62,9 +63,9 @@ const InfoItem: React.FC<{ label: string; value?: string | number | null | strin
     const displayValue = Array.isArray(value) ? value.join(', ') : (value || '---');
     return (
         <div className={`p-4 rounded-2xl flex items-start gap-4 ${
-            isFlag ? 'bg-red-200 border border-red-300' : 
-            isSpecial ? 'bg-amber-200 border border-amber-300' : 
-            'bg-slate-50 border border-slate-100'
+            isFlag ? 'bg-red-50 border-2 border-red-200' : 
+            isSpecial ? 'bg-amber-50 border-2 border-amber-200' : 
+            'bg-white border border-slate-100 shadow-sm'
         }`}>
             {Icon && <Icon size={18} className={`mt-1 shrink-0 ${
                 isFlag ? 'text-red-600' : 
@@ -225,6 +226,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const toast = useToast();
   const { can } = useAuthorization();
   const navigate = useNavigate();
+  const { patients } = usePatient();
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -277,6 +279,17 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const patientAppointments = useMemo(() => {
       return appointments.filter(a => a.patientId === patient?.id);
   }, [appointments, patient]);
+  
+  const referrer = useMemo(() => {
+      if (!patient?.referredById) return null;
+      return patients.find(p => p.id === patient.referredById);
+  }, [patient?.referredById, patients]);
+
+  const attendanceString = useMemo(() => {
+      if (!patient?.attendanceStats) return 'No History';
+      const stats = patient.attendanceStats;
+      return `Completed: ${stats.completedCount}/${stats.totalBooked} | No-Shows: ${stats.noShowCount}`;
+  }, [patient?.attendanceStats]);
 
   const handleUpdateChart = (newEntry: DentalChartEntry) => {
     if (!patient) return;
@@ -315,11 +328,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const isProvisional = patient.registrationStatus === 'Provisional';
 
   const tabs = [
-    { id: 'summary', label: 'Summary', icon: BarChart },
+    { id: 'summary', label: 'Details', icon: BarChart },
     { id: 'notes', label: 'Odontonotes', icon: FileText },
     { id: 'chart', label: 'Odontogram', icon: Stethoscope },
-    { id: 'perio', label: 'Perio Chart', icon: History },
-    { id: 'plan', label: 'Tx Plan', icon: ClipboardList },
+    { id: 'perio', label: 'Perio', icon: History },
+    { id: 'plan', label: 'Plan', icon: ClipboardList },
     { id: 'ledger', label: 'Ledger', icon: DollarSign },
     { id: 'imaging', label: 'Imaging', icon: ImageIcon },
     { id: 'compliance', label: 'Compliance', icon: Shield },
@@ -329,16 +342,52 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     switch(activeTab) {
         case 'summary':
             return (
-                <div className="grid gap-6 animate-in fade-in duration-500 patient-summary-grid">
-                    <div className="space-y-6 patient-summary-col-1">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-500">
+                    {/* Column 1: Contact, Personal & Vitals */}
+                    <div className="md:col-span-4 space-y-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Contact & Address</h4>
+                        <InfoItem label="Phone" value={patient.phone} icon={Phone} />
+                        <InfoItem label="Email" value={patient.email} icon={Mail} />
+                        <InfoItem label="Address" value={`${patient.homeAddress || ''}, ${patient.barangay || ''}, ${patient.city || ''}`} icon={MapPin} />
+                        
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4 pt-4">Personal Profile</h4>
+                        <InfoItem label="Sex" value={patient.sex} icon={UserIcon} />
+                        <InfoItem label="Civil Status" value={patient.civilStatus} icon={BookUser} />
+                        <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
+                        <InfoItem label="Blood Group" value={patient.bloodGroup} icon={Heart} />
+                        <InfoItem label="Last BP" value={patient.bloodPressure} icon={Activity} />
+                    </div>
+
+                    {/* Column 2: Insurance & Practice Metrics */}
+                    <div className="md:col-span-4 space-y-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Insurance & Physician</h4>
+                        <InfoItem label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
+                        <InfoItem label="Policy #" value={patient.insuranceNumber} icon={ClipboardCheck} />
+                        <InfoItem label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
+                        <InfoItem label="Attending Physician" value={patient.physicianName ? `${patient.physicianName} (${patient.physicianSpecialty || 'N/A'})` : 'N/A'} icon={Stethoscope} />
+                        
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4 pt-4">Practice Metrics</h4>
+                        <InfoItem label="Reliability Score" value={`${patient.reliabilityScore || 100}%`} icon={CheckCircle} />
+                        <InfoItem label="Attendance" value={attendanceString} icon={History} />
+                        <InfoItem label="Balance" value={`₱${patient.currentBalance?.toLocaleString() || '0'}`} icon={DollarSign} isFlag={(patient.currentBalance || 0) > 0} />
+                        <InfoItem label="Recall Status" value={patient.recallStatus} icon={Zap} />
+                        <InfoItem label="Referred By" value={referrer?.name} icon={Send} />
+                    </div>
+
+                    {/* Column 3: Critical Info & Notes */}
+                    <div className="md:col-span-4 space-y-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Clinical Flags & Notes</h4>
                         <InfoItem label="Chief Complaint" value={patient.chiefComplaint} icon={AlertCircle} isFlag />
                         <InfoItem label="Allergies" value={patient.allergies} icon={AlertCircle} isFlag />
                         <InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={AlertCircle} isFlag />
                         {patient.guardianProfile && <InfoItem label="Guardian" value={`${patient.guardianProfile.legalName} (${patient.guardianProfile.relationship})`} icon={Baby} isSpecial />}
+                        <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
                     </div>
-                    <div className="space-y-6 patient-summary-col-2">
-                        {can('use:ai-features') && (
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200">
+
+                    {/* Full Width: AI Summary */}
+                    {can('use:ai-features') && (
+                        <div className="md:col-span-12">
+                            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-teal-500"/> AI Clinical Summary</h4>
                                     <button onClick={generateSummary} disabled={isSummaryLoading} className="text-xs font-bold text-teal-600 flex items-center gap-1">
@@ -347,37 +396,40 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                                 </div>
                                 {isSummaryLoading ? <p>Loading...</p> : summary ? <ReactMarkdown className="text-sm prose">{summary}</ReactMarkdown> : <p className="text-sm text-slate-400 italic">Generate a summary for a quick overview.</p>}
                             </div>
-                        )}
-                        <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
-                    </div>
-                    <div className="pt-6 border-t border-slate-100 patient-summary-col-3">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4">Chronological History</h4>
-                        <div className="space-y-3">
-                            {patientAppointments.slice().reverse().slice(0, 5).map(apt => {
-                                const provider = staff.find(s => s.id === apt.providerId);
-                                const isSurgical = apt.type.toLowerCase().includes('surg') || apt.type.toLowerCase().includes('extract');
-                                const isCompletedRecently = apt.status === AppointmentStatus.COMPLETED && new Date(apt.date) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-                                const needsHandover = isSurgical && isCompletedRecently && !apt.postOpVerified;
+                        </div>
+                    )}
 
-                                return (
-                                    <div key={apt.id} className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                                        <div className="flex-1">
-                                            <p className="font-bold text-slate-800">{apt.type}</p>
-                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{formatDate(apt.date)} @ {apt.time} with Dr. {provider?.surname || provider?.name}</p>
+                    {/* Full Width: History */}
+                    <div className="md:col-span-12">
+                         <div className="pt-6 border-t border-slate-100">
+                            <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4">Chronological History</h4>
+                            <div className="space-y-3">
+                                {patientAppointments.slice().reverse().slice(0, 5).map(apt => {
+                                    const provider = staff.find(s => s.id === apt.providerId);
+                                    const isSurgical = apt.type.toLowerCase().includes('surg') || apt.type.toLowerCase().includes('extract');
+                                    const isCompletedRecently = apt.status === AppointmentStatus.COMPLETED && new Date(apt.date) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+                                    const needsHandover = isSurgical && isCompletedRecently && !apt.postOpVerified;
+
+                                    return (
+                                        <div key={apt.id} className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-slate-50/50 transition-colors shadow-sm">
+                                            <div className="flex-1">
+                                                <p className="font-bold text-slate-800">{apt.type}</p>
+                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{formatDate(apt.date)} @ {apt.time} with Dr. {provider?.surname || provider?.name}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shadow-sm ${apt.status === AppointmentStatus.COMPLETED ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    {apt.status}
+                                                </span>
+                                                {needsHandover && (
+                                                    <button onClick={() => onOpenPostOpHandover(apt)} className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 animate-pulse hover:animate-none transition-all shadow-lg shadow-amber-500/20">
+                                                        <ShieldCheck size={14}/> Post-Op Handover
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shadow-sm ${apt.status === AppointmentStatus.COMPLETED ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                {apt.status}
-                                            </span>
-                                            {needsHandover && (
-                                                <button onClick={() => onOpenPostOpHandover(apt)} className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 animate-pulse hover:animate-none transition-all shadow-lg shadow-amber-500/20">
-                                                    <ShieldCheck size={14}/> Post-Op Handover
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )
-                            })}
+                                    )
+                                })}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -433,7 +485,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' ? 'bg-slate-50 p-4' : 'p-6'}`}>
+            <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' ? 'bg-slate-50/50 p-4' : 'bg-slate-50/50 p-6'}`}>
                 {renderContent()}
             </div>
         </div>
