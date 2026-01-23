@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -124,7 +125,7 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
         <button 
           onClick={() => showModal('patientRegistration')}
           className="bg-teal-600 text-white p-3 rounded-2xl font-black shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
-          aria-label="New Patient Admission"
+          aria-label="New Patient Registration"
         >
           <UserPlus size={16} />
         </button>

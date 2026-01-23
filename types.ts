@@ -1,6 +1,18 @@
 
 import React from 'react';
 
+export interface Branch {
+  id: string;
+  name: string;
+  legalEntityName: string;
+  address: string;
+  contactNumber: string;
+  email: string;
+  tinNumber?: string;
+  dtiPermitNumber?: string;
+  logoUrl?: string;
+}
+
 export enum UserRole {
   ADMIN = 'Administrator',
   DENTIST = 'Dentist',
@@ -266,6 +278,13 @@ export interface ClinicalIncident {
         patientResponse: string;
         witnessId?: string;
     };
+    isDataBreach?: boolean;
+    breachDetails?: {
+        affectedPatientIds: string[];
+        npcNotifiedAt?: string;
+        npcRefNumber?: string;
+        summary: string;
+    };
 }
 
 export interface Referral {
@@ -485,8 +504,8 @@ export interface FeatureToggles {
   enableSmsAutomation: boolean;
   enableMaterialTraceability: boolean; 
   enableBirComplianceMode: boolean;
-  enableStatutoryBirTrack: boolean; 
-  enableHmoInsuranceTrack: boolean; 
+  enableStatutoryBirTrack: true; 
+  enableHmoInsuranceTrack: true; 
 }
 
 export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency' | 'Reputation';
@@ -562,13 +581,20 @@ export interface OperationalHours {
 
 export interface SmsConfig {
     mode: 'LOCAL' | 'CLOUD';
-    gatewayUrl: string;
-    apiKey: string;
-    cloudUrl?: string;
-    username?: string;
-    password?: string;
-    deviceId?: string;
-    isPollingEnabled: boolean;
+    isPollingEnabled: boolean; // Start on boot
+
+    // Local server config
+    gatewayUrl: string; // Local Address
+    publicAddress?: string;
+    local_username?: string;
+    local_password?: string; 
+    local_deviceId?: string;
+
+    // Cloud server config
+    cloudUrl?: string; // Cloud Address
+    cloud_username?: string;
+    cloud_password?: string;
+    cloud_deviceId?: string; 
 }
 
 export interface User {
@@ -770,6 +796,8 @@ export interface PinboardTask {
   isCompleted: boolean;
   isUrgent: boolean;
   assignedTo: string;
+  createdBy: string;
+  patientId?: string;
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
@@ -985,6 +1013,8 @@ export interface FieldSettings {
   shadeGuides: string[];
   restorativeMaterials: string[];
   branches: string[];
+  branchProfiles: Branch[];
+  documentTemplates: Record<string, { name: string; content: string }>;
   branchColors?: Record<string, string>;
   resources: ClinicResource[];
   assets: MaintenanceAsset[];

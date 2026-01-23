@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
     Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, 
     Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
     ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, 
-    Send, CheckSquare, Plus, Power, PowerOff, LogOut, Sun, Moon 
+    Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
-import { UserRole, SystemStatus, AppNotification } from '../types';
+import { UserRole, SystemStatus, AppNotification, Patient } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -15,6 +15,7 @@ import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
+import { usePatient } from '../contexts/PatientContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,21 +34,39 @@ const Layout: React.FC<LayoutProps> = ({
   const { 
     currentUser, isOnline, systemStatus, setSystemStatus, originalUser: impersonatingUser, 
     handleStopImpersonating, logout: handleLogout,
-    currentBranch, setCurrentBranch, isAuthorityLocked,
-    theme, toggleTheme
+    currentBranch, setCurrentBranch, isAuthorityLocked
   } = useAppContext();
   const { staff } = useStaff();
+  const { patients } = usePatient();
   const { fieldSettings } = useSettings();
-  const { tasks, handleAddTask, handleToggleTask } = useClinicalOps();
+  const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks } = useClinicalOps();
   const { handleStartCashSession, handleCloseCashSession, cashSessions } = useFinancials();
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false);
+  
+  // New Pinboard State
+  const [pinboardTab, setPinboardTab] = useState<'inbox' | 'sent'>('inbox');
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskUrgent, setNewTaskUrgent] = useState(false);
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [newTaskPatientId, setNewTaskPatientId] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState('');
   const taskInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (currentUser) {
+        setNewTaskAssignee(currentUser.id);
+    }
+  }, [currentUser]);
+
   if (!currentUser) return null; // Or a loading/error state
+
+  const patientSearchResults = useMemo(() => {
+    if (!patientSearch) return [];
+    return patients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase())).slice(0, 3);
+  }, [patientSearch, patients]);
 
   const onLogout = () => {
       handleLogout();
@@ -89,8 +108,11 @@ const Layout: React.FC<LayoutProps> = ({
 
   const handleAddNewTask = () => {
     if (handleAddTask && newTaskText.trim()) {
-      handleAddTask(newTaskText, false, currentUser.id);
+      handleAddTask(newTaskText, newTaskUrgent, newTaskAssignee, newTaskPatientId || undefined);
       setNewTaskText('');
+      setNewTaskUrgent(false);
+      setNewTaskPatientId(null);
+      setPatientSearch('');
       taskInputRef.current?.focus();
     }
   };
@@ -116,6 +138,10 @@ const Layout: React.FC<LayoutProps> = ({
     showModal('userProfile', { user: currentUser });
     setIsMobileMenuOpen(false);
   };
+  
+  const inboxTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id).sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0) || (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0)), [tasks, currentUser.id]);
+  const sentTasks = useMemo(() => tasks.filter(t => t.createdBy === currentUser.id && t.assignedTo !== currentUser.id).sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0) || (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0)), [tasks, currentUser.id]);
+  const currentTaskList = pinboardTab === 'inbox' ? inboxTasks : sentTasks;
 
   return (
     <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
@@ -168,25 +194,25 @@ const Layout: React.FC<LayoutProps> = ({
             </nav>
 
              <div className="flex items-center gap-4">
-                 <button onClick={toggleTheme} className="p-3.5 rounded-2xl transition-all bg-white/10 hover:bg-white/20">
-                     {theme === 'light' ? <Moon size={22} /> : <Sun size={22} />}
-                 </button>
-                 <div className="hidden md:flex bg-black/20 p-1 rounded-2xl border border-white/10 gap-1" role="group" aria-label="System status toggle">
-                    <button 
+                {isDowntime ? (
+                    <button
                         onClick={() => setSystemStatus(SystemStatus.OPERATIONAL)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.OPERATIONAL ? 'bg-teal-600 text-white shadow-xl' : 'text-white/60 hover:text-white'}`}
-                        aria-pressed={systemStatus === SystemStatus.OPERATIONAL}
+                        className="p-3.5 rounded-2xl bg-red-600 text-white shadow-xl animate-pulse-red ring-4 ring-red-500/50 transition-all focus:ring-offset-2"
+                        title="System Status: Emergency Mode Active. Click to return to Operational."
+                        aria-label="System Status: Emergency Mode Active. Click to return to Operational."
                     >
-                        Operational
+                        <AlertTriangle size={22} />
                     </button>
-                    <button 
+                ) : (
+                    <button
                         onClick={() => setShowDowntimeConfirm(true)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all focus:ring-offset-2 ${systemStatus === SystemStatus.DOWNTIME ? 'bg-red-600 text-white shadow-xl animate-pulse' : 'text-white/60 hover:text-white'}`}
-                        aria-pressed={systemStatus === SystemStatus.DOWNTIME}
+                        className="p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-teal-300 hover:text-white transition-all focus:ring-offset-2"
+                        title="System Status: Operational. Click to activate Emergency Protocol."
+                        aria-label="System Status: Operational. Click to activate Emergency Protocol."
                     >
-                        Emergency
+                        <ShieldCheck size={22} />
                     </button>
-                 </div>
+                )}
 
                 {/* Pinboard */}
                  <div className="relative">
@@ -202,26 +228,65 @@ const Layout: React.FC<LayoutProps> = ({
                      {isTaskPopoverOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-96 bg-bg-secondary rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-text-primary" role="dialog" aria-labelledby="task-title">
-                                <div className="bg-bg-tertiary border-b border-border-primary p-5 flex justify-between items-center">
-                                    <span id="task-title" className="font-black uppercase tracking-widest text-[10px] text-text-secondary">My Pinboard</span>
+                            <div className="absolute right-0 top-full mt-4 w-[28rem] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
+                                <div className="bg-bg-tertiary border-b border-border-primary p-3 flex justify-between items-center">
+                                    <div className="flex items-center p-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-2xl">
+                                        <button onClick={() => setPinboardTab('inbox')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 ${pinboardTab === 'inbox' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Inbox size={14}/> Inbox</button>
+                                        <button onClick={() => setPinboardTab('sent')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 ${pinboardTab === 'sent' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Send size={14}/> Sent</button>
+                                    </div>
+                                    {pinboardTab === 'inbox' && <button onClick={() => handleClearCompletedTasks(currentUser.id)} className="text-xs font-black text-slate-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12}/> Clear Completed</button>}
                                 </div>
                                 <div className="max-h-96 overflow-y-auto p-3 no-scrollbar">
                                     <div className="space-y-2 p-2">
-                                        {tasks.filter(t => t.assignedTo === currentUser.id).map(task => (
-                                            <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${task.isCompleted ? 'bg-bg-tertiary opacity-50' : 'hover:bg-teal-50 dark:hover:bg-teal-900/20'}`}>
-                                                <button onClick={() => handleToggleTask(task.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${task.isCompleted ? 'bg-teal-600 border-teal-600' : 'border-slate-300 dark:border-slate-600'}`}>
-                                                    {task.isCompleted && <CheckSquare size={14} className="text-white"/>}
-                                                </button>
-                                                <div className={`flex-1 min-w-0 font-bold text-sm ${task.isCompleted ? 'line-through text-text-secondary' : 'text-text-primary'}`}>{task.text}</div>
-                                            </div>
-                                        ))}
+                                        {currentTaskList.map(task => {
+                                            const patient = patients.find(p => p.id === task.patientId);
+                                            const creator = staff.find(s => s.id === task.createdBy);
+                                            const assignee = staff.find(s => s.id === task.assignedTo);
+
+                                            return (
+                                                <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${task.isCompleted ? 'bg-bg-tertiary opacity-60' : task.isUrgent ? 'bg-red-50 dark:bg-red-900/20' : 'hover:bg-teal-50 dark:hover:bg-teal-900/20'}`}>
+                                                    <button onClick={() => handleToggleTask(task.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${task.isCompleted ? 'bg-teal-600 border-teal-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                        {task.isCompleted && <CheckSquare size={14} className="text-white"/>}
+                                                    </button>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`font-bold text-sm leading-tight ${task.isCompleted ? 'line-through text-text-secondary' : 'text-text-primary'}`}>{task.text}</p>
+                                                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                                            {task.isUrgent && <div className="flex items-center gap-1 text-[9px] text-red-700 bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><Flag size={10}/> Urgent</div>}
+                                                            {patient && <button onClick={() => navigate(`patients/${patient.id}`)} className="flex items-center gap-1 text-[9px] text-teal-700 bg-teal-50 dark:bg-teal-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><UserIcon size={10}/> {patient.name}</button>}
+                                                            {pinboardTab === 'inbox' && creator && creator.id !== currentUser.id && <div className="text-[9px] text-slate-500 font-bold">from: {creator.name}</div>}
+                                                            {pinboardTab === 'sent' && assignee && <div className="text-[9px] text-slate-500 font-bold">to: {assignee.name}</div>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {currentTaskList.length === 0 && <p className="text-center text-sm text-slate-400 italic py-8">No tasks here.</p>}
                                     </div>
                                 </div>
-                                <div className="p-4 border-t bg-bg-tertiary">
+                                <div className="p-4 border-t bg-bg-tertiary space-y-3">
                                     <div className="relative">
                                         <input ref={taskInputRef} type="text" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddNewTask()} placeholder="Add new task..." className="input w-full"/>
                                         <button onClick={handleAddNewTask} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 relative">
+                                        <div>
+                                            <select value={newTaskAssignee} onChange={e => setNewTaskAssignee(e.target.value)} className="w-full text-xs font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700">
+                                                <option value={currentUser.id}>Assign to: Me</option>
+                                                {staff.filter(s => s.id !== currentUser.id).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="relative">
+                                            <input type="text" placeholder="Link Patient..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="w-full text-xs font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700"/>
+                                            {patientSearchResults.length > 0 && (
+                                                <div className="absolute bottom-full mb-1 w-full bg-white dark:bg-slate-600 border border-border-primary rounded-lg shadow-lg z-30">
+                                                    {patientSearchResults.map(p => <button key={p.id} onClick={() => { setNewTaskPatientId(p.id); setPatientSearch(p.name); }} className="block w-full text-left p-2 text-xs hover:bg-teal-50 dark:hover:bg-teal-900/50">{p.name}</button>)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                         <button onClick={() => setNewTaskUrgent(!newTaskUrgent)} className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 border-2 ${newTaskUrgent ? 'bg-red-500 text-white border-red-500' : 'bg-white dark:bg-slate-700 border-transparent'}`}><Flag size={12}/> Urgent</button>
+                                         {newTaskPatientId && <div className="text-xs font-bold text-teal-700 flex items-center gap-1"><LinkIcon size={12}/> Linked: {patientSearch}</div>}
                                     </div>
                                 </div>
                             </div>

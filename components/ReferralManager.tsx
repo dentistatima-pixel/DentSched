@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Referral, User as Staff } from '../types';
 import { Send, Users, UserCheck, ChevronRight, Plus, ArrowLeft } from 'lucide-react';
@@ -6,7 +7,7 @@ import { formatDate } from '../constants';
 interface ReferralManagerProps {
     patients: Patient[];
     referrals: Referral[];
-    onSaveReferral: (referral: Referral) => void;
+    onSaveReferral: (referral: Omit<Referral, 'id'>) => void;
     staff: Staff[];
     onBack?: () => void;
 }

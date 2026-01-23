@@ -28,7 +28,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   }), [patients]);
 
   const staticActions = useMemo(() => [
-    { id: 'newPatient', name: 'New Patient Admission', icon: User },
+    { id: 'newPatient', name: 'New Patient Registration', icon: User },
     { id: 'newAppointment', name: 'New Appointment Booking', icon: Calendar },
   ], []);
 

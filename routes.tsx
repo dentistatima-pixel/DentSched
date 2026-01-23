@@ -130,6 +130,7 @@ function FieldManagementContainer() {
     const { auditLog, isAuditLogVerified, currentUser, handleStartImpersonating } = useAppContext();
     const { patients, handlePurgePatient } = usePatient();
     const { appointments } = useAppointments();
+    const { showModal } = useModal();
 
     return <FieldManagement
         settings={fieldSettings} onUpdateSettings={handleUpdateSettings}
@@ -141,6 +142,7 @@ function FieldManagementContainer() {
         appointments={appointments}
         currentUser={currentUser!}
         onStartImpersonating={handleStartImpersonating}
+        showModal={showModal}
     />;
 }
 
@@ -162,7 +164,7 @@ function ReferralManagerContainer() {
     return <ReferralManager
         patients={patients}
         referrals={referrals}
-        onSaveReferral={handleSaveReferral as any} // Cast for now, signature matches
+        onSaveReferral={handleSaveReferral}
         staff={staff}
         onBack={() => navigate('admin')}
     />;
@@ -292,7 +294,6 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   });
   const onEditPatient = (p: Patient) => showModal('patientRegistration', { initialData: p, onSave: handleSavePatient });
   const onOpenRevocationModal = (p: Patient, category: ConsentCategory) => showModal('privacyRevocation', { patient: p, category, onConfirm: (reason: string, notes: string) => handleConfirmRevocation(p, category, reason, notes) });
-  const onOpenMedicoLegalExport = (p: Patient) => showModal('medicoLegalExport', { patient: p });
   const onRequestProtocolOverride = (rule: ClinicalProtocolRule, continuation: () => void) => showModal('protocolOverride', { rule, onConfirm: (reason: string) => { logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${rule.name}. Reason: ${reason}`); continuation(); } });
   const onInitiateFinancialConsent = (plan: TreatmentPlan) => {
     showModal('financialConsent', { 
@@ -317,7 +318,7 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         staff={staff}
         stock={stock}
         currentUser={currentUser}
-        onQuickUpdatePatient={handleSavePatient as any}
+        onQuickUpdatePatient={handleSavePatient}
         onBookAppointment={onBookAppointment}
         onEditPatient={onEditPatient}
         fieldSettings={fieldSettings}
@@ -330,14 +331,13 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onBack={onBack}
         governanceTrack={governanceTrack}
         onOpenRevocationModal={onOpenRevocationModal}
-        onOpenMedicoLegalExport={onOpenMedicoLegalExport}
         readOnly={isReadOnly}
         sterilizationCycles={sterilizationCycles}
         onUpdateSettings={handleUpdateSettings}
         onRequestProtocolOverride={onRequestProtocolOverride}
         onDeleteClinicalNote={(noteId: string) => handleDeleteClinicalNote(patient.id, noteId)}
         onInitiateFinancialConsent={onInitiateFinancialConsent}
-        onSupervisorySeal={onSupervisorySeal}
+        onSupervisorySeal={handleSupervisorySeal}
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
       />

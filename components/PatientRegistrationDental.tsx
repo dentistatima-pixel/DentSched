@@ -15,8 +15,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
 }) => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+        <div className="orientation-grid gap-6">
+            <div className="col-span-6">
                 <label className="label flex items-center gap-2">
                     <FileText size={14}/>
                     Previous Attending Dentist
@@ -30,7 +30,7 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                     className="input" 
                 />
             </div>
-            <div>
+            <div className="col-span-6">
                 <label className="label flex items-center gap-2">
                     <Calendar size={14}/>
                     Approximate Date of Last Visit

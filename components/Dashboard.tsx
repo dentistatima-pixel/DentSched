@@ -385,15 +385,14 @@ const Dashboard: React.FC<DashboardProps> = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="orientation-flex items-center gap-6">
+      <div className="flex items-center justify-between gap-6">
         <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">Home</h1>
-        <div className="flex-1" />
-        <div className="flex items-center gap-3 w-full header-actions">
-            <button onClick={() => setIsSearchOpen(true)} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40 btn-tactile" aria-label="Open global search"><Search size={16}/> Search</button>
-            <button onClick={() => showModal('patientRegistration')} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile"><UserPlus size={16}/> New</button>
-            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile"><CalendarPlus size={16}/> Appointment</button>
-            <button onClick={() => showModal('quickAddPatient')} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-900/40 btn-tactile"><Plus size={16}/> Quick Add</button>
-            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile"><Zap size={16}/> Walk-In</button>
+        <div className="flex items-center gap-3">
+            <button onClick={() => setIsSearchOpen(true)} className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40 btn-tactile" aria-label="Open global search"><Search size={16}/> Search</button>
+            <button onClick={() => showModal('patientRegistration')} className="flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile"><UserPlus size={16}/> New</button>
+            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile"><CalendarPlus size={16}/> Appt</button>
+            <button onClick={() => showModal('quickAddPatient')} className="flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-900/40 btn-tactile"><Plus size={16}/> Quick Add</button>
+            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile"><Zap size={16}/> Walk-In</button>
         </div>
       </div>
 

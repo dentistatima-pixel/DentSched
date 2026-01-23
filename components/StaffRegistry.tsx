@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { User as UserIcon, Key, ShieldAlert, UserX, Plus, Edit2 } from 'lucide-react';
@@ -32,7 +31,6 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                 <div className="space-y-2">
                     {staff.map(user => (
                         <div key={user.id} className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${user.status === 'Inactive' ? 'bg-slate-200' : 'bg-slate-50 group'}`}>
-                            <img src={user.avatar} alt={user.name} className={`w-10 h-10 rounded-full ${user.status === 'Inactive' ? 'grayscale' : ''}`} />
                             <div className="flex-1">
                                 <div className={`font-bold text-sm ${user.status === 'Inactive' ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{user.name}</div>
                                 <div className="text-xs text-slate-500">{user.role} {user.status === 'Inactive' && <span className="font-black text-red-600">(INACTIVE)</span>}</div>

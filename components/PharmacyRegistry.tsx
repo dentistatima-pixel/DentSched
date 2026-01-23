@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FieldSettings, Medication } from '../types';
 import { Pill, Plus, Save } from 'lucide-react';
@@ -23,12 +24,8 @@ const PharmacyRegistry: React.FC<PharmacyRegistryProps> = ({ settings, onUpdateS
     };
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Pharmacy Registry</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Manage e-prescription medication catalog.</p>
-                </div>
+        <div className="animate-in fade-in duration-300">
+            <div className="flex justify-end mb-6">
                 <button onClick={() => setEditingMedication({})} className="bg-teal-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2"><Plus size={16}/> Add Medication</button>
             </div>
             

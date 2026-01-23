@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FieldSettings, ProcedureItem } from '../types';
 import { Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
@@ -63,9 +64,8 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
-                <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Procedure Catalog</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Standard service definitions and fees</p></div>
+        <div className="animate-in fade-in duration-300">
+            <div className="flex justify-end mb-6">
                 <button onClick={() => { setEditingProcedure({ name: '', category: 'General' }); setEditingProcedurePrice(0); }} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Procedure</button>
             </div>
             <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FieldSettings } from '../types';
 import { Layers, Plus, Trash2 } from 'lucide-react';
@@ -49,11 +50,7 @@ const MaterialsRegistry: React.FC<MaterialsRegistryProps> = ({ settings, onUpdat
     };
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Shade & Materials</h3>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Manage restorative and cosmetic material options.</p>
-            </div>
+        <div className="animate-in fade-in duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <ListManager 
                     title="Shade Guides"

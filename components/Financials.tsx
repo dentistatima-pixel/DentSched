@@ -417,7 +417,7 @@ const Financials: React.FC<FinancialsProps> = (props) => {
   }
 
   return (
-    <div className="h-full flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <header className="flex-shrink-0 flex orientation-flex justify-between items-start gap-6">
           <div className="flex items-center gap-4">
               {onBack && (
@@ -433,7 +433,7 @@ const Financials: React.FC<FinancialsProps> = (props) => {
           </button>
       </header>
 
-      <div className="bg-bg-secondary rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white dark:border-slate-800/50 flex-1 flex flex-col overflow-hidden relative">
+      <div className="bg-bg-secondary rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white dark:border-slate-800/50 flex flex-col relative">
           <div className="flex border-b border-border-primary px-8 shrink-0 bg-slate-50/50 dark:bg-slate-900/20 overflow-x-auto no-scrollbar justify-between items-center" role="tablist" aria-label="Financial Sections">
               <div className="flex gap-2 pt-2">
                   <button role="tab" onClick={() => setActiveTab('analytics')} className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all ${activeTab === 'analytics' ? 'border-teal-600 text-teal-900 dark:text-teal-300 bg-bg-secondary' : 'border-transparent text-text-secondary'}`}><BarChart2 size={18}/> Analytics</button>
@@ -443,7 +443,7 @@ const Financials: React.FC<FinancialsProps> = (props) => {
               </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-10 bg-bg-primary/50 no-scrollbar">
+          <div className="p-10 bg-bg-primary/50">
               {renderContent()}
           </div>
       </div>

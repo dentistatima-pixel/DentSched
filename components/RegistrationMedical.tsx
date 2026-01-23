@@ -298,7 +298,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-red-50 text-red-600 rounded-2xl"><HeartPulse size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">MEDICAL HISTORY</h4>
             </div>
-            <div className="grid grid-cols-12 gap-6">
+            <div className="orientation-grid gap-6">
                 {mainMedicalOrder.map(id => renderSection(id))}
             </div>
         </div>
@@ -309,7 +309,7 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-lilac-50 text-lilac-600 rounded-2xl"><ShieldAlert size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">Allergies</h4>
             </div>
-            <div className="grid grid-cols-12 gap-6">
+            <div className="orientation-grid gap-6">
                 {allergiesOrder.map(id => renderSection(id))}
             </div>
         </div>
@@ -319,12 +319,12 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                 <div className="p-3 bg-slate-50 text-slate-700 rounded-2xl"><ClipboardList size={24}/></div>
                 <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight">Diagnostic Conditions Registry</h4>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="orientation-grid gap-4">
                 {fieldSettings.medicalConditions.map(condition => {
                     const isSelected = (medicalConditions || []).includes(condition);
                     const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(condition);
                     return (
-                        <DesignWrapper key={condition} id={condition} type="condition" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                        <DesignWrapper key={condition} id={condition} type="condition" className="col-span-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                             <button 
                                 type="button" 
                                 onClick={() => !readOnly && onConditionChange('medicalConditions', condition)}

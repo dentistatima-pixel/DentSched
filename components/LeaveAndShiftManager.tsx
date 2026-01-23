@@ -113,7 +113,6 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                                                     <td key={day} className="p-5 text-center">
                                                         <select
                                                             value={assignment || 'Off'}
-                                                            // Fix: Corrected typo from 'dent' to 'dentist' and completed the line.
                                                             onChange={(e) => onUpdateStaffRoster?.(dentist.id, day, e.target.value)}
                                                             className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] font-bold uppercase tracking-tight focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                                                         >

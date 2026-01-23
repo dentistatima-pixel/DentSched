@@ -24,7 +24,7 @@ interface PatientDetailViewProps {
   staff: User[];
   stock?: StockItem[];
   currentUser: User;
-  onQuickUpdatePatient: (patient: Patient) => void;
+  onQuickUpdatePatient: (patient: Partial<Patient>) => void;
   onBookAppointment: (patientId: string) => void;
   onEditPatient: (patient: Patient) => void; 
   fieldSettings?: FieldSettings; 
@@ -37,7 +37,6 @@ interface PatientDetailViewProps {
   onBack?: () => void;
   governanceTrack: GovernanceTrack;
   onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
-  onOpenMedicoLegalExport: (patient: Patient) => void;
   readOnly?: boolean;
   sterilizationCycles?: SterilizationCycle[];
   onUpdateSettings?: (settings: FieldSettings) => void;
@@ -76,7 +75,7 @@ const InfoItem: React.FC<{ label: string; value?: string | number | null | strin
 
 const DiagnosticGallery: React.FC<{
     patient: Patient,
-    onQuickUpdatePatient: (p: Patient) => void
+    onQuickUpdatePatient: (p: Partial<Patient>) => void
 }> = ({ patient, onQuickUpdatePatient }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -105,8 +104,8 @@ const DiagnosticGallery: React.FC<{
             url: base64String,
             date: new Date().toISOString().split('T')[0],
         };
-        const updatedPatient: Patient = {
-            ...patient,
+        const updatedPatient: Partial<Patient> = {
+            id: patient.id,
             files: [...(patient.files || []), newFile]
         };
         onQuickUpdatePatient(updatedPatient);
@@ -165,16 +164,50 @@ export const PatientPlaceholder: React.FC = () => {
 
 interface ComplianceTabProps {
     patient: Patient;
+    onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
 }
 
-const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient }) => {
-    return <div>Compliance Tab for {patient.name}</div>
-}
+const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, onOpenRevocationModal }) => {
+    return (
+        <div className="animate-in fade-in duration-500 space-y-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3">
+                    <Shield size={18} className="text-teal-600"/>
+                    Data Privacy Act (RA 10173) Consent Registry
+                </h4>
+                <div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                        <div>
+                            <p className="font-bold text-slate-700">Clinical Processing Consent</p>
+                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                        </div>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                        <div>
+                            <p className="font-bold text-slate-700">Marketing Communications Consent</p>
+                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                        </div>
+                        <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                    </div>
+                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                        <div>
+                            <p className="font-bold text-slate-700">Third-Party Disclosure Consent</p>
+                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                        </div>
+                        <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = ({ 
     patient, appointments, staff, stock = [], currentUser, onQuickUpdatePatient, onBookAppointment, onEditPatient, 
     fieldSettings, logAction, incidents = [], onSaveIncident, referrals = [], onSaveReferral, onBack,
-    governanceTrack, onOpenRevocationModal, onOpenMedicoLegalExport, readOnly, sterilizationCycles, onUpdateSettings,
+    governanceTrack, onOpenRevocationModal, readOnly, sterilizationCycles, onUpdateSettings,
     onRequestProtocolOverride, onDeleteClinicalNote, onInitiateFinancialConsent, onSupervisorySeal,
     onRecordPaymentWithReceipt, onOpenPostOpHandover
 }) => {
@@ -299,7 +332,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
         case 'plan': return <TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/>;
         case 'ledger': return <PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} />;
         case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
-        case 'compliance': return <ComplianceTab patient={patient} />;
+        case 'compliance': return <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />;
         default: return null;
     }
   }
@@ -338,9 +371,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                         </button>
                     ))}
                 </div>
-                 <button onClick={() => onOpenMedicoLegalExport(patient)} className="px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 text-red-500 hover:bg-red-50">
-                    <Download size={14}/> Medico-Legal Export
-                </button>
             </div>
 
             <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' ? 'bg-slate-50 p-4' : 'p-6'}`}>

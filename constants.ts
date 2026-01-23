@@ -1,6 +1,7 @@
+
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
 // Fix: Add CommunicationChannel to imports for type safety.
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch } from './types';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -53,6 +54,104 @@ export const PDA_INFORMED_CONSENT_TEXTS = {
     PERIODONTAL: "I understand that periodontal disease is a serious condition causing gum & bone inflammation &/or loss & that can lead eventually to the loss of my teeth. I understand the alternative treatment plans to correct periodontal disease, including gum surgery tooth extractions with or without replacement. I understand that undertaking any dental procedures may have future adverse effect on my periodontal Conditions.",
     FILLINGS: "I understand that care must be exercised in chewing on fillings, especially during the first 24 hours to avoid breakage. I understand that a more extensive filling or a crown may be required, as additional decay or fracture may become evident after initial excavation. I understand that significant sensitivity is a common, but usually temporary, after-effect of a newly placed filling. I further understand that filling a tooth may irritate the nerve tissue creating sensitivity & treating such sensitivity could require root canal therapy or extractions.",
     DENTURES: "I understand that wearing of dentures can be difficult. Sore spots, altered speech & difficulty in eating are common problems. Immediate dentures (placement of denture immediately after extractions) may be painful. Immediate dentures may require considerable adjusting & several relines. I understand that it is my responsibility to return for delivery of dentures. I understand that failure to keep my delivery appointment may result in poorly fitted dentures. If a remake is required due to my delays of more than 30 days, there will be additional charges. A permanent reline will be needed later, which is not included in the initial fee. I understand that all adjustment or alterations of any kind after this initial period is subject to charges."
+};
+
+export const MOCK_BRANCH_PROFILES: Branch[] = [
+  {
+    id: 'makati-main',
+    name: 'Makati Main',
+    legalEntityName: 'Ivory Dental Office Inc.',
+    address: '123 Ayala Avenue, Makati City, Metro Manila 1226',
+    contactNumber: '(02) 8888-1234',
+    email: 'contact@ivorydental-makati.ph',
+    tinNumber: '123-456-789-000',
+    dtiPermitNumber: 'DTI-12345678',
+    logoUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=dentsched&backgroundColor=134e4a'
+  },
+  {
+    id: 'qc-satellite',
+    name: 'Quezon City Satellite',
+    legalEntityName: 'Ivory Dental QC Branch',
+    address: '456 Katipunan Avenue, Quezon City, Metro Manila',
+    contactNumber: '(02) 8987-6543',
+    email: 'contact@ivorydental-qc.ph',
+    tinNumber: '987-654-321-000',
+    dtiPermitNumber: 'DTI-87654321',
+  }
+];
+
+export const DEFAULT_DOCUMENT_TEMPLATES: Record<string, { name: string; content: string }> = {
+  'med_cert': {
+    name: 'Medical Certificate',
+    content: `## MEDICAL CERTIFICATE
+
+**Date:** {currentDate}
+
+This is to certify that **{patientName}**, {patientAge} years old, of {patientAddress}, was seen and examined at **{clinicName}** on the date above with the following findings:
+
+**Diagnosis:**
+{diagnosis}
+
+**Recommendations:**
+{recommendations}
+
+This certificate is issued upon the patient's request for whatever legal purpose it may serve.
+
+
+---
+**{practitionerName}**
+*{practitionerSpecialty}*
+PRC License No: {practitionerPrc}
+Clinic Address: {clinicAddress}
+`
+  },
+  'soa': {
+    name: 'Statement of Account',
+    content: `# STATEMENT OF ACCOUNT
+
+**{clinicName}**
+{clinicAddress}
+TIN: {clinicTin}
+
+---
+
+**Patient:** {patientName}
+**Patient ID:** {patientId}
+**Date Issued:** {currentDate}
+
+| Date       | Description          | Charge (PHP) | Payment (PHP) | Balance (PHP) |
+|------------|----------------------|--------------|---------------|---------------|
+{ledgerRows}
+
+### Total Balance Due: PHP {patientBalance}
+`
+  },
+  'rx': {
+    name: 'Prescription',
+    content: `
+**{practitionerName}**
+{practitionerSpecialty}
+PRC: {practitionerPrc} | PTR: {practitionerPtr} | S2: {practitionerS2}
+
+---
+
+**Patient:** {patientName}
+**Age:** {patientAge}
+**Date:** {currentDate}
+
+---
+
+### Rx
+
+**{medicationGenericName}**
+({medicationBrandName})
+Dosage: {medicationDosage}
+
+Disp: #{medicationQuantity}
+
+Sig: {medicationInstructions}
+`
+  }
 };
 
 export const STAFF: User[] = [
@@ -132,7 +231,7 @@ export const PATIENTS: Patient[] = [
         registrationStatus: 'Complete',
         communicationLog: [
           // Fix: Use CommunicationChannel enum for type safety.
-          { id: 'comm1', timestamp: getPastDateStr(30), channel: CommunicationChannel.SYSTEM, authorId: 'system', authorName: 'dentsched', content: 'Welcome to the practice, Michael!' },
+          { id: 'comm1', timestamp: getPastDateStr(30), channel: CommunicationChannel.SYSTEM, authorId: 'system', authorName: 'System', content: 'Welcome to the practice, Michael!' },
           // Fix: Use CommunicationChannel enum for type safety.
           { id: 'comm2', timestamp: getPastDateStr(2), channel: CommunicationChannel.SMS, authorId: 'admin1', authorName: 'Sarah Connor', content: 'Appointment reminder for tomorrow at 10 AM.' }
         ]
@@ -424,19 +523,45 @@ export const MOCK_VENDORS: Vendor[] = [
 ];
 
 const DEFAULT_SMS: SmsTemplates = {
-    welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to dentsched, {PatientName}! Your digital health record is now active.', enabled: true, category: 'Onboarding', triggerDescription: 'New patient registration.' },
+    // Onboarding & Patient Management
+    welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to {ClinicName}, {PatientName}! Your digital health record is now active.', enabled: true, category: 'Onboarding', triggerDescription: 'New patient registration.' },
     update_registration: { id: 'update_registration', label: 'Registration Updated', text: 'Hi {PatientName}, we have successfully updated your patient profile and medical records. Thank you for keeping your data current.', enabled: true, category: 'Efficiency', triggerDescription: 'Existing patient data update.' },
+    yearly_data_verification: { id: 'yearly_data_verification', label: 'Yearly Data Verification', text: 'Hi {PatientName}, to ensure compliance with the Data Privacy Act, please tap this link to quickly verify or update your medical and personal information for the year: {Link}', enabled: true, category: 'Security', triggerDescription: 'Annual patient data verification request.' },
+    
+    // Appointments & Scheduling
     booking: { id: 'booking', label: 'Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor}.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment scheduled.' },
+    appointment_reminder_24h: { id: 'appointment_reminder_24h', label: '24-Hour Reminder', text: 'Hi {PatientName}, this is a friendly reminder for your appointment tomorrow, {Date}, at {Time} with {Doctor}. If you need to reschedule, please call our clinic.', enabled: true, category: 'Logistics', triggerDescription: '24 hours before a scheduled appointment.' },
     reschedule: { id: 'reschedule', label: 'Reschedule Alert', text: 'Your session has been moved. New Slot: {Date} @ {Time}. See you then!', enabled: true, category: 'Logistics', triggerDescription: 'Appointment date/time changed.' },
     cancellation: { id: 'cancellation', label: 'Cancellation Confirmation', text: 'Your appointment for {Date} has been cancelled. We look forward to seeing you in the future.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment status set to Cancelled.' },
+    clinic_late: { id: 'clinic_late', label: 'Clinic Running Late', text: 'Hi {PatientName}, we are running slightly behind schedule at {ClinicName} today. We apologize for any inconvenience and appreciate your patience.', enabled: false, category: 'Logistics', triggerDescription: 'Manual trigger by front-desk for delays.' },
+    ready_to_seat: { id: 'ready_to_seat', label: 'Ready to be Seated', text: 'Hi {PatientName}, we\'re ready for you! Please proceed to the reception desk to be seated for your appointment.', enabled: false, category: 'Logistics', triggerDescription: 'When patient is next in line from waiting room.' },
+    missed_appointment: { id: 'missed_appointment', label: 'Missed Appointment', text: 'We missed you at your appointment today at {ClinicName}. Please call us at your earliest convenience to reschedule.', enabled: true, category: 'Logistics', triggerDescription: 'When appointment is marked as No-Show.' },
+    waitlist_confirmation: { id: 'waitlist_confirmation', label: 'Waitlist Confirmation', text: 'You have been added to the waitlist at {ClinicName} for {Procedure}. We will notify you as soon as a slot that matches your preference becomes available.', enabled: true, category: 'Logistics', triggerDescription: 'Patient is added to the waitlist.' },
+    waitlist_opening: { id: 'waitlist_opening', label: 'Waitlist Opening', text: 'Good news! A slot for {Procedure} has opened up at {ClinicName} on {Date} at {Time}. Please call us within the next hour if you would like to claim this appointment.', enabled: true, category: 'Logistics', triggerDescription: 'A suitable slot opens up for a waitlisted patient.' },
+    
+    // Clinical & Treatment
     treatment_signed: { id: 'treatment_signed', label: 'Clinical Note Receipt', text: 'Clinical Record Sealed: Your signature has been bound to today\'s session record for {Procedure}.', enabled: true, category: 'Safety', triggerDescription: 'Patient signs a clinical note.' },
-    followup_1w: { id: 'followup_1w', label: '7-Day Post-Op Check', text: 'Hi {PatientName}, it has been a week since your {Procedure}. We hope you are healing well! Text us if you have any discomfort.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-week follow-up after signed treatment.' },
+    followup_1w: { id: 'followup_1w', label: '7-Day Post-Op Check', text: 'Hi {PatientName}, it has been a week since your {Procedure}. We hope you are healing well! Please call our clinic if you have any discomfort.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-week follow-up after signed treatment.' },
     followup_1m: { id: 'followup_1m', label: '1-Month Wellness Check', text: 'Checking in: It has been a month since your {Procedure}. Don\'t forget to maintain good hygiene for lasting results!', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-month follow-up.' },
     followup_3m: { id: 'followup_3m', label: '3-Month Recall Preparation', text: 'Time flies! It has been 3 months since your last major procedure. We recommend a cleaning soon to protect your investment.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 3-month follow-up.' },
     medical_clearance: { id: 'medical_clearance', label: 'Medical Clearance Request', text: 'Action Required: Your dentist requests medical clearance from your {Provider} specialist for your upcoming procedure.', enabled: true, category: 'Safety', triggerDescription: 'Practitioner requests physician clearance.' },
-    referral_thanks: { id: 'referral_thanks', label: 'Referral Thank You', text: 'Thank you {PatientName}! We noticed you referred a new patient to our practice. We appreciate your trust!', enabled: true, category: 'Reputation', triggerDescription: 'New patient lists this patient as referral source.' },
+    lab_delay: { id: 'lab_delay', label: 'Laboratory Set Delay', text: 'Service Update: The lab set for your {Procedure} has been delayed. Please await further notice before visiting.', enabled: true, category: 'Logistics', triggerDescription: 'Lab status set to Delayed.' },
+    lab_received: { id: 'lab_received', label: 'Lab Case Received', text: 'Good news! Your lab work (e.g., crown, denture) for {Procedure} has arrived at {ClinicName}. Please call us to schedule your fitting appointment.', enabled: true, category: 'Logistics', triggerDescription: 'Lab case status is marked as Received.' },
+    new_prescription: { id: 'new_prescription', label: 'e-Prescription Issued', text: 'Your e-prescription from {Doctor} for {Medication} has been issued. Please check your email or pick up a printed copy at the clinic.', enabled: true, category: 'Safety', triggerDescription: 'An e-prescription is generated for the patient.' },
+    treatment_plan_review: { id: 'treatment_plan_review', label: 'Treatment Plan Ready', text: 'Hi {PatientName}, your proposed treatment plan is ready for your review. Please visit the clinic to discuss the details.', enabled: true, category: 'Efficiency', triggerDescription: 'A new treatment plan is created for the patient.' },
+
+    // Financial & Billing
     philhealth_status: { id: 'philhealth_status', label: 'PhilHealth Claim Update', text: 'PhilHealth Update: Your claim for {Procedure} is now {Provider}.', enabled: true, category: 'Financial', triggerDescription: 'PhilHealth claim status transition.' },
-    lab_delay: { id: 'lab_delay', label: 'Laboratory Set Delay', text: 'Service Update: The lab set for your {Procedure} has been delayed. Please await further notice before visiting.', enabled: true, category: 'Logistics', triggerDescription: 'Lab status set to Delayed.' }
+    hmo_claim_update: { id: 'hmo_claim_update', label: 'HMO Claim Update', text: 'HMO Update for {PatientName}: Your claim with {HMOProvider} for {Procedure} is now {Status}.', enabled: true, category: 'Financial', triggerDescription: 'HMO claim status is updated.' },
+    payment_receipt: { id: 'payment_receipt', label: 'Payment Receipt', text: 'Thank you for your payment of {Amount} to {ClinicName} on {Date}. Your new balance is {Balance}. OR #: {ORNumber}', enabled: true, category: 'Financial', triggerDescription: 'A payment is recorded in the patient ledger.' },
+    overdue_balance: { id: 'overdue_balance', label: 'Overdue Balance Reminder', text: 'Hi {PatientName}, a friendly reminder from {ClinicName} that you have an outstanding balance of {Balance}. Please contact us to settle your account.', enabled: true, category: 'Financial', triggerDescription: 'Patient has an overdue balance.' },
+    installment_due: { id: 'installment_due', label: 'Installment Due Reminder', text: 'Hi {PatientName}, your monthly installment of {Amount} for your treatment plan is due on {DueDate}. Thank you.', enabled: true, category: 'Financial', triggerDescription: 'An installment plan payment is due soon.' },
+    
+    // Reputation & Patient Engagement
+    referral_thanks: { id: 'referral_thanks', label: 'Referral Thank You', text: 'Thank you {PatientName}! We noticed you referred a new patient to our practice. We appreciate your trust!', enabled: true, category: 'Reputation', triggerDescription: 'New patient lists this patient as referral source.' },
+    recall_prophylaxis: { id: 'recall_prophylaxis', label: 'Recall/Prophylaxis Reminder', text: 'Hi {PatientName}, it\'s time for your regular 6-month check-up and cleaning at {ClinicName}. Maintaining your oral health is key! Call us to book your visit.', enabled: true, category: 'Reputation', triggerDescription: 'Patient is due for their 6-month recall.' },
+    post_visit_feedback: { id: 'post_visit_feedback', label: 'Post-Visit Feedback', text: 'Thank you for visiting {ClinicName} today. We\'d love to hear about your experience! Please take a moment to leave us a review: {Link}', enabled: true, category: 'Reputation', triggerDescription: 'Sent after an appointment is completed.' },
+    birthday_greeting: { id: 'birthday_greeting', label: 'Birthday Greeting', text: 'The team at {ClinicName} wishes you a very happy birthday, {PatientName}! We hope you have a fantastic day.', enabled: true, category: 'Reputation', triggerDescription: 'On the patient\'s birthday.' },
 };
 
 const DEFAULT_HOURS: OperationalHours = {
@@ -451,44 +576,51 @@ const DEFAULT_HOURS: OperationalHours = {
 
 const DEFAULT_SMS_CONFIG: SmsConfig = {
     mode: 'LOCAL',
-    gatewayUrl: 'http://192.168.1.188:8080/send',
-    apiKey: '9EWSEOt4',
-    cloudUrl: '',
-    username: '',
-    password: '',
-    deviceId: '',
-    isPollingEnabled: false
+    isPollingEnabled: false,
+
+    // Local server config
+    gatewayUrl: '192.168.1.188:8080',
+    publicAddress: '175.158.219.112:8080',
+    local_username: 'sms',
+    local_password: '9EWSEOt4',
+    local_deviceId: '00000000768614ef0000019a',
+
+    // Cloud server config
+    cloudUrl: 'api.sms-gate.app:443',
+    cloud_username: 'CSAAHI',
+    cloud_password: 'ypcsxllu442tha',
+    cloud_deviceId: 'obd9qcsflj8YkCkPgbxDS'
 };
 
 // Fix: Explicitly type as ProcedureItem[] to ensure type compatibility.
 const DEFAULT_PROCEDURES: ProcedureItem[] = [
-    // I. Diagnostic & Preventive Care
-    { id: 'proc_01', name: 'Initial Consultation & Examination', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_02', name: 'Digital Periapical X-Ray (per shot)', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_03', name: 'Panoramic X-Ray (OPG)', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_04', name: 'Cephalometric X-Ray', category: 'Diagnostic & Preventive Care', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_05', name: 'Oral Prophylaxis (Light/Routine Cleaning)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_06', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_07', name: 'Topical Fluoride Application', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_08', name: 'Pit and Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive Care', allowedLicenseCategories: ['DENTIST'] },
+    // I. Diags & Prev
+    { id: 'proc_01', name: 'Initial Consultation & Examination', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_02', name: 'Digital Periapical X-Ray (per shot)', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_03', name: 'Panoramic X-Ray (OPG)', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_04', name: 'Cephalometric X-Ray', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_05', name: 'Oral Prophylaxis (Light/Routine Cleaning)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_06', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_07', name: 'Topical Fluoride Application', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+    { id: 'proc_08', name: 'Pit and Fissure Sealant (per tooth)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST'] },
 
-    // II. Restorative Dentistry (Fillings)
-    { id: 'proc_09', name: 'Composite Restoration (1 Surface)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_10', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_11', name: 'Composite Restoration (3+ Surfaces/Build-up)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_12', name: 'Temporary Filling (IRM/GIC)', category: 'Restorative Dentistry', allowedLicenseCategories: ['DENTIST'] },
+    // II. Restorative
+    { id: 'proc_09', name: 'Composite Restoration (1 Surface)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_10', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_11', name: 'Composite Restoration (3+ Surfaces/Build-up)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_12', name: 'Temporary Filling (IRM/GIC)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
     
-    // III. Endodontics (Root Canal Treatment)
+    // III. Endodontics
     { id: 'proc_13', name: 'Root Canal Treatment (Anterior Tooth)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_14', name: 'Root Canal Treatment (Premolar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_15', name: 'Root Canal Treatment (Molar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
 
-    // IV. Periodontics (Gum Treatment)
+    // IV. Periodontics
     { id: 'proc_16', name: 'Deep Scaling & Root Planing (per quadrant)', category: 'Periodontics', allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_17', name: 'Gingivectomy (per quadrant)', category: 'Periodontics', requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_18', name: 'Frenectomy (Lingual or Labial)', category: 'Periodontics', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
     
-    // V. Prosthodontics (Crowns, Bridges, Dentures)
+    // V. Prosthodontics
     { id: 'proc_19', name: 'PFM (Porcelain Fused to Metal) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_20', name: 'IPS E.max (All-Porcelain) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_21', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
@@ -498,7 +630,7 @@ const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { id: 'proc_25', name: 'Partial Denture (Flexible, Valplast)', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_26', name: 'Denture Repair / Relining', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
     
-    // VI. Oral Surgery (Extractions)
+    // VI. Oral Surgery
     { id: 'proc_27', name: 'Simple Extraction (Erupted Tooth)', category: 'Oral Surgery', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_28', name: 'Complicated Extraction (Requires sectioning)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_29', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
@@ -508,9 +640,9 @@ const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { id: 'proc_31', name: 'Monthly Orthodontic Adjustment', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
     { id: 'proc_32', name: 'Hawley/Essix Retainers (per arch)', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
     
-    // VIII. Cosmetic / Aesthetic Dentistry
-    { id: 'proc_33', name: 'In-Office Teeth Whitening', category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_34', name: 'Take-Home Whitening Kit', category: 'Cosmetic Dentistry', allowedLicenseCategories: ['DENTIST'] }
+    // VIII. Cosmetic
+    { id: 'proc_33', name: 'In-Office Teeth Whitening', category: 'Cosmetic', allowedLicenseCategories: ['DENTIST'] },
+    { id: 'proc_34', name: 'Take-Home Whitening Kit', category: 'Cosmetic', allowedLicenseCategories: ['DENTIST'] }
 ];
 
 export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
@@ -682,6 +814,8 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       'Staff Salaries & Benefits'
   ],
   branches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
+  branchProfiles: MOCK_BRANCH_PROFILES,
+  documentTemplates: DEFAULT_DOCUMENT_TEMPLATES,
   branchColors: {
     'Makati Main': '#0d9488', // teal-600
     'Quezon City Satellite': '#86198f', // lilac-700

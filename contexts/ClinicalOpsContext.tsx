@@ -1,17 +1,18 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { PinboardTask, ClinicalIncident, Referral, WaitlistEntry } from '../types';
 import { MOCK_WAITLIST, generateUid } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { usePatient } from './PatientContext';
+import { useAppContext } from './AppContext';
 
 interface ClinicalOpsContextType {
     tasks: PinboardTask[];
     incidents: ClinicalIncident[];
     referrals: Referral[];
     waitlist: WaitlistEntry[];
-    handleAddTask: (text: string, isUrgent: boolean, assignedTo: string) => Promise<void>;
+    handleAddTask: (text: string, isUrgent: boolean, assignedTo: string, patientId?: string) => Promise<void>;
     handleToggleTask: (id: string) => Promise<void>;
+    handleClearCompletedTasks: (userId: string) => Promise<void>;
     handleSaveIncident: (incident: Omit<ClinicalIncident, 'id'>) => Promise<void>;
     handleResolveIncident: (incidentId: string) => Promise<void>;
     handleSaveReferral: (referral: Omit<Referral, 'id'>) => Promise<void>;
@@ -23,6 +24,7 @@ const ClinicalOpsContext = createContext<ClinicalOpsContextType | undefined>(und
 export const ClinicalOpsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const { patients } = usePatient();
+    const { currentUser } = useAppContext();
     const [tasks, setTasks] = useState<PinboardTask[]>([]);
     const [incidents, setIncidents] = useState<ClinicalIncident[]>([]);
     const [referrals, setReferrals] = useState<Referral[]>([]);
@@ -39,8 +41,23 @@ export const ClinicalOpsProvider: React.FC<{ children: ReactNode }> = ({ childre
         };
     };
 
-    const handleAddTask = async (text: string, isUrgent: boolean, assignedTo: string) => {
-        setTasks(t => [...t, { id: generateUid('task'), text, isUrgent, assignedTo, isCompleted: false }]);
+    const handleAddTask = async (text: string, isUrgent: boolean, assignedTo: string, patientId?: string) => {
+        if (!currentUser) return;
+        const newTask: PinboardTask = {
+            id: generateUid('task'),
+            text,
+            isCompleted: false,
+            isUrgent,
+            assignedTo,
+            createdBy: currentUser.id,
+            patientId,
+        };
+        setTasks(t => [newTask, ...t]);
+    };
+
+    const handleClearCompletedTasks = async (userId: string) => {
+        setTasks(prevTasks => prevTasks.filter(t => !(t.assignedTo === userId && t.isCompleted)));
+        toast.info("Completed tasks cleared from pinboard.");
     };
     
     const value = { 
@@ -50,6 +67,7 @@ export const ClinicalOpsProvider: React.FC<{ children: ReactNode }> = ({ childre
         waitlist, 
         handleAddTask,
         handleToggleTask: createAsyncHandler((id: string) => setTasks(t => t.map(i => i.id === id ? { ...i, isCompleted: !i.isCompleted } : i))),
+        handleClearCompletedTasks,
         handleSaveIncident: createAsyncHandler((incident: Omit<ClinicalIncident, 'id'>) => setIncidents(i => [...i, { id: generateUid('inc'), ...incident }]), "Incident logged."),
         handleResolveIncident: createAsyncHandler((incidentId: string) => {
             setIncidents(i => i.map(inc => inc.id === incidentId ? { ...inc, advisoryCallSigned: true } : inc));
