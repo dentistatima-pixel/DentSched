@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 import { Sparkles, Send } from 'lucide-react';
 import { chatWithAssistant } from '../services/geminiService';
+import { useAuthorization } from '../hooks/useAuthorization';
 
 interface GeminiAssistantProps {
     patientContext?: string;
 }
 
 const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ patientContext }) => {
+  const { can } = useAuthorization();
   const [isOpen, setIsOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [response, setResponse] = useState('');
@@ -27,6 +29,10 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ patientContext }) => 
         setPrompt('');
     }
   };
+
+  if (!can('use:ai-features')) {
+    return null;
+  }
 
   if (!isOpen) {
     return (

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -7,13 +6,13 @@ import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
+import { formatDate } from '../constants';
 
 interface PatientListProps {
   selectedPatientId: string | null;
-  isCollapsed?: boolean;
 }
 
-const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientId }) => {
+const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { showModal } = useModal();
   const { patients } = usePatient();
@@ -31,11 +30,6 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
     }
     return fuse.search(searchTerm).map(result => result.item);
   }, [patients, searchTerm, fuse]);
-
-  const selectedPatient = useMemo(() => 
-    patients.find(p => p.id === selectedPatientId), 
-    [patients, selectedPatientId]
-  );
 
   const onSelectPatient = (id: string | null) => {
     if (id) {
@@ -73,41 +67,6 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
     return flags;
   };
 
-  if (isCollapsed && selectedPatient) {
-    return (
-        <div className="h-full w-full flex flex-col items-center bg-teal-900 dark:bg-slate-900 py-8 gap-10 animate-in fade-in slide-in-from-left-4 duration-500">
-            <button 
-                onClick={() => onSelectPatient(null)}
-                className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all active:scale-90 shadow-lg"
-                title="Back to Registry"
-            >
-                <ArrowLeft size={24}/>
-            </button>
-
-            <div className="flex flex-col items-center gap-4 group relative">
-                 <div className="w-12 h-12 rounded-2xl border-2 border-teal-400 dark:border-teal-600 shadow-xl bg-teal-800 dark:bg-slate-700 flex items-center justify-center font-black text-white text-lg">
-                    {selectedPatient.name.charAt(0)}
-                </div>
-                <div className="absolute left-full ml-4 px-3 py-1 bg-lilac-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl z-50">
-                    ₱{selectedPatient.currentBalance?.toLocaleString()}
-                </div>
-            </div>
-
-            <div className="flex-1 w-full flex flex-col items-center gap-4 overflow-y-auto no-scrollbar">
-                {patients.filter(p => p.id !== selectedPatientId).slice(0, 8).map(p => (
-                    <button 
-                        key={p.id}
-                        onClick={() => onSelectPatient(p.id)}
-                        className="w-10 h-10 rounded-xl bg-teal-800/50 dark:bg-slate-700 hover:bg-teal-700 dark:hover:bg-slate-600 border border-white/5 flex items-center justify-center transition-all hover:scale-110"
-                    >
-                        <span className="text-white/40 font-black text-[10px] uppercase">{p.surname[0]}</span>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-  }
-
   return (
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
       <div className="p-6 flex items-center justify-between gap-4 shrink-0 border-b border-border-primary">
@@ -124,10 +83,10 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
         </div>
         <button 
           onClick={() => showModal('patientRegistration')}
-          className="bg-teal-600 text-white p-3 rounded-2xl font-black shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
+          className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
           aria-label="New Patient Registration"
         >
-          <UserPlus size={16} />
+          New Registration
         </button>
       </div>
       
@@ -137,6 +96,10 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
             <tr className="border-b border-border-primary">
               <th className="p-4 w-2"></th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Name</th>
+              <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Alerts</th>
+              <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Next Visit</th>
+              <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Last Visit</th>
+              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider">Reliability</th>
               <th className="p-4 text-right font-bold uppercase text-text-secondary text-xs tracking-wider">Balance</th>
               <th className="p-4"></th>
             </tr>
@@ -176,11 +139,31 @@ const PatientList: React.FC<PatientListProps> = ({ isCollapsed, selectedPatientI
                       ) : null}
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
+                      <div>
                         <span className="font-bold text-text-primary">{p.name}</span>
-                        {isProvisional && <FileBadge2 size={14} className="text-blue-600 dark:text-blue-400" />}
                       </div>
                       <div className="text-xs font-mono text-text-secondary">{p.id}</div>
+                    </td>
+                    <td className="p-4">
+                        <div className="flex items-center gap-2.5">
+                            {hasFlags && <ShieldAlert size={16} className="text-red-600 dark:text-red-400" title="Critical Medical Alert"/>}
+                            {isMinor && <Baby size={16} className="text-amber-600 dark:text-amber-400" title="Minor Patient"/>}
+                            {p.isPwd && <UserCircle size={16} className="text-amber-600 dark:text-amber-400" title="PWD"/>}
+                            {isProvisional && <FileBadge2 size={16} className="text-blue-600 dark:text-blue-400" title="Provisional Registration"/>}
+                        </div>
+                    </td>
+                    <td className="p-4 text-left font-mono text-xs font-bold text-text-secondary whitespace-nowrap">
+                        {p.nextVisit ? formatDate(p.nextVisit) : 'None'}
+                    </td>
+                    <td className="p-4 text-left font-mono text-xs font-bold text-text-secondary whitespace-nowrap">
+                        {formatDate(p.lastVisit)}
+                    </td>
+                    <td className={`p-4 text-center font-black text-sm ${
+                        (p.reliabilityScore ?? 100) >= 90 ? 'text-green-600 dark:text-green-400' :
+                        (p.reliabilityScore ?? 100) >= 70 ? 'text-amber-600 dark:text-amber-400' :
+                        'text-red-600 dark:text-red-400'
+                    }`}>
+                        {(p.reliabilityScore ?? 100)}%
                     </td>
                     <td className={`p-4 text-right font-mono font-bold ${p.currentBalance && p.currentBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-text-primary'}`}>
                       ₱{p.currentBalance?.toLocaleString() || '0'}

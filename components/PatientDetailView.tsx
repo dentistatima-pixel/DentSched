@@ -1,13 +1,7 @@
-
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch } from 'lucide-react';
-import { Odontonotes } from './Odontonotes';
-import Odontogram from './Odontogram';
-import PerioChart from './PerioChart';
-import TreatmentPlanModule from './TreatmentPlan';
-import PatientLedger from './PatientLedger';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -16,6 +10,13 @@ import { summarizePatient } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
+
+// Lazy load heavy components
+const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
+const Odontogram = React.lazy(() => import('./Odontogram'));
+const PerioChart = React.lazy(() => import('./PerioChart'));
+const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlan'));
+const PatientLedger = React.lazy(() => import('./PatientLedger'));
 
 
 interface PatientDetailViewProps {
@@ -47,6 +48,15 @@ interface PatientDetailViewProps {
   onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
   onOpenPostOpHandover: (appointment: Appointment) => void;
 }
+
+const TabLoader: React.FC = () => (
+    <div className="flex items-center justify-center h-96 w-full bg-slate-50/50 rounded-2xl">
+        <svg className="animate-spin h-8 w-8 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+);
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
     const displayValue = Array.isArray(value) ? value.join(', ') : (value || '---');
@@ -216,6 +226,54 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const { can } = useAuthorization();
   const navigate = useNavigate();
 
+  if (!patient || !fieldSettings) {
+    return <PatientPlaceholder />;
+  }
+  
+  const getCriticalFlags = (p: Patient) => {
+    if (!p || !fieldSettings) return [];
+    const flags: { type: string; value: string }[] = [];
+    const criticalRegistry = fieldSettings?.criticalRiskRegistry || [];
+    
+    (p.medicalConditions || []).forEach(condition => {
+        if (criticalRegistry.includes(condition)) {
+            flags.push({ type: 'Condition', value: condition });
+        }
+    });
+
+    (p.allergies || []).forEach(allergy => {
+        if (criticalRegistry.includes(allergy)) {
+            flags.push({ type: 'Allergy', value: allergy });
+        }
+    });
+    
+    if (p.registryAnswers) {
+        Object.entries(p.registryAnswers).forEach(([question, answer]) => {
+            if (answer === 'Yes' && criticalRegistry.includes(question)) {
+                const simpleLabel = question.replace(/\?.*$/, '').replace(/\(.*\)/, '').trim();
+                flags.push({ type: 'Alert', value: simpleLabel });
+            }
+        });
+    }
+
+    return flags;
+  };
+  
+  const headerStyle = useMemo(() => {
+    const flags = getCriticalFlags(patient);
+    const hasFlags = flags.length > 0;
+    const isMinor = patient.age !== undefined && patient.age < 18;
+    const isPwdOrMinor = patient.isPwd || isMinor;
+
+    if (hasFlags) {
+        return 'bg-red-200 border-red-300';
+    }
+    if (isPwdOrMinor) {
+        return 'bg-amber-200 border-amber-300';
+    }
+    return 'border-slate-100';
+  }, [patient, fieldSettings]);
+
   const patientAppointments = useMemo(() => {
       return appointments.filter(a => a.patientId === patient?.id);
   }, [appointments, patient]);
@@ -254,10 +312,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       }
   }
 
-  if (!patient || !fieldSettings) {
-    return <PatientPlaceholder />;
-  }
-
   const isProvisional = patient.registrationStatus === 'Provisional';
 
   const tabs = [
@@ -283,15 +337,17 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                         {patient.guardianProfile && <InfoItem label="Guardian" value={`${patient.guardianProfile.legalName} (${patient.guardianProfile.relationship})`} icon={Baby} isSpecial />}
                     </div>
                     <div className="space-y-6 patient-summary-col-2">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200">
-                            <div className="flex justify-between items-center mb-4">
-                                <h4 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-teal-500"/> AI Clinical Summary</h4>
-                                <button onClick={generateSummary} disabled={isSummaryLoading} className="text-xs font-bold text-teal-600 flex items-center gap-1">
-                                    {isSummaryLoading ? 'Generating...' : <><Sparkles size={12}/> Generate</>}
-                                </button>
+                        {can('use:ai-features') && (
+                            <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-teal-500"/> AI Clinical Summary</h4>
+                                    <button onClick={generateSummary} disabled={isSummaryLoading} className="text-xs font-bold text-teal-600 flex items-center gap-1">
+                                        {isSummaryLoading ? 'Generating...' : <><Sparkles size={12}/> Generate</>}
+                                    </button>
+                                </div>
+                                {isSummaryLoading ? <p>Loading...</p> : summary ? <ReactMarkdown className="text-sm prose">{summary}</ReactMarkdown> : <p className="text-sm text-slate-400 italic">Generate a summary for a quick overview.</p>}
                             </div>
-                            {isSummaryLoading ? <p>Loading...</p> : summary ? <ReactMarkdown className="text-sm prose">{summary}</ReactMarkdown> : <p className="text-sm text-slate-400 italic">Generate a summary for a quick overview.</p>}
-                        </div>
+                        )}
                         <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
                     </div>
                     <div className="pt-6 border-t border-slate-100 patient-summary-col-3">
@@ -326,11 +382,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                     </div>
                 </div>
             )
-        case 'notes': return <Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} inventory={stock} fieldSettings={fieldSettings} patient={patient} appointments={patientAppointments} incidents={incidents} sterilizationCycles={sterilizationCycles} onRequestProtocolOverride={onRequestProtocolOverride} onSupervisorySeal={onSupervisorySeal} />;
-        case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={()=>{}} onChartUpdate={handleUpdateChart} readOnly={readOnly}/>;
-        case 'perio': return <PerioChart data={patient.perioChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/>;
-        case 'plan': return <TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/>;
-        case 'ledger': return <PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} />;
+        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} inventory={stock} fieldSettings={fieldSettings} patient={patient} appointments={patientAppointments} incidents={incidents} sterilizationCycles={sterilizationCycles} onRequestProtocolOverride={onRequestProtocolOverride} onSupervisorySeal={onSupervisorySeal} /></Suspense>;
+        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={()=>{}} onChartUpdate={handleUpdateChart} readOnly={readOnly}/></Suspense>;
+        case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
+        case 'plan': return <Suspense fallback={<TabLoader />}><TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/></Suspense>;
+        case 'ledger': return <Suspense fallback={<TabLoader />}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} /></Suspense>;
         case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
         case 'compliance': return <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />;
         default: return null;
@@ -339,26 +395,30 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
 
   return (
     <div className="h-full w-full flex flex-col bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className="p-6 flex items-center justify-between gap-4 shrink-0 border-b">
+        <div className={`p-6 flex items-center justify-between gap-4 shrink-0 border-b transition-colors duration-300 ${headerStyle}`}>
             {isProvisional && (
                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-400 text-black px-4 py-1 rounded-b-lg text-[10px] font-black uppercase tracking-widest animate-pulse z-20">
                     Provisional Record
                 </div>
             )}
-            <div className="flex items-center gap-4">
-                <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${patient.name}`} alt={patient.name} className="w-12 h-12 rounded-2xl border-2 border-teal-100 shadow-sm" />
+            <div className="flex items-center gap-6">
+                {onBack && (
+                    <button onClick={onBack} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-600 transition-colors active:scale-90" aria-label="Back to Patient Registry">
+                        <ArrowLeft size={20} />
+                    </button>
+                )}
                 <div>
                     <h2 className="text-xl font-black text-slate-800">{patient.name}</h2>
-                    <div className="text-xs text-slate-400 font-mono">ID: {patient.id} &bull; Age: {patient.age}</div>
+                    <div className="text-sm text-slate-500 font-mono">ID: {patient.id} &bull; Age: {patient.age}</div>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
                 {isProvisional ? (
                     <button onClick={() => onEditPatient(patient)} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Edit size={14}/> Complete Registration</button>
                 ) : (
-                    <button onClick={() => onEditPatient(patient)} className="p-2 text-slate-400 hover:text-teal-600 rounded-lg"><Edit size={16}/></button>
+                    <button onClick={() => onEditPatient(patient)} className="p-3 text-slate-400 hover:text-teal-600 rounded-lg"><Edit size={20}/></button>
                 )}
-                <button onClick={() => onBookAppointment(patient.id)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><CalendarPlus size={14}/> New Appt.</button>
+                <button onClick={() => onBookAppointment(patient.id)} className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><CalendarPlus size={16}/> New Appt.</button>
             </div>
         </div>
         

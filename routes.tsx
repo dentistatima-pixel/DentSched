@@ -1,5 +1,4 @@
-
-import React, { useMemo } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import PatientList from './components/PatientList';
@@ -32,6 +31,16 @@ export interface RouteConfig {
   props?: Record<string, any>;
   layout?: React.ComponentType<any>; 
 }
+
+const PageLoader: React.FC = () => (
+  <div className="h-full w-full flex items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
+    <svg className="animate-spin -ml-1 mr-3 h-8 w-8 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  </div>
+);
+
 
 // --- CONTAINER COMPONENTS ---
 
@@ -251,14 +260,20 @@ export const routes: RouteConfig[] = [
 function PatientListLayout({ route }: { route: { param: string | null } }) {
   const selectedPatientId = route.param;
   const navigate = useNavigate();
+
+  if (!selectedPatientId) {
+    // Full screen patient list view
+    return (
+      <div className="h-full w-full">
+        <PatientList selectedPatientId={null} />
+      </div>
+    );
+  }
+
+  // Full screen detail view when a patient is selected
   return (
-    <div className="patient-list-layout flex h-full gap-6">
-      <div className={`${selectedPatientId ? 'patient-list-container-collapsed' : 'patient-list-container'} transition-all duration-500`}>
-        <PatientList selectedPatientId={selectedPatientId} isCollapsed={!!selectedPatientId} />
-      </div>
-      <div className="flex-1 animate-in fade-in duration-500">
-        <PatientDetailContainer patientId={selectedPatientId} onBack={() => navigate('patients')} />
-      </div>
+    <div className="h-full w-full animate-in fade-in duration-500">
+      <PatientDetailContainer patientId={selectedPatientId} onBack={() => navigate('patients')} />
     </div>
   );
 }
@@ -279,11 +294,11 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   const patient = useMemo(() => patients.find(p => p.id === patientId) || null, [patients, patientId]);
 
   if (!patientId) {
-    return <React.Suspense fallback={<div/>}><PatientPlaceholder /></React.Suspense>;
+    return <Suspense fallback={<PageLoader />}><PatientPlaceholder /></Suspense>;
   }
 
   if (!patient || !currentUser || !fieldSettings) {
-    return <div>Loading Patient Data...</div>;
+    return <PageLoader />;
   }
   
   const onBookAppointment = (pId: string) => showModal('appointment', { 
@@ -311,7 +326,7 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   };
 
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageLoader />}>
       <PatientDetailView 
         patient={patient}
         appointments={appointments}
@@ -341,6 +356,6 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
       />
-    </React.Suspense>
+    </Suspense>
   );
 }
