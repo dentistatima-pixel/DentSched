@@ -318,7 +318,6 @@ export const PATIENTS: Patient[] = [
         files: [
             { id: 'file_master_pwd', name: 'PWD_ID_2024.pdf', category: 'PWD Certificate', url: '#', date: getPastDateStr(100) },
             { id: 'file_master_clearance', name: 'CardioClearance_Mar2024.pdf', category: 'Medical Clearance', url: '#', date: getPastDateStr(90) },
-            { id: 'file_master_xray', name: 'Pano_Feb2024.jpg', category: 'X-Ray', url: 'https://via.placeholder.com/800x400.png?text=PANORAMIC+X-RAY', date: getPastDateStr(120) },
         ],
         clearanceRequests: [
             { id: 'cr_master_1', patientId: 'p_master_01', doctorName: 'Dr. cardio', specialty: 'Cardiologist', requestedAt: getPastDateStr(150), status: 'Approved', approvedAt: getPastDateStr(140), remarks: 'Expired clearance', verificationMethod: VerificationMethod.PHYSICAL_FILE_VERIFIED, verifiedByPractitionerId: 'doc1', verifiedByPractitionerName: 'Dr. Alexander Crentist' },
@@ -399,8 +398,7 @@ export const PATIENTS: Patient[] = [
         notes: 'Patient exhibits extreme indecisiveness and requires constant reassurance. Prone to stomach aches.',
         currentBalance: 0,
         recallStatus: 'Contacted',
-        attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 },
-        reliabilityScore: 100,
+        attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         isPwd: true,
         guardianProfile: {
             legalName: 'Simone Garnett',

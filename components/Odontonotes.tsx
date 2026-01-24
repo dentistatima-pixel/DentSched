@@ -22,7 +22,7 @@ interface OdontonotesProps {
   readOnly?: boolean;
   procedures: ProcedureItem[];
   inventory?: StockItem[]; 
-  prefill?: Partial<DentalChartEntry> | null;
+  prefill?: DentalChartEntry | null;
   onClearPrefill?: () => void;
   logAction?: (action: any, entity: any, id: string, details: string) => void;
   fieldSettings?: FieldSettings; 
@@ -44,6 +44,13 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, o
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
   const [showSmartPhrases, setShowSmartPhrases] = useState(false);
   
+  useEffect(() => {
+    if (prefill && onClearPrefill) {
+        setEditingNote(prefill);
+        onClearPrefill();
+    }
+  }, [prefill, onClearPrefill]);
+
   const handleSoapUpdate = (field: keyof SoapData, value: string | ((prev: string) => string)) => {
     if (!editingNote) return;
     const prevValue = editingNote[field] || '';

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle } from 'lucide-react';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit } from 'lucide-react';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -91,72 +91,138 @@ const DiagnosticGallery: React.FC<{
 }> = ({ patient, onQuickUpdatePatient }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [editingFile, setEditingFile] = useState<PatientFile | null>(null);
+    
+    const [primaryImageId, setPrimaryImageId] = useState<string | null>(null);
+    const toast = useToast();
 
-    const blobToBase64 = (blob: Blob): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-    };
+    const images = useMemo(() => 
+        (patient.files?.filter(f => f.category === 'X-Ray') || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [patient.files]);
+
+    useEffect(() => {
+        if (images.length > 0 && !primaryImageId) {
+            setPrimaryImageId(images[0].id);
+        } else if (images.length > 0 && primaryImageId && !images.find(img => img.id === primaryImageId)) {
+            // If the selected image was deleted, select the new first one
+            setPrimaryImageId(images[0].id);
+        } else if (images.length === 0) {
+            setPrimaryImageId(null);
+        }
+    }, [images, primaryImageId]);
+
+    const primaryImage = useMemo(() => images.find(img => img.id === primaryImageId), [images, primaryImageId]);
+
+    const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        toast.info(`Uploading "${file.name}"...`);
         const base64String = await blobToBase64(file);
         
-        const newFile: PatientFile = {
-            id: `file_${Date.now()}`,
-            name: file.name,
-            category: 'X-Ray',
-            url: base64String,
-            date: new Date().toISOString().split('T')[0],
+        const newFile: PatientFile = { 
+            id: `file_${Date.now()}_${Math.random().toString(16).slice(2)}`, 
+            name: file.name, 
+            category: 'X-Ray', 
+            url: base64String, 
+            date: new Date().toISOString().split('T')[0] 
         };
-        const updatedPatient: Partial<Patient> = {
-            id: patient.id,
-            files: [...(patient.files || []), newFile]
-        };
-        onQuickUpdatePatient(updatedPatient);
+        
+        onQuickUpdatePatient({ id: patient.id, files: [...(patient.files || []), newFile] });
+        setPrimaryImageId(newFile.id);
+        toast.success(`"${file.name}" uploaded successfully.`);
+
+        if(e.target) {
+            e.target.value = '';
+        }
     };
 
-    const images = patient.files?.filter(f => f.category === 'X-Ray') || [];
-
+    const handleSaveEdit = (updatedFile: PatientFile) => {
+        const updatedFiles = patient.files?.map(f => f.id === updatedFile.id ? updatedFile : f) || [];
+        onQuickUpdatePatient({ id: patient.id, files: updatedFiles });
+        setEditingFile(null);
+        toast.success("Image details updated.");
+    };
+    
     return (
-        <div className="animate-in fade-in duration-500">
-            <div className="grid gap-6 diagnostic-grid">
-                {images.map(img => (
-                    <div 
-                        key={img.id}
-                        onClick={() => setLightboxImage(img.url)}
-                        className="bg-slate-900 aspect-video rounded-[2.5rem] border-4 border-teal-500/20 flex flex-col items-center justify-center group hover:border-teal-500 transition-all cursor-zoom-in relative overflow-hidden"
-                    >
-                        <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60" />
-                        <Search size={32} className="absolute text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
-                        <div className="absolute bottom-6 left-8 z-10">
-                            <div className="text-[10px] font-black text-teal-400 uppercase tracking-widest">{img.name}</div>
-                            <div className="text-white text-xs font-bold uppercase mt-1">{formatDate(img.date)}</div>
+        <div className="animate-in fade-in duration-500 h-full flex flex-col gap-6">
+            <div className="bg-white p-4 rounded-[2.5rem] border border-slate-200 shadow-sm shrink-0">
+                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 w-32 h-24 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:bg-teal-50 hover:text-teal-600 transition-colors">
+                        <Camera size={24}/>
+                        <span className="text-xs font-bold mt-1">Upload</span>
+                    </button>
+                    {images.map(img => (
+                        <div key={img.id} onClick={() => setPrimaryImageId(img.id)} className="flex-shrink-0 w-32 h-24 rounded-xl relative group overflow-hidden cursor-pointer border-4" style={{borderColor: primaryImageId === img.id ? '#14b8a6' : 'transparent'}}>
+                            <img src={img.url} alt={img.name} className="w-full h-full object-cover"/>
+                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); setLightboxImage(img.url); }} className="p-2 bg-black/50 text-white rounded-full text-xs" title="View"><Search size={14}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setEditingFile(img); }} className="p-2 bg-black/50 text-white rounded-full text-xs" title="Edit"><FileEdit size={14}/></button>
+                            </div>
                         </div>
-                    </div>
-                ))}
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-video rounded-[2.5rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4 text-slate-300 hover:text-teal-600 hover:border-teal-100 transition-all bg-white shadow-sm"
-                >
-                    <Camera size={48} strokeWidth={1} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Upload Radiograph</span>
-                </button>
+                    ))}
+                </div>
             </div>
+
+            <div className="flex-1 bg-slate-900 rounded-[2.5rem] flex items-center justify-center p-4 relative">
+                {primaryImage ? (
+                    <>
+                        <img src={primaryImage.url} alt={primaryImage.name} className="max-h-full max-w-full object-contain"/>
+                        <div className="absolute top-4 right-4 flex gap-2">
+                            <button onClick={() => setLightboxImage(primaryImage.url)} className="p-2 bg-black/30 text-white rounded-full"><Search/></button>
+                            <button onClick={() => setEditingFile(primaryImage)} className="p-2 bg-black/30 text-white rounded-full"><FileEdit/></button>
+                        </div>
+                        <div className="absolute bottom-4 left-4 right-4 bg-black/50 p-4 rounded-xl backdrop-blur-sm">
+                            <p className="font-bold text-white">{primaryImage.name}</p>
+                            <p className="text-xs text-slate-300">{formatDate(primaryImage.date)}</p>
+                            {primaryImage.notes && <p className="text-xs text-slate-200 mt-2 italic">"{primaryImage.notes}"</p>}
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-center text-slate-500 flex flex-col items-center justify-center">
+                        <ImageIcon size={48} className="mx-auto mb-4"/>
+                        <h3 className="font-bold">Imaging Hub</h3>
+                        <p className="text-sm mt-1 mb-6">Upload and manage diagnostic images.</p>
+                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-6 py-3 bg-teal-600/20 text-teal-300 rounded-xl hover:bg-teal-600/40 transition-colors">
+                            <Camera size={16}/> Upload First Image
+                        </button>
+                    </div>
+                )}
+            </div>
+            
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
 
             {lightboxImage && (
                 <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
-                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" />
-                    <button onClick={() => setLightboxImage(null)} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
+                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                    <button onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
+                </div>
+            )}
+
+            {editingFile && (
+                <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
+                        <h3 className="font-bold">Edit Image Details</h3>
+                        <div>
+                            <label className="text-xs font-bold">Label</label>
+                            <input type="text" value={editingFile.name} onChange={e => setEditingFile({...editingFile, name: e.target.value})} className="input"/>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold">Notes</label>
+                            <textarea value={editingFile.notes || ''} onChange={e => setEditingFile({...editingFile, notes: e.target.value})} className="input h-24"/>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingFile(null)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold">Cancel</button>
+                            <button onClick={() => handleSaveEdit(editingFile)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold">Save</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -276,6 +342,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     onRecordPaymentWithReceipt, onOpenPostOpHandover
 }) => {
   const [activeTab, setActiveTab] = useState('summary');
+  const [noteToAutoEdit, setNoteToAutoEdit] = useState<DentalChartEntry | null>(null);
   const toast = useToast();
   const { can } = useAuthorization();
   const navigate = useNavigate();
@@ -362,6 +429,43 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     onQuickUpdatePatient({ ...patient, dentalChart: newChart });
   };
   
+  const generateBoilerplateSoap = (procedure: string, toothNumber?: number) => {
+    const procLower = procedure.toLowerCase();
+    if (procLower.includes('caries')) {
+        return {
+            subjective: 'Patient reports no specific complaints.',
+            objective: `Visual and tactile examination reveals clinical signs of caries on tooth #${toothNumber}.`,
+            assessment: `Dental Caries, Tooth #${toothNumber}.`,
+            plan: 'Recommend appropriate restorative treatment. Discussed findings, risks, benefits, and alternatives with patient.'
+        };
+    }
+    if (procLower.includes('restoration')) {
+        return {
+            subjective: 'Patient presents for scheduled restorative procedure.',
+            objective: `Administered local anesthesia. Isolated tooth #${toothNumber} with rubber dam. Excavated carious lesion. Placed composite restoration. Finished and polished. Occlusion checked and verified.`,
+            assessment: `Composite Restoration, Tooth #${toothNumber}.`,
+            plan: 'Provided post-operative instructions. Advised patient on potential for transient sensitivity.'
+        };
+    }
+    if (procLower.includes('extraction')) {
+        return {
+            subjective: 'Patient presents for scheduled extraction of tooth due to [REASON, e.g., extensive caries, periodontal disease, impaction].',
+            objective: `Administered local anesthesia. Pre-operative radiograph reviewed. Tooth #${toothNumber} luxated and extracted. Hemostasis achieved.`,
+            assessment: `Surgical Extraction, Tooth #${toothNumber}.`,
+            plan: 'Provided post-operative instructions (verbal and written). Gauze pack placed. Prescription for analgesics given.'
+        };
+    }
+    return { subjective: '', objective: '', assessment: '', plan: '' };
+  };
+  
+  const handleChartUpdateFromOdontogram = (newEntry: DentalChartEntry) => {
+    const soapNotes = generateBoilerplateSoap(newEntry.procedure, newEntry.toothNumber);
+    const entryWithSoap = { ...newEntry, ...soapNotes };
+    handleUpdateChart(entryWithSoap);
+    setNoteToAutoEdit(entryWithSoap);
+    setActiveTab('notes');
+  };
+
   const handleUpdatePerioChart = (newData: DentalChartEntry[]) => {
       if (!patient) return;
       onQuickUpdatePatient({ ...patient, perioChart: newData as any[] });
@@ -531,8 +635,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                     </div>
                 </div>
             )
-        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} inventory={stock} fieldSettings={fieldSettings} patient={patient} appointments={patientAppointments} incidents={incidents} sterilizationCycles={sterilizationCycles} onRequestProtocolOverride={onRequestProtocolOverride} onSupervisorySeal={onSupervisorySeal} /></Suspense>;
-        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={()=>{}} onChartUpdate={handleUpdateChart} readOnly={readOnly}/></Suspense>;
+        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} inventory={stock} fieldSettings={fieldSettings} patient={patient} appointments={patientAppointments} incidents={incidents} sterilizationCycles={sterilizationCycles} onRequestProtocolOverride={onRequestProtocolOverride} onSupervisorySeal={onSupervisorySeal} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} /></Suspense>;
+        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={()=>{}} onChartUpdate={handleChartUpdateFromOdontogram} readOnly={readOnly}/></Suspense>;
         case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
         case 'plan': return <Suspense fallback={<TabLoader />}><TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/></Suspense>;
         case 'ledger': return <Suspense fallback={<TabLoader />}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} /></Suspense>;

@@ -893,6 +893,7 @@ export interface PatientFile {
   category: string;
   url: string;
   date: string;
+  notes?: string;
 }
 
 export interface LedgerEntry {
