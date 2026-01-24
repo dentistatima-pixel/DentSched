@@ -1,7 +1,7 @@
 
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
 // Fix: Add CommunicationChannel to imports for type safety.
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate } from './types';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -20,7 +20,7 @@ const getPastDateStr = (days: number) => {
 }
 const getFutureDateStr = (days: number) => {
     const d = new Date();
-    d.setDate(d.getDate() + days);
+    d.setDate(d.getDate() + 1);
     return d.toLocaleDateString('en-CA');
 }
 
@@ -153,6 +153,37 @@ Sig: {medicationInstructions}
 `
   }
 };
+
+export const DEFAULT_COMMUNICATION_TEMPLATES: CommunicationTemplate[] = [
+  // Chapter 1: Welcome Letters
+  {
+    id: 'welcome_adult_1',
+    category: 'Welcome Letters',
+    title: 'Welcome Letter to an Adult Patient',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nOn behalf of our entire team, I would like to welcome you to {clinicName}. We are committed to providing you with the highest quality of dental care in a comfortable and friendly environment.\n\nWe look forward to seeing you for your first appointment on {appointmentDate} at {appointmentTime}. \n\nSincerely,\n{practitionerName}\n{clinicName}`
+  },
+  // Chapter 2: Appointments
+  {
+    id: 'appt_reminder',
+    category: 'Appointments',
+    title: 'Appointment Reminder',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nThis is a friendly reminder of your upcoming dental appointment with {practitionerName} on {appointmentDate} at {appointmentTime}.\n\nPlease contact our office at {clinicContactNumber} if you need to reschedule. We look forward to seeing you.\n\nBest regards,\nThe team at {clinicName}`
+  },
+  {
+    id: 'appt_missed',
+    category: 'Appointments',
+    title: 'Missed Appointment',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nOur records show that you missed your appointment on {appointmentDate} at {appointmentTime}.\n\nWe understand that circumstances can change. Please call us at {clinicContactNumber} at your earliest convenience to reschedule. Consistent dental care is essential for maintaining your oral health.\n\nSincerely,\n{clinicName}`
+  },
+  // Chapter 4: Financial Letters
+  {
+    id: 'financial_new_policy',
+    category: 'Financial Letters',
+    title: 'New Payment Policy',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nThis letter is to inform you of an update to our payment policy, effective [Effective Date].\n\n[Explain new payment policy here, e.g., "Payment is now due at the time of service."]\n\nWe have made this change to streamline our billing process and continue providing high-quality care. We accept cash, credit/debit cards, and [other payment methods].\n\nIf you have any questions, please do not hesitate to contact our office.\n\nThank you for your understanding,\n{clinicName}`
+  },
+];
+
 
 export const STAFF: User[] = [
   { 
@@ -940,6 +971,7 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   branches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
   branchProfiles: MOCK_BRANCH_PROFILES,
   documentTemplates: DEFAULT_DOCUMENT_TEMPLATES,
+  communicationTemplates: DEFAULT_COMMUNICATION_TEMPLATES,
   branchColors: {
     'Makati Main': '#0d9488', // teal-600
     'Quezon City Satellite': '#86198f', // lilac-700

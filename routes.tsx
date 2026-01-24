@@ -1,3 +1,4 @@
+
 import React, { useMemo, Suspense } from 'react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -43,6 +44,12 @@ const PageLoader: React.FC = () => (
 
 
 // --- CONTAINER COMPONENTS ---
+
+const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
+
+function CommunicationHubContainer() {
+    return <CommunicationHub />;
+}
 
 function AdminHubContainer({ route }: { route: { param: string | null } }) {
     const { appointments, handleVerifyDowntimeEntry, handleVerifyMedHistory, handleConfirmFollowUp } = useAppointments();
@@ -218,6 +225,11 @@ export const routes: RouteConfig[] = [
     path: 'admin', 
     component: AdminHubContainer, 
     requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
+  },
+  {
+    path: 'communications',
+    component: CommunicationHubContainer,
+    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT]
   },
   { 
     path: 'field-mgmt', 

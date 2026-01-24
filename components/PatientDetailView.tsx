@@ -12,6 +12,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { usePatient } from '../contexts/PatientContext';
+import { useAppContext } from '../contexts/AppContext';
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
@@ -347,6 +348,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const { can } = useAuthorization();
   const navigate = useNavigate();
   const { patients } = usePatient();
+  const { setFullScreenView } = useAppContext();
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -499,6 +501,47 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     { id: 'imaging', label: 'Imaging', icon: ImageIcon },
     { id: 'compliance', label: 'Compliance', icon: Shield },
   ];
+  
+  const handleTabClick = (tabId: 'summary' | 'notes' | 'chart' | 'perio' | 'plan' | 'ledger' | 'imaging' | 'compliance') => {
+      setActiveTab(tabId);
+      if (['notes', 'chart', 'perio'].includes(tabId)) {
+        let props = {};
+        if (tabId === 'notes') {
+          props = {
+            entries: patient.dentalChart || [],
+            onAddEntry: handleUpdateChart,
+            onUpdateEntry: handleUpdateChart,
+            onDeleteEntry: (id: string) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id),
+            currentUser: currentUser,
+            procedures: fieldSettings.procedures,
+            inventory: stock,
+            fieldSettings: fieldSettings,
+            patient: patient,
+            appointments: patientAppointments,
+            incidents: incidents,
+            sterilizationCycles: sterilizationCycles,
+            onRequestProtocolOverride: onRequestProtocolOverride,
+            onSupervisorySeal: onSupervisorySeal,
+            prefill: noteToAutoEdit,
+            onClearPrefill: () => setNoteToAutoEdit(null)
+          };
+        } else if (tabId === 'chart') {
+          props = {
+            chart: patient.dentalChart || [],
+            onToothClick: () => {},
+            onChartUpdate: handleChartUpdateFromOdontogram,
+            readOnly: readOnly
+          };
+        } else if (tabId === 'perio') {
+          props = {
+            data: patient.perioChart || [],
+            onSave: handleUpdatePerioChart,
+            readOnly: readOnly
+          };
+        }
+        setFullScreenView({ type: tabId, props });
+      }
+  };
 
   const renderContent = () => {
     switch(activeTab) {
@@ -679,7 +722,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             <div className="p-2 border-b flex items-center justify-between">
                 <div className="flex">
                     {tabs.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}>
+                        <button key={tab.id} onClick={() => handleTabClick(tab.id as any)} className={`px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}>
                             <tab.icon size={14}/> {tab.label}
                         </button>
                     ))}

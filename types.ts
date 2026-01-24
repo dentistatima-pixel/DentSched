@@ -991,6 +991,13 @@ export interface ClinicalMacro {
   associatedProcedures?: string[];
 }
 
+export interface CommunicationTemplate {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+}
+
 export interface FieldSettings {
   clinicName: string;
   clinicProfile: ClinicProfile;
@@ -1025,6 +1032,7 @@ export interface FieldSettings {
   branches: string[];
   branchProfiles: Branch[];
   documentTemplates: Record<string, { name: string; content: string }>;
+  communicationTemplates: CommunicationTemplate[];
   branchColors?: Record<string, string>;
   resources: ClinicResource[];
   assets: MaintenanceAsset[];

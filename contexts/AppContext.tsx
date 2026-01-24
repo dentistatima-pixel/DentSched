@@ -7,6 +7,11 @@ import CryptoJS from 'crypto-js';
 
 type Theme = 'light' | 'dark';
 
+interface FullScreenView {
+  type: 'notes' | 'chart' | 'perio';
+  props: any;
+}
+
 interface AppContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
@@ -28,6 +33,8 @@ interface AppContextType {
   isAuthorityLocked: boolean;
   theme: Theme;
   toggleTheme: () => void;
+  fullScreenView: FullScreenView | null;
+  setFullScreenView: (view: FullScreenView | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -43,6 +50,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [governanceTrack, setGovernanceTrack] = useState<GovernanceTrack>('OPERATIONAL');
     const [currentBranch, setCurrentBranch] = useState<string>('');
     const [theme, setTheme] = useState<Theme>('light');
+    const [fullScreenView, setFullScreenView] = useState<FullScreenView | null>(null);
 
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -148,7 +156,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isReadOnly,
         isAuthorityLocked,
         theme,
-        toggleTheme
+        toggleTheme,
+        fullScreenView,
+        setFullScreenView,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

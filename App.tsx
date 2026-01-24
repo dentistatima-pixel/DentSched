@@ -11,7 +11,12 @@ import { useRouter } from './contexts/RouterContext';
 import { routes, RouteConfig } from './routes';
 
 import { DentalChartEntry, UserRole } from './types';
-import { Lock } from 'lucide-react';
+import { Lock, X } from 'lucide-react';
+
+// Lazy load components for the full-screen workspace
+const Odontonotes = React.lazy(() => import('./components/Odontonotes').then(module => ({ default: module.Odontonotes })));
+const Odontogram = React.lazy(() => import('./components/Odontogram'));
+const PerioChart = React.lazy(() => import('./components/PerioChart'));
 
 
 const LockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
@@ -27,7 +32,7 @@ const LockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
 };
 
 function App() {
-  const { currentUser, setCurrentUser } = useAppContext();
+  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView } = useAppContext();
   const { route } = useRouter();
   
   const [isInKioskMode, setIsInKioskMode] = useState(false);
@@ -51,6 +56,46 @@ function App() {
       window.removeEventListener('keydown', resetIdleTimer);
     };
   }, [resetIdleTimer]);
+  
+  const renderFullScreenContent = () => {
+    if (!fullScreenView) return null;
+
+    const { type, props } = fullScreenView;
+    let Component;
+    switch(type) {
+        case 'notes': Component = Odontonotes; break;
+        case 'chart': Component = Odontogram; break;
+        case 'perio': Component = PerioChart; break;
+        default: return null;
+    }
+
+    return (
+        <Suspense fallback={<div className="p-8">Loading Workspace...</div>}>
+            <Component {...props} />
+        </Suspense>
+    );
+  };
+
+  if (fullScreenView) {
+    let title = 'Clinical Workspace';
+    if (fullScreenView.type === 'notes') title = 'Odontonotes Workspace';
+    if (fullScreenView.type === 'chart') title = 'Odontogram Workspace';
+    if (fullScreenView.type === 'perio') title = 'Perio Chart Workspace';
+
+    return (
+        <div className="fixed inset-0 bg-slate-50 z-[999] flex flex-col animate-in fade-in">
+            <header className="p-4 bg-white border-b flex justify-between items-center shrink-0 shadow-sm">
+                <h3 className="font-bold text-lg text-slate-700">{title}</h3>
+                <button onClick={() => setFullScreenView(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200">
+                    <X size={16}/> Close Workspace
+                </button>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+                {renderFullScreenContent()}
+            </div>
+        </div>
+    );
+  }
   
   if (!currentUser) {
       return <LoginScreen onLogin={setCurrentUser} />;

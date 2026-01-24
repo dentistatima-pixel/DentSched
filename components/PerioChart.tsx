@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PerioMeasurement } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart, Sparkles } from 'lucide-react';
@@ -413,49 +414,51 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                     </div>
                 )}
 
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 font-black text-slate-400 uppercase text-[10px] tracking-[0.4em] ml-2">
-                        <ChevronUp size={20} className="text-teal-600"/> Maxillary Arch Registry
+                <div className="flex flex-wrap justify-center gap-y-12">
+                    <div className="w-full">
+                        <div className="flex items-center gap-4 font-black text-slate-400 uppercase text-[10px] tracking-[0.4em] ml-2 mb-6">
+                            <ChevronUp size={20} className="text-teal-600"/> Maxillary Arch Registry
+                        </div>
+                        <div className="flex border-4 border-white rounded-[3.5rem] overflow-hidden shadow-2xl bg-slate-100/30">
+                            {TEETH_UPPER.map(t => (
+                                <PerioRow 
+                                    key={t} 
+                                    tooth={t} 
+                                    focusedSite={focusedSite}
+                                    measurement={measurements[t]} 
+                                    previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
+                                    onValueChange={handleValueChange}
+                                    onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
+                                    onMobilityChange={handleMobilityChange}
+                                    onBleedingToggle={toggleBleeding}
+                                    readOnly={readOnly}
+                                    compareMode={compareMode}
+                                />
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex border-4 border-white rounded-[3.5rem] overflow-hidden shadow-2xl w-max bg-slate-100/30">
-                        {TEETH_UPPER.map(t => (
-                            <PerioRow 
-                                key={t} 
-                                tooth={t} 
-                                focusedSite={focusedSite}
-                                measurement={measurements[t]} 
-                                previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
-                                onValueChange={handleValueChange}
-                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
-                                onMobilityChange={handleMobilityChange}
-                                onBleedingToggle={toggleBleeding}
-                                readOnly={readOnly}
-                                compareMode={compareMode}
-                            />
-                        ))}
-                    </div>
-                </div>
 
-                <div className="space-y-6 pb-24">
-                    <div className="flex items-center gap-4 font-black text-slate-400 uppercase text-[10px] tracking-[0.4em] ml-2">
-                        <ChevronDown size={20} className="text-lilac-600"/> Mandibular Arch Registry
-                    </div>
-                    <div className="flex border-4 border-white rounded-[3.5rem] overflow-hidden shadow-2xl w-max bg-slate-100/30">
-                        {TEETH_LOWER.map(t => (
-                            <PerioRow 
-                                key={t} 
-                                tooth={t} 
-                                focusedSite={focusedSite}
-                                measurement={measurements[t]} 
-                                previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
-                                onValueChange={handleValueChange}
-                                onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
-                                onMobilityChange={handleMobilityChange}
-                                onBleedingToggle={toggleBleeding}
-                                readOnly={readOnly}
-                                compareMode={compareMode}
-                            />
-                        ))}
+                    <div className="w-full">
+                        <div className="flex items-center gap-4 font-black text-slate-400 uppercase text-[10px] tracking-[0.4em] ml-2 mb-6">
+                            <ChevronDown size={20} className="text-lilac-600"/> Mandibular Arch Registry
+                        </div>
+                        <div className="flex border-4 border-white rounded-[3.5rem] overflow-hidden shadow-2xl bg-slate-100/30">
+                            {TEETH_LOWER.map(t => (
+                                <PerioRow 
+                                    key={t} 
+                                    tooth={t} 
+                                    focusedSite={focusedSite}
+                                    measurement={measurements[t]} 
+                                    previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
+                                    onValueChange={handleValueChange}
+                                    onFocusSite={(tooth, index) => setFocusedSite({ tooth, index })}
+                                    onMobilityChange={handleMobilityChange}
+                                    onBleedingToggle={toggleBleeding}
+                                    readOnly={readOnly}
+                                    compareMode={compareMode}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageCircle, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer, Shield } from 'lucide-react';
+import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageSquare, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer, Shield } from 'lucide-react';
 import { Appointment, Patient, SyncConflict, User, ClinicalIncident } from '../types';
 import { formatDate } from '../constants';
 
@@ -78,7 +79,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
     },
     post_op: {
       title: 'Post-Op Follow-Up',
-      icon: MessageCircle,
+      icon: MessageSquare,
       items: appointments.filter(a => ['Surgery', 'Extraction'].includes(a.type) && a.status === 'Completed' && !a.followUpConfirmed)
     },
     registrations: {
@@ -152,6 +153,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
       <div className="grid gap-6 admin-hub-grid">
           <ActionCard title="Financials" icon={DollarSign} onClick={() => onNavigate('financials')} color="bg-teal-600"/>
           <ActionCard title="Inventory" icon={Package} onClick={() => onNavigate('inventory')} color="bg-blue-600"/>
+          <ActionCard title="Communications" icon={MessageSquare} onClick={() => onNavigate('communications')} color="bg-green-600"/>
           <ActionCard title="Referral Hub" icon={Send} onClick={() => onNavigate('referrals')} color="bg-amber-600"/>
           <ActionCard title="Recall Center" icon={History} onClick={() => onNavigate('recall')} color="bg-rose-600"/>
           <ActionCard title="Staff Roster" icon={Users2} onClick={() => onNavigate('roster')} color="bg-cyan-600"/>

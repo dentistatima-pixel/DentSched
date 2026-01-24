@@ -120,8 +120,8 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, o
   const canSupervise = [UserRole.DENTIST, UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT].includes(currentUser.role);
 
   return (
-    <div className="flex h-full bg-slate-50">
-        <div className="w-1/3 border-r border-slate-200 flex flex-col">
+    <div className="flex flex-col lg:flex-row bg-slate-50">
+        <div className="w-full lg:w-1/3 border-r border-slate-200 flex flex-col">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white">
                 <h3 className="font-bold text-sm">Clinical Notes</h3>
                 <button onClick={startNewNote} disabled={readOnly} className="bg-teal-600 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1"><Plus size={14}/> New Entry</button>
@@ -138,7 +138,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, o
                 ))}
             </div>
         </div>
-        <div className="w-2/3 flex flex-col bg-white">
+        <div className="w-full lg:w-2/3 flex flex-col bg-white">
             {editingNote ? (
                 <>
                     <div className="p-4 border-b border-slate-200 space-y-2">
