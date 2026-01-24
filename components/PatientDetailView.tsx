@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch } from 'lucide-react';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Download, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle } from 'lucide-react';
 import { formatDate } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -60,7 +61,7 @@ const TabLoader: React.FC = () => (
 );
 
 const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
-    const displayValue = Array.isArray(value) ? value.join(', ') : (value || '---');
+    const displayValue = Array.isArray(value) && value.length > 0 ? value.join(', ') : Array.isArray(value) ? 'None' : (value || '---');
     return (
         <div className={`p-4 rounded-2xl flex items-start gap-4 ${
             isFlag ? 'bg-red-50 border-2 border-red-200' : 
@@ -179,6 +180,11 @@ interface ComplianceTabProps {
 }
 
 const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, onOpenRevocationModal }) => {
+    const getStatus = (consentFlag?: boolean) => {
+        return consentFlag ? 
+            <span className="font-bold text-teal-700 flex items-center gap-1"><CheckCircle size={12}/> Given</span> : 
+            <span className="font-bold text-red-700 flex items-center gap-1"><XCircle size={12}/> Not Given / Revoked</span>;
+    };
     return (
         <div className="animate-in fade-in duration-500 space-y-8">
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
@@ -190,25 +196,72 @@ const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, onOpenRevocation
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
                         <div>
                             <p className="font-bold text-slate-700">Clinical Processing Consent</p>
-                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                            <p className="text-xs text-slate-500">Status: {getStatus(patient.dpaConsent)}</p>
                         </div>
-                        <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                        {patient.dpaConsent && <button onClick={() => onOpenRevocationModal(patient, 'Clinical')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>}
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
                         <div>
                             <p className="font-bold text-slate-700">Marketing Communications Consent</p>
-                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                            <p className="text-xs text-slate-500">Status: {getStatus(patient.marketingConsent)}</p>
                         </div>
-                        <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                        {patient.marketingConsent && <button onClick={() => onOpenRevocationModal(patient, 'Marketing')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>}
                     </div>
                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
                         <div>
                             <p className="font-bold text-slate-700">Third-Party Disclosure Consent</p>
-                            <p className="text-xs text-slate-500">Status: <span className="font-bold text-teal-700">Given</span></p>
+                            <p className="text-xs text-slate-500">Status: {getStatus(patient.thirdPartyDisclosureConsent)}</p>
                         </div>
-                        <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>
+                        {patient.thirdPartyDisclosureConsent && <button onClick={() => onOpenRevocationModal(patient, 'ThirdParty')} className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-200 transition-colors">Revoke</button>}
                     </div>
                 </div>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                 <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3">
+                    <FileSignature size={18} className="text-lilac-600"/>
+                    Other Affirmations
+                </h4>
+                 <div className="space-y-4">
+                    <InfoItem label="Treatment Authorization (General)" value={patient.clinicalMediaConsent ? "Affirmed" : "Not Given"} icon={patient.clinicalMediaConsent ? CheckCircle : AlertCircle} isFlag={!patient.clinicalMediaConsent} />
+                    <InfoItem label="Third Party Attestation" value={patient.thirdPartyAttestation ? "Affirmed" : "Not Given"} icon={patient.thirdPartyAttestation ? CheckCircle : AlertCircle} isFlag={!patient.thirdPartyAttestation} />
+                    {patient.registrationSignatureTimestamp && <InfoItem label="Registration Signature Date" value={new Date(patient.registrationSignatureTimestamp).toLocaleString()} icon={History} />}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const MedicalHistoryAnswers: React.FC<{ patient: Patient }> = ({ patient }) => {
+    if (!patient.registryAnswers && !patient.medicalTreatmentDetails && !patient.seriousIllnessDetails && !patient.lastHospitalizationDetails) {
+        return null;
+    }
+
+    const questions = {
+        ...patient.registryAnswers
+    };
+
+    // Filter out detail/date fields to be handled with their parent question
+    const mainQuestions = Object.keys(questions).filter(q => !q.endsWith('_details') && !q.endsWith('_date'));
+
+    return (
+        <div className="md:col-span-12">
+            <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Medical History Questionnaire</h4>
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mainQuestions.map(q => (
+                    <div key={q} className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                        <p className="font-bold text-slate-700 text-sm">{q.replace('*', '')}</p>
+                        <p className={`font-black text-lg mt-1 ${questions[q] === 'Yes' ? 'text-red-700' : 'text-teal-700'}`}>{questions[q]}</p>
+                        {questions[q] === 'Yes' && questions[`${q}_details`] && (
+                            <p className="text-xs mt-2 p-3 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium"><strong>Details:</strong> {questions[`${q}_details`]}</p>
+                        )}
+                        {questions[q] === 'Yes' && questions[`${q}_date`] && (
+                            <p className="text-xs mt-2 p-3 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium"><strong>Date:</strong> {formatDate(questions[`${q}_date`])}</p>
+                        )}
+                    </div>
+                ))}
+                {patient.medicalTreatmentDetails && <InfoItem label="Details of Medical Treatment" value={patient.medicalTreatmentDetails} icon={FileText} />}
+                {patient.seriousIllnessDetails && <InfoItem label="Details of Serious Illness/Operation" value={patient.seriousIllnessDetails} icon={FileText} />}
+                {patient.lastHospitalizationDetails && <InfoItem label="Details of Last Hospitalization" value={`${patient.lastHospitalizationDetails} on ${formatDate(patient.lastHospitalizationDate)}`} icon={FileText} />}
             </div>
         </div>
     );
@@ -285,6 +338,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       return patients.find(p => p.id === patient.referredById);
   }, [patient?.referredById, patients]);
 
+  const familyGroup = useMemo(() => {
+      if (!patient?.familyGroupId || !fieldSettings?.familyGroups) return null;
+      return fieldSettings.familyGroups.find(fg => fg.id === patient.familyGroupId);
+  }, [patient?.familyGroupId, fieldSettings?.familyGroups]);
+
   const attendanceString = useMemo(() => {
       if (!patient?.attendanceStats) return 'No History';
       const stats = patient.attendanceStats;
@@ -341,49 +399,88 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const renderContent = () => {
     switch(activeTab) {
         case 'summary':
+            const otherContacts = [patient.homeNumber, patient.officeNumber, patient.faxNumber].filter(Boolean).join(' / ');
+            const physicianInfo = [
+                patient.physicianName ? `${patient.physicianName} (${patient.physicianSpecialty || 'N/A'})` : 'N/A',
+                patient.physicianAddress,
+                patient.physicianNumber
+            ].filter(Boolean).join(' | ');
+
             return (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-500">
-                    {/* Column 1: Contact, Personal & Vitals */}
-                    <div className="md:col-span-4 space-y-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Contact & Address</h4>
-                        <InfoItem label="Phone" value={patient.phone} icon={Phone} />
-                        <InfoItem label="Email" value={patient.email} icon={Mail} />
-                        <InfoItem label="Address" value={`${patient.homeAddress || ''}, ${patient.barangay || ''}, ${patient.city || ''}`} icon={MapPin} />
-                        
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4 pt-4">Personal Profile</h4>
-                        <InfoItem label="Sex" value={patient.sex} icon={UserIcon} />
-                        <InfoItem label="Civil Status" value={patient.civilStatus} icon={BookUser} />
-                        <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
-                        <InfoItem label="Blood Group" value={patient.bloodGroup} icon={Heart} />
-                        <InfoItem label="Last BP" value={patient.bloodPressure} icon={Activity} />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in duration-500">
+
+                    {/* NEW TOP SECTION: PRACTICE OVERVIEW & NOTES */}
+                    <div className="md:col-span-12">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Practice Overview & Notes</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                            <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
+                            <InfoItem label="Reliability Score" value={`${patient.reliabilityScore || 100}%`} icon={CheckCircle} />
+                            <InfoItem label="Attendance" value={attendanceString} icon={History} />
+                            <InfoItem label="Balance" value={`₱${patient.currentBalance?.toLocaleString() || '0'}`} icon={DollarSign} isFlag={(patient.currentBalance || 0) > 0} />
+                        </div>
+                    </div>
+                    
+                    {/* TOP PRIORITY: CLINICAL FLAGS & NOTES */}
+                    <div className="md:col-span-12">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Clinical Flags & Notes</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <InfoItem label="Chief Complaint" value={patient.chiefComplaint} icon={AlertCircle} isFlag />
+                            <InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={AlertCircle} isFlag />
+                            <InfoItem label="Allergies" value={patient.allergies} icon={AlertCircle} isFlag />
+                            <InfoItem label="Current Medications" value={patient.medicationDetails} icon={AlertCircle} isFlag />
+                            {patient.otherConditions && <InfoItem label="Other Conditions" value={patient.otherConditions} icon={AlertCircle} isFlag />}
+                            {patient.otherAllergies && <InfoItem label="Other Allergies" value={patient.otherAllergies} icon={AlertCircle} isFlag />}
+                        </div>
                     </div>
 
-                    {/* Column 2: Insurance & Practice Metrics */}
-                    <div className="md:col-span-4 space-y-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Insurance & Physician</h4>
-                        <InfoItem label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
-                        <InfoItem label="Policy #" value={patient.insuranceNumber} icon={ClipboardCheck} />
-                        <InfoItem label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
-                        <InfoItem label="Attending Physician" value={patient.physicianName ? `${patient.physicianName} (${patient.physicianSpecialty || 'N/A'})` : 'N/A'} icon={Stethoscope} />
-                        
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4 pt-4">Practice Metrics</h4>
-                        <InfoItem label="Reliability Score" value={`${patient.reliabilityScore || 100}%`} icon={CheckCircle} />
-                        <InfoItem label="Attendance" value={attendanceString} icon={History} />
-                        <InfoItem label="Balance" value={`₱${patient.currentBalance?.toLocaleString() || '0'}`} icon={DollarSign} isFlag={(patient.currentBalance || 0) > 0} />
-                        <InfoItem label="Recall Status" value={patient.recallStatus} icon={Zap} />
-                        <InfoItem label="Referred By" value={referrer?.name} icon={Send} />
+                    {/* SECOND PRIORITY: MEDICAL HISTORY QUESTIONNAIRE */}
+                    <MedicalHistoryAnswers patient={patient} />
+
+                    {/* Section: Practice Metrics */}
+                    <div className="md:col-span-12 pt-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Practice Metrics</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <InfoItem label="Recall Status" value={patient.recallStatus} icon={Zap} />
+                            <InfoItem label="Referred By" value={referrer?.name} icon={Send} />
+                            {familyGroup && <InfoItem label="Family Group" value={familyGroup.familyName} icon={Users} isSpecial />}
+                            {patient.guardianProfile && <InfoItem label="Guardian Details" value={`${patient.guardianProfile.legalName} (${patient.guardianProfile.relationship}), ${patient.guardianProfile.mobile}. Authority: ${patient.guardianProfile.authorityLevel}`} icon={Baby} isSpecial />}
+                        </div>
                     </div>
 
-                    {/* Column 3: Critical Info & Notes */}
-                    <div className="md:col-span-4 space-y-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest px-4">Clinical Flags & Notes</h4>
-                        <InfoItem label="Chief Complaint" value={patient.chiefComplaint} icon={AlertCircle} isFlag />
-                        <InfoItem label="Allergies" value={patient.allergies} icon={AlertCircle} isFlag />
-                        <InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={AlertCircle} isFlag />
-                        {patient.guardianProfile && <InfoItem label="Guardian" value={`${patient.guardianProfile.legalName} (${patient.guardianProfile.relationship})`} icon={Baby} isSpecial />}
-                        <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
+                    {/* Section: Contact, Personal & Vitals */}
+                    <div className="md:col-span-12 pt-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Contact, Personal & Vitals</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <InfoItem label="Mobile Phone" value={patient.phone} icon={Phone} />
+                            <InfoItem label="Email" value={patient.email} icon={Mail} />
+                            {otherContacts && <InfoItem label="Other Contact #" value={otherContacts} icon={Phone} />}
+                            <InfoItem label="Address" value={`${patient.homeAddress || ''}, ${patient.barangay || ''}, ${patient.city || ''}`} icon={MapPin} />
+                            <InfoItem label="Sex" value={patient.sex} icon={UserIcon} />
+                            <InfoItem label="Nickname" value={patient.nickname} icon={UserIcon} />
+                            <InfoItem label="Civil Status" value={patient.civilStatus} icon={BookUser} />
+                            <InfoItem label="Nationality" value={patient.nationality} icon={Briefcase} />
+                            <InfoItem label="Religion" value={patient.religion} icon={Briefcase} />
+                            <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
+                            <InfoItem label="Blood Group" value={patient.bloodGroup} icon={Heart} />
+                            <InfoItem label="Last BP" value={patient.bloodPressure} icon={Activity} />
+                            <InfoItem label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : 'N/A'} icon={Weight} />
+                        </div>
                     </div>
 
+                    {/* Section: Insurance, Physician & Dental History */}
+                    <div className="md:col-span-12 pt-6">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Insurance, Physician & Dental History</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <InfoItem label="Primary Insurance" value={`${patient.insuranceProvider} - ${patient.insuranceNumber}`} icon={Shield} />
+                            <InfoItem label="Dental Insurance" value={`${patient.dentalInsurance} (eff. ${formatDate(patient.insuranceEffectiveDate)})`} icon={Shield} />
+                            <InfoItem label="Responsible Party" value={patient.responsibleParty} icon={Users} />
+                            <InfoItem label="PhilHealth" value={`${patient.philHealthPIN} (${patient.philHealthCategory} / ${patient.philHealthMemberStatus})`} icon={ShieldCheck} />
+                            <InfoItem label="Attending Physician" value={physicianInfo} icon={Stethoscope} />
+                            <InfoItem label="Previous Dentist" value={patient.previousDentist} icon={History} />
+                            <InfoItem label="Last Dental Visit" value={formatDate(patient.lastDentalVisit)} icon={History} />
+                        </div>
+                    </div>
+                    
                     {/* Full Width: AI Summary */}
                     {can('use:ai-features') && (
                         <div className="md:col-span-12">
