@@ -274,9 +274,32 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
             );
           }
 
-          const val = (formData as any)[field.id] || '';
+          const val = (formData as any)[field.id];
           const colSpan = field.width === 'full' ? 'col-span-12' : field.width === 'third' ? 'col-span-4' : field.width === 'quarter' ? 'col-span-3' : 'col-span-6';
           const isCriticalDyn = isCritical || field.isCritical;
+          
+          if (field.type === 'boolean') {
+              return (
+                  <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                      <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${!!val ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
+                          <input
+                              type="checkbox"
+                              name={field.id}
+                              checked={!!val}
+                              onChange={handleChange}
+                              disabled={readOnly}
+                              className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0"
+                          />
+                          <div>
+                            <span className="font-black text-teal-950 uppercase text-sm tracking-widest flex items-center gap-2">
+                                {field.label}
+                                {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
+                            </span>
+                          </div>
+                      </label>
+                  </DesignWrapper>
+              );
+          }
           
           return (
               <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
@@ -285,14 +308,14 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                     {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                   </label>
                   {field.type === 'dropdown' && field.registryKey ? (
-                      <select name={field.id} value={val} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                      <select name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
                           <option value="">Select {field.label}</option>
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <ControlledTextarea name={field.id} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
+                      <ControlledTextarea name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
                   ) : (
-                      <ControlledInput name={field.id} type={field.type as any} value={val} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
+                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
                   )}
               </DesignWrapper>
           );
@@ -305,6 +328,10 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
       const field = fieldSettings.identityFields.find(f => f.id === fieldId);
       return !field || (field.section !== 'DENTAL' && field.section !== 'FAMILY');
   }), [fieldSettings.identityLayoutOrder, fieldSettings.identityFields]);
+  
+  const sexIndex = identityFields.indexOf('core_sex');
+  const fieldsPart1 = identityFields.slice(0, sexIndex + 1);
+  const fieldsPart2 = identityFields.slice(sexIndex + 1);
 
   return (
     <div className="space-y-12">
@@ -367,68 +394,73 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
                 <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl"><User size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">PATIENT INFORMATION RECORD</h4>
             </div>
-            <div className="orientation-grid gap-6">
-                {identityFields.map(id => renderFieldById(id))}
+            <div className="orientation-grid grid-cols-12 gap-6">
+                {fieldsPart1.map(id => renderFieldById(id))}
+
+                {showFemaleQuestions && (
+                    <div className="col-span-12 mt-8">
+                        <div className={`p-10 rounded-[3rem] border-2 space-y-6 animate-in slide-in-from-top-4 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className="flex justify-between items-center px-2 border-b border-slate-200 pb-4">
+                                <h4 className="text-lg font-black uppercase text-lilac-800 tracking-tight flex items-center gap-3"><Baby size={24}/> OB-GYN Clinical Markers</h4>
+                                {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase">Visible in Design Mode</span>}
+                            </div>
+                            <div className="orientation-grid grid-cols-12 gap-6">
+                                {fieldSettings.femaleQuestionRegistry.map(q => {
+                                    const fieldName = femaleFieldMap[q];
+                                    const isYes = (formData as any)[fieldName] === true;
+                                    const isNo = (formData as any)[fieldName] === false;
+
+                                    return (
+                                    <DesignWrapper key={q} id={q} type="question" className="col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                                        <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 bg-slate-50 border-slate-100`}>
+                                            <div className="flex items-center gap-3">
+                                                <Check size={18} className="text-slate-500"/>
+                                                <span className={`font-black text-sm leading-tight uppercase tracking-tight text-slate-800`}>{q}</span>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: true, type: 'checkbox', checked: true } } as any)}
+                                                    className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-teal-200'}`}
+                                                >
+                                                    Yes
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: false, type: 'checkbox', checked: false } } as any)}
+                                                    className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isNo ? 'bg-lilac-600 border-lilac-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-lilac-200'}`}
+                                                >
+                                                    No
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </DesignWrapper>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {showGuardian && (
+                    <div className="col-span-12 mt-8">
+                        <div className={`p-10 rounded-[3rem] border-2 space-y-8 animate-in slide-in-from-top-4 duration-500 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex justify-between items-center border-b border-slate-200 pb-4">
+                                <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight flex items-center gap-3"><Users size={24} className="text-lilac-600"/> Legal Guardian Profile (For Minors/PWD)</h4>
+                                {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
+                            </div>
+                            <div className="orientation-grid grid-cols-12 gap-6">
+                                <div className="col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
+                                <div className="col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
+                                <div className="col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {fieldsPart2.map(id => renderFieldById(id))}
             </div>
         </div>
-
-        {/* SECTION: OB-GYN Clinical Markers (Shifted from Medical) */}
-        {showFemaleQuestions && (
-            <div className={`p-10 rounded-[3rem] border-2 space-y-6 animate-in slide-in-from-top-4 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-100'}`}>
-                <div className="flex justify-between items-center px-2 border-b border-slate-200 pb-4">
-                    <h4 className="text-lg font-black uppercase text-lilac-800 tracking-tight flex items-center gap-3"><Baby size={24}/> OB-GYN Clinical Markers</h4>
-                    {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase">Visible in Design Mode</span>}
-                </div>
-                <div className="orientation-grid gap-6">
-                    {fieldSettings.femaleQuestionRegistry.map(q => {
-                        const fieldName = femaleFieldMap[q];
-                        const isYes = (formData as any)[fieldName] === true;
-                        const isNo = (formData as any)[fieldName] === false;
-
-                        return (
-                        <DesignWrapper key={q} id={q} type="question" className="col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                            <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 bg-slate-50 border-slate-100`}>
-                                <div className="flex items-center gap-3">
-                                    <Check size={18} className="text-slate-500"/>
-                                    <span className={`font-black text-sm leading-tight uppercase tracking-tight text-slate-800`}>{q}</span>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: true, type: 'checkbox', checked: true } } as any)}
-                                        className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-teal-200'}`}
-                                    >
-                                        Yes
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: false, type: 'checkbox', checked: false } } as any)}
-                                        className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isNo ? 'bg-lilac-600 border-lilac-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-lilac-200'}`}
-                                    >
-                                        No
-                                    </button>
-                                </div>
-                            </div>
-                        </DesignWrapper>
-                        );
-                    })}
-                </div>
-            </div>
-        )}
-
-        {showGuardian && (
-            <div className={`p-10 rounded-[3rem] border-2 space-y-8 animate-in slide-in-from-top-4 duration-500 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex justify-between items-center border-b border-slate-200 pb-4">
-                    <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight flex items-center gap-3"><Users size={24} className="text-lilac-600"/> Legal Guardian Profile (For Minors)</h4>
-                    {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
-                </div>
-                <div className="orientation-grid gap-6">
-                    <div className="col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
-                    <div className="col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
-                    <div className="col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
-                </div>
-            </div>
-        )}
     </div>
   );
 };

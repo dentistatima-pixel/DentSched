@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { FieldSettings, HospitalAffiliation, Branch } from '../types';
+import React, { useState, useEffect } from 'react';
+import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useAppContext } from '../contexts/AppContext';
@@ -11,13 +11,45 @@ interface BranchEditorModalProps {
     onSave: (branch: Branch) => void;
 }
 
+const defaultHours: OperationalHours = {
+    monday: { start: '08:00', end: '18:00', isClosed: false },
+    tuesday: { start: '08:00', end: '18:00', isClosed: false },
+    wednesday: { start: '08:00', end: '18:00', isClosed: false },
+    thursday: { start: '08:00', end: '18:00', isClosed: false },
+    friday: { start: '08:00', end: '18:00', isClosed: false },
+    saturday: { start: '09:00', end: '16:00', isClosed: false },
+    sunday: { start: '09:00', end: '12:00', isClosed: true },
+};
+
 const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, onSave }) => {
-    const [formData, setFormData] = useState<Partial<Branch>>(branch || {});
+    const [formData, setFormData] = useState<Partial<Branch>>(branch || { operationalHours: defaultHours });
     
-    if (!branch) return null;
+    useEffect(() => {
+        if (branch) {
+            setFormData({
+                ...branch,
+                operationalHours: branch.operationalHours || defaultHours
+            });
+        } else {
+            setFormData({ operationalHours: defaultHours });
+        }
+    }, [branch]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleHoursChange = (day: keyof OperationalHours, field: keyof DaySchedule, value: string | boolean) => {
+        setFormData(prev => ({
+            ...prev,
+            operationalHours: {
+                ...(prev.operationalHours!),
+                [day]: {
+                    ...(prev.operationalHours![day]),
+                    [field]: value
+                }
+            } as OperationalHours
+        }));
     };
     
     const handleSave = () => {
@@ -31,22 +63,55 @@ const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, 
         } as Branch);
     };
 
+    if (!branch) return null;
+
+    const days: (keyof OperationalHours)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex justify-center items-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="font-bold text-lg">{formData.id ? 'Edit Branch' : 'Add New Branch'}</h3>
                     <button onClick={onClose}><X/></button>
                 </div>
-                <div className="p-6 space-y-4 overflow-y-auto">
-                    <div><label className="label text-xs">Branch Display Name *</label><input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="input"/></div>
-                    <div><label className="label text-xs">Legal Entity Name *</label><input type="text" name="legalEntityName" value={formData.legalEntityName || ''} onChange={handleChange} className="input"/></div>
-                    <div><label className="label text-xs">Full Address *</label><input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="input"/></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="label text-xs">Contact Number *</label><input type="text" name="contactNumber" value={formData.contactNumber || ''} onChange={handleChange} className="input"/></div>
-                        <div><label className="label text-xs">Email Address *</label><input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input"/></div>
-                        <div><label className="label text-xs">TIN</label><input type="text" name="tinNumber" value={formData.tinNumber || ''} onChange={handleChange} className="input"/></div>
-                        <div><label className="label text-xs">DTI Permit #</label><input type="text" name="dtiPermitNumber" value={formData.dtiPermitNumber || ''} onChange={handleChange} className="input"/></div>
+                <div className="p-8 space-y-6 overflow-y-auto">
+                    <div className="space-y-4">
+                        <div><label className="label text-xs">Branch Display Name *</label><input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="input"/></div>
+                        <div><label className="label text-xs">Legal Entity Name *</label><input type="text" name="legalEntityName" value={formData.legalEntityName || ''} onChange={handleChange} className="input"/></div>
+                        <div><label className="label text-xs">Full Address *</label><input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="input"/></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="label text-xs">Contact Number *</label><input type="text" name="contactNumber" value={formData.contactNumber || ''} onChange={handleChange} className="input"/></div>
+                            <div><label className="label text-xs">Email Address *</label><input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input"/></div>
+                            <div><label className="label text-xs">TIN</label><input type="text" name="tinNumber" value={formData.tinNumber || ''} onChange={handleChange} className="input"/></div>
+                            <div><label className="label text-xs">DTI Permit #</label><input type="text" name="dtiPermitNumber" value={formData.dtiPermitNumber || ''} onChange={handleChange} className="input"/></div>
+                        </div>
+                    </div>
+                     <div className="pt-6 border-t">
+                        <h4 className="label text-sm">Operational Hours</h4>
+                        <div className="space-y-3">
+                            {days.map(day => {
+                                const schedule = formData.operationalHours?.[day];
+                                const isClosed = schedule?.isClosed || false;
+                                return (
+                                    <div key={day} className="grid grid-cols-12 gap-4 items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <div className="col-span-3 font-black text-sm capitalize text-slate-700">{day}</div>
+                                        <div className="col-span-3 flex items-center">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" checked={!isClosed} onChange={e => handleHoursChange(day, 'isClosed', !e.target.checked)} className="sr-only peer" />
+                                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                                                <span className="ml-3 text-xs font-black uppercase tracking-widest">{isClosed ? 'Closed' : 'Open'}</span>
+                                            </label>
+                                        </div>
+                                        <div className="col-span-3">
+                                            <input type="time" value={schedule?.start || ''} onChange={e => handleHoursChange(day, 'start', e.target.value)} disabled={isClosed} className="input text-sm p-2" />
+                                        </div>
+                                        <div className="col-span-3">
+                                            <input type="time" value={schedule?.end || ''} onChange={e => handleHoursChange(day, 'end', e.target.value)} disabled={isClosed} className="input text-sm p-2" />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
                 </div>
                 <div className="p-4 border-t"><button onClick={handleSave} className="w-full py-3 bg-teal-600 text-white rounded-lg font-bold">Save Branch</button></div>

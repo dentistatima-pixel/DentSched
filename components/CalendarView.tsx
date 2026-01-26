@@ -32,11 +32,11 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const navigate = useNavigate();
 
   const { currentUser, currentBranch } = useAppContext();
-  const { appointments, handleMoveAppointment: onMoveAppointment, handleUpdateAppointmentStatus: onUpdateAppointmentStatus } = useAppointments();
+  const { appointments, handleMoveAppointment: onMoveAppointment, handleUpdateAppointmentStatus: onUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
   const { staff } = useStaff();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
-  const { waitlist } = useClinicalOps();
+  const { waitlist, handleAddToWaitlist } = useClinicalOps();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
@@ -121,18 +121,23 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
 
   const visibleProviders = useMemo(() => {
     if (!currentUser) return [];
+
+    // Logic for a logged-in DENTIST viewing their own schedule
     if (currentUser.role === UserRole.DENTIST && viewMode !== 'week') {
-        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // Mon, Tue...
+        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
+        // Only show the current dentist if they are rostered for this day/branch
         if (currentUser.roster?.[dayOfWeek] === currentBranch) {
             return [currentUser];
         }
-        return [];
+        return []; // Not rostered, show empty
     }
-    let branchStaff = staff.filter(u => u.role === UserRole.DENTIST);
-    if (currentBranch) {
-        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // Mon, Tue...
-        branchStaff = branchStaff.filter(u => u.roster?.[dayOfWeek] === currentBranch);
-    }
+
+    // Logic for ADMIN/ARCHITECT to see all relevant dentists for the branch
+    const branchStaff = staff.filter(u => 
+        u.role === UserRole.DENTIST &&
+        u.allowedBranches.includes(currentBranch)
+    );
+    
     return branchStaff;
   }, [staff, currentBranch, currentUser, viewMode, selectedDate]);
 
@@ -184,7 +189,16 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   };
   
   const openAppointmentModal = (date?: string, time?: string, patientId?: string, appointmentToEdit?: Appointment, overrideInfo?: any) => {
-    showModal('appointment', { initialDate: date, initialTime: time, initialPatientId: patientId, existingAppointment: appointmentToEdit, overrideInfo });
+    showModal('appointment', { 
+        onSave: handleSaveAppointment, 
+        onAddToWaitlist: handleAddToWaitlist,
+        currentBranch,
+        initialDate: date, 
+        initialTime: time, 
+        initialPatientId: patientId, 
+        existingAppointment: appointmentToEdit, 
+        overrideInfo 
+    });
   };
 
   const handleMouseDown = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
@@ -198,6 +212,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const handleMouseUp = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
       if(longPressTimer.current) {
           clearTimeout(longPressTimer.current);
+          longPressTimer.current = null; // Clear timer ref after use
           if (!inspected) {
               setPeeked({ apt, patient, target: e.currentTarget as HTMLElement });
           }
@@ -336,6 +351,11 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
             </div>
             <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2">
+                    {viewMode === 'week' && (
+                        <select value={activeProviderId} onChange={e => setActiveProviderId(e.target.value)} className="bg-white border-2 border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs font-black uppercase tracking-widest">
+                            {visibleProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    )}
                     {viewMode === 'grid' && (
                         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200" role="group" aria-label="Calendar dimension toggle">
                             <button onClick={() => setViewDimension('provider')} aria-pressed={viewDimension === 'provider'} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${viewDimension === 'provider' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}>Providers</button>
@@ -356,12 +376,12 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                 <div className={`text-sm font-black uppercase tracking-widest ${d.isToday ? 'text-teal-700' : 'text-slate-800'}`}>{d.label}</div>
                             </div>
                         )) : viewDimension === 'provider' ? visibleProviders.map(p => (
-                            <div key={p.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50">
-                                <div className="flex flex-col items-center"><img src={p.avatar} alt="" className="w-12 h-12 rounded-full mb-2 border-2 border-white shadow-md" /><span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{p.name}</span></div>
+                            <div key={p.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
+                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{p.name}</span>
                             </div>
                         )) : visibleResources.map(r => (
-                            <div key={r.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50">
-                                <div className="flex flex-col items-center"><div className="w-12 h-12 bg-lilac-100 rounded-full flex items-center justify-center mb-2 border-2 border-white shadow-md text-lilac-700"><Armchair size={24}/></div><span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{r.name}</span></div>
+                            <div key={r.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
+                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{r.name}</span>
                             </div>
                         ))
                     }
@@ -369,7 +389,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
 
                 <div className="flex flex-col flex-1">
                     {timeSlots.map(hour => (
-                        <div key={hour} className="flex min-h-[140px] border-b border-slate-100" role="row">
+                        <div key={hour} className="flex min-h-[80px] border-b border-slate-100" role="row">
                             <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-200 bg-slate-50/90 backdrop-blur-sm text-xs font-black text-slate-500 sticky left-0 z-20">
                                 {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
                             </div>
@@ -391,7 +411,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                         role="gridcell" 
                                         aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
                                         className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
-                                        onClick={() => handleSlotClick(colId, hour, dateIso)}
+                                        onDoubleClick={() => handleSlotClick(colId, hour, dateIso)}
                                         onDragOver={e => e.preventDefault()}
                                         onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
                                         onDragLeave={() => setDragOverInfo(null)}
@@ -417,7 +437,13 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                                 <div 
                                                     key={apt.id} 
                                                     draggable
-                                                    onDragStart={(e) => { e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) }}
+                                                    onDragStart={(e) => { 
+                                                        if (longPressTimer.current) {
+                                                            clearTimeout(longPressTimer.current);
+                                                            longPressTimer.current = null;
+                                                        }
+                                                        e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
+                                                    }}
                                                     onMouseDown={(e) => handleMouseDown(e, apt, patient!)} 
                                                     onMouseUp={(e) => handleMouseUp(e, apt, patient!)}
                                                     onClick={(e) => e.stopPropagation()}
@@ -429,7 +455,11 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                                             {apt.isWaitlistOverride && <span title="Booked from Waitlist (Manager Override)"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
                                                             {apt.entryMode === 'MANUAL' && <span title="Manual Downtime Entry"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
                                                             {apt.isPendingSync && <span title="Pending Offline Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
-                                                            {viewDimension === 'chair' && <img src={provider?.avatar} alt="" className="w-5 h-5 rounded-full border border-white" title={provider?.name}/>}
+                                                            {viewDimension === 'chair' && provider && 
+                                                                <div className="w-5 h-5 rounded-full border border-white bg-teal-100 text-teal-700 flex items-center justify-center text-[8px] font-black" title={provider.name}>
+                                                                    {provider.name.replace('Dr. ', '').split(' ').map(n => n[0]).join('').substring(0,2)}
+                                                                </div>
+                                                            }
                                                         </div>
                                                     </div>
                                                     <div className="font-black text-sm uppercase tracking-tight truncate">{patient?.name || 'Clinical Block'}</div>

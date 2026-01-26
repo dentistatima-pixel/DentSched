@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PerioMeasurement } from '../types';
+import { PerioMeasurement, DentalChartEntry } from '../types';
 import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Mic, MicOff, Volume2, FastForward, LineChart, Sparkles } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
@@ -8,6 +7,7 @@ import { useDictation } from '../hooks/useDictation';
 
 interface PerioChartProps {
     data: PerioMeasurement[];
+    dentalChart: DentalChartEntry[];
     onSave: (newData: PerioMeasurement[]) => void;
     readOnly?: boolean;
 }
@@ -20,6 +20,7 @@ interface PerioRowProps {
     tooth: number;
     measurement?: PerioMeasurement;
     previousMeasurement?: PerioMeasurement;
+    dentalChart: DentalChartEntry[];
     focusedSite: { tooth: number, index: number } | null;
     onValueChange: (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => void;
     onMobilityChange: (tooth: number, value: string) => void;
@@ -27,20 +28,30 @@ interface PerioRowProps {
     onFocusSite: (tooth: number, index: number) => void;
     readOnly?: boolean;
     compareMode?: boolean;
+    inputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
 }
 
-const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, focusedSite, onValueChange, onBleedingToggle, onMobilityChange, onFocusSite, readOnly, compareMode }) => {
+const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, dentalChart, focusedSite, onValueChange, onBleedingToggle, onMobilityChange, onFocusSite, readOnly, compareMode, inputRefs }) => {
     const m = measurement;
     if (!m) return null;
 
+    const isMissingOrExtracted = useMemo(() => {
+        return dentalChart.some(entry => 
+            entry.toothNumber === tooth &&
+            (entry.procedure.toLowerCase().includes('extraction') || entry.procedure.toLowerCase().includes('missing'))
+        );
+    }, [dentalChart, tooth]);
+
     const maxDepth = Math.max(...(m.pocketDepths.filter(d => d !== null) as number[]), 0);
     const isConcern = maxDepth >= 5;
+    
+    const getSiteRefKey = (tooth: number, index: number) => `t${tooth}-i${index}`;
 
     return (
-        <div className={`flex flex-col border-r border-slate-100 min-w-[125px] transition-all duration-500 ${isConcern ? 'bg-red-50/30' : 'bg-white'}`}>
-            <div className={`text-center font-black py-3 border-b border-slate-100 text-[11px] tracking-widest ${isConcern ? 'text-red-700 bg-red-50/50' : 'text-slate-500 bg-slate-50/30'}`}>
+        <div className={`flex flex-col border-r border-slate-100 min-w-[125px] transition-all duration-500 ${isMissingOrExtracted ? 'bg-slate-200 opacity-50' : (isConcern ? 'bg-red-50/30' : 'bg-white')}`}>
+            <div className={`text-center font-black py-3 border-b border-slate-100 text-[11px] tracking-widest ${isMissingOrExtracted ? 'text-slate-500 bg-slate-100' : (isConcern ? 'text-red-700 bg-red-50/50' : 'text-slate-500 bg-slate-50/30')}`}>
                 #{tooth}
-                {isConcern && <AlertTriangle size={10} className="inline ml-1 text-red-500 animate-pulse"/>}
+                {isConcern && !isMissingOrExtracted && <AlertTriangle size={10} className="inline ml-1 text-red-500 animate-pulse"/>}
             </div>
 
             <div className="flex justify-center gap-1.5 p-2 bg-white">
@@ -51,6 +62,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                         <div key={`F-${i}`} className="flex flex-col items-center gap-2">
                             <div className="relative group/input">
                                 <input 
+                                    ref={el => inputRefs.current[getSiteRefKey(tooth, i)] = el}
                                     type="text" 
                                     maxLength={2}
                                     value={m.pocketDepths[i] ?? ''}
@@ -61,7 +73,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                         ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-200 bg-red-50' : ''}
                                     `}
                                     placeholder="-"
-                                    disabled={readOnly}
+                                    disabled={readOnly || isMissingOrExtracted}
                                 />
                                 {compareMode && diff !== 0 && (
                                     <span className={`absolute -top-2 -right-2 text-[8px] px-1.5 py-0.5 rounded-full border-2 font-black shadow-sm z-30 ${diff > 0 ? 'bg-red-600 text-white border-white' : 'bg-teal-600 text-white border-white'}`}>
@@ -72,7 +84,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                             <button 
                                 onClick={() => onBleedingToggle(tooth, i)}
                                 className={`w-6 h-6 rounded-full border-2 shadow-sm transition-all duration-300 active:scale-75 ${m.bleeding[i] ? 'bg-red-600 border-red-200 scale-110 ring-4 ring-red-500/10' : 'bg-slate-100 border-slate-200 hover:border-red-400'}`}
-                                disabled={readOnly}
+                                disabled={readOnly || isMissingOrExtracted}
                             />
                         </div>
                     );
@@ -85,7 +97,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                         aria-label={`Mobility for tooth ${tooth}`}
                         onChange={(e) => onMobilityChange(tooth, e.target.value)}
                         className="text-[10px] bg-transparent font-black text-center outline-none cursor-pointer text-teal-800 w-full appearance-none uppercase tracking-widest"
-                        disabled={readOnly}
+                        disabled={readOnly || isMissingOrExtracted}
                     >
                         <option value="">MOB: -</option>
                         <option value="0">0</option>
@@ -104,10 +116,11 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                         <button 
                             onClick={() => onBleedingToggle(tooth, i)}
                             className={`w-6 h-6 rounded-full border-2 shadow-sm transition-all duration-300 active:scale-75 ${m.bleeding[i] ? 'bg-red-600 border-red-200 scale-110 ring-4 ring-red-500/10' : 'bg-slate-100 border-slate-200 hover:border-red-400'}`}
-                            disabled={readOnly}
+                            disabled={readOnly || isMissingOrExtracted}
                         />
                         <div className="relative group/input">
                             <input 
+                                ref={el => inputRefs.current[getSiteRefKey(tooth, i)] = el}
                                 type="text" 
                                 maxLength={2}
                                 value={m.pocketDepths[i] ?? ''}
@@ -118,7 +131,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
                                     ${(m.pocketDepths[i] || 0) >= 5 ? 'text-red-700 border-red-200 bg-red-50' : ''}
                                 `}
                                 placeholder="-"
-                                disabled={readOnly}
+                                disabled={readOnly || isMissingOrExtracted}
                             />
                             {compareMode && diff !== 0 && (
                                 <span className={`absolute -top-2 -right-2 text-[8px] px-1.5 py-0.5 rounded-full border-2 font-black shadow-sm z-30 ${diff > 0 ? 'bg-red-600 text-white border-white' : 'bg-teal-600 text-white border-white'}`}>
@@ -192,15 +205,16 @@ const PerioProgressionGraph: React.FC<{ data: PerioMeasurement[] }> = ({ data })
     );
 };
 
-const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
+const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSave, readOnly }) => {
     const toast = useToast();
     const [measurements, setMeasurements] = useState<Record<number, PerioMeasurement>>({});
     const [compareMode, setCompareMode] = useState(false);
     const [showGraph, setShowGraph] = useState(true);
     const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
+    const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
     
-    // Problem 2: Add dictation state and hook
     const [dictatedValue, setDictatedValue] = useState('');
+    const prevDictatedValue = useRef('');
     const { isRecording, toggleRecording } = useDictation({
         s: setDictatedValue, o: () => {}, a: () => {}, p: () => {}
     });
@@ -246,8 +260,16 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
             }
         }
     };
+    
+    useEffect(() => {
+        if (focusedSite) {
+            const refKey = `t${focusedSite.tooth}-i${focusedSite.index}`;
+            const inputEl = inputRefs.current[refKey];
+            inputEl?.focus();
+            inputEl?.select();
+        }
+    }, [focusedSite]);
 
-    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const handleValueChange = (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => {
         if (readOnly) return;
     
@@ -283,44 +305,6 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         }
     };
     
-
-    // GAP 2 FIX: Process entire dictated phrase
-    useEffect(() => {
-        if (dictatedValue && focusedSite) {
-            let currentFocus = { ...focusedSite };
-
-            dictatedValue.trim().split(' ').forEach(word => {
-                const spokenWord = word.toLowerCase();
-                const num = parseInt(spokenWord);
-
-                if (!isNaN(num) && num >= 0 && num <= 15) {
-                    handleValueChange(currentFocus.tooth, 'pocketDepths', currentFocus.index, num.toString());
-                    // Manually advance focus for the next word in the phrase
-                    const { tooth, index } = currentFocus;
-                    if (index < 5) {
-                        currentFocus = { tooth, index: index + 1 };
-                    } else {
-                        const currentIdx = ALL_TEETH.indexOf(tooth);
-                        if (currentIdx < ALL_TEETH.length - 1) {
-                            currentFocus = { tooth: ALL_TEETH[currentIdx + 1], index: 0 };
-                        } else {
-                            // End of chart
-                        }
-                    }
-                } else if (spokenWord === 'bleeding' || spokenWord === 'bleed') {
-                    toggleBleeding(currentFocus.tooth, currentFocus.index);
-                    // Do not advance focus on 'bleed', it applies to the current site
-                }
-            });
-            
-            // Set the final focus after processing the phrase
-            setFocusedSite(currentFocus);
-            setDictatedValue(''); // Clear it to process next value
-        }
-    }, [dictatedValue]);
-
-
-    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const handleMobilityChange = (tooth: number, value: string) => {
         if (readOnly) return;
         const numVal = value === '' ? null : parseInt(value) as 0|1|2|3;
@@ -337,7 +321,6 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         });
     };
 
-    // Fix: Refactor state update handlers to be safe from partial/undefined objects in state.
     const toggleBleeding = (tooth: number, index: number) => {
         if (readOnly) return;
         setMeasurements(prev => {
@@ -359,10 +342,41 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
         });
     };
 
+    useEffect(() => {
+        if (dictatedValue !== prevDictatedValue.current) {
+            const newText = dictatedValue.replace(prevDictatedValue.current, '').trim();
+            prevDictatedValue.current = dictatedValue;
+    
+            if (newText && focusedSite) {
+                let currentFocus = { ...focusedSite };
+
+                newText.split(' ').forEach(word => {
+                    const spokenWord = word.toLowerCase();
+                    const num = parseInt(spokenWord);
+
+                    if (!isNaN(num) && num >= 0 && num <= 15) {
+                        handleValueChange(currentFocus.tooth, 'pocketDepths', currentFocus.index, num.toString());
+                        const { tooth, index } = currentFocus;
+                        if (index < 5) {
+                            currentFocus = { tooth, index: index + 1 };
+                        } else {
+                            const currentIdx = ALL_TEETH.indexOf(tooth);
+                            if (currentIdx < ALL_TEETH.length - 1) {
+                                currentFocus = { tooth: ALL_TEETH[currentIdx + 1], index: 0 };
+                            }
+                        }
+                    } else if (spokenWord === 'bleeding' || spokenWord === 'bleed') {
+                        toggleBleeding(currentFocus.tooth, currentFocus.index);
+                    }
+                });
+                
+                setFocusedSite(currentFocus);
+            }
+        }
+    }, [dictatedValue, focusedSite]);
+
+
     const saveAll = () => {
-        // Fix: Added a filter to remove any non-object values from the measurements array before spreading.
-        // This prevents a "Spread types may only be created from object types" error if the state gets corrupted.
-        // Fix: Cast `m` to PerioMeasurement to solve TypeScript error where `m` is inferred as a generic `object` which cannot be spread.
         const arrayData = Object.values(measurements).filter(m => m && typeof m === 'object').map(m => ({ ...(m as PerioMeasurement), date: new Date().toISOString().split('T')[0] }));
         onSave(arrayData);
         toast.success("Periodontal record synchronized.");
@@ -424,6 +438,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                                 <PerioRow 
                                     key={t} 
                                     tooth={t} 
+                                    dentalChart={dentalChart}
                                     focusedSite={focusedSite}
                                     measurement={measurements[t]} 
                                     previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
@@ -433,6 +448,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                                     onBleedingToggle={toggleBleeding}
                                     readOnly={readOnly}
                                     compareMode={compareMode}
+                                    inputRefs={inputRefs}
                                 />
                             ))}
                         </div>
@@ -447,6 +463,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                                 <PerioRow 
                                     key={t} 
                                     tooth={t} 
+                                    dentalChart={dentalChart}
                                     focusedSite={focusedSite}
                                     measurement={measurements[t]} 
                                     previousMeasurement={compareMode ? data.find(d => d.toothNumber === t && d.date === previousDate) : undefined}
@@ -456,6 +473,7 @@ const PerioChart: React.FC<PerioChartProps> = ({ data, onSave, readOnly }) => {
                                     onBleedingToggle={toggleBleeding}
                                     readOnly={readOnly}
                                     compareMode={compareMode}
+                                    inputRefs={inputRefs}
                                 />
                             ))}
                         </div>

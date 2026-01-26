@@ -1,70 +1,240 @@
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { Patient, DentalChartEntry, ClinicalIncident } from '../types';
 
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { Patient } from '../types';
-
-// Fix: Correctly initialize GoogleGenAI with named apiKey parameter.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-export const chatWithAssistant = async (prompt: string, patientContext?: string) => {
+export const generateSoapNote = async (procedure: string, toothNumber?: number): Promise<{subjective: string, objective: string, assessment: string, plan: string}> => {
   try {
-    const fullPrompt = `
-      CONTEXT: You are a helpful dental assistant AI.
-      ${patientContext ? `CURRENT PATIENT CONTEXT:\n${patientContext}\n\n` : ''}
-      USER QUERY: ${prompt}
-    `;
+    const prompt = `Generate a standard, medico-legally sound SOAP note for a dental procedure. 
+    Procedure: ${procedure}, Tooth Number: ${toothNumber || 'N/A'}.
+    The output must be a valid JSON object with keys "subjective", "objective", "assessment", and "plan".`;
 
-    // Fix: Correctly call generateContent API.
-    const response: GenerateContentResponse = await ai.models.generateContent({
+    const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: fullPrompt
+        contents: prompt,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    subjective: { type: Type.STRING },
+                    objective: { type: Type.STRING },
+                    assessment: { type: Type.STRING },
+                    plan: { type: Type.STRING },
+                },
+                required: ["subjective", "objective", "assessment", "plan"],
+            },
+        },
     });
 
-    // Fix: Access the 'text' property directly, not as a function.
-    return response.text;
+    const jsonText = response.text.trim();
+    return JSON.parse(jsonText);
   } catch (error) {
-    console.error("Gemini API call failed:", error);
-    throw new Error("Sorry, I'm having trouble connecting to the AI assistant right now.");
+    console.error("Gemini SOAP note generation failed:", error);
+    throw new Error("Could not generate AI SOAP note.");
   }
 };
 
-export const summarizePatient = async (patient: Patient) => {
+export const generateSafetyBriefing = async (patient: Patient, procedureType: string): Promise<string> => {
     try {
-        const summaryPrompt = `
-        Summarize the following dental patient record into a concise clinical overview. 
-        Focus on critical medical alerts, outstanding treatment plans, and recent major procedures.
-        Format as Markdown.
+        const prompt = `
+        Analyze this patient's medical history for critical risks related to the scheduled dental procedure.
+        Patient Allergies: ${(patient.allergies || []).join(', ') || 'None'}
+        Patient Medical Conditions: ${(patient.medicalConditions || []).join(', ') || 'None'}
+        Patient's current medications: ${patient.medicationDetails || 'None provided'}
+        Scheduled Procedure: ${procedureType}
 
-        PATIENT DATA:
-        Name: ${patient.name}
-        Age: ${patient.age}
-        Allergies: ${(patient.allergies || []).join(', ') || 'None'}
-        Medical Conditions: ${(patient.medicalConditions || []).join(', ') || 'None'}
-        Chief Complaint: ${patient.chiefComplaint || 'N/A'}
-        Outstanding Balance: ₱${patient.currentBalance || 0}
-        Treatment Plans: ${
-            (patient.treatmentPlans || [])
-            .map(p => `- ${p.name} (Status: ${p.status})`)
-            .join('\n') || 'None'
-        }
-        Recent Completed Procedures: ${
-            (patient.dentalChart || [])
-            .filter(c => c.status === 'Completed')
-            .slice(-3)
-            .map(c => `- ${c.procedure} on tooth #${c.toothNumber} (${c.date})`)
-            .join('\n') || 'None'
-        }
-      `;
+        Provide a concise, markdown-formatted summary of ONLY CRITICAL alerts and potential interactions that require immediate attention.
+        If no critical risks are identified, state clearly: "No critical risks identified for this procedure based on the provided history."
+        Start with a heading "### AI Safety Briefing".
+        `;
 
-      // Fix: Correctly call generateContent API.
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: summaryPrompt
-      });
-
-      // Fix: Access the 'text' property directly, not as a function.
-      return response.text;
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
     } catch (error) {
-        console.error("Gemini patient summary failed:", error);
-        throw new Error("Could not generate patient summary.");
+        console.error("Gemini safety briefing failed:", error);
+        throw new Error("Could not generate AI safety briefing.");
     }
-}
+};
+
+export const explainProcedures = async (procedureNames: string[]): Promise<string> => {
+    try {
+        const prompt = `
+        For a patient, explain the following dental procedures in simple, easy-to-understand language.
+        Use analogies if helpful. Keep it concise but clear. Format as markdown with headings for each procedure.
+
+        Procedures:
+        ${procedureNames.map(name => `- ${name}`).join('\n')}
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini procedure explanation failed:", error);
+        throw new Error("Could not generate explanation.");
+    }
+};
+
+export const analyzeRadiograph = async (dataUrl: string): Promise<string> => {
+    try {
+        const match = dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
+        if (!match) throw new Error("Invalid image data URL format");
+
+        const [, mimeType, data] = match;
+
+        const imagePart = {
+            inlineData: { mimeType, data },
+        };
+        const textPart = {
+            text: `Analyze this dental radiograph. Provide a brief, preliminary text description of potential areas of interest for a dentist to review. 
+            This is NOT a diagnosis. Mention potential caries, bone loss, or periapical radiolucencies if visible. If the image quality is poor or it is not a radiograph, state that.
+            Be concise and use clinical terminology. Start with a heading "### Preliminary AI Analysis".`,
+        };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview', // Vision capable model
+            contents: { parts: [imagePart, textPart] },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Gemini radiograph analysis failed:", error);
+        throw new Error("Could not analyze radiograph.");
+    }
+};
+
+export const reviewClinicalNote = async (note: Partial<DentalChartEntry>): Promise<string> => {
+    try {
+        const prompt = `
+        You are a lead dentist reviewing a clinical note for professionalism and medico-legal soundness.
+        Analyze the following SOAP note. Provide actionable feedback on clarity, completeness, and use of professional terminology.
+        Suggest specific improvements. If the note is professionally sound, state that clearly. Format as markdown.
+
+        NOTE FOR REVIEW:
+        - Procedure: ${note.procedure}
+        - Tooth: #${note.toothNumber}
+        - S (Subjective): ${note.subjective || 'Not provided'}
+        - O (Objective): ${note.objective || 'Not provided'}
+        - A (Assessment): ${note.assessment || 'Not provided'}
+        - P (Plan): ${note.plan || 'Not provided'}
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini note review failed:", error);
+        throw new Error("Could not get AI review for the note.");
+    }
+};
+
+export const analyzeIncidents = async (incidents: ClinicalIncident[]): Promise<string> => {
+    try {
+        const prompt = `
+        Analyze the following list of clinical incident reports from the last 30 days.
+        Identify any recurring trends, patterns (e.g., by location, procedure type, staff), or systemic issues.
+        Provide a concise summary of your findings and 1-2 actionable recommendations in markdown format.
+
+        INCIDENTS:
+        ${JSON.stringify(incidents.map(({ id, reportedBy, ...rest }) => rest), null, 2)}
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini incident analysis failed:", error);
+        throw new Error("Could not analyze incidents.");
+    }
+};
+
+export const draftReferralLetter = async (patient: Patient, referredTo: string, reason: string, question?: string): Promise<string> => {
+    try {
+        const prompt = `
+        Draft a professional and concise dental referral letter with the following details.
+
+        - Patient: ${patient.name}, Age: ${patient.age}
+        - Relevant Medical History: ${(patient.medicalConditions || []).join(', ') || 'None reported'}. Allergies: ${(patient.allergies || []).join(', ') || 'None reported'}.
+        - Referring to: ${referredTo}
+        - Reason for referral: ${reason}
+        ${question ? `- Specific question for specialist: ${question}` : ''}
+        
+        The letter should be formatted professionally, ready to be printed or sent.
+        `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini referral letter drafting failed:", error);
+        throw new Error("Could not draft referral letter.");
+    }
+};
+
+// Fix: Add missing 'summarizePatient' function.
+export const summarizePatient = async (patient: Patient): Promise<string> => {
+    try {
+        const prompt = `
+        Summarize the following patient record for a quick clinical overview. Highlight critical risks, allergies, ongoing treatments, and recent major procedures. Be concise and use bullet points. Format as markdown.
+
+        Patient Name: ${patient.name}
+        Age: ${patient.age}
+        Sex: ${patient.sex}
+        
+        Critical Medical Conditions: ${(patient.medicalConditions || []).join(', ') || 'None'}
+        Allergies: ${(patient.allergies || []).join(', ') || 'None'}
+        Current Medications: ${patient.medicationDetails || 'None provided'}
+        Chief Complaint: ${patient.chiefComplaint || 'None'}
+
+        Recent Procedures (from dental chart):
+        ${(patient.dentalChart || []).slice(0, 5).map(entry => `- ${entry.date}: ${entry.procedure} (Tooth #${entry.toothNumber}) - Status: ${entry.status}`).join('\n')}
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini patient summarization failed:", error);
+        throw new Error("Could not generate AI patient summary.");
+    }
+};
+
+// Fix: Add missing 'translateText' function.
+export const translateText = async (text: string, targetLanguage: 'tl'): Promise<string> => {
+    try {
+        const prompt = `Translate the following English text to Tagalog for patient understanding. This is for a dental consent form. Maintain a professional and clear tone.
+        
+        TEXT TO TRANSLATE:
+        ---
+        ${text}
+        ---
+        
+        TAGALOG TRANSLATION:`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+
+        let translatedText = response.text.trim();
+        if (translatedText.startsWith('TAGALOG TRANSLATION:')) {
+            translatedText = translatedText.replace('TAGALOG TRANSLATION:', '').trim();
+        }
+
+        return translatedText;
+    } catch (error) {
+        console.error("Gemini translation failed:", error);
+        throw new Error("Could not translate text.");
+    }
+};

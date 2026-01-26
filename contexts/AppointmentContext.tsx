@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { Appointment, AppointmentStatus, UserRole } from '../types';
-import { APPOINTMENTS, generateUid } from '../constants';
+import { APPOINTMENTS, generateUid, PROCEDURE_TO_CONSENT_MAP } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
 import { useModal } from './ModalContext';
@@ -85,8 +84,25 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         const isNew = !appointments.some(a => a.id === appointmentData.id);
 
         if (procedure?.requiresConsent && isNew && patient) {
-            const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'c1')!; // Defaulting to general consent
-             showModal('consentCapture', { 
+            let consentTemplateId = 'GENERAL_AUTHORIZATION'; // Default
+            const procedureNameLower = procedure.name.toLowerCase();
+
+            for (const keyword in PROCEDURE_TO_CONSENT_MAP) {
+                if (procedureNameLower.includes(keyword)) {
+                    consentTemplateId = PROCEDURE_TO_CONSENT_MAP[keyword];
+                    break;
+                }
+            }
+
+            const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === consentTemplateId);
+            
+            if (!consentTemplate) {
+                toast.error(`Consent form template "${consentTemplateId}" not found. Please check settings. Proceeding without consent.`);
+                _finishSavingAppointment(appointmentData);
+                return;
+            }
+
+            showModal('consentCapture', { 
                 patient, 
                 appointment: appointmentData,
                 template: consentTemplate,

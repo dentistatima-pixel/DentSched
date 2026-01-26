@@ -1,9 +1,9 @@
-
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole } from '../types';
+// FIX: Add PerioMeasurement to imports
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit } from 'lucide-react';
-import { formatDate } from '../constants';
+import { formatDate, generateUid } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
 import PhilHealthCF4Generator from './PhilHealthCF4Generator';
@@ -18,7 +18,7 @@ import { useAppContext } from '../contexts/AppContext';
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
 const Odontogram = React.lazy(() => import('./Odontogram'));
 const PerioChart = React.lazy(() => import('./PerioChart'));
-const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlan'));
+const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger'));
 
 
@@ -460,6 +460,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     return { subjective: '', objective: '', assessment: '', plan: '' };
   };
   
+  const handleOpenNoteForTooth = (toothNumber: number) => {
+    setNoteToAutoEdit({ toothNumber } as DentalChartEntry);
+    setActiveTab('notes');
+  };
+
   const handleChartUpdateFromOdontogram = (newEntry: DentalChartEntry) => {
     const soapNotes = generateBoilerplateSoap(newEntry.procedure, newEntry.toothNumber);
     const entryWithSoap = { ...newEntry, ...soapNotes };
@@ -468,9 +473,43 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     setActiveTab('notes');
   };
 
-  const handleUpdatePerioChart = (newData: DentalChartEntry[]) => {
-      if (!patient) return;
-      onQuickUpdatePatient({ ...patient, perioChart: newData as any[] });
+  // FIX: Change parameter type from DentalChartEntry[] to PerioMeasurement[]
+  const handleUpdatePerioChart = (newPerioData: PerioMeasurement[]) => {
+    if (!patient) return;
+    
+    let updatedDentalChart = [...(patient.dentalChart || [])];
+    let conditionsAdded = 0;
+
+    newPerioData.forEach(measurement => {
+        const hasSignificantPockets = (measurement.pocketDepths || []).some(depth => depth !== null && depth >= 5);
+        if (hasSignificantPockets) {
+            const conditionExists = updatedDentalChart.some(entry => 
+                entry.toothNumber === measurement.toothNumber && 
+                entry.procedure === 'Periodontal Pocketing' &&
+                entry.status === 'Condition'
+            );
+            if (!conditionExists) {
+                const newCondition: DentalChartEntry = {
+                    id: generateUid('dc_perio'),
+                    toothNumber: measurement.toothNumber,
+                    procedure: 'Periodontal Pocketing',
+                    status: 'Condition',
+                    date: new Date().toISOString().split('T')[0],
+                    notes: 'Detected pocket depth >= 5mm during perio exam.',
+                    author: currentUser.name,
+                    authorId: currentUser.id,
+                };
+                updatedDentalChart.push(newCondition);
+                conditionsAdded++;
+            }
+        }
+    });
+
+    onQuickUpdatePatient({ ...patient, perioChart: newPerioData, dentalChart: updatedDentalChart });
+
+    if (conditionsAdded > 0) {
+        toast.info(`${conditionsAdded} new periodontal condition(s) logged on the Odontogram.`);
+    }
   };
 
   const [summary, setSummary] = useState<string | null>(null);
@@ -493,55 +532,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
 
   const tabs = [
     { id: 'summary', label: 'Details', icon: BarChart },
-    { id: 'notes', label: 'Odontonotes', icon: FileText },
+    { id: 'plan', label: 'Plan', icon: ClipboardList },
+    { id: 'notes', label: 'Narrative', icon: FileText },
     { id: 'chart', label: 'Odontogram', icon: Stethoscope },
     { id: 'perio', label: 'Perio', icon: History },
-    { id: 'plan', label: 'Plan', icon: ClipboardList },
     { id: 'ledger', label: 'Ledger', icon: DollarSign },
     { id: 'imaging', label: 'Imaging', icon: ImageIcon },
     { id: 'compliance', label: 'Compliance', icon: Shield },
   ];
-  
-  const handleTabClick = (tabId: 'summary' | 'notes' | 'chart' | 'perio' | 'plan' | 'ledger' | 'imaging' | 'compliance') => {
-      setActiveTab(tabId);
-      if (['notes', 'chart', 'perio'].includes(tabId)) {
-        let props = {};
-        if (tabId === 'notes') {
-          props = {
-            entries: patient.dentalChart || [],
-            onAddEntry: handleUpdateChart,
-            onUpdateEntry: handleUpdateChart,
-            onDeleteEntry: (id: string) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id),
-            currentUser: currentUser,
-            procedures: fieldSettings.procedures,
-            inventory: stock,
-            fieldSettings: fieldSettings,
-            patient: patient,
-            appointments: patientAppointments,
-            incidents: incidents,
-            sterilizationCycles: sterilizationCycles,
-            onRequestProtocolOverride: onRequestProtocolOverride,
-            onSupervisorySeal: onSupervisorySeal,
-            prefill: noteToAutoEdit,
-            onClearPrefill: () => setNoteToAutoEdit(null)
-          };
-        } else if (tabId === 'chart') {
-          props = {
-            chart: patient.dentalChart || [],
-            onToothClick: () => {},
-            onChartUpdate: handleChartUpdateFromOdontogram,
-            readOnly: readOnly
-          };
-        } else if (tabId === 'perio') {
-          props = {
-            data: patient.perioChart || [],
-            onSave: handleUpdatePerioChart,
-            readOnly: readOnly
-          };
-        }
-        setFullScreenView({ type: tabId, props });
-      }
-  };
 
   const renderContent = () => {
     switch(activeTab) {
@@ -678,8 +676,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                     </div>
                 </div>
             )
-        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} inventory={stock} fieldSettings={fieldSettings} patient={patient} appointments={patientAppointments} incidents={incidents} sterilizationCycles={sterilizationCycles} onRequestProtocolOverride={onRequestProtocolOverride} onSupervisorySeal={onSupervisorySeal} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} /></Suspense>;
-        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={()=>{}} onChartUpdate={handleChartUpdateFromOdontogram} readOnly={readOnly}/></Suspense>;
+        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id: string) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} /></Suspense>;
+        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={handleOpenNoteForTooth} onChartUpdate={handleChartUpdateFromOdontogram} readOnly={readOnly}/></Suspense>;
         case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
         case 'plan': return <Suspense fallback={<TabLoader />}><TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/></Suspense>;
         case 'ledger': return <Suspense fallback={<TabLoader />}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} /></Suspense>;
@@ -722,14 +720,14 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             <div className="p-2 border-b flex items-center justify-between">
                 <div className="flex">
                     {tabs.map(tab => (
-                        <button key={tab.id} onClick={() => handleTabClick(tab.id as any)} className={`px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}>
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}>
                             <tab.icon size={14}/> {tab.label}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' ? 'bg-slate-50/50 p-4' : 'bg-slate-50/50 p-6'}`}>
+            <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' || activeTab === 'notes' || activeTab === 'plan' ? 'bg-slate-50/50 p-0' : 'bg-slate-50/50 p-6'}`}>
                 {renderContent()}
             </div>
         </div>

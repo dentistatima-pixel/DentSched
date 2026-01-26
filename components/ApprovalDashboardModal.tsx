@@ -1,0 +1,154 @@
+import React, { useState, useMemo } from 'react';
+import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry, User } from '../types';
+import { X, CheckCircle, XCircle, FileText, Stethoscope, Activity, ImageIcon, Search, ArrowRight, User as UserIcon } from 'lucide-react';
+import Odontogram from './Odontogram';
+import { formatDate } from '../constants';
+
+interface ApprovalDashboardModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  patient: Patient;
+  plan: TreatmentPlanType;
+  onConfirm: (planId: string) => void;
+  onReject: (planId: string, reason: string) => void;
+}
+
+const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen, onClose, patient, plan, onConfirm, onReject }) => {
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
+  const planTotal = useMemo(() => planItems.reduce((acc, item) => acc + (item.price || 0), 0), [planItems]);
+  const involvedTeeth = useMemo(() => Array.from(new Set(planItems.map(item => item.toothNumber).filter(Boolean))) as number[], [planItems]);
+  const xrays = useMemo(() => patient.files?.filter(f => f.category === 'X-Ray') || [], [patient.files]);
+
+  if (!isOpen) return null;
+
+  const handleReject = () => {
+    if (!rejectionReason.trim()) {
+        alert("A reason is required for rejection.");
+        return;
+    }
+    onReject(plan.id, rejectionReason);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex justify-center items-center p-4">
+        <div className="bg-slate-50 w-full max-w-6xl h-[95vh] rounded-3xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
+          <div className="p-6 border-b border-slate-200 bg-white rounded-t-3xl flex justify-between items-center shrink-0">
+            <div>
+              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Treatment Plan Review</h2>
+              <p className="text-sm text-slate-500 font-bold">{patient.name} - Plan: {plan.name}</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
+          </div>
+
+          <div className="flex-1 grid grid-cols-12 gap-6 p-6 min-h-0">
+            {/* Left Column: Proposal & Rationale */}
+            <div className="col-span-4 flex flex-col gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col">
+                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><FileText size={16}/> Proposal</h3>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {planItems.map(item => (
+                    <div key={item.id} className="p-3 bg-slate-50 rounded-lg">
+                      <p className="font-bold text-sm text-slate-800">{item.procedure}</p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-slate-500">Tooth #{item.toothNumber}</p>
+                        <p className="font-mono text-xs text-slate-600">₱{(item.price || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                  <span className="font-bold text-slate-600 uppercase">Total Estimate:</span>
+                  <span className="text-xl font-black text-teal-700">₱{planTotal.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><UserIcon size={16}/> Clinical Rationale</h3>
+                <p className="text-sm text-slate-600 italic">"{plan.clinicalRationale || 'No rationale provided.'}"</p>
+                <p className="text-right text-xs font-bold text-slate-400 mt-2">- {plan.createdBy}</p>
+              </div>
+            </div>
+
+            {/* Middle Column: Visual Context */}
+            <div className="col-span-5 flex flex-col gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Stethoscope size={16}/> Odontogram</h3>
+                <div className="flex justify-center items-center p-4 bg-slate-50 rounded-xl">
+                    <Odontogram chart={patient.dentalChart || []} readOnly={true} onToothClick={()=>{}} highlightTeeth={involvedTeeth} size="small"/>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                 <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Activity size={16}/> Perio Snapshot</h3>
+                 {/* This would be a simplified perio view component */}
+                 <div className="text-center p-8 bg-slate-50 rounded-xl text-sm text-slate-400 italic">Perio Chart view for teeth {involvedTeeth.join(', ')} would be displayed here.</div>
+              </div>
+            </div>
+
+            {/* Right Column: Evidence */}
+            <div className="col-span-3 flex flex-col gap-6">
+               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col">
+                 <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><ImageIcon size={16}/> Diagnostic Images</h3>
+                 <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {xrays.map(img => (
+                        <div key={img.id} onClick={() => setLightboxImage(img.url)} className="relative rounded-lg overflow-hidden group cursor-pointer">
+                            <img src={img.url} alt={img.name} className="w-full h-auto"/>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Search size={24} className="text-white"/>
+                            </div>
+                        </div>
+                    ))}
+                    {xrays.length === 0 && <p className="text-xs text-slate-400 italic text-center p-4">No X-Rays on file.</p>}
+                 </div>
+               </div>
+               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                 <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><ArrowRight size={16}/> Linked Findings</h3>
+                 <div className="space-y-2 text-xs">
+                    {planItems.map(item => {
+                        const finding = patient.dentalChart?.find(f => f.toothNumber === item.toothNumber && f.status === 'Condition');
+                        return (
+                            <div key={item.id} className="p-2 bg-slate-50 rounded-md">
+                                <p className="font-bold">{item.procedure} (#{item.toothNumber})</p>
+                                <p className="text-slate-500">→ Addresses: {finding?.procedure || 'N/A'}</p>
+                            </div>
+                        )
+                    })}
+                 </div>
+               </div>
+            </div>
+          </div>
+          
+          <div className="p-4 border-t border-slate-200 bg-white/80 backdrop-blur-sm rounded-b-3xl flex justify-end gap-3 shrink-0">
+            {isRejecting ? (
+                <div className="w-full flex gap-3 items-center animate-in fade-in">
+                    <input type="text" value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="Reason for rejection (required)..." className="input flex-1"/>
+                    <button onClick={() => setIsRejecting(false)} className="px-4 py-2 text-xs font-bold">Cancel</button>
+                    <button onClick={handleReject} className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Rejection</button>
+                </div>
+            ) : (
+                <>
+                    <button onClick={() => setIsRejecting(true)} className="px-8 py-4 bg-red-100 text-red-700 rounded-xl font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                        <XCircle size={16}/> Reject
+                    </button>
+                    <button onClick={() => onConfirm(plan.id)} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 flex items-center gap-2">
+                        <CheckCircle size={16}/> Approve Plan
+                    </button>
+                </>
+            )}
+          </div>
+        </div>
+      </div>
+      {lightboxImage && (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
+            <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            <button onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default ApprovalDashboardModal;

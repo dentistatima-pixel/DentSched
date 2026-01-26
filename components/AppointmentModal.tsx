@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
-import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem } from '../types';
+import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem, OperationalHours } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from './ModalContext';
+import { useModal } from '../contexts/ModalContext';
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
@@ -84,6 +84,47 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             }
         }
     }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, patients, fieldSettings]);
+    
+    const operationalHours = useMemo(() => {
+        const branchProfile = fieldSettings.branchProfiles.find(b => b.name === currentBranch);
+        return branchProfile?.operationalHours;
+    }, [currentBranch, fieldSettings.branchProfiles]);
+
+    const timeSlots = useMemo(() => {
+        if (!date || !providerId || !operationalHours) return [];
+        
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof typeof operationalHours;
+        const hours = operationalHours[dayOfWeek];
+        if (!hours || hours.isClosed) return [];
+
+        const slots = [];
+        const start = parseInt(hours.start.split(':')[0]);
+        const end = parseInt(hours.end.split(':')[0]);
+        const appointmentDuration = parseInt(duration) || 30;
+
+        for (let h = start; h < end; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                const slotTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                const slotStart = new Date(`${date}T${slotTime}`);
+                const slotEnd = new Date(slotStart.getTime() + appointmentDuration * 60000);
+
+                const isBooked = appointments.some(apt => {
+                    if (apt.date !== date) return false;
+                    if (apt.providerId !== providerId && apt.resourceId !== resourceId) return false;
+                    if (existingAppointment && apt.id === existingAppointment.id) return false;
+                    
+                    const existingStart = new Date(`${apt.date}T${apt.time}`);
+                    const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
+                    
+                    return (slotStart < existingEnd) && (slotEnd > existingStart);
+                });
+
+                slots.push({ time: slotTime, isBooked });
+            }
+        }
+        return slots;
+    }, [date, providerId, resourceId, duration, appointments, operationalHours, existingAppointment]);
+
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPatientSearch(e.target.value);
@@ -203,6 +244,29 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         <div><label className="label">Time</label><input type="time" step="900" value={time} onChange={e => setTime(e.target.value)} className="input" disabled={readOnly}/></div>
                         <div><label className="label">Duration (min)</label><input type="number" step="15" value={duration} onChange={e => setDuration(e.target.value)} className="input" disabled={readOnly}/></div>
                     </div>
+
+                    {timeSlots.length > 0 && (
+                        <div>
+                            <label className="label text-xs">Available Slots</label>
+                            <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                {timeSlots.map(slot => (
+                                    <button 
+                                        type="button"
+                                        key={slot.time}
+                                        onClick={() => !slot.isBooked && setTime(slot.time)}
+                                        disabled={slot.isBooked || readOnly}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                            slot.isBooked ? 'bg-black text-white cursor-not-allowed' :
+                                            time === slot.time ? 'bg-teal-600 text-white shadow-md' :
+                                            'bg-slate-200 text-black hover:bg-teal-100'
+                                        }`}
+                                    >
+                                        {new Date(`1970-01-01T${slot.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     
                     {!isBlock ? (
                         <div>

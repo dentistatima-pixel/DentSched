@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 import { 
@@ -40,7 +41,7 @@ interface FieldManagementProps {
 }
 
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
-    const { theme, toggleTheme } = useAppContext();
+    const { theme, toggleTheme, setFullScreenView } = useAppContext();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
 
     const sidebarItems = [
@@ -68,8 +69,6 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                 return <SmsHub settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'printouts_hub':
                 return <PrintoutsHub />;
-            case 'patient_registry_form':
-                return <FormBuilder settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'staff_hub':
                 return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} onDeactivateStaff={props.onDeactivateStaff} onOpenStaffModal={handleOpenStaffModal} />;
 
@@ -120,7 +119,16 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                     {sidebarItems.map(item => (
                         <button
                             key={item.id}
-                            onClick={() => setActiveRegistry(item.id)}
+                            onClick={() => {
+                                if (item.id === 'patient_registry_form') {
+                                    setFullScreenView({ 
+                                        type: 'formBuilder', 
+                                        props: {} 
+                                    });
+                                } else {
+                                    setActiveRegistry(item.id);
+                                }
+                            }}
                             className={`w-full flex justify-between items-center px-4 py-3 rounded-2xl text-left text-sm font-bold transition-all ${
                                 activeRegistry === item.id 
                                 ? 'bg-teal-600 text-white shadow-lg' 

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { User, SystemStatus, AuditLogEntry, GovernanceTrack } from '../types';
 import { STAFF, MOCK_AUDIT_LOG, generateUid } from '../constants';
@@ -8,7 +7,7 @@ import CryptoJS from 'crypto-js';
 type Theme = 'light' | 'dark';
 
 interface FullScreenView {
-  type: 'notes' | 'chart' | 'perio';
+  type: 'formBuilder';
   props: any;
 }
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Lazy load modals to improve initial load time
@@ -16,7 +15,10 @@ const ClearanceModal = React.lazy(() => import('./ClearanceModal'));
 const UserProfileModal = React.lazy(() => import('./UserProfileModal'));
 const ConsentCaptureModal = React.lazy(() => import('./ConsentCaptureModal'));
 const FinancialConsentModal = React.lazy(() => import('./FinancialConsentModal'));
+const ManagePlanContentModal = React.lazy(() => import('./ManagePlanContentModal'));
+const ApprovalDashboardModal = React.lazy(() => import('./ApprovalDashboardModal'));
 const DailyReportModal = React.lazy(() => import('./Financials').then(module => ({ default: (module as any).DailyReportModal })) );
+const InfoDisplayModal = React.lazy(() => import('./InfoDisplayModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -36,7 +38,10 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     userProfile: UserProfileModal,
     consentCapture: ConsentCaptureModal,
     financialConsent: FinancialConsentModal,
+    managePlanContent: ManagePlanContentModal,
+    approvalDashboard: ApprovalDashboardModal,
     dailyReport: DailyReportModal,
+    infoDisplay: InfoDisplayModal,
 };
 
 const ModalManager: React.FC = () => {

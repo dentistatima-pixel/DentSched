@@ -341,21 +341,23 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
                 </div>
             )}
 
-            <div className={`
-                flex flex-col gap-0 items-center py-16 transition-all duration-500
-                ${isPatientPerspective ? 'scale-x-[-1]' : ''}
-                ${activeQuadrant ? 'opacity-30 blur-md' : ''}
-            `}>
-                <div className="flex border-b-4 border-slate-100/50 w-full justify-center">
-                    <div onClick={() => setActiveQuadrant(1)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={1} /></div>
-                    <div className="w-1 bg-gradient-to-b from-slate-100 to-transparent h-48 self-end mb-12 rounded-full"></div>
-                    <div onClick={() => setActiveQuadrant(2)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={2} /></div>
-                </div>
+            <div className="w-full overflow-x-auto flex justify-start md:justify-center px-4">
+                <div className={`
+                    flex flex-col gap-0 items-center py-16 transition-all duration-500 min-w-max
+                    ${isPatientPerspective ? 'scale-x-[-1]' : ''}
+                    ${activeQuadrant ? 'opacity-30 blur-md' : ''}
+                `}>
+                    <div className="flex border-b-4 border-slate-100/50 justify-center">
+                        <div onClick={() => setActiveQuadrant(1)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={1} /></div>
+                        <div className="w-1 bg-gradient-to-b from-slate-100 to-transparent h-48 self-end mb-12 rounded-full"></div>
+                        <div onClick={() => setActiveQuadrant(2)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={2} /></div>
+                    </div>
 
-                <div className="flex pt-0 border-t-4 border-slate-100/50 w-full justify-center">
-                    <div onClick={() => setActiveQuadrant(4)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={4} /></div>
-                    <div className="w-1 bg-gradient-to-t from-slate-100 to-transparent h-48 self-start mt-12 rounded-full"></div>
-                    <div onClick={() => setActiveQuadrant(3)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={3} /></div>
+                    <div className="flex pt-0 border-t-4 border-slate-100/50 justify-center">
+                        <div onClick={() => setActiveQuadrant(4)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={4} /></div>
+                        <div className="w-1 bg-gradient-to-t from-slate-100 to-transparent h-48 self-start mt-12 rounded-full"></div>
+                        <div onClick={() => setActiveQuadrant(3)} className="p-4 cursor-zoom-in group"><QuadrantContent quadrant={3} /></div>
+                    </div>
                 </div>
             </div>
 

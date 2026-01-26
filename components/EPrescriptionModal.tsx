@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Patient, Medication, FieldSettings, User } from '../types';
 import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
-import { PDA_INFORMED_CONSENT_TEXTS } from '../constants';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface EPrescriptionModalProps {
 
 const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser, logAction }) => {
     const toast = useToast();
+    const { fieldSettings: settings } = useSettings();
     const [selectedMedId, setSelectedMedId] = useState<string>('');
     const [dosage, setDosage] = useState('');
     const [instructions, setInstructions] = useState('');
@@ -31,6 +33,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
     const medications = fieldSettings.medications || [];
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
+    
+    const drugsAndMedsConsent = useMemo(() => {
+        return settings.consentFormTemplates.find(t => t.id === 'DRUGS_MEDICATIONS')?.content || "Default drugs and medications warning text.";
+    }, [settings.consentFormTemplates]);
 
     const isPediatric = (patient.age || 0) < 12;
     
@@ -179,6 +185,8 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.genericName}. RA 6675 Prominence applied.`);
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4" role="dialog" aria-labelledby="rx-title" aria-modal="true">
             <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
@@ -202,7 +210,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                             <h3 className="font-black uppercase tracking-tight text-xs">Mandatory Allergic Risk Disclosure</h3>
                         </div>
                         <p className="text-xs text-red-900 font-medium leading-relaxed italic">
-                            "{PDA_INFORMED_CONSENT_TEXTS.DRUGS_MEDICATIONS}"
+                            "{drugsAndMedsConsent}"
                         </p>
                         <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${consentAcknowledged ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-red-200'}`}>
                             <input type="checkbox" checked={consentAcknowledged} onChange={e => setConsentAcknowledged(e.target.checked)} className="w-6 h-6 accent-teal-600 rounded" />

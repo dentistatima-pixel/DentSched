@@ -1,4 +1,3 @@
-
 import React, { useMemo, Suspense } from 'react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -57,12 +56,14 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
     const { incidents, handleResolveIncident } = useClinicalOps();
     const { showModal } = useModal();
     const navigate = useNavigate();
+    const { staff } = useStaff();
     
     return <AdminHub 
         adminQueue={route.param} 
         appointments={appointments}
         patients={patients}
         incidents={incidents}
+        staff={staff}
         onVerifyDowntime={handleVerifyDowntimeEntry}
         onVerifyMedHistory={handleVerifyMedHistory}
         onConfirmFollowUp={handleConfirmFollowUp}

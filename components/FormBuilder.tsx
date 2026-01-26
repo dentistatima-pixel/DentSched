@@ -4,26 +4,22 @@ import { FieldSettings, RegistrationField } from '../types';
 import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
-import RegistrationMedical from './RegistrationMedical';
+// Fix: Change to named import for RegistrationMedical to resolve module export issue.
+import { RegistrationMedical } from './RegistrationMedical';
 import CoreFieldEditor from './form-builder/CoreFieldEditor';
 import DynamicFieldEditor from './form-builder/DynamicFieldEditor';
 import QuestionEditor from './form-builder/QuestionEditor';
 import RegistryEditor from './form-builder/RegistryEditor';
+import { generateUid } from '../constants';
+import { useSettings } from '../contexts/SettingsContext';
 
 
-interface FormBuilderProps {
-    settings: FieldSettings;
-    onUpdateSettings: (newSettings: FieldSettings) => void;
-}
-
-const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings }) => {
+const FormBuilder: React.FC = () => {
+    const { fieldSettings: settings, handleUpdateSettings: onUpdateSettings } = useSettings();
     const toast = useToast();
+    
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL'>('IDENTITY');
-    const [isAdding, setIsAdding] = useState(false);
-    const [newEntryForm, setNewEntryForm] = useState<Partial<RegistrationField>>({
-        label: '', type: 'text', section: 'IDENTITY', width: 'half', isCritical: false
-    });
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     
     const handleFieldClick = (id: string, type: string) => {
@@ -110,9 +106,34 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings })
         setSelectedField(null);
         toast.success("Element removed from form.");
     };
-
-    const handleSaveNewEntry = () => { /* ... (This is left for a future implementation) ... */ };
     
+    const handleAddNewField = () => {
+        const newId = generateUid('field');
+        
+        const newField: RegistrationField = {
+            id: newId,
+            label: 'New Custom Field',
+            type: 'text',
+            section: activeSection === 'IDENTITY' ? 'IDENTITY' : 'MEDICAL',
+            width: 'full'
+        };
+    
+        const newIdentityFields = [...settings.identityFields, newField];
+        
+        let newSettingsUpdate: Partial<FieldSettings> = { identityFields: newIdentityFields };
+
+        if (activeSection === 'IDENTITY') {
+            newSettingsUpdate.identityLayoutOrder = [...settings.identityLayoutOrder, `field_${newId}`];
+        } else { // MEDICAL
+            newSettingsUpdate.medicalLayoutOrder = [...settings.medicalLayoutOrder, `field_${newId}`];
+        }
+        
+        onUpdateSettings({ ...settings, ...newSettingsUpdate });
+        
+        toast.success(`New field added to the ${activeSection} section.`);
+        setSelectedField({ id: `field_${newId}`, type: 'identity' }); // Select the new field
+    };
+
     const renderPropertiesPanel = () => {
         if (!selectedField) {
             return (
@@ -178,7 +199,8 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings })
                             <div className="p-8">
                                 <RegistrationBasicInfo 
                                     formData={{sex: 'Female', age: 16}} 
-                                    handleChange={() => {}} 
+                                    handleChange={() => {}}
+                                    handleCustomChange={() => {}}
                                     readOnly={true} 
                                     fieldSettings={settings} 
                                     designMode={true}
@@ -189,6 +211,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings })
                          ) : (
                             <div className="p-8">
                                 <RegistrationMedical 
+                                    formData={{customFields: {}}}
                                     registryAnswers={{}}
                                     onRegistryChange={() => {}}
                                     allergies={[]}
@@ -200,8 +223,18 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings })
                                     designMode={true}
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
+                                    onCustomChange={() => {}}
                                 />
                             </div>
+                         )}
+                         
+                         {!isPreviewMode && (
+                             <div className="p-8">
+                                 <button onClick={handleAddNewField} className="w-full py-6 border-4 border-dashed border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 rounded-[2.5rem] flex items-center justify-center gap-4 text-slate-400 hover:text-teal-600 transition-all">
+                                     <PlusCircle size={24}/>
+                                     <span className="font-black uppercase tracking-widest text-sm">Add New Field to this Section</span>
+                                 </button>
+                             </div>
                          )}
                     </div>
                 </div>
@@ -229,9 +262,6 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ settings, onUpdateSettings })
                     </div>
                 )}
             </div>
-             {isAdding && (
-                <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-300"><div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAdding(false)}/><div className="relative w-full max-w-lg bg-white h-full shadow-2xl border-l-8 border-lilac-500 flex flex-col animate-in slide-in-from-right-full"><div className="p-10 border-b bg-lilac-50"><h4 className="text-2xl font-black text-lilac-900 uppercase tracking-tight">New Form Entry Wizard</h4><p className="text-[10px] font-black text-lilac-600 uppercase tracking-widest mt-1">Registry Context: Builder Interface</p></div><div className="p-10 space-y-8 flex-1 overflow-y-auto no-scrollbar"><div className="space-y-6"><div><label className="label text-[10px]">Element Label *</label><input autoFocus type="text" value={newEntryForm.label} onChange={e => setNewEntryForm({...newEntryForm, label: e.target.value})} className="input text-lg font-black" placeholder="e.g. Current Medications" /></div><div className="grid grid-cols-2 gap-4"><div><label className="label text-[10px]">Registry Section</label><select value={newEntryForm.section} onChange={e => setNewEntryForm({...newEntryForm, section: e.target.value as any})} className="input text-sm font-bold"><option value="IDENTITY">Section I: Identity</option><option value="CONTACT">Section II: Contact</option><option value="MEDICAL">Section V: Medical</option><option value="DENTAL">Section IV: Dental</option></select></div><div><label className="label text-[10px]">Input Interaction</label><select value={newEntryForm.type} onChange={e => setNewEntryForm({...newEntryForm, type: e.target.value as any})} className="input text-sm font-bold"><option value="text">Short Text</option><option value="textarea">Narrative (Long Text)</option><option value="dropdown">Registry Dropdown</option><option value="boolean">Yes/No Toggle</option><option value="header">Section Card Header</option></select></div></div></div></div><div className="p-10 border-t bg-white flex gap-3"><button onClick={() => setIsAdding(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveNewEntry} className="flex-[2] py-5 bg-teal-700 text-white font-black uppercase text-xs rounded-2xl shadow-xl hover:scale-[1.02] transition-all">Add to Registry</button></div></div></div>
-            )}
         </div>
     );
 };

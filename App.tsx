@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import Layout from './components/Layout';
 import LoginScreen from './components/LoginScreen';
@@ -14,9 +13,7 @@ import { DentalChartEntry, UserRole } from './types';
 import { Lock, X } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
-const Odontonotes = React.lazy(() => import('./components/Odontonotes').then(module => ({ default: module.Odontonotes })));
-const Odontogram = React.lazy(() => import('./components/Odontogram'));
-const PerioChart = React.lazy(() => import('./components/PerioChart'));
+const FormBuilder = React.lazy(() => import('./components/FormBuilder'));
 
 
 const LockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
@@ -63,9 +60,7 @@ function App() {
     const { type, props } = fullScreenView;
     let Component;
     switch(type) {
-        case 'notes': Component = Odontonotes; break;
-        case 'chart': Component = Odontogram; break;
-        case 'perio': Component = PerioChart; break;
+        case 'formBuilder': Component = FormBuilder; break;
         default: return null;
     }
 
@@ -78,9 +73,8 @@ function App() {
 
   if (fullScreenView) {
     let title = 'Clinical Workspace';
-    if (fullScreenView.type === 'notes') title = 'Odontonotes Workspace';
-    if (fullScreenView.type === 'chart') title = 'Odontogram Workspace';
-    if (fullScreenView.type === 'perio') title = 'Perio Chart Workspace';
+    if (fullScreenView.type === 'formBuilder') title = 'Registration Form Design Studio';
+
 
     return (
         <div className="fixed inset-0 bg-slate-50 z-[999] flex flex-col animate-in fade-in">

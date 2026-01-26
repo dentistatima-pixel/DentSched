@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature, DollarSign } from 'lucide-react';

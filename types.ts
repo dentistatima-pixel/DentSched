@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface Branch {
@@ -11,6 +10,7 @@ export interface Branch {
   tinNumber?: string;
   dtiPermitNumber?: string;
   logoUrl?: string;
+  operationalHours: OperationalHours;
 }
 
 export enum UserRole {
@@ -472,11 +472,12 @@ export interface RolePermissions {
 export interface RegistrationField {
   id: string;
   label: string;
-  type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea' | 'boolean' | 'header';
+  type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea' | 'boolean' | 'header' | 'checklist' | 'conditional-text';
   section: 'IDENTITY' | 'CONTACT' | 'INSURANCE' | 'FAMILY' | 'DENTAL' | 'MEDICAL';
   registryKey?: string; 
   width?: 'full' | 'half' | 'third' | 'quarter';
   isCritical?: boolean;
+  options?: string[];
 }
 
 export interface FeatureToggles {
@@ -498,11 +499,11 @@ export interface FeatureToggles {
   enableDocumentManagement: boolean;
   enableClinicalProtocolAlerts: boolean;
   enableTreatmentPlanApprovals: boolean; 
-  enableAccountabilityLog: boolean;
+  enableAccountabilityLog: true;
   enableReferralTracking: boolean;
   enablePromotions: boolean;
   enableSmsAutomation: boolean;
-  enableMaterialTraceability: boolean; 
+  enableMaterialTraceability: true; 
   enableBirComplianceMode: boolean;
   enableStatutoryBirTrack: true; 
   enableHmoInsuranceTrack: true; 
@@ -743,6 +744,7 @@ export interface Patient {
   allergies?: string[];
   medicalConditions?: string[];
   registryAnswers?: Record<string, any>;
+  customFields?: { [key: string]: any };
   isAnonymized?: boolean;
   referredById?: string;
   orthoHistory?: OrthoAdjustment[];
@@ -793,10 +795,13 @@ export interface TreatmentPlan {
   reviewNotes?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  clinicalRationale?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
   color?: string;
   financialConsentSignature?: string;
+  discountAmount?: number;
+  discountReason?: string;
 }
 
 export interface PinboardTask {
@@ -908,6 +913,7 @@ export interface LedgerEntry {
   allocations?: { chargeId: string; amount: number }[];
   paidAmount?: number;
   reconciliationId?: string;
+  planId?: string;
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
@@ -930,7 +936,8 @@ export type RecallStatus = 'Due' | 'Booked' | 'Overdue' | 'Contacted';
 export interface ConsentFormTemplate {
   id: string;
   name: string;
-  content: string;
+  content_en: string;
+  content_tl: string;
 }
 
 export interface PurchaseOrder {
@@ -1040,7 +1047,6 @@ export interface FieldSettings {
   hospitalAffiliations: HospitalAffiliation[];
   smsTemplates: SmsTemplates;
   smsConfig: SmsConfig;
-  operationalHours: OperationalHours;
   consentFormTemplates: ConsentFormTemplate[];
   smartPhrases: ClinicalMacro[];
   paymentModes: string[];
@@ -1067,6 +1073,7 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
+  // Fix: Add missing 'priceBookEntries' property to the FieldSettings interface.
   priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];

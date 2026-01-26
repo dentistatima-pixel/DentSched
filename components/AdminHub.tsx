@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageSquare, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer, Shield } from 'lucide-react';
+import { DollarSign, Package, ChevronRight, History, Send, Users2, UserX, ArrowLeft, CloudOff, FileWarning, ShieldAlert, MessageSquare, FileBadge2, AlertTriangle, FileSearch, UserCheck, Timer, Shield, FileText, User as UserIcon, Check, Phone, Edit, MessageCircle, RefreshCcw } from 'lucide-react';
 import { Appointment, Patient, SyncConflict, User, ClinicalIncident } from '../types';
 import { formatDate } from '../constants';
 
@@ -9,6 +8,7 @@ interface AdminHubProps {
   appointments: Appointment[];
   patients: Patient[];
   incidents: ClinicalIncident[];
+  staff: User[];
   onVerifyDowntime: (id: string) => void;
   onVerifyMedHistory: (id: string) => void;
   onConfirmFollowUp: (id: string) => void;
@@ -23,6 +23,7 @@ const AdminHub: React.FC<AdminHubProps> = ({
   appointments,
   patients,
   incidents,
+  staff,
   onVerifyDowntime,
   onVerifyMedHistory,
   onConfirmFollowUp,
@@ -126,16 +127,98 @@ const AdminHub: React.FC<AdminHubProps> = ({
       </button>
   );
 
-  // NOTE: A detail view for each queue would be rendered here if `adminQueue` is not null.
-  // This is not yet implemented.
   if (adminQueue) {
+      const queue = workQueues[adminQueue as keyof typeof workQueues];
+      const items = queue ? queue.items : [];
+      const getPatientName = (patientId: string) => patients.find(p => p.id === patientId)?.name || 'Unknown Patient';
+      const getStaffName = (staffId: string) => staff.find(s => s.id === staffId)?.name || 'Unknown Staff';
+
       return (
           <div className="animate-in fade-in duration-500">
-              <button onClick={() => onNavigate('admin')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-600 font-bold mb-4">
+              <button onClick={() => onNavigate('admin')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-600 font-bold mb-6 hover:bg-slate-200 transition-colors">
                   <ArrowLeft size={16}/> Back to Hub
               </button>
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Queue: {adminQueue}</h2>
-              <p className="text-slate-500">Detailed view not yet implemented.</p>
+              
+              {queue && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-100 text-red-600 p-3 rounded-xl shadow-sm">
+                            <queue.icon size={24} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-800">{queue.title}</h2>
+                            <p className="text-sm font-bold text-slate-500">{items.length} item(s) requiring action</p>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        {items.length === 0 && (
+                            <div className="p-10 bg-slate-100 rounded-2xl text-center text-slate-500">
+                                <p>This queue is empty.</p>
+                            </div>
+                        )}
+
+                        {adminQueue === 'downtime' && items.map((apt: any) => (
+                            <div key={apt.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-amber-100 text-amber-700 p-3 rounded-lg"><FileWarning size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{getPatientName(apt.patientId)}</div><div className="text-xs text-slate-500 font-bold">{apt.type} - {formatDate(apt.date)} @ {apt.time}</div></div></div>
+                                <button onClick={() => onVerifyDowntime(apt.id)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg flex items-center gap-2"><RefreshCcw size={14}/> Reconcile</button>
+                            </div>
+                        ))}
+                        
+                        {adminQueue === 'med_history' && items.map((apt: any) => (
+                            <div key={apt.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-red-100 text-red-700 p-3 rounded-lg"><ShieldAlert size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{getPatientName(apt.patientId)}</div><div className="text-xs text-slate-500 font-bold">{apt.type} with {getStaffName(apt.providerId)}</div></div></div>
+                                <button onClick={() => onVerifyMedHistory(apt.id)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg flex items-center gap-2"><Check size={14}/> Verify</button>
+                            </div>
+                        ))}
+
+                        {adminQueue === 'post_op' && items.map((apt: any) => (
+                             <div key={apt.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-blue-100 text-blue-700 p-3 rounded-lg"><MessageCircle size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{getPatientName(apt.patientId)}</div><div className="text-xs text-slate-500 font-bold">{apt.type} on {formatDate(apt.date)}</div></div></div>
+                                <button onClick={() => onConfirmFollowUp(apt.id)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg flex items-center gap-2"><Phone size={14}/> Confirm Call</button>
+                            </div>
+                        ))}
+
+                        {adminQueue === 'registrations' && items.map((p: any) => (
+                            <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-violet-100 text-violet-700 p-3 rounded-lg"><FileBadge2 size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{p.name}</div><div className="text-xs text-slate-500 font-bold">{p.phone}</div></div></div>
+                                <button onClick={() => onEditPatient(p)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg flex items-center gap-2"><Edit size={14}/> Complete Form</button>
+                            </div>
+                        ))}
+                        
+                        {adminQueue === 'incidents' && items.map((i: any) => (
+                            <div key={i.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-orange-100 text-orange-700 p-3 rounded-lg"><AlertTriangle size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{i.type} - {i.patientName || 'Practice'}</div><div className="text-xs text-slate-500 font-bold">{formatDate(i.date)} reported by {i.reportedByName}</div></div></div>
+                                <button onClick={() => onResolveIncident(i.id)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg flex items-center gap-2"><Check size={14}/> Resolve</button>
+                            </div>
+                        ))}
+
+                        {adminQueue === 'professionalism' && items.map((note: any) => (
+                            <div key={note.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-slate-100 text-slate-700 p-3 rounded-lg"><FileSearch size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{note.patientName}</div><div className="text-xs text-slate-500 font-bold">Note by {note.author} on {formatDate(note.date)}</div></div></div>
+                                <div className="flex items-center gap-2"><button onClick={() => onClearProfessionalismReview(note.patientId, note.id)} className="px-4 py-2 bg-teal-100 text-teal-700 text-xs font-black uppercase rounded-lg">Clear Flag</button><button onClick={() => onNavigate(`patients/${note.patientId}`)} className="bg-slate-100 group-hover:bg-teal-600 p-3 rounded-xl transition-all"><ChevronRight size={20} className="text-slate-400 group-hover:text-white"/></button></div>
+                            </div>
+                        ))}
+
+                        {adminQueue === 'supervision' && items.map((note: any) => (
+                            <div key={note.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                <div className="flex items-center gap-4"><div className="bg-blue-100 text-blue-700 p-3 rounded-lg"><UserCheck size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{note.patientName}</div><div className="text-xs text-slate-500 font-bold">Note by {note.author} on {formatDate(note.date)}</div></div></div>
+                                <button onClick={() => onNavigate(`patients/${note.patientId}`)} className="bg-slate-100 group-hover:bg-teal-600 group-hover:text-white px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-black uppercase text-slate-700">Review & Seal <ChevronRight size={16} /></button>
+                            </div>
+                        ))}
+
+                        {adminQueue === 'unsealed' && items.map((note: any) => {
+                            const noteAgeDays = Math.floor((new Date().getTime() - new Date(note.date).getTime()) / (1000 * 3600 * 24));
+                            return (
+                                <div key={note.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                    <div className="flex items-center gap-4"><div className="bg-amber-100 text-amber-700 p-3 rounded-lg"><FileText size={20} /></div><div><div className="font-black text-slate-800 text-sm uppercase">{note.patientName}</div><div className="text-xs text-slate-500 font-bold">{note.procedure}</div><div className="flex items-center gap-4 mt-2 text-xs text-slate-500"><span className="flex items-center gap-1.5 font-bold"><UserIcon size={12}/> {note.author}</span><span className="flex items-center gap-1.5"><Timer size={12}/> {noteAgeDays} days overdue</span></div></div></div>
+                                    <button onClick={() => onNavigate(`patients/${note.patientId}`)} className="bg-slate-100 group-hover:bg-teal-600 p-3 rounded-xl transition-all"><ChevronRight size={20} className="text-slate-400 group-hover:text-white"/></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+              )}
           </div>
       );
   }

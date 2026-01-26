@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus } from '../types';
-import { PATIENTS, generateUid } from '../constants';
+// Fix: Import 'formatDate' from constants to resolve the "Cannot find name 'formatDate'" error.
+import { PATIENTS, generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
 import { useSettings } from './SettingsContext';
@@ -35,7 +35,7 @@ interface PatientContextType {
     handleSupervisorySeal: (noteToSeal: DentalChartEntry) => Promise<void>;
     handleConfirmRevocation: (patient: Patient, category: ConsentCategory, reason: string, notes: string) => Promise<void>;
     handleRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
-    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string) => Promise<void>;
+    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string, discountInfo: { amount: number; reason: string; }) => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -43,7 +43,7 @@ const PatientContext = createContext<PatientContextType | undefined>(undefined);
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const { isOnline, logAction, currentUser, isAuthorityLocked } = useAppContext();
-    const { fieldSettings, setFieldSettings } = useSettings();
+    const { fieldSettings, setFieldSettings, addScheduledSms } = useSettings();
     const [patients, setPatients] = useState<Patient[]>(PATIENTS);
     const [offlineQueue, setOfflineQueue] = useState<any[]>([]); // Simplified for this context
     
@@ -157,6 +157,20 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             
             logAction('CREATE', 'LedgerEntry', newLedgerEntry.id, `Recorded payment with OR# ${paymentDetails.orNumber}`);
             toast.success(`Payment with OR# ${paymentDetails.orNumber} recorded.`);
+            
+            // AUTOMATED SMS TRIGGER
+            addScheduledSms({
+                patientId,
+                templateId: 'payment_receipt',
+                dueDate: new Date().toISOString(),
+                data: {
+                    Amount: `PHP ${paymentDetails.amount.toLocaleString()}`,
+                    Date: formatDate(paymentDetails.date),
+                    Balance: `PHP ${newBalance.toLocaleString()}`,
+                    ORNumber: paymentDetails.orNumber,
+                }
+            });
+
         } catch (e: any) {
             if (!(e instanceof Error && e.message.includes("Authorization Denied"))) {
                  toast.error(`Failed to record payment: ${e.message}`);
@@ -164,28 +178,40 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
 
-    const handleApproveFinancialConsent = async (patientId: string, planId: string, signature: string): Promise<void> => {
+    const handleApproveFinancialConsent = async (patientId: string, planId: string, signature: string, discountInfo: { amount: number; reason: string; }): Promise<void> => {
         const patientToUpdate = patients.find(p => p.id === patientId);
         if (!patientToUpdate) throw new Error("Patient not found for consent approval.");
     
         const planToUpdate = patientToUpdate.treatmentPlans?.find(p => p.id === planId);
         if (!planToUpdate) throw new Error("Treatment plan not found for consent approval.");
+        
+        const planItems = patientToUpdate.dentalChart?.filter(item => item.planId === planId) || [];
+        const majorProcedureCategories = ['Oral Surgery', 'Endodontics', 'Prosthodontics', 'Periodontics', 'Orthodontics'];
+        const needsClinicalApproval = planItems.some(item => {
+            const procedureDef = fieldSettings.procedures.find(p => p.name === item.procedure);
+            return majorProcedureCategories.includes(procedureDef?.category || '');
+        });
+
+        const nextStatus = needsClinicalApproval ? TreatmentPlanStatus.PENDING_REVIEW : TreatmentPlanStatus.APPROVED;
     
         const updatedPlan: TreatmentPlan = {
             ...planToUpdate,
-            status: TreatmentPlanStatus.APPROVED,
-            financialConsentSignature: signature
+            status: nextStatus,
+            financialConsentSignature: signature,
+            discountAmount: discountInfo.amount,
+            discountReason: discountInfo.reason
         };
         
         const updatedPlans = patientToUpdate.treatmentPlans?.map(p => p.id === planId ? updatedPlan : p) || [];
         
-        const updatedPatient: Partial<Patient> = {
-            ...patientToUpdate,
-            treatmentPlans: updatedPlans
-        };
+        const updatedPatient: Partial<Patient> = { ...patientToUpdate, treatmentPlans: updatedPlans };
     
         await handleSavePatient(updatedPatient);
-        toast.success(`Financial consent for "${planToUpdate.name}" approved and sealed.`);
+        if(nextStatus === TreatmentPlanStatus.PENDING_REVIEW){
+            toast.success(`Financial consent approved. Plan is now pending clinical review.`);
+        } else {
+            toast.success(`Financial consent for "${planToUpdate.name}" approved. Plan is ready for scheduling.`);
+        }
     };
 
     const value: PatientContextType = {

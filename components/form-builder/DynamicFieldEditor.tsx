@@ -11,6 +11,8 @@ interface DynamicFieldEditorProps {
 }
 
 const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdateField, isCritical, onToggleCritical }) => {
+  const showRegistryKey = field.type === 'dropdown' || field.type === 'checklist';
+  
   return (
     <div className="space-y-4">
       <h4 className="label text-sm flex items-center gap-2"><Edit size={14} /> Edit Dynamic Field</h4>
@@ -34,6 +36,9 @@ const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdate
             <option value="tel">Phone Number</option>
             <option value="email">Email</option>
             <option value="dropdown">Dropdown</option>
+            <option value="boolean">Yes/No Checkbox</option>
+            <option value="checklist">Checklist (from registry)</option>
+            <option value="conditional-text">Yes/No with Details</option>
           </select>
         </div>
         <div>
@@ -46,6 +51,19 @@ const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdate
           </select>
         </div>
       </div>
+      {showRegistryKey && (
+        <div>
+          <label className="label text-xs">Registry Key</label>
+          <input
+            type="text"
+            value={field.registryKey || ''}
+            onChange={(e) => onUpdateField({ registryKey: e.target.value })}
+            className="input font-mono text-xs"
+            placeholder="e.g. habitRegistry"
+          />
+           <p className="text-[10px] text-slate-400 mt-1 ml-1">The key for the options list in FieldSettings (e.g., 'religions').</p>
+        </div>
+      )}
        <button onClick={onToggleCritical} className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 text-xs font-black uppercase transition-all ${isCritical ? 'bg-red-50 border-red-500 text-red-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
         <ShieldAlert size={16} /> Mark as Critical Risk
       </button>

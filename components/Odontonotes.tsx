@@ -1,17 +1,157 @@
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DentalChartEntry, ProcedureItem, StockItem, User, UserRole, FieldSettings, TreatmentStatus, ClinicalIncident, Patient, ResourceType, Appointment, AppointmentStatus, AuthorityLevel, InstrumentSet, TreatmentPlan, SterilizationCycle, ClinicalMacro, ClinicalProtocolRule } from '../types';
-import { Plus, Edit3, ShieldCheck, Lock, Clock, GitCommit, ArrowDown, AlertCircle, FileText, Zap, Box, RotateCcw, CheckCircle2, PackageCheck, Mic, MicOff, Volume2, Sparkles, DollarSign, ShieldAlert, Key, Camera, ImageIcon, Check, MousePointer2, UserCheck, X, EyeOff, Shield, Eraser, Activity, Heart, HeartPulse, Droplet, UserSearch, RotateCcw as Undo, Trash2, Armchair, Star, PlusCircle, MinusCircle, UserPlus, ShieldX, Verified, ShieldQuestion, Pill, Fingerprint, Scale, History, Link } from 'lucide-react';
-import { formatDate, STAFF, PDA_FORBIDDEN_COMMERCIAL_TERMS, PDA_INFORMED_CONSENT_TEXTS } from '../constants';
+import React, { useState, useMemo, useEffect } from 'react';
+import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole } from '../types';
+import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight } from 'lucide-react';
+import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
-import EPrescriptionModal from './EPrescriptionModal';
-import SignatureCaptureOverlay from './SignatureCaptureOverlay';
-import CryptoJS from 'crypto-js';
-import { getTrustedTime } from '../services/timeService';
-import { useClinicalNotePermissions } from '../hooks/useClinicalNotePermissions';
-import { useDictation } from '../hooks/useDictation';
-import { useAppContext } from '../contexts/AppContext';
+import { reviewClinicalNote } from '../services/geminiService';
+import ReactMarkdown from 'react-markdown';
 
+const statusColors: { [key in TreatmentStatus]: string } = {
+    'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
+    'Completed': 'border-teal-500 bg-teal-50 text-teal-800',
+    'Existing': 'border-slate-400 bg-slate-100 text-slate-600',
+    'Condition': 'border-red-500 bg-red-50 text-red-800',
+};
+
+// Standalone EntryForm component to manage its own state and prevent focus loss
+interface EntryFormProps {
+    note: DentalChartEntry;
+    procedures: ProcedureItem[];
+    treatmentPlans: TreatmentPlan[];
+    onSave: (note: DentalChartEntry) => void;
+    onCancel: () => void;
+    currentUser: User;
+    onAssign: (note: DentalChartEntry) => void;
+}
+
+const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign }) => {
+    const [formData, setFormData] = useState<DentalChartEntry>(note);
+    const [aiReview, setAiReview] = useState<string | null>(null);
+    const [isReviewLoading, setIsReviewLoading] = useState(false);
+
+    useEffect(() => {
+        setFormData(note);
+        setAiReview(null);
+    }, [note]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({...prev, [name]: value === '' ? undefined : parseInt(value) }));
+    };
+
+    const handleStatusChange = (status: TreatmentStatus) => {
+        setFormData(prev => ({ ...prev, status }));
+    };
+    
+    const handleGetAiReview = async () => {
+        setIsReviewLoading(true);
+        try {
+            const feedback = await reviewClinicalNote(formData);
+            setAiReview(feedback);
+        } catch (error) {
+            setAiReview("Error getting AI review.");
+        } finally {
+            setIsReviewLoading(false);
+        }
+    };
+
+    const isSealed = !!formData.sealedHash;
+    const canGetAiReview = (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT) && formData.needsProfessionalismReview;
+
+    const handleAssignClick = () => {
+        onAssign(formData);
+    };
+
+    return (
+      <div className="p-8 space-y-6 bg-white rounded-[2rem] border-2 border-teal-100 shadow-xl shadow-teal-900/5">
+        
+        {canGetAiReview && (
+            <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 space-y-3">
+                <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">Professionalism Audit</h4>
+                    <button onClick={handleGetAiReview} disabled={isReviewLoading} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2">
+                        <Sparkles size={14}/> {isReviewLoading ? 'Analyzing...' : 'Get AI Review'}
+                    </button>
+                </div>
+                {aiReview && (
+                    <div className="p-4 bg-white rounded-lg border border-amber-200 prose prose-sm max-w-none">
+                        <ReactMarkdown>{aiReview}</ReactMarkdown>
+                    </div>
+                )}
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <div className="md:col-span-3">
+                <label className="label text-xs">Date</label>
+                <input type="date" name="date" value={formData.date} onChange={handleChange} className="input" disabled={isSealed}/>
+            </div>
+            <div className="md:col-span-2">
+                <label className="label text-xs">Tooth #</label>
+                <input type="number" name="toothNumber" value={formData.toothNumber || ''} onChange={handleNumericChange} className="input" placeholder="e.g., 16" disabled={isSealed}/>
+            </div>
+            <div className="md:col-span-7">
+                <label className="label text-xs">Procedure *</label>
+                <select name="procedure" value={formData.procedure} onChange={handleChange} className="input font-bold" disabled={isSealed} required>
+                    <option value="">Select Procedure...</option>
+                    {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
+            </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="label text-xs">Status</label>
+                <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
+                    {(['Planned', 'Completed', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
+                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow' : 'opacity-60'}`}>{status}</button>
+                    ))}
+                </div>
+            </div>
+             <div>
+                <label className="label text-xs">Treatment Phase</label>
+                <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input text-xs font-black uppercase" disabled={isSealed}>
+                    <option value="">- Unassigned -</option>
+                    {treatmentPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+            </div>
+        </div>
+        <div className="space-y-4 pt-6 border-t border-slate-100">
+            <div>
+                <label className="label flex items-center gap-2"><Stethoscope size={14}/> Findings / Diagnosis (Subjective)</label>
+                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Clinical observations and diagnosis..."/>
+            </div>
+            <div>
+                <label className="label flex items-center gap-2"><Activity size={14}/> Treatment Rendered (Objective)</label>
+                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-32" disabled={isSealed} placeholder="Detailed account of the procedure performed..."/>
+            </div>
+            <div>
+                <label className="label flex items-center gap-2"><ClipboardList size={14}/> Practitioner's Assessment</label>
+                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Assessment of the clinical situation..."/>
+            </div>
+             <div>
+                <label className="label flex items-center gap-2"><ClipboardList size={14}/> Plan</label>
+                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Post-op instructions, next steps, materials used..."/>
+            </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-xs tracking-widest">Cancel</button>
+            {formData.status === 'Planned' && (
+                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
+                    Save & Assign <ArrowRight size={14}/>
+                </button>
+            )}
+            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
+                {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
+            </button>
+        </div>
+      </div>
+    );
+};
 
 interface OdontonotesProps {
   entries: DentalChartEntry[];
@@ -21,68 +161,31 @@ interface OdontonotesProps {
   currentUser: User;
   readOnly?: boolean;
   procedures: ProcedureItem[];
-  inventory?: StockItem[]; 
+  treatmentPlans?: TreatmentPlan[];
   prefill?: DentalChartEntry | null;
   onClearPrefill?: () => void;
-  logAction?: (action: any, entity: any, id: string, details: string) => void;
-  fieldSettings?: FieldSettings; 
-  patient?: Patient;
-  appointments?: Appointment[];
-  incidents?: ClinicalIncident[];
-  sterilizationCycles?: SterilizationCycle[];
-  onRequestProtocolOverride?: (rule: ClinicalProtocolRule, continuation: () => void) => void;
-  onSupervisorySeal?: (note: DentalChartEntry) => void;
+  onSwitchToPlanTab?: () => void;
 }
 
-type SoapData = Pick<DentalChartEntry, 'subjective' | 'objective' | 'assessment' | 'plan'>;
-
-export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, onUpdateEntry, onDeleteEntry, currentUser, readOnly, procedures, inventory = [], prefill, onClearPrefill, logAction, fieldSettings, patient, appointments = [], incidents = [], sterilizationCycles = [], onRequestProtocolOverride, onSupervisorySeal }) => {
+export const Odontonotes: React.FC<OdontonotesProps> = ({ 
+  entries, onAddEntry, onUpdateEntry, onDeleteEntry, currentUser, readOnly, 
+  procedures, treatmentPlans = [], prefill, onClearPrefill, onSwitchToPlanTab
+}) => {
   const toast = useToast();
-  const { isAuthorityLocked } = useAppContext();
-  const isAdvancedInventory = fieldSettings?.features.inventoryComplexity === 'ADVANCED';
-  
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
-  const [showSmartPhrases, setShowSmartPhrases] = useState(false);
-  
+
   useEffect(() => {
     if (prefill && onClearPrefill) {
-        setEditingNote(prefill);
-        onClearPrefill();
+      startNewNote(prefill);
+      onClearPrefill();
     }
   }, [prefill, onClearPrefill]);
 
-  const handleSoapUpdate = (field: keyof SoapData, value: string | ((prev: string) => string)) => {
-    if (!editingNote) return;
-    const prevValue = editingNote[field] || '';
-    const newValue = typeof value === 'function' ? value(prevValue) : value;
-    const nextNote = { ...editingNote, [field]: newValue };
-    setEditingNote(nextNote);
-  };
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  }, [entries]);
 
-  const { isRecording, toggleRecording } = useDictation({
-      s: (val) => handleSoapUpdate('subjective', val),
-      o: (val) => handleSoapUpdate('objective', val),
-      a: (val) => handleSoapUpdate('assessment', val),
-      p: (val) => handleSoapUpdate('plan', val),
-  });
-  
-  const isArchitect = currentUser.role === UserRole.SYSTEM_ARCHITECT;
-  const activeAppointmentToday = useMemo(() => {
-    const today = new Date().toLocaleDateString('en-CA');
-    return appointments.find(a => a.patientId === patient?.id && a.date === today && a.status !== AppointmentStatus.CANCELLED) || null;
-  }, [appointments, patient]);
-
-  const { isLockedForAction, getLockReason } = useClinicalNotePermissions(currentUser, patient, activeAppointmentToday, incidents, isArchitect, isAuthorityLocked);
-  
-  // EPrescription Modal
-  const [showRx, setShowRx] = useState(false);
-  const [isSigning, setIsSigning] = useState<DentalChartEntry | null>(null);
-  
-  const startNewNote = () => {
-    if (isLockedForAction) {
-      toast.error(`Clinical Gate: ${getLockReason()}`);
-      return;
-    }
+  const startNewNote = (initialData?: Partial<DentalChartEntry>) => {
     const newNote: DentalChartEntry = {
       id: `note_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
@@ -91,104 +194,85 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({ entries, onAddEntry, o
       author: currentUser.name,
       authorId: currentUser.id,
       authorRole: currentUser.role,
-      authorPrc: currentUser.prcLicense
+      authorPrc: currentUser.prcLicense,
+      ...initialData
     };
-    if (prefill) {
-      Object.assign(newNote, prefill);
-      onClearPrefill?.();
-    }
     setEditingNote(newNote);
   };
-  
-  const handleSaveNote = () => {
-    if (!editingNote) return;
-    const isNew = !entries.some(e => e.id === editingNote.id);
-    if (isNew) onAddEntry(editingNote);
-    else onUpdateEntry(editingNote);
+
+  const handleSaveNote = (noteToSave: DentalChartEntry) => {
+    if (!noteToSave.procedure) {
+      toast.error("Procedure is a mandatory field for clinical entries.");
+      return;
+    }
+
+    const totalLength = (noteToSave.subjective || '').length + (noteToSave.objective || '').length + (noteToSave.assessment || '').length + (noteToSave.plan || '').length;
+    const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT;
+    noteToSave.needsProfessionalismReview = !isAdmin && totalLength > 0 && totalLength < 100;
+
+    const isNew = !entries.some(e => e.id === noteToSave.id);
+    if (isNew) {
+      onAddEntry(noteToSave);
+      toast.success("New clinical entry added.");
+    } else {
+      onUpdateEntry(noteToSave);
+      toast.success("Clinical entry updated.");
+    }
     setEditingNote(null);
   };
 
-  const handleSeal = async (note: DentalChartEntry) => {
-    const time = await getTrustedTime();
-    const payload = `${note.id}|${note.authorId}|${time.timestamp}|${note.subjective}|${note.objective}|${note.assessment}|${note.plan}`;
-    const hash = CryptoJS.SHA256(payload).toString();
-    const sealedNote: DentalChartEntry = { ...note, sealedHash: hash, sealedAt: time.timestamp, isVerifiedTime: time.isVerified };
-    onUpdateEntry(sealedNote);
-    logAction?.('SEAL_RECORD', 'ClinicalNote', note.id, `SHA256: ${hash.substring(0,16)}...`);
+  const handleAssignToPlan = (noteToSave: DentalChartEntry) => {
+    handleSaveNote(noteToSave);
+    if (onSwitchToPlanTab) {
+        onSwitchToPlanTab();
+    }
   };
-  
-  const canSupervise = [UserRole.DENTIST, UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT].includes(currentUser.role);
 
   return (
-    <div className="flex flex-col lg:flex-row bg-slate-50">
-        <div className="w-full lg:w-1/3 border-r border-slate-200 flex flex-col">
-            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white">
-                <h3 className="font-bold text-sm">Clinical Notes</h3>
-                <button onClick={startNewNote} disabled={readOnly} className="bg-teal-600 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1"><Plus size={14}/> New Entry</button>
+    <div className="flex h-full">
+        <div className="w-full md:w-1/3 border-r border-slate-200 flex flex-col bg-slate-50/50">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+                <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Narrative</h3>
+                <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={16}/> New</button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-                {entries.map(entry => (
-                    <div key={entry.id} onClick={() => setEditingNote(entry)} className={`p-4 border-b border-slate-100 cursor-pointer ${editingNote?.id === entry.id ? 'bg-teal-50' : 'hover:bg-slate-100'}`}>
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-sm">{entry.procedure || 'Untitled Note'}</span>
-                            {entry.sealedHash && <Lock size={12} className="text-teal-600"/>}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {sortedEntries.map(entry => {
+                    const isSelected = editingNote?.id === entry.id;
+                    return (
+                        <div key={entry.id} onClick={() => setEditingNote(entry)} className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : entry.needsProfessionalismReview ? 'bg-amber-50 border-amber-200 hover:border-amber-400' : 'bg-white border-slate-100 hover:border-teal-200'}`}>
+                            <div className="flex justify-between items-start">
+                                <span className="font-black text-sm text-slate-800 uppercase tracking-tight">{entry.procedure || 'Untitled Note'}</span>
+                                {entry.sealedHash && <Lock size={14} className="text-teal-600 shrink-0"/>}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">{formatDate(entry.date)} &bull; {entry.toothNumber ? `Tooth #${entry.toothNumber}` : 'General Note'}</div>
+                            <div className={`mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 ${isSelected ? 'border-teal-100' : ''}`}>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${statusColors[entry.status]}`}>{entry.status}</span>
+                                <span className="text-[9px] text-slate-400 font-bold">by {entry.author}</span>
+                            </div>
                         </div>
-                        <div className="text-xs text-slate-500">{formatDate(entry.date)} by {entry.author}</div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
-        <div className="w-full lg:w-2/3 flex flex-col bg-white">
+        <div className="w-full md:w-2/3 flex flex-col p-6 overflow-y-auto">
             {editingNote ? (
-                <>
-                    <div className="p-4 border-b border-slate-200 space-y-2">
-                         <div className="flex items-center gap-2">
-                             <select value={editingNote.procedure} onChange={(e) => setEditingNote({...editingNote, procedure: e.target.value})} className="flex-1 input" disabled={!!editingNote.sealedHash}>
-                                 <option value="">Select Procedure...</option>
-                                 {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                             </select>
-                             <input type="number" value={editingNote.toothNumber || ''} onChange={(e) => setEditingNote({...editingNote, toothNumber: parseInt(e.target.value)})} className="input w-24" placeholder="Tooth #" disabled={!!editingNote.sealedHash}/>
-                         </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {/* SOAP Fields with Dictation */}
-                        <div>
-                            <label className="label flex items-center justify-between">Subjective <button onClick={() => toggleRecording('s')} className={`p-1 rounded-full ${isRecording === 's' ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}><Mic size={12}/></button></label>
-                            <textarea value={editingNote.subjective || ''} onChange={(e) => handleSoapUpdate('subjective', e.target.value)} className="input h-24" disabled={!!editingNote.sealedHash} />
-                        </div>
-                        <div>
-                            <label className="label flex items-center justify-between">Objective <button onClick={() => toggleRecording('o')} className={`p-1 rounded-full ${isRecording === 'o' ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}><Mic size={12}/></button></label>
-                            <textarea value={editingNote.objective || ''} onChange={(e) => handleSoapUpdate('objective', e.target.value)} className="input h-24" disabled={!!editingNote.sealedHash} />
-                        </div>
-                        <div>
-                            <label className="label flex items-center justify-between">Assessment <button onClick={() => toggleRecording('a')} className={`p-1 rounded-full ${isRecording === 'a' ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}><Mic size={12}/></button></label>
-                            <textarea value={editingNote.assessment || ''} onChange={(e) => handleSoapUpdate('assessment', e.target.value)} className="input h-24" disabled={!!editingNote.sealedHash} />
-                        </div>
-                        <div>
-                            <label className="label flex items-center justify-between">Plan <button onClick={() => toggleRecording('p')} className={`p-1 rounded-full ${isRecording === 'p' ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}><Mic size={12}/></button></label>
-                            <textarea value={editingNote.plan || ''} onChange={(e) => handleSoapUpdate('plan', e.target.value)} className="input h-24" disabled={!!editingNote.sealedHash} />
-                        </div>
-                    </div>
-                    <div className="p-4 border-t border-slate-200 flex justify-between items-center">
-                        <div>
-                          {editingNote.sealedHash && <div className="text-xs text-teal-600 flex items-center gap-1"><ShieldCheck size={12}/> Digitally Sealed</div>}
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={handleSaveNote} disabled={!!editingNote.sealedHash} className="bg-slate-200 px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">Save</button>
-                            {canSupervise && editingNote.isPendingSupervision && onSupervisorySeal && (
-                                <button onClick={() => onSupervisorySeal(editingNote)} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1"><UserCheck size={12}/> Seal Under Supervision</button>
-                            )}
-                            <button onClick={() => handleSeal(editingNote)} disabled={!editingNote.id || !!editingNote.sealedHash} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-1"><Lock size={12}/> Seal Note</button>
-                            <button onClick={() => setShowRx(true)} disabled={!editingNote.sealedHash} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">e-Rx</button>
-                            {onDeleteEntry && <button onClick={() => onDeleteEntry(editingNote.id)} className="bg-red-100 text-red-700 p-2 rounded-lg disabled:opacity-50"><Trash2 size={16}/></button>}
-                        </div>
-                    </div>
-                </>
+                <EntryForm 
+                    note={editingNote}
+                    procedures={procedures}
+                    treatmentPlans={treatmentPlans}
+                    onSave={handleSaveNote}
+                    onCancel={() => setEditingNote(null)}
+                    currentUser={currentUser}
+                    onAssign={handleAssignToPlan}
+                />
             ) : (
-                <div className="flex-1 flex items-center justify-center text-center text-slate-400">Select a note or create a new entry.</div>
+                <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-10">
+                    <FileText size={48} className="mb-4 opacity-50"/>
+                    <h4 className="font-black text-slate-500 uppercase">Select an entry or create a new one.</h4>
+                    <p className="text-sm">This is the medico-legal record of the patient's clinical history.</p>
+                </div>
             )}
         </div>
-        {showRx && patient && fieldSettings && <EPrescriptionModal isOpen={showRx} onClose={() => setShowRx(false)} patient={patient} fieldSettings={fieldSettings} currentUser={currentUser} logAction={logAction} />}
     </div>
   );
 };

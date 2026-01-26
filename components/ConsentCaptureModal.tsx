@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 
 interface ConsentCaptureModalProps {
@@ -26,6 +25,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
     const [isDuressAffirmed, setIsDuressAffirmed] = useState(false);
     
+    const [language, setLanguage] = useState<'en' | 'tl'>('en');
+
     // Witness Identity State
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [witnessAnchorHash, setWitnessAnchorHash] = useState<string | null>(null);
@@ -37,10 +38,10 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const guardian = patient.guardianProfile;
 
     const riskDisclosures = procedure?.riskDisclosures || [];
-    const allRisksAcknowledged = riskDisclosures.length === acknowledgedRisks.length;
+    const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
 
     const getProcessedContent = () => {
-        let content = template.content;
+        let content = language === 'en' ? template.content_en : (template.content_tl || template.content_en);
         content = content.replace(/{PatientName}/g, patient.name);
         content = content.replace(/{DoctorName}/g, provider?.name || 'the attending dentist');
         content = content.replace(/{ProcedureList}/g, appointment.type);
@@ -87,6 +88,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     useEffect(() => {
         if (isOpen) {
            setTimeout(setupCanvas, 50);
+           setLanguage('en');
            setAcknowledgedRisks([]);
            setIsDuressAffirmed(false);
            startWitnessCamera();
@@ -107,6 +109,10 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
     const startSign = (e: any) => { 
         if (!isDuressAffirmed || !allRisksAcknowledged || !isFaceDetected) return;
+        // SMART-REVERT IMPLEMENTATION
+        if (language !== 'en') {
+            setLanguage('en');
+        }
         e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); 
     };
     const stopSign = (e: any) => { e.preventDefault(); setIsSigning(false); };
@@ -116,14 +122,15 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const captureWitnessAnchor = () => {
         const video = videoRef.current;
         const canvas = witnessCanvasRef.current;
-        if (video && canvas) {
+        if (video && canvas && isCameraActive && video.readyState >= 3) {
             const ctx = canvas.getContext('2d');
             if (ctx) {
-                canvas.width = 64;
-                canvas.height = 64;
+                // Low-Footprint Image Optimization
+                canvas.width = 96;
+                canvas.height = 96;
                 ctx.filter = 'grayscale(100%)';
-                ctx.drawImage(video, 0, 0, 64, 64);
-                const thumb = canvas.toDataURL('image/jpeg', 0.5);
+                ctx.drawImage(video, 0, 0, 96, 96);
+                const thumb = canvas.toDataURL('image/jpeg', 0.5); // JPEG compression
                 setWitnessAnchorThumb(thumb);
                 setWitnessAnchorHash(CryptoJS.SHA256(thumb).toString());
             }
@@ -163,7 +170,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
         ctx.fillStyle = '#1e293b';
         ctx.font = '13px serif';
-        const content = getProcessedContent();
+        // Ensure we draw the final English content
+        const content = template.content_en;
         let y = 150;
         const words = content.split(' ');
         let line = '';
@@ -301,6 +309,9 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                         {/* --- WITNESS LENS UI --- */}
                         <div className="shrink-0 flex flex-col items-center gap-2">
                              <div className={`w-24 h-24 rounded-full border-4 overflow-hidden relative shadow-lg bg-slate-200 ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="w-[80px] h-[100px] border-4 border-dashed border-white/50 rounded-[50%]" style={{boxShadow: '0 0 0 999px rgba(0,0,0,0.3)'}}/>
+                                </div>
                                  {isCameraActive ? (
                                      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                                  ) : (
@@ -320,7 +331,21 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-sm text-slate-600 leading-relaxed"><p>{getProcessedContent()}</p></div>
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-bold text-sm">Consent Form</h4>
+                             <div className="flex bg-slate-100 p-1 rounded-lg border">
+                                <button onClick={() => setLanguage('en')} className={`px-3 py-1 text-xs font-bold rounded ${language==='en' ? 'bg-white shadow' : ''}`}>English (Official)</button>
+                                <button onClick={() => setLanguage('tl')} className={`px-3 py-1 text-xs font-bold rounded ${language==='tl' ? 'bg-white shadow' : ''}`}>Tagalog</button>
+                            </div>
+                        </div>
+                        {language === 'tl' && (
+                             <div className="bg-amber-50 text-amber-800 p-3 text-xs mb-4 rounded-lg border border-amber-200">
+                                <strong>NOTE:</strong> Ito ay isang computer-generated na salin para sa iyong pang-unawa. Ang opisyal at legal na dokumento na iyong pinipirmahan ay ang orihinal na bersyon sa Ingles. Sa iyong pagpirma, kinukumpirma mo ang iyong pagsang-ayon sa mga tuntunin na nakasulat sa Ingles.
+                             </div>
+                        )}
+                        <p className="text-sm text-slate-600 leading-relaxed">{getProcessedContent()}</p>
+                    </div>
 
                     {riskDisclosures.length > 0 && (
                         <div className="bg-white p-6 rounded-3xl border border-orange-200 shadow-sm space-y-4">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
@@ -82,14 +81,15 @@ const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
   const captureAnchor = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (video && canvas) {
+    if (video && canvas && video.readyState >= 3) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
-            canvas.width = 64;
-            canvas.height = 64;
+            // Low-Footprint Image Optimization
+            canvas.width = 96;
+            canvas.height = 96;
             ctx.filter = 'grayscale(100%) brightness(1.2)';
-            ctx.drawImage(video, 0, 0, 64, 64);
-            const thumb = canvas.toDataURL('image/jpeg', 0.5);
+            ctx.drawImage(video, 0, 0, 96, 96);
+            const thumb = canvas.toDataURL('image/jpeg', 0.5); // JPEG compression
             const hash = CryptoJS.SHA256(thumb).toString();
             setCapturedThumb(thumb);
             setCapturedHash(hash);
@@ -281,16 +281,18 @@ const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
                     <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 text-center flex flex-col items-center">
                         <div className="mb-8">
                             <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">Digital Witness Snap</h3>
-                            <p className="text-sm text-slate-500 font-medium mt-1">Hold your ID next to your face for non-repudiation proof.</p>
+                            <p className="text-sm text-slate-500 font-medium mt-1">Please position your face in the frame below.</p>
                         </div>
 
                         <div className="w-64 h-64 bg-slate-100 rounded-full border-4 border-dashed border-teal-200 flex items-center justify-center relative overflow-hidden mb-8 shadow-inner">
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                                <div className="w-[180px] h-[230px] rounded-[50%]" style={{boxShadow: '0 0 0 999px rgba(0,0,0,0.3)'}}/>
+                            </div>
                             {isCameraActive ? (
                                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                             ) : (
                                 <Camera size={48} className="text-slate-300"/>
                             )}
-                            <div className="absolute inset-0 border-[16px] border-white/20 pointer-events-none rounded-full" />
                         </div>
 
                         {isCameraActive ? (

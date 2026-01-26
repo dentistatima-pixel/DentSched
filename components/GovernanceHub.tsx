@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Scale, Fingerprint, Shield } from 'lucide-react';
+import { Scale, Fingerprint, Shield, FileSignature } from 'lucide-react';
 import LegalActionHub from './LegalActionHub';
 import AuditTrailViewer from './AuditTrailViewer';
 import ComplianceCenter from './ComplianceCenter';
+import ConsentFormManager from './ConsentFormManager';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 
 interface GovernanceHubProps {
@@ -22,6 +23,7 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
     { id: 'legal', label: 'Legal Action Hub', icon: Scale },
     { id: 'audit', label: 'Forensic Audit Trail', icon: Fingerprint },
     { id: 'compliance', label: 'Compliance Center', icon: Shield },
+    { id: 'consent', label: 'Consent Forms', icon: FileSignature },
   ];
 
   const renderContent = () => {
@@ -31,9 +33,9 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
       case 'audit':
         return <AuditTrailViewer auditLog={props.auditLog} auditLogVerified={props.auditLogVerified} />;
       case 'compliance':
-        // The ComplianceCenter component itself has tabs, so we just need to render it.
-        // It handles its own internal state. We pass a default initialTab.
         return <ComplianceCenter settings={props.settings} onUpdateSettings={props.onUpdateSettings} patients={props.patients} onAnonymizePatient={props.onAnonymizePatient} initialTab="npc_compliance" />;
+      case 'consent':
+        return <ConsentFormManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
       default:
         return null;
     }
