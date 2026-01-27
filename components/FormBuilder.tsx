@@ -1,7 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
-import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2 } from 'lucide-react';
+import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 // Fix: Change to named import for RegistrationMedical to resolve module export issue.
@@ -22,6 +22,16 @@ const FormBuilder: React.FC = () => {
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL'>('IDENTITY');
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     
+    // State for floating panel
+    const [panelPosition, setPanelPosition] = useState(() => ({
+        x: window.innerWidth - 424, // 96 * 4 (w-96) + 32 (padding)
+        y: 20
+    }));
+    const [isDragging, setIsDragging] = useState(false);
+    const dragOffset = useRef({ x: 0, y: 0 });
+    const panelRef = useRef<HTMLDivElement>(null);
+
+
     const handleFieldClick = (id: string, type: string) => {
         if(isPreviewMode) return;
         setSelectedField({ id, type });
@@ -107,13 +117,13 @@ const FormBuilder: React.FC = () => {
         toast.success("Element removed from form.");
     };
     
-    const handleAddNewField = () => {
+    const handleAddNewField = (fieldType: RegistrationField['type']) => {
         const newId = generateUid('field');
         
         const newField: RegistrationField = {
             id: newId,
-            label: 'New Custom Field',
-            type: 'text',
+            label: `New ${fieldType.charAt(0).toUpperCase() + fieldType.slice(1).replace('-', ' ')} Field`,
+            type: fieldType,
             section: activeSection === 'IDENTITY' ? 'IDENTITY' : 'MEDICAL',
             width: 'full'
         };
@@ -130,16 +140,74 @@ const FormBuilder: React.FC = () => {
         
         onUpdateSettings({ ...settings, ...newSettingsUpdate });
         
-        toast.success(`New field added to the ${activeSection} section.`);
+        toast.success(`New ${fieldType} field added to ${activeSection} section.`);
         setSelectedField({ id: `field_${newId}`, type: 'identity' }); // Select the new field
     };
 
+    // --- DRAGGING LOGIC ---
+    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        setIsDragging(true);
+        dragOffset.current = {
+            x: e.clientX - panelPosition.x,
+            y: e.clientY - panelPosition.y,
+        };
+        e.preventDefault();
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging || !panelRef.current) return;
+            let newX = e.clientX - dragOffset.current.x;
+            let newY = e.clientY - dragOffset.current.y;
+
+            // Constrain to viewport
+            const panelWidth = panelRef.current.offsetWidth;
+            newX = Math.max(8, Math.min(newX, window.innerWidth - panelWidth - 8));
+            newY = Math.max(8, Math.min(newY, window.innerHeight - 60)); // 60px for footer/header clearance
+
+            setPanelPosition({ x: newX, y: newY });
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging]);
+
+
     const renderPropertiesPanel = () => {
         if (!selectedField) {
+            const fieldTypes: { label: string; type: RegistrationField['type']; icon: React.ElementType }[] = [
+                 { label: 'Short Text', type: 'text', icon: Type },
+                 { label: 'Narrative', type: 'textarea', icon: AlignLeft },
+                 { label: 'Date', type: 'date', icon: Calendar },
+                 { label: 'Phone', type: 'tel', icon: Phone },
+                 { label: 'Email', type: 'email', icon: Mail },
+                 { label: 'Dropdown', type: 'dropdown', icon: ChevronDown },
+                 { label: 'Yes/No Toggle', type: 'boolean', icon: ToggleRight },
+                 { label: 'Checklist', type: 'checklist', icon: CheckSquare },
+                 { label: 'Section Header', type: 'header', icon: Heading2 },
+                 { label: 'Conditional Text', type: 'conditional-text', icon: HelpCircle },
+            ];
+
             return (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30 py-20">
-                    <MousePointer2 size={48} strokeWidth={1}/>
-                    <p className="text-xs font-black uppercase tracking-widest leading-relaxed">Select a form element to<br/>configure its properties</p>
+                <div className="animate-in fade-in-50 duration-500">
+                    <h4 className="label text-sm">Add Elements</h4>
+                    <p className="text-xs text-slate-500 mb-6">Select a field type to add it to the current section.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {fieldTypes.map(ft => (
+                            <button key={ft.type} onClick={() => handleAddNewField(ft.type)} className="flex items-center gap-3 p-4 bg-slate-50 hover:bg-teal-50 hover:text-teal-800 rounded-2xl text-slate-700 transition-all text-left border border-slate-100 hover:border-teal-200 hover:shadow-lg">
+                                <ft.icon size={18} className="text-teal-600"/>
+                                <span className="text-xs font-black uppercase tracking-wider">{ft.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             );
         }
@@ -175,8 +243,9 @@ const FormBuilder: React.FC = () => {
 
 
     return (
-        <div className="flex h-full overflow-hidden relative">
-            <div className={`flex-1 overflow-y-auto p-10 bg-slate-50/20 no-scrollbar transition-all duration-500`}>
+        <div className="relative">
+            {/* Form Canvas Area */}
+            <div className={`p-10 bg-slate-50/20 no-scrollbar`}>
                 <div className="max-w-4xl mx-auto space-y-12 pb-32">
                     <div className="flex justify-between items-center mb-8">
                         <div>
@@ -203,7 +272,7 @@ const FormBuilder: React.FC = () => {
                                     handleCustomChange={() => {}}
                                     readOnly={true} 
                                     fieldSettings={settings} 
-                                    designMode={true}
+                                    designMode={!isPreviewMode}
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
                                 />
@@ -220,30 +289,32 @@ const FormBuilder: React.FC = () => {
                                     onConditionChange={() => {}}
                                     readOnly={true} 
                                     fieldSettings={settings} 
-                                    designMode={true}
+                                    designMode={!isPreviewMode}
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
                                     onCustomChange={() => {}}
                                 />
                             </div>
                          )}
-                         
-                         {!isPreviewMode && (
-                             <div className="p-8">
-                                 <button onClick={handleAddNewField} className="w-full py-6 border-4 border-dashed border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 rounded-[2.5rem] flex items-center justify-center gap-4 text-slate-400 hover:text-teal-600 transition-all">
-                                     <PlusCircle size={24}/>
-                                     <span className="font-black uppercase tracking-widest text-sm">Add New Field to this Section</span>
-                                 </button>
-                             </div>
-                         )}
                     </div>
                 </div>
             </div>
 
-            <div className={`w-96 bg-white border-l border-slate-200 flex flex-col shadow-2xl z-20 transition-all duration-500 ease-in-out transform shrink-0 ${isPreviewMode ? 'translate-x-[150%]' : 'translate-x-0'}`}>
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            {/* Floating Properties Panel */}
+            <div 
+                ref={panelRef}
+                className={`fixed w-96 bg-white/80 backdrop-blur-xl border border-slate-200 flex flex-col shadow-2xl z-20 rounded-[2rem] overflow-hidden ${isPreviewMode ? 'hidden' : ''}`}
+                style={{ top: panelPosition.y, left: panelPosition.x, cursor: isDragging ? 'grabbing' : 'default' }}
+            >
+                <div 
+                    onMouseDown={handleMouseDown}
+                    className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 cursor-grab active:cursor-grabbing"
+                >
                     <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Element Properties</h4>
-                    <button onClick={() => setSelectedField(null)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={18}/></button>
+                    <div className="flex items-center gap-2">
+                         <GripHorizontal size={20} className="text-slate-300"/>
+                         <button onClick={() => setSelectedField(null)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={18}/></button>
+                    </div>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
@@ -251,7 +322,7 @@ const FormBuilder: React.FC = () => {
                 </div>
 
                 {selectedField && (
-                    <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-3">
+                    <div className="p-6 bg-slate-50/50 border-t border-slate-100 space-y-3">
                         <div className="flex gap-2">
                              <button onClick={() => moveElement('up')} className="flex-1 p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 hover:text-teal-600 hover:border-teal-200"><ArrowUp size={16}/></button>
                              <button onClick={() => moveElement('down')} className="flex-1 p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 hover:text-teal-600 hover:border-teal-200"><ArrowDown size={16}/></button>

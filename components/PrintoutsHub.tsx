@@ -1,8 +1,13 @@
 
-import React, { useState } from 'react';
-import { Printer, Edit, FileText, Users, DollarSign, Save, X, Info } from 'lucide-react';
+
+import React, { useState, useMemo } from 'react';
+import { Printer, Edit, FileText, Users, DollarSign, Save, X, Info, BarChart2, Search, User as UserIcon } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useToast } from './ToastSystem';
+import { Patient } from '../types';
+import { usePatient } from '../contexts/PatientContext';
+import Fuse from 'fuse.js';
+import { useModal } from '../contexts/ModalContext';
 
 const documentGroups = [
     {
@@ -10,11 +15,11 @@ const documentGroups = [
         icon: Users,
         color: 'text-teal-600',
         documents: [
-            { id: 'patient_info', name: 'Patient Information Sheet' },
-            { id: 'med_history', name: 'Medical & Dental History Form' },
-            { id: 'consent_dpa', name: 'General Consent & DPA Form' },
-            { id: 'soa', name: 'Statement of Account' },
-            { id: 'appt_slip', name: 'Appointment Slip' },
+            { id: 'patient_info', name: 'Patient Information Sheet', isPatientSpecific: true },
+            { id: 'med_history', name: 'Medical & Dental History Form', isPatientSpecific: true },
+            { id: 'consent_dpa', name: 'General Consent & DPA Form', isPatientSpecific: true },
+            { id: 'appt_slip', name: 'Appointment Slip', isPatientSpecific: true },
+            { id: 'excuse_letter', name: 'Excuse Letter', isPatientSpecific: true },
         ]
     },
     {
@@ -22,32 +27,51 @@ const documentGroups = [
         icon: FileText,
         color: 'text-lilac-600',
         documents: [
-            { id: 'med_cert', name: 'Medical Certificate' },
-            { id: 'rx', name: 'Prescription (Rx)' },
-            { id: 'referral', name: 'Referral Letter' },
-            { id: 'post_op', name: 'Post-Operative Instructions' },
+            { id: 'med_cert', name: 'Medical Certificate', isPatientSpecific: true },
+            { id: 'rx', name: 'Prescription (Rx)', isPatientSpecific: true },
+            { id: 'referral', name: 'Referral Letter', isPatientSpecific: true },
+            { id: 'treatment_plan', name: 'Treatment Plan', isPatientSpecific: true },
+            { id: 'post_op', name: 'Post-Operative Instructions', isPatientSpecific: true },
+            { id: 'lab_order', name: 'Lab Order Form', isPatientSpecific: true },
+        ]
+    },
+    {
+        category: 'Financial Documents',
+        icon: DollarSign,
+        color: 'text-amber-600',
+        documents: [
+            { id: 'soa', name: 'Statement of Account', isPatientSpecific: true },
+            { id: 'walkout_statement', name: 'Walkout Statement', isPatientSpecific: true },
+            { id: 'official_receipt', name: 'Official Receipt (OR)', isPatientSpecific: true },
+            { id: 'installment_agreement', name: 'Installment Plan Agreement', isPatientSpecific: true },
+            { id: 'hmo_claim_form', name: 'HMO/Insurance Claim Form', isPatientSpecific: true },
         ]
     },
     {
         category: 'Administrative Reports',
-        icon: DollarSign,
-        color: 'text-amber-600',
+        icon: BarChart2,
+        color: 'text-blue-600',
         documents: [
-            { id: 'eod_report', name: 'End of Day (EOD) Report' },
-            { id: 'collections_report', name: 'Collections & Aging Report' },
-            { id: 'inventory_report', name: 'Inventory & Stock Level Report' },
+            { id: 'eod_report', name: 'End of Day (EOD) Report', isPatientSpecific: false },
+            { id: 'collections_report', name: 'Collections & Aging Report', isPatientSpecific: false },
+            { id: 'practitioner_production_report', name: 'Practitioner Production Report', isPatientSpecific: false },
+            { id: 'inventory_report', name: 'Inventory & Stock Level Report', isPatientSpecific: false },
+            { id: 'appointment_analysis_report', name: 'Appointment Analysis Report', isPatientSpecific: false },
         ]
     },
 ];
 
 const placeholders = [
-    { category: 'Patient', items: ['{patientName}', '{patientAge}', '{patientSex}', '{patientAddress}', '{patientPhone}', '{patientEmail}', '{patientDob}', '{patientId}'] },
+    { category: 'Patient', items: ['{patientName}', '{patientAge}', '{patientSex}', '{patientAddress}', '{patientPhone}', '{patientEmail}', '{patientDob}', '{patientId}', '{patientTin}'] },
     { category: 'Practitioner', items: ['{practitionerName}', '{practitionerPrc}', '{practitionerSpecialty}', '{practitionerPtr}', '{practitionerS2}'] },
     { category: 'Clinic', items: ['{clinicName}', '{clinicAddress}', '{clinicContactNumber}', '{clinicEmail}', '{clinicTin}'] },
     { category: 'General', items: ['{currentDate}'] },
-    { category: 'Appointment', items: ['{appointmentDate}', '{appointmentTime}', '{appointmentType}'] },
-    { category: 'Financial', items: ['{ledgerRows}', '{patientBalance}'] },
-    { category: 'Clinical', items: ['{diagnosis}', '{recommendations}', '{medicationGenericName}', '{medicationBrandName}', '{medicationDosage}', '{medicationQuantity}', '{medicationInstructions}'] },
+    { category: 'Appointment', items: ['{appointmentDate}', '{appointmentTime}', '{appointmentType}', '{proceduresDone}'] },
+    { category: 'Financial', items: ['{ledgerRows}', '{patientBalance}', '{todaysProcedures}', '{todaysPayments}', '{orNumber}', '{amountInWords}', '{paymentDetails}', '{totalAmountPaid}', '{totalAmount}', '{numberOfPayments}', '{monthlyPayment}', '{startDate}'] },
+    { category: 'Clinical', items: ['{diagnosis}', '{recommendations}', '{medicationGenericName}', '{medicationBrandName}', '{medicationDosage}', '{medicationQuantity}', '{medicationInstructions}', '{reasonForReferral}', '{clinicalFindings}', '{procedureType}', '{planName}', '{planItems}', '{planTotal}'] },
+    { category: 'Lab', items: ['{labName}', '{dueDate}', '{toothNumber}', '{restorationType}', '{shade}', '{instructions}'] },
+    { category: 'Insurance', items: ['{insuranceProvider}', '{insuranceNumber}', '{chiefComplaint}'] },
+    { category: 'Admin Reports', items: ['{startDate}', '{endDate}', '{branchName}', '{totalProduction}', '{totalCollections}', '{patientsSeen}', '{newPatients}', '{noShows}', '{agingRows}', '{inventoryRows}', '{productionItems}', '{totalAppointments}', '{completedAppointments}', '{noShowCount}', '{cancellationCount}', '{completionRate}', '{noShowRate}'] },
 ];
 
 
@@ -121,13 +145,71 @@ const TemplateEditorModal: React.FC<TemplateEditorModalProps> = ({ templateId, o
 
 const PrintoutsHub: React.FC = () => {
     const { fieldSettings } = useSettings();
+    const { showModal } = useModal();
+    const { patients } = usePatient();
+    
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+    const [patientSearch, setPatientSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<Patient[]>([]);
+    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+    
+    const patientFuse = useMemo(() => new Fuse(patients, { keys: ['name', 'id', 'phone'], threshold: 0.3 }), [patients]);
+
+    const handlePatientSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setPatientSearch(e.target.value);
+        if (e.target.value) {
+            setSearchResults(patientFuse.search(e.target.value).map(res => res.item).slice(0, 5));
+        } else {
+            setSearchResults([]);
+            setSelectedPatient(null);
+        }
+    };
+    
+    const handleSelectPatient = (p: Patient) => {
+        setSelectedPatient(p);
+        setPatientSearch(p.name);
+        setSearchResults([]);
+    };
+
+    const handleGenerate = (templateId: string, isPatientSpecific: boolean) => {
+        if (isPatientSpecific) {
+            if (selectedPatient) {
+                showModal('printPreview', { templateId, patient: selectedPatient });
+            }
+        } else {
+            // Logic for admin reports (e.g., prompt for date range)
+            showModal('printPreview', { templateId, params: {} });
+        }
+    };
 
     return (
         <div className="p-10 space-y-12 animate-in fade-in duration-500">
             <div>
                 <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Printouts & Reports Hub</h3>
-                <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Configure templates for all printed documents and official reports.</p>
+                <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Generate patient documents and administrative reports.</p>
+            </div>
+            
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <h4 className="label text-sm mb-4">Quick Print: Generate Patient Document</h4>
+                {!selectedPatient ? (
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20}/>
+                        <input type="text" value={patientSearch} onChange={handlePatientSearch} placeholder="Search patient..." className="input pl-12"/>
+                        {searchResults.length > 0 && (
+                            <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+                                {searchResults.map(p => <div key={p.id} onClick={() => handleSelectPatient(p)} className="p-3 hover:bg-teal-50 cursor-pointer">{p.name}</div>)}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between p-4 bg-teal-50 border-2 border-teal-200 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                            <UserIcon className="text-teal-700" size={20}/>
+                            <span className="font-bold text-teal-900">{selectedPatient.name}</span>
+                        </div>
+                        <button onClick={() => { setSelectedPatient(null); setPatientSearch(''); }} className="text-slate-400 hover:text-red-500"><X size={18}/></button>
+                    </div>
+                )}
             </div>
 
             {documentGroups.map(group => (
@@ -139,6 +221,7 @@ const PrintoutsHub: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {group.documents.map(doc => {
                             const templateExists = !!fieldSettings.documentTemplates[doc.id];
+                            const isPrintDisabled = !templateExists || (doc.isPatientSpecific && !selectedPatient);
                             return (
                                 <div key={doc.id} className={`p-4 rounded-2xl border flex justify-between items-center transition-all ${templateExists ? 'bg-slate-50 border-slate-100' : 'bg-amber-50 border-amber-200'}`}>
                                     <div>
@@ -146,8 +229,8 @@ const PrintoutsHub: React.FC = () => {
                                         {!templateExists && <div className="text-[9px] text-amber-700 font-bold uppercase mt-1">Template Missing</div>}
                                     </div>
                                     <div className="flex gap-2">
-                                        <button disabled className="p-2 bg-white rounded-lg text-slate-300 cursor-not-allowed" title="Print Preview (Coming Soon)"><Printer size={16}/></button>
-                                        <button onClick={() => setEditingTemplateId(doc.id)} disabled={!templateExists} className="p-2 bg-white rounded-lg text-slate-500 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Edit Template"><Edit size={16}/></button>
+                                        <button onClick={() => handleGenerate(doc.id, doc.isPatientSpecific)} disabled={isPrintDisabled} className="p-2 bg-white rounded-lg text-slate-500 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Print Preview"><Printer size={16}/></button>
+                                        <button onClick={() => setEditingTemplateId(doc.id)} disabled={!templateExists} className="p-2 bg-white rounded-lg text-slate-500 hover:bg-lilac-50 hover:text-lilac-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Edit Template"><Edit size={16}/></button>
                                     </div>
                                 </div>
                             );

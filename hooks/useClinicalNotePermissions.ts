@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
 

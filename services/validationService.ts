@@ -1,4 +1,3 @@
-
 import { Patient, Appointment, User } from '../types';
 
 export const validatePatient = (patient: Partial<Patient>): Record<string, string> | null => {

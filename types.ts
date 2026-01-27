@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 
 export interface Branch {
@@ -773,6 +775,7 @@ export interface Patient {
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
   registrationStatus?: 'Provisional' | 'Complete';
+  registrationBranch?: string;
   isPendingSync?: boolean;
 }
 
@@ -1092,3 +1095,19 @@ export interface Medication {
 }
 
 export type GovernanceTrack = 'STATUTORY' | 'OPERATIONAL';
+
+// --- NEW TYPES FOR BATCH PRINTING ---
+export type PrintJobStatus = 'Pending' | 'Printed';
+export type PrintJobReason = 'REGISTRATION_UPDATE' | 'PROCEDURE_COMPLETED' | 'RECEIPT_ISSUED' | 'PLAN_APPROVED';
+
+export interface PrintJob {
+  id: string;
+  patientId: string;
+  patientName: string;
+  documentType: string; // e.g., 'Patient Information Sheet'
+  templateId: string; // e.g., 'patient_info'
+  reason: PrintJobReason;
+  createdAt: string;
+  status: PrintJobStatus;
+  branch: string;
+}

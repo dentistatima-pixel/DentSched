@@ -1,5 +1,3 @@
-
-
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
 // Fix: Add CommunicationChannel to imports for type safety.
 import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate } from './types';
@@ -184,6 +182,403 @@ Dosage: {medicationDosage}
 Disp: #{medicationQuantity}
 
 Sig: {medicationInstructions}
+`
+  },
+  'patient_info': {
+    name: 'Patient Information Sheet',
+    content: `# Patient Information
+
+**Name:** {patientName}
+**ID:** {patientId}
+**Date of Birth:** {patientDob}
+**Age:** {patientAge}
+**Sex:** {patientSex}
+
+---
+
+### Contact Details
+**Mobile:** {patientPhone}
+**Email:** {patientEmail}
+**Address:** {patientAddress}
+
+---
+
+### Insurance
+**Provider:** {insuranceProvider}
+**Policy #:** {insuranceNumber}
+
+---
+
+### Medical Alerts
+**Allergies:** {patientAllergies}
+**Conditions:** {patientMedicalConditions}
+`
+  },
+  'med_history': {
+    name: 'Medical & Dental History Form',
+    content: `# Medical and Dental History
+
+**Patient Name:** _________________________
+**Date:** {currentDate}
+
+Please check (✓) any of the following that apply to you.
+
+### Medical Conditions
+- [ ] High Blood Pressure
+- [ ] Heart Disease
+- [ ] Diabetes
+- [ ] Allergies: _________________________
+- [ ] Other: _________________________
+
+### Dental History
+- [ ] Are you anxious about dental treatment?
+- [ ] Do your gums bleed when brushing?
+- [ ] Previous orthodontic treatment?
+
+---
+I certify that the above information is correct to the best of my knowledge.
+
+**Signature:** _________________________
+`
+  },
+  'consent_dpa': {
+    name: 'General Consent & DPA Form',
+    content: `# General Consent for Treatment and Data Privacy
+
+I, **{patientName}**, hereby consent to undergo dental examination, treatment, and diagnostic procedures as deemed necessary by the dental professionals at **{clinicName}**.
+
+I understand the risks and benefits associated with dental care. I have had the opportunity to ask questions and have received satisfactory answers.
+
+**Data Privacy (RA 10173):** I consent to the collection, use, and processing of my personal and medical information for the purpose of my dental treatment, billing, and for compliance with healthcare regulations.
+
+**Patient Signature:** _________________________
+**Date:** {currentDate}
+`
+  },
+  'appt_slip': {
+    name: 'Appointment Slip',
+    content: `## Your Next Appointment
+
+**Patient:** {patientName}
+
+Your next appointment is scheduled for:
+**Date:** {appointmentDate}
+**Time:** {appointmentTime}
+**With:** {practitionerName}
+**Procedure:** {appointmentType}
+
+Please arrive 15 minutes early. Thank you!
+
+**{clinicName}**
+{clinicContactNumber}
+`
+  },
+  'referral': {
+    name: 'Referral Letter',
+    content: `**{clinicName}**
+{clinicAddress}
+{clinicContactNumber}
+
+**Date:** {currentDate}
+
+**To:** _________________________ (Specialist Name)
+**Clinic:** _________________________
+
+---
+
+**RE: {patientName} (DOB: {patientDob})**
+
+Dear Doctor,
+
+This is to refer the above-named patient for evaluation and management of:
+{reasonForReferral}
+
+**Pertinent Clinical Findings:**
+{clinicalFindings}
+
+Thank you for your professional courtesy.
+
+Sincerely,
+
+**{practitionerName}**
+PRC License No: {practitionerPrc}
+`
+  },
+  'post_op': {
+    name: 'Post-Operative Instructions',
+    content: `# Post-Operative Care Instructions
+
+**Patient:** {patientName}
+**Procedure:** {procedureType}
+**Date:** {currentDate}
+
+Please follow these instructions carefully to ensure proper healing:
+
+1.  **Bleeding:** Bite gently on the provided gauze for 30-60 minutes.
+2.  **Pain:** Take prescribed pain medication as directed.
+3.  **Swelling:** Apply a cold pack to the area for 15 minutes on, 15 minutes off.
+4.  **Diet:** Stick to soft foods for the first 24 hours.
+5.  **Hygiene:** Do not rinse vigorously today. Tomorrow, you may gently rinse with warm salt water.
+
+**Call our office at {clinicContactNumber} if you experience excessive bleeding, pain, or swelling.**
+`
+  },
+  'eod_report': {
+    name: 'End of Day (EOD) Report',
+    content: `# End of Day Report
+
+**Date:** {currentDate}
+**Branch:** {branchName}
+
+| Metric                 | Value |
+|------------------------|-------|
+| Total Production (PHP) | {totalProduction} |
+| Total Collections (PHP)| {totalCollections} |
+| Patients Seen          | {patientsSeen} |
+| New Patients           | {newPatients} |
+| No-Shows               | {noShows} |
+
+**Notes:**
+{reportNotes}
+
+---
+Generated by: {currentUser}
+`
+  },
+  'collections_report': {
+    name: 'Collections & Aging Report',
+    content: `# Collections & Aging Report
+
+**Date:** {currentDate}
+
+| Patient Name     | Balance (PHP) | Days Overdue |
+|------------------|---------------|--------------|
+{agingRows}
+
+`
+  },
+  'inventory_report': {
+    name: 'Inventory & Stock Level Report',
+    content: `# Inventory Report
+
+**Date:** {currentDate}
+**Branch:** {branchName}
+
+| Item Name          | Category    | Qty on Hand | Low Stock Threshold | Status |
+|--------------------|-------------|-------------|---------------------|--------|
+{inventoryRows}
+
+`
+  },
+  'excuse_letter': {
+    name: 'Excuse Letter',
+    content: `# EXCUSE LETTER
+
+**Date:** {currentDate}
+**To Whom It May Concern,**
+
+This is to certify that **{patientName}** was seen and treated at our clinic, **{clinicName}**, on the date specified above.
+
+Please excuse him/her from school/work for this period.
+
+Should you have any questions, please feel free to contact our office at {clinicContactNumber}.
+
+Sincerely,
+
+---
+**{practitionerName}**
+PRC License No: {practitionerPrc}
+`
+  },
+  'treatment_plan': {
+    name: 'Treatment Plan',
+    content: `# TREATMENT PLAN PROPOSAL
+
+**Patient:** {patientName}
+**Plan Name:** {planName}
+**Date:** {currentDate}
+
+This document outlines the proposed course of treatment. The fees listed are estimates and may be subject to change based on clinical findings during the procedure.
+
+| Tooth # | Procedure Description | Fee (PHP) |
+|---------|-----------------------|-----------|
+{planItems}
+
+---
+**Total Estimated Cost:** **PHP {planTotal}**
+
+I have read and understood the proposed treatment plan and associated costs.
+
+**Patient Signature:** _________________________
+`
+  },
+  'lab_order': {
+    name: 'Lab Order Form',
+    content: `# DENTAL LABORATORY ORDER FORM
+
+**TO:** {labName}
+**FROM:** {clinicName}
+**DATE:** {currentDate}
+**DUE DATE:** {dueDate}
+
+---
+
+**PATIENT:** {patientName}
+**AGE:** {patientAge}
+**SEX:** {patientSex}
+
+---
+
+### ORDER DETAILS
+
+| Tooth # | Restoration Type | Shade |
+|---------|------------------|-------|
+| {toothNumber} | {restorationType} | {shade} |
+
+**Instructions:**
+{instructions}
+
+Thank you,
+
+**{practitionerName}**
+PRC License No: {practitionerPrc}
+`
+  },
+  'walkout_statement': {
+    name: 'Walkout Statement',
+    content: `# Walkout Statement
+
+**Patient:** {patientName}
+**Date:** {currentDate}
+
+Thank you for your visit today! Here is a summary of today's transactions.
+
+### Services Rendered Today
+| Description | Amount (PHP) |
+|-------------|--------------|
+{todaysProcedures}
+
+### Payments Made Today
+| Description | Amount (PHP) |
+|-------------|--------------|
+{todaysPayments}
+
+---
+
+**Total Balance Due:** **PHP {patientBalance}**
+`
+  },
+  'official_receipt': {
+    name: 'Official Receipt (OR)',
+    content: `# OFFICIAL RECEIPT
+
+**{clinicName}**
+{clinicAddress}
+TIN: {clinicTin}
+
+**OR No:** {orNumber}
+**Date:** {currentDate}
+
+---
+
+**Received from:** {patientName}
+**TIN:** {patientTin}
+**Address:** {patientAddress}
+
+The sum of **{amountInWords} pesos**.
+
+### Payment Details
+| Description | Amount (PHP) |
+|-------------|--------------|
+{paymentDetails}
+
+---
+
+**Total Amount Paid:** **PHP {totalAmountPaid}**
+
+By: _________________________
+(Authorized Representative)
+`
+  },
+  'installment_agreement': {
+    name: 'Installment Plan Agreement',
+    content: `# INSTALLMENT PLAN AGREEMENT
+
+This agreement is made on **{currentDate}** between **{clinicName}** ("the Clinic") and **{patientName}** ("the Patient").
+
+The Clinic agrees to provide dental services totaling **PHP {totalAmount}**.
+
+The Patient agrees to pay this amount in **{numberOfPayments}** monthly installments of **PHP {monthlyPayment}**, starting on **{startDate}**.
+
+Payments are due on the same day each month. A late fee may be applied for payments overdue by more than 15 days.
+
+**Patient Signature:** _________________________
+**Date:** {currentDate}
+
+**Clinic Representative:** _________________________
+`
+  },
+  'hmo_claim_form': {
+    name: 'HMO/Insurance Claim Form',
+    content: `# STANDARD HMO CLAIM FORM
+
+### PART I: MEMBER/PATIENT INFORMATION
+**Member Name:** {patientName}
+**HMO Provider:** {insuranceProvider}
+**Policy Number:** {insuranceNumber}
+**Date of Service:** {appointmentDate}
+
+### PART II: PROVIDER INFORMATION
+**Clinic Name:** {clinicName}
+**Attending Dentist:** {practitionerName}
+**PRC License No:** {practitionerPrc}
+
+### PART III: SERVICES RENDERED
+**Diagnosis / Chief Complaint:**
+{chiefComplaint}
+
+**Procedures Performed:**
+{proceduresDone}
+
+---
+I certify that the foregoing information is true and correct.
+
+**Dentist Signature:** _________________________
+`
+  },
+  'practitioner_production_report': {
+    name: 'Practitioner Production Report',
+    content: `# PRACTITIONER PRODUCTION REPORT
+
+**Practitioner:** {practitionerName}
+**Date Range:** {startDate} to {endDate}
+
+| Procedure Category | Count | Total Production (PHP) |
+|--------------------|-------|------------------------|
+{productionItems}
+
+---
+**Grand Total Production:** **PHP {totalProduction}**
+`
+  },
+  'appointment_analysis_report': {
+    name: 'Appointment Analysis Report',
+    content: `# APPOINTMENT ANALYSIS REPORT
+
+**Date Range:** {startDate} to {endDate}
+**Branch:** {branchName}
+
+### Key Metrics
+| Metric | Value |
+|-------------------------|-------|
+| Total Appointments Booked | {totalAppointments} |
+| Completed Appointments | {completedAppointments} |
+| No-Shows | {noShowCount} |
+| Cancellations | {cancellationCount} |
+
+### Analysis
+**Completion Rate:** {completionRate}%
+**No-Show Rate:** {noShowRate}%
 `
   }
 };

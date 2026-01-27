@@ -1,13 +1,14 @@
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { FieldSettings, ScheduledSms } from '../types';
 import { DEFAULT_FIELD_SETTINGS } from '../constants';
 import { useToast } from '../components/ToastSystem';
+import { DataService } from '../services/dataService';
 
 interface SettingsContextType {
     fieldSettings: FieldSettings;
     setFieldSettings: React.Dispatch<React.SetStateAction<FieldSettings>>;
     scheduledSms: ScheduledSms[];
+    addScheduledSms: (sms: Omit<ScheduledSms, 'id' | 'status'>) => void;
     handleUpdateSettings: (newSettings: FieldSettings) => Promise<void>;
 }
 
@@ -18,12 +19,34 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
     const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
 
+    useEffect(() => {
+        DataService.getSettings().then(setFieldSettings).catch(err => {
+            toast.error("Failed to load practice settings.");
+            console.error(err);
+        });
+    }, []);
+
     const handleUpdateSettings = async (newSettings: FieldSettings) => {
-        setFieldSettings(newSettings);
-        toast.success("Settings updated.");
+        try {
+            const updatedSettings = await DataService.saveSettings(newSettings);
+            setFieldSettings(updatedSettings);
+            toast.success("Settings updated successfully.");
+        } catch (error) {
+            console.error("Failed to save settings:", error);
+            toast.error("Could not save settings.");
+        }
+    };
+    
+    const addScheduledSms = (sms: Omit<ScheduledSms, 'id' | 'status'>) => {
+        const newSms: ScheduledSms = {
+            id: `sms_${Date.now()}`,
+            status: 'Pending',
+            ...sms
+        };
+        setScheduledSms(prev => [...prev, newSms]);
     };
 
-    const value = { fieldSettings, setFieldSettings, scheduledSms, handleUpdateSettings };
+    const value = { fieldSettings, setFieldSettings, scheduledSms, addScheduledSms, handleUpdateSettings };
     
     return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };

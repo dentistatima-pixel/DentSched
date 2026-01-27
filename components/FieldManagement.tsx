@@ -99,18 +99,18 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             default:
                 return (
                     <div className="p-20 text-center flex flex-col items-center justify-center h-full">
-                        <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center mb-6">
-                            <Settings size={48} className="text-slate-300" />
+                        <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-6">
+                            <Settings size={48} className="text-slate-300 dark:text-slate-600" />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-400">Settings Hub</h3>
-                        <p className="text-slate-500 mt-2 max-w-sm">Select a configuration module from the sidebar to manage practice-wide settings and registries.</p>
+                        <h3 className="text-2xl font-black text-slate-400 dark:text-slate-500">Settings Hub</h3>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">Select a configuration module from the sidebar to manage practice-wide settings and registries.</p>
                     </div>
                 );
         }
     };
 
     return (
-        <div className="flex h-full bg-slate-50 overflow-hidden relative">
+        <div className="flex h-full overflow-hidden relative">
             <div className="w-64 bg-teal-900 text-white flex flex-col shrink-0 shadow-2xl z-40 overflow-y-auto no-scrollbar transition-all duration-500">
                 <div className="p-8 border-b border-white/10 shrink-0">
                     <h2 className="text-sm font-black uppercase tracking-[0.3em] text-teal-400">Settings Hub</h2>

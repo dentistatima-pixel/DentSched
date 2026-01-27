@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -7,6 +8,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { formatDate } from '../constants';
+import { useAppContext } from '../contexts/AppContext';
 
 interface PatientListProps {
   selectedPatientId: string | null;
@@ -18,6 +20,7 @@ const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
   const navigate = useNavigate();
+  const { currentBranch } = useAppContext();
   
   const fuse = useMemo(() => new Fuse(patients, {
     keys: ['name', 'id', 'phone'],
@@ -82,7 +85,7 @@ const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
           />
         </div>
         <button 
-          onClick={() => showModal('patientRegistration')}
+          onClick={() => showModal('patientRegistration', { currentBranch })}
           className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
           aria-label="New Patient Registration"
         >

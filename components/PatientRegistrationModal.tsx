@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from '../types';
@@ -22,6 +23,7 @@ interface PatientRegistrationModalProps {
   readOnly?: boolean;
   initialData?: Patient | null;
   isKiosk?: boolean; 
+  currentBranch?: string;
 }
 
 const stepsInfo = [
@@ -32,7 +34,7 @@ const stepsInfo = [
     { id: 5, label: "Finalize & Sign", icon: CheckCircle }
 ];
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
   const toast = useToast();
   const { fieldSettings } = useSettings();
   const { patients } = usePatient();
@@ -60,11 +62,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
             setFormData({ ...initialFormState, ...initialData });
         } else {
             const generatedId = generateUid('p');
-            setFormData({ ...initialFormState, id: generatedId });
+            setFormData({ ...initialFormState, id: generatedId, registrationBranch: currentBranch });
         }
         setStep(1); // Reset to first step when modal opens
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, currentBranch]);
 
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -84,6 +85,7 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
 const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {
     const navigate = useNavigate();
     const { showModal } = useModal();
+    const { currentBranch } = useAppContext();
 
     return (
         <div className="space-y-6">
@@ -131,7 +133,7 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                             <div className="flex items-center gap-2 pl-20">
                                 {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
                                 {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
-                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
+                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
                                 {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-[9px] font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
                             </div>
                         </div>
@@ -357,7 +359,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
     if (type === 'patient') {
       navigate(`patients/${payload}`);
     } else if (type === 'action' && payload === 'newPatient') {
-      showModal('patientRegistration');
+      showModal('patientRegistration', { currentBranch });
     } else if (type === 'action' && payload === 'newAppointment') {
       showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch });
     }
@@ -389,7 +391,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
         <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">Home</h1>
         <div className="flex items-center gap-3">
             <button onClick={() => setIsSearchOpen(true)} className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40 btn-tactile" aria-label="Open global search"><Search size={16}/> Search</button>
-            <button onClick={() => showModal('patientRegistration')} className="flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile"><UserPlus size={16}/> New</button>
+            <button onClick={() => showModal('patientRegistration', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile"><UserPlus size={16}/> New</button>
             <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile"><CalendarPlus size={16}/> Appt</button>
             <button onClick={() => showModal('quickAddPatient')} className="flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-900/40 btn-tactile"><Plus size={16}/> Quick Add</button>
             <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile"><Zap size={16}/> Walk-In</button>
