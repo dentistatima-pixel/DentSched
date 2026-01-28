@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
-import { Patient, DentalChartEntry, ClinicalIncident } from '../types';
+import { Patient, DentalChartEntry, ClinicalIncident, Appointment, User } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -180,6 +181,52 @@ export const draftReferralLetter = async (patient: Patient, referredTo: string, 
     }
 };
 
+export const generateMorningHuddle = async (appointments: Appointment[], patients: Patient[]): Promise<string> => {
+    try {
+        const relevantData = appointments.map(apt => {
+            const patient = patients.find(p => p.id === apt.patientId);
+            if (!patient || apt.isBlock) return null;
+            return {
+                time: apt.time,
+                procedure: apt.type,
+                patientName: patient.name,
+                criticalInfo: {
+                    allergies: patient.allergies?.filter(a => a.toLowerCase() !== 'none'),
+                    medicalConditions: patient.medicalConditions?.filter(c => c.toLowerCase() !== 'none'),
+                    balance: patient.currentBalance,
+                    reliability: patient.reliabilityScore,
+                    notes: patient.notes // e.g., dental anxiety
+                }
+            };
+        }).filter(Boolean);
+
+        if (relevantData.length === 0) {
+            return "### AI Morning Huddle\n\nNo appointments scheduled for you today. Enjoy the quiet day!";
+        }
+
+        const prompt = `
+        You are an AI assistant for a dental clinic. Analyze the following schedule for today and provide a concise "Morning Huddle" briefing.
+        Format your response in markdown. Use bullet points.
+        Highlight CRITICAL safety alerts (allergies, medical conditions) with bold text and an emoji (e.g., ⚠️).
+        Mention significant outstanding balances (e.g., > ₱1,000) with a different emoji (e.g., 💰).
+        Note any patients with low reliability scores (e.g., < 80%) as a potential no-show risk (e.g., 🕒).
+        Keep the summary brief and actionable. Start with a heading "### AI Morning Huddle".
+
+        Today's Schedule Data:
+        ${JSON.stringify(relevantData, null, 2)}
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini morning huddle generation failed:", error);
+        throw new Error("Could not generate AI Morning Huddle.");
+    }
+};
+
 // Fix: Add missing 'summarizePatient' function.
 export const summarizePatient = async (patient: Patient): Promise<string> => {
     try {
@@ -236,5 +283,30 @@ export const translateText = async (text: string, targetLanguage: 'tl'): Promise
     } catch (error) {
         console.error("Gemini translation failed:", error);
         throw new Error("Could not translate text.");
+    }
+};
+
+export const getDocentExplanation = async (elementId: string, context: string, userRole: string): Promise<string> => {
+    try {
+        const prompt = `
+        You are the "Digital Docent," an expert on the dentsched application, dental practice management, and Philippine medico-legal standards.
+        Provide a concise, helpful explanation for the following UI element, tailored for the specified user role.
+        Format as markdown. Be direct and clear.
+
+        - User Role: ${userRole}
+        - UI Element ID: ${elementId}
+        - Context: ${context}
+
+        Explanation:
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini Docent explanation failed:", error);
+        throw new Error("Could not generate AI explanation.");
     }
 };

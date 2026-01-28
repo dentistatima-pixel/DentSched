@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
@@ -200,7 +199,7 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     };
     
     const tabs = [
-        { id: 'identity', label: 'Theme & Profile', icon: Sparkles },
+        { id: 'identity', label: 'Global Profile', icon: Sparkles },
         { id: 'branches', label: 'Branch Management', icon: MapPin },
         { id: 'referrals', label: 'Referral Network', icon: Building2 },
     ];
@@ -208,7 +207,7 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">Practice Identity Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">Global Profile Hub</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-2">Manage global branding, locations, and network affiliations.</p>
             </div>
 
@@ -237,6 +236,26 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                         <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                             <button onClick={() => theme === 'dark' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'light' ? 'bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Sun size={14}/> Light</button>
                             <button onClick={() => theme === 'light' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'dark' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Moon size={14}/> Dark</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="label text-sm">Assistance & Training</h4>
+                        <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
+                            <div>
+                                <h4 className="font-bold text-text-primary">Enable Digital Docent by Default</h4>
+                                <p className="text-sm text-text-secondary">Sets the default state for AI help. Users can override this in their profile.</p>
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type="checkbox" 
+                                    id="docent-toggle"
+                                    checked={settings.features.enableDigitalDocent}
+                                    onChange={e => onUpdateSettings({...settings, features: { ...settings.features, enableDigitalDocent: e.target.checked }})}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
+                                <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

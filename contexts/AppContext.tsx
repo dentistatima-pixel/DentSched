@@ -34,6 +34,8 @@ interface AppContextType {
   toggleTheme: () => void;
   fullScreenView: FullScreenView | null;
   setFullScreenView: (view: FullScreenView | null) => void;
+  isInKioskMode: boolean;
+  setIsInKioskMode: (isKiosk: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -50,6 +52,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [currentBranch, setCurrentBranch] = useState<string>('');
     const [theme, setTheme] = useState<Theme>('light');
     const [fullScreenView, setFullScreenView] = useState<FullScreenView | null>(null);
+    const [isInKioskMode, setIsInKioskMode] = useState(false);
 
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -158,6 +161,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleTheme,
         fullScreenView,
         setFullScreenView,
+        isInKioskMode,
+        setIsInKioskMode,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { User, LeaveRequest, UserRole } from '../types';
 import { STAFF, generateUid } from '../constants';
@@ -19,7 +18,7 @@ const StaffContext = createContext<StaffContextType | undefined>(undefined);
 
 export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
-    const { currentUser } = useAppContext();
+    const { currentUser, setCurrentUser } = useAppContext();
     const [staff, setStaff] = useState<User[]>(STAFF);
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     
@@ -52,10 +51,26 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
     };
     
+    const handleSaveStaff = async (staffData: User) => {
+        setStaff(s => {
+            const isNew = !s.some(i => i.id === staffData.id);
+            return isNew 
+                ? [...s, {...staffData, id: staffData.id || generateUid('staff')}] 
+                : s.map(i => i.id === staffData.id ? staffData : i);
+        });
+
+        // If the user being updated is the current user, update the global context
+        if (currentUser && staffData.id === currentUser.id) {
+            setCurrentUser(staffData);
+        }
+
+        toast.success("Staff profile saved.");
+    };
+    
     const value = {
         staff: scopedStaff,
         leaveRequests,
-        handleSaveStaff: createAsyncHandler((staffData: User) => setStaff(s => { const isNew = !s.some(i => i.id === staffData.id); return isNew ? [...s, {...staffData, id: staffData.id || generateUid('staff')}] : s.map(i => i.id === staffData.id ? staffData : i); }), "Staff saved."),
+        handleSaveStaff,
         handleDeactivateStaff: createAsyncHandler((userId: string) => setStaff(s => s.map(u => u.id === userId ? { ...u, status: 'Inactive' } : u)), "Staff deactivated."),
         handleUpdateStaffRoster: createAsyncHandler((staffId: string, day: string, branch: string) => setStaff(s => s.map(u => u.id === staffId ? { ...u, roster: { ...u.roster, [day]: branch }} : u))),
         handleAddLeaveRequest: createAsyncHandler((request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => { const staffName = staff.find(s => s.id === request.staffId)?.name || 'Unknown'; setLeaveRequests(l => [...l, {id: generateUid('leave'), staffName, status: 'Pending', ...request}]); }, "Leave request submitted."),

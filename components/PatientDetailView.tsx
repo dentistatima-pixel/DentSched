@@ -13,6 +13,8 @@ import { useAuthorization } from '../hooks/useAuthorization';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
+
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
@@ -349,6 +351,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const navigate = useNavigate();
   const { patients } = usePatient();
   const { setFullScreenView } = useAppContext();
+  const { showModal } = useModal();
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -632,8 +635,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                             <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-teal-500"/> AI Clinical Summary</h4>
-                                    <button onClick={generateSummary} disabled={isSummaryLoading} className="text-xs font-bold text-teal-600 flex items-center gap-1">
-                                        {isSummaryLoading ? 'Generating...' : <><Sparkles size={12}/> Generate</>}
+                                    <button onClick={() => showModal('infoDisplay', { title: `AI Summary for ${patient.name}`, fetcher: () => summarizePatient(patient) })} className="text-xs font-bold text-teal-600 flex items-center gap-1">
+                                      <Sparkles size={12}/> Show Full Summary
                                     </button>
                                 </div>
                                 {isSummaryLoading ? <p>Loading...</p> : summary ? <ReactMarkdown className="text-sm prose">{summary}</ReactMarkdown> : <p className="text-sm text-slate-400 italic">Generate a summary for a quick overview.</p>}
@@ -678,7 +681,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             )
         case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id: string) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} /></Suspense>;
         case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={handleOpenNoteForTooth} onChartUpdate={handleChartUpdateFromOdontogram} readOnly={readOnly}/></Suspense>;
-        case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
+        case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
         case 'plan': return <Suspense fallback={<TabLoader />}><TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/></Suspense>;
         case 'ledger': return <Suspense fallback={<TabLoader />}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} /></Suspense>;
         case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
@@ -707,6 +710,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 </div>
             </div>
             <div className="flex items-center gap-3">
+                 <button 
+                    onClick={() => showModal('infoDisplay', { title: `AI Summary for ${patient.name}`, fetcher: () => summarizePatient(patient) })}
+                    className="p-3 bg-white/50 hover:bg-white text-lilac-700 rounded-lg shadow-sm"
+                    aria-label="Show AI Patient Summary"
+                >
+                    <Sparkles size={20}/>
+                </button>
                 {isProvisional ? (
                     <button onClick={() => onEditPatient(patient)} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Edit size={14}/> Complete Registration</button>
                 ) : (

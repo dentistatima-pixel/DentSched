@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -6,22 +7,31 @@ interface InfoDisplayModalProps {
     isOpen: boolean;
     onClose: () => void;
     title: string;
-    fetcher: () => Promise<string>;
+    content?: string;
+    fetcher?: () => Promise<string>;
 }
 
-const InfoDisplayModal: React.FC<InfoDisplayModalProps> = ({ isOpen, onClose, title, fetcher }) => {
+const InfoDisplayModal: React.FC<InfoDisplayModalProps> = ({ isOpen, onClose, title, content: staticContent, fetcher }) => {
     const [content, setContent] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
-            setIsLoading(true);
-            fetcher()
-                .then(data => setContent(data))
-                .catch(err => setContent(`Error: ${err.message}`))
-                .finally(() => setIsLoading(false));
+            if (staticContent) {
+                setContent(staticContent);
+                setIsLoading(false);
+            } else if (fetcher) {
+                setIsLoading(true);
+                fetcher()
+                    .then(data => setContent(data))
+                    .catch(err => setContent(`Error: ${err.message}`))
+                    .finally(() => setIsLoading(false));
+            } else {
+                setContent("No content provided.");
+                setIsLoading(false);
+            }
         }
-    }, [isOpen, fetcher]);
+    }, [isOpen, fetcher, staticContent]);
 
     if (!isOpen) return null;
 

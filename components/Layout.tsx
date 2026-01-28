@@ -1,10 +1,12 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
     Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, 
     Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
     ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, 
-    Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon
+    Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
+    Sparkles, Sun, Moon
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
 import { UserRole, SystemStatus, AppNotification, Patient } from '../types';
@@ -16,14 +18,16 @@ import { useFinancials } from '../contexts/FinancialContext';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { usePatient } from '../contexts/PatientContext';
+import GeminiAssistant from './GeminiAssistant';
+import { useDocent } from '../contexts/DocentContext';
+
 
 interface LayoutProps {
   children: React.ReactNode;
-  onEnterKioskMode?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, onEnterKioskMode
+  children
 }) => {
   const { showModal } = useModal();
   const { route } = useRouter();
@@ -34,18 +38,21 @@ const Layout: React.FC<LayoutProps> = ({
   const { 
     currentUser, isOnline, systemStatus, setSystemStatus, originalUser: impersonatingUser, 
     handleStopImpersonating, logout: handleLogout,
-    currentBranch, setCurrentBranch, isAuthorityLocked
+    currentBranch, setCurrentBranch, isAuthorityLocked, setIsInKioskMode,
+    theme, toggleTheme,
   } = useAppContext();
-  const { staff } = useStaff();
+  const { staff, handleSaveStaff } = useStaff();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
   const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks } = useClinicalOps();
   const { handleStartCashSession, handleCloseCashSession, cashSessions } = useFinancials();
   
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false);
   
+  const { isDocentEnabled, isPanelOpen, togglePanel } = useDocent();
+
   // New Pinboard State
   const [pinboardTab, setPinboardTab] = useState<'inbox' | 'sent'>('inbox');
   const [newTaskText, setNewTaskText] = useState('');
@@ -67,30 +74,23 @@ const Layout: React.FC<LayoutProps> = ({
     if (!patientSearch) return [];
     return patients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase())).slice(0, 3);
   }, [patientSearch, patients]);
-
-  const onLogout = () => {
-      handleLogout();
-      setIsMobileMenuOpen(false);
-  };
   
   const features = fieldSettings?.features;
   const enableMultiBranch = features?.enableMultiBranch ?? true;
-  const availableBranches = fieldSettings?.branches || [];
   
   const isDowntime = systemStatus === SystemStatus.DOWNTIME;
 
   const userAllowedBranches = can('manage:admin')
-      ? availableBranches 
+      ? (fieldSettings?.branches || []) 
       : (currentUser.allowedBranches && currentUser.allowedBranches.length > 0)
           ? currentUser.allowedBranches
-          : availableBranches;
+          : (fieldSettings?.branches || []);
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard, visible: true },
     { id: 'schedule', label: 'Calendar', icon: Calendar, visible: true },
     { id: 'patients', label: 'Patients', icon: Users, visible: true },
     { id: 'admin', label: 'Admin', icon: Sliders, visible: can('manage:admin') },
-    { id: 'field-mgmt', label: 'Setup', icon: Settings, visible: can('manage:setup') }
   ].filter(item => item.visible);
 
   const myActiveTasks = tasks ? tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted) : [];
@@ -117,26 +117,9 @@ const Layout: React.FC<LayoutProps> = ({
     }
   };
   
-  const handleStartSession = () => {
-      const balanceStr = prompt("Enter opening cash balance for today's session:");
-      const balance = parseFloat(balanceStr || '0');
-      if (!isNaN(balance)) {
-          handleStartCashSession(balance, currentBranch);
-          setIsMobileMenuOpen(false);
-      }
-  };
-
-  const handleCloseSession = () => {
-    const session = cashSessions.find(cs => cs.branch === currentBranch && cs.status === 'Open');
-    if (session) {
-        handleCloseCashSession(session.id);
-    }
-    setIsMobileMenuOpen(false);
-  };
-
   const openProfile = () => {
-    showModal('userProfile', { user: currentUser });
-    setIsMobileMenuOpen(false);
+    setIsUserMenuOpen(false);
+    showModal('userProfile', { user: currentUser, onSave: handleSaveStaff });
   };
   
   const inboxTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id).sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0) || (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0)), [tasks, currentUser.id]);
@@ -184,7 +167,13 @@ const Layout: React.FC<LayoutProps> = ({
                     aria-selected={activeTab === item.id}
                     aria-controls={`${item.id}-panel`}
                     onClick={() => navigate(item.id)} 
-                    className={`flex items-center h-14 px-6 rounded-2xl transition-all duration-500 group focus:ring-offset-2 ${activeTab === item.id ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30' : 'text-teal-200/70 hover:bg-white/10 hover:text-white'}`}
+                    className={`flex items-center h-14 px-6 rounded-2xl transition-all duration-500 group focus:ring-offset-2 ${
+                        activeTab === item.id 
+                            ? 'bg-teal-600 text-white shadow-xl shadow-teal-600/30' 
+                            : isDowntime
+                                ? 'bg-black/50 text-white hover:bg-black/70'
+                                : 'text-teal-200/70 hover:bg-white/10 hover:text-white'
+                    }`}
                     aria-label={`Switch to ${item.label} view`}
                 >
                     <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
@@ -194,31 +183,65 @@ const Layout: React.FC<LayoutProps> = ({
             </nav>
 
              <div className="flex items-center gap-4">
-                {isDowntime ? (
+                {/* User Menu */}
+                <div className="relative">
                     <button
-                        onClick={() => setSystemStatus(SystemStatus.OPERATIONAL)}
-                        className="p-3.5 rounded-2xl bg-red-600 text-white shadow-xl animate-pulse-red ring-4 ring-red-500/50 transition-all focus:ring-offset-2"
-                        title="System Status: Emergency Mode Active. Click to return to Operational."
-                        aria-label="System Status: Emergency Mode Active. Click to return to Operational."
+                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                            isUserMenuOpen
+                                ? 'bg-black/40 shadow-inner'
+                                : isDowntime
+                                    ? 'bg-black/50 text-white hover:bg-black/70'
+                                    : 'bg-white/10 hover:bg-white/20'
+                        }`}
+                        aria-label="User menu"
+                        aria-haspopup="true"
+                        aria-expanded={isUserMenuOpen}
                     >
-                        <AlertTriangle size={22} />
+                        <UserCircle size={22} />
                     </button>
-                ) : (
-                    <button
-                        onClick={() => setShowDowntimeConfirm(true)}
-                        className="p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-teal-300 hover:text-white transition-all focus:ring-offset-2"
-                        title="System Status: Operational. Click to activate Emergency Protocol."
-                        aria-label="System Status: Operational. Click to activate Emergency Protocol."
-                    >
-                        <ShieldCheck size={22} />
-                    </button>
-                )}
+                     {isUserMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsUserMenuOpen(false)} />
+                            <div className="absolute right-0 top-full mt-4 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
+                                <div className="p-4 border-b border-border-primary bg-bg-tertiary">
+                                    <p className="font-black text-sm text-text-primary truncate">{currentUser.name}</p>
+                                    <p className="text-xs text-text-secondary font-bold">{currentUser.role}</p>
+                                </div>
+                                <div className="p-2 space-y-1">
+                                    <button onClick={openProfile} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                        <UserIcon size={16}/> My Profile
+                                    </button>
+                                    {can('manage:setup') && (
+                                        <button onClick={() => { navigate('field-mgmt'); setIsUserMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                            <Sliders size={16}/> Practice Setup
+                                        </button>
+                                    )}
+                                    <button onClick={toggleTheme} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                        {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />} Theme ({theme})
+                                    </button>
+                                </div>
+                                <div className="p-2 border-t border-border-primary">
+                                    <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors" role="menuitem">
+                                        <LogOut size={16}/> Logout & Secure
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
 
                 {/* Pinboard */}
                  <div className="relative">
                     <button
                         onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)}
-                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${isTaskPopoverOpen ? 'bg-black/40 shadow-inner' : 'bg-white/10 hover:bg-white/20'}`}
+                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                            isTaskPopoverOpen 
+                                ? 'bg-black/40 shadow-inner' 
+                                : isDowntime
+                                    ? 'bg-black/50 text-white hover:bg-black/70'
+                                    : 'bg-white/10 hover:bg-white/20'
+                        }`}
                         aria-label={`Tasks: ${myActiveTasks.length} pending`}
                         aria-expanded={isTaskPopoverOpen}
                     >
@@ -294,13 +317,33 @@ const Layout: React.FC<LayoutProps> = ({
                     )}
                  </div>
 
-                 <button 
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                    className="p-3.5 bg-white/10 hover:bg-white/20 rounded-2xl transition-all shadow-lg focus:ring-offset-2"
-                    aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-                    aria-expanded={isMobileMenuOpen}
+                {isDowntime ? (
+                    <button
+                        onClick={() => setSystemStatus(SystemStatus.OPERATIONAL)}
+                        className="p-3.5 rounded-2xl bg-red-600 text-white shadow-xl animate-pulse-red ring-4 ring-red-500/50 transition-all focus:ring-offset-2"
+                        title="System Status: Emergency Mode Active. Click to return to Operational."
+                        aria-label="System Status: Emergency Mode Active. Click to return to Operational."
+                    >
+                        <AlertTriangle size={22} />
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setShowDowntimeConfirm(true)}
+                        className="p-3.5 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-900/30 transition-all focus:ring-offset-2 btn-tactile"
+                        title="System Status: Operational. Click to activate Emergency Protocol."
+                        aria-label="System Status: Operational. Click to activate Emergency Protocol."
+                    >
+                        <ShieldCheck size={22} />
+                    </button>
+                )}
+                 
+                 <button
+                    onClick={() => setIsInKioskMode(true)}
+                    className="p-3.5 rounded-2xl bg-lilac-600 text-white shadow-lg shadow-lilac-900/30 transition-all focus:ring-offset-2 btn-tactile"
+                    title="Client Intake Terminal"
+                    aria-label="Client Intake Terminal"
                 >
-                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    <Monitor size={22} />
                 </button>
              </div>
       </header>
@@ -311,46 +354,6 @@ const Layout: React.FC<LayoutProps> = ({
           <span>CLINICAL AUTHORITY LOCKED: Your credentials have expired.</span>
           <button onClick={openProfile} className="ml-4 bg-white/90 text-red-700 px-6 py-2 rounded-lg text-xs hover:bg-white transition-colors">Update Profile</button>
         </div>
-      )}
-
-      {isMobileMenuOpen && (
-            <div className="fixed inset-0 top-24 bg-teal-950/95 backdrop-blur-xl text-white z-40 animate-in slide-in-from-top-5 flex flex-col" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
-                <div className="p-8 space-y-6 overflow-y-auto flex-1 max-w-lg mx-auto w-full">
-                    <div className="bg-teal-900/50 p-6 rounded-[2.5rem] flex items-center gap-6 border border-teal-800 shadow-2xl">
-                        <div className="w-16 h-16 rounded-3xl border-4 border-lilac-500 shadow-xl bg-lilac-200 flex items-center justify-center">
-                            <UserCircle size={40} className="text-lilac-700"/>
-                        </div>
-                        <div><div className="font-black text-2xl tracking-tighter uppercase">{currentUser.name}</div><div className="text-xs text-teal-300 uppercase font-black tracking-[0.2em] mt-1">{currentUser.role}</div></div>
-                    </div>
-                    {enableMultiBranch && (
-                        <div className="bg-teal-900/50 p-6 rounded-[2.5rem] border border-teal-800 shadow-lg">
-                            <label htmlFor="branch-select" className="flex items-center gap-2 text-teal-400 uppercase font-black text-xs tracking-widest mb-4"><MapPin size={16} /> Registry Location</label>
-                            <select id="branch-select" aria-label="Switch branch location" value={currentBranch} onChange={(e) => setCurrentBranch(e.target.value)} className="w-full bg-teal-950 text-white border-2 border-teal-800 rounded-2xl p-4 text-sm font-black shadow-inner outline-none focus:border-teal-600 transition-all">{userAllowedBranches.map(b => (<option key={b} value={b}>{b}</option>))}</select>
-                        </div>
-                    )}
-                    <div className="grid grid-cols-1 gap-3 pt-4">
-                        <button onClick={openProfile} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-teal-900/50 hover:bg-teal-800 border border-teal-800/50 transition-all focus:ring-offset-2 active:scale-95"><div className="bg-teal-700 p-3 rounded-2xl shadow-lg"><UserCircle size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Security Profile</span></button>
-                        <button onClick={() => { onEnterKioskMode && onEnterKioskMode(); setIsMobileMenuOpen(false); }} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-lilac-600/20 hover:bg-lilac-600 border border-lilac-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-lilac-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Monitor size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Client Intake Terminal</span></button>
-                        <button onClick={onLogout} className="w-full flex items-center space-x-6 px-6 py-6 rounded-[2rem] bg-red-600/20 hover:bg-red-600 border border-red-500/30 transition-all focus:ring-offset-2 active:scale-95 group"><div className="bg-red-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><LogOut size={24} className="text-white" /></div><span className="font-black uppercase tracking-widest text-sm">Logout & Secure</span></button>
-                    </div>
-
-                    {can('manage:day-session') && (
-                        <div className="pt-6 border-t border-teal-800/50 mt-6">
-                            <h4 className="text-teal-400 uppercase font-black text-xs tracking-widest mb-4">Admin Controls</h4>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={handleStartSession} className="w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] bg-green-600/20 hover:bg-green-600 border border-green-500/30 transition-all focus:ring-offset-2 active:scale-95 group">
-                                    <div className="bg-green-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><Power size={20} className="text-white" /></div>
-                                    <span className="font-black uppercase tracking-widest text-xs">Start of Day</span>
-                                </button>
-                                <button onClick={handleCloseSession} className="w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] bg-red-600/20 hover:bg-red-600 border border-red-500/30 transition-all focus:ring-offset-2 active:scale-95 group">
-                                    <div className="bg-red-600 p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform"><PowerOff size={20} className="text-white" /></div>
-                                    <span className="font-black uppercase tracking-widest text-xs">End of Day</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
       )}
 
       <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-bg-primary relative" role="main">
@@ -366,6 +369,22 @@ const Layout: React.FC<LayoutProps> = ({
             PDA ETHICS RULE 19 VERIFIED: Practitioner retains sole clinical liability for decision support output.
           </p>
       </div>
+
+      {isDocentEnabled && (
+        <>
+            <GeminiAssistant isOpen={isPanelOpen} onClose={togglePanel} />
+            <button
+                onClick={togglePanel}
+                className="fixed bottom-12 right-10 z-50 bg-lilac-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center animate-pulse-lilac btn-tactile"
+                aria-label="Open Digital Docent"
+                aria-haspopup="dialog"
+                aria-expanded={isPanelOpen}
+            >
+                <Sparkles size={32} />
+            </button>
+        </>
+      )}
+
 
       {/* Gap 7: Downtime Confirmation Modal */}
       {showDowntimeConfirm && (

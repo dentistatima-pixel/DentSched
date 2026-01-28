@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole } from '../types';
-import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight } from 'lucide-react';
+import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
-import { reviewClinicalNote } from '../services/geminiService';
+import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
@@ -28,6 +28,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
+    const [isSoapLoading, setIsSoapLoading] = useState(false);
+    const toast = useToast();
 
     useEffect(() => {
         setFormData(note);
@@ -59,6 +61,25 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             setIsReviewLoading(false);
         }
     };
+    
+    const handleGenerateAiSoap = async () => {
+        if (!formData.procedure) {
+            toast.error("Please select a procedure first.");
+            return;
+        }
+        setIsSoapLoading(true);
+        try {
+            const result = await generateSoapNote(formData.procedure, formData.toothNumber);
+            setFormData(prev => ({ ...prev, ...result }));
+            toast.success("AI SOAP note generated.");
+        } catch (error) {
+            toast.error("Could not generate AI note.");
+            console.error(error);
+        } finally {
+            setIsSoapLoading(false);
+        }
+    };
+
 
     const isSealed = !!formData.sealedHash;
     const canGetAiReview = (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT) && formData.needsProfessionalismReview;
@@ -121,21 +142,33 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             </div>
         </div>
         <div className="space-y-4 pt-6 border-t border-slate-100">
-            <div>
-                <label className="label flex items-center gap-2"><Stethoscope size={14}/> Findings / Diagnosis (Subjective)</label>
-                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Clinical observations and diagnosis..."/>
+            <div className="flex justify-between items-center">
+                <label className="label flex items-center gap-2"><Stethoscope size={14}/> SOAP Narrative</label>
+                <button 
+                    type="button" 
+                    onClick={handleGenerateAiSoap}
+                    disabled={isSoapLoading || isSealed || !formData.procedure}
+                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
+                >
+                    {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
+                    {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
+                </button>
             </div>
             <div>
-                <label className="label flex items-center gap-2"><Activity size={14}/> Treatment Rendered (Objective)</label>
-                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-32" disabled={isSealed} placeholder="Detailed account of the procedure performed..."/>
+                <label className="label text-xs">S (Subjective)</label>
+                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Patient's chief complaint and history..."/>
             </div>
             <div>
-                <label className="label flex items-center gap-2"><ClipboardList size={14}/> Practitioner's Assessment</label>
-                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Assessment of the clinical situation..."/>
+                <label className="label text-xs">O (Objective)</label>
+                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-28" disabled={isSealed} placeholder="Clinical findings and observations..."/>
+            </div>
+            <div>
+                <label className="label text-xs">A (Assessment)</label>
+                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Diagnosis and clinical judgment..."/>
             </div>
              <div>
-                <label className="label flex items-center gap-2"><ClipboardList size={14}/> Plan</label>
-                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Post-op instructions, next steps, materials used..."/>
+                <label className="label text-xs">P (Plan)</label>
+                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
             </div>
         </div>
         <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">

@@ -509,6 +509,7 @@ export interface FeatureToggles {
   enableBirComplianceMode: boolean;
   enableStatutoryBirTrack: true; 
   enableHmoInsuranceTrack: true; 
+  enableDigitalDocent: boolean;
 }
 
 export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency' | 'Reputation';
@@ -627,6 +628,7 @@ export interface User {
   commissionRate?: number;
   status?: 'Active' | 'Inactive';
   payoutHandle?: string;
+  showDigitalDocent?: boolean;
 }
 
 export interface Appointment {
@@ -672,6 +674,11 @@ export interface Appointment {
   recurrenceId?: string;
   modifiedAt?: string;
   safetyChecklistVerified?: boolean;
+}
+
+export enum RegistrationStatus {
+  PROVISIONAL = 'Provisional',
+  COMPLETE = 'Complete',
 }
 
 export interface Patient {
@@ -774,7 +781,7 @@ export interface Patient {
   registrationPhotoHash?: string;
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
-  registrationStatus?: 'Provisional' | 'Complete';
+  registrationStatus?: RegistrationStatus;
   registrationBranch?: string;
   isPendingSync?: boolean;
 }
@@ -934,7 +941,12 @@ export enum AuthorityLevel {
   LIMITED = 'Limited'
 }
 
-export type RecallStatus = 'Due' | 'Booked' | 'Overdue' | 'Contacted';
+export enum RecallStatus {
+  DUE = 'Due',
+  BOOKED = 'Booked',
+  OVERDUE = 'Overdue',
+  CONTACTED = 'Contacted',
+}
 
 export interface ConsentFormTemplate {
   id: string;

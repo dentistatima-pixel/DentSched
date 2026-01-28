@@ -1,14 +1,16 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck
+  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
+  Sparkles, Loader, ClipboardCheck
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, UserRole, Patient, 
-  PinboardTask, SyncConflict, SystemStatus 
+  PinboardTask, SyncConflict, SystemStatus, User, FieldSettings, StockItem
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
@@ -19,8 +21,12 @@ import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { useInventory } from '../contexts/InventoryContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
+import { generateMorningHuddle } from '../services/geminiService';
+import ReactMarkdown from 'react-markdown';
+
 
 interface DashboardProps {}
 
@@ -144,8 +150,35 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
     )
 }
 
-const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staff: any[], patients: Patient[], onUpdateStatus: any }> = ({ triageQueue, patientFlow, staff, patients, onUpdateStatus }) => {
+const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staff: any[], patients: Patient[], onUpdateStatus: any, settings: FieldSettings, stock: StockItem[] }> = ({ triageQueue, patientFlow, staff, patients, onUpdateStatus, settings, stock }) => {
     const navigate = useNavigate();
+    const { showModal } = useModal();
+
+    const handleShowPrepList = (apt: Appointment) => {
+        const procedure = settings.procedures.find(p => p.name === apt.type);
+        if (!procedure || (!procedure.billOfMaterials && !procedure.traySetup)) {
+            showModal('infoDisplay', { 
+                title: 'Preparation Info', 
+                content: `### No Specific Preparation Information\n\nNo specific preparation information found for the procedure: **${apt.type}**.` 
+            });
+            return;
+        }
+
+        const consumables = (procedure.billOfMaterials || []).map(bomItem => {
+            const stockItem = stock.find(s => s.id === bomItem.stockItemId);
+            return {
+                name: stockItem?.name || `Unknown Item (ID: ${bomItem.stockItemId})`,
+                quantity: bomItem.quantity,
+                unit: stockItem?.dispensingUnit || 'unit(s)'
+            };
+        });
+
+        showModal('preparationChecklist', {
+            consumables,
+            traySetup: procedure.traySetup,
+            procedureName: procedure.name
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -186,7 +219,10 @@ const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staf
                                         <div className="font-black text-orange-900 dark:text-orange-200 uppercase text-sm">{patient?.name}</div>
                                         <div className="text-[9px] font-bold text-orange-700 dark:text-orange-400 uppercase tracking-widest mt-1">{apt.type}</div>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white dark:bg-slate-700 text-orange-800 dark:text-orange-300 text-[9px] font-black uppercase rounded-lg border border-orange-200 dark:border-orange-700">Seat Patient</button>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); handleShowPrepList(apt); }} className="p-2 bg-white/50 rounded-lg text-teal-700 hover:bg-white" title="Show Preparation Checklist"><ClipboardCheck size={18}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white dark:bg-slate-700 text-orange-800 dark:text-orange-300 text-[9px] font-black uppercase rounded-lg border border-orange-200 dark:border-orange-700">Seat Patient</button>
+                                    </div>
                                 </div>
                             )
                         })}
@@ -203,15 +239,18 @@ const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staf
                             return (
                                 <div key={apt.id} className="p-4 bg-lilac-50 dark:bg-lilac-900/30 border-2 border-lilac-200 dark:border-lilac-700 rounded-2xl">
                                     <div className="flex justify-between items-start">
-                                        <div>
+                                        <div onClick={() => navigate(`patients/${apt.patientId}`)} className="cursor-pointer">
                                             <div className="font-black text-lilac-900 dark:text-lilac-200 uppercase text-sm">{patient?.name}</div>
                                             <div className="text-[9px] font-bold text-lilac-700 dark:text-lilac-400 uppercase tracking-widest mt-1">{apt.status}</div>
                                         </div>
-                                        {provider && (
-                                            <div title={provider.name} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-600 shadow-sm bg-lilac-200 dark:bg-lilac-800 flex items-center justify-center">
-                                                <UserIcon size={16} className="text-lilac-600 dark:text-lilac-300"/>
-                                            </div>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={(e) => { e.stopPropagation(); handleShowPrepList(apt); }} className="p-2 bg-white/50 rounded-lg text-teal-700 hover:bg-white" title="Show Preparation Checklist"><ClipboardCheck size={18}/></button>
+                                            {provider && (
+                                                <div title={provider.name} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-600 shadow-sm bg-lilac-200 dark:bg-lilac-800 flex items-center justify-center">
+                                                    <UserIcon size={16} className="text-lilac-600 dark:text-lilac-300"/>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <button onClick={() => onUpdateStatus(apt.id, AppointmentStatus.COMPLETED)} className="w-full mt-3 py-2 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-lilac-700 transition-all">Mark as Completed</button>
                                 </div>
@@ -277,6 +316,52 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
     )
 }
 
+const AIMorningHuddle: React.FC<{ appointments: Appointment[], patients: Patient[], currentUser: User }> = ({ appointments, patients, currentUser }) => {
+    const [huddle, setHuddle] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchHuddle = async () => {
+            setIsLoading(true);
+            try {
+                // Filter appointments for the current user
+                const userAppointments = appointments.filter(apt => apt.providerId === currentUser.id);
+                if (userAppointments.length > 0) {
+                    const huddleText = await generateMorningHuddle(userAppointments, patients);
+                    setHuddle(huddleText);
+                } else {
+                    setHuddle("### AI Morning Huddle\n\nYou have no appointments scheduled for today.");
+                }
+            } catch (error) {
+                console.error(error);
+                setHuddle("### AI Morning Huddle\n\nCould not generate your daily briefing at this time.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchHuddle();
+    }, [appointments, patients, currentUser]);
+
+    return (
+        <div className="bg-gradient-to-br from-lilac-700 to-teal-800 p-8 rounded-[2.5rem] shadow-2xl shadow-lilac-900/20 text-white relative overflow-hidden">
+            <Sparkles size={128} className="absolute -top-8 -right-8 text-white/5 opacity-50" />
+            <div className="relative z-10">
+                {isLoading ? (
+                    <div className="flex items-center gap-4">
+                        <Loader className="animate-spin" size={24} />
+                        <span className="font-bold text-lg">Generating your AI Morning Huddle...</span>
+                    </div>
+                ) : (
+                    <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-lilac-100 prose-strong:text-amber-300">
+                        <ReactMarkdown>{huddle || ''}</ReactMarkdown>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const Dashboard: React.FC<DashboardProps> = () => {
   const { showModal } = useModal();
   const navigate = useNavigate();
@@ -285,6 +370,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const { currentUser, currentBranch } = useAppContext();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
+  const { stock } = useInventory();
   const { tasks, handleToggleTask: onToggleTask, incidents, handleAddToWaitlist } = useClinicalOps();
   
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -368,7 +454,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const roleBasedLayout = useMemo(() => {
     const components = {
         schedule: <DailySchedule appointments={todaysFullSchedule} patients={patients} settings={fieldSettings} />,
-        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateAppointmentStatus} />,
+        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateAppointmentStatus} settings={fieldSettings} stock={stock} />,
         actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={onToggleTask} />,
     };
 
@@ -382,7 +468,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
         default:
             return [components.schedule, components.flow, components.actions];
     }
-  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, onUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, onToggleTask]);
+  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, onUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, onToggleTask, stock]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -397,6 +483,10 @@ const Dashboard: React.FC<DashboardProps> = () => {
             <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile"><Zap size={16}/> Walk-In</button>
         </div>
       </div>
+
+      {currentUser && (currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.SYSTEM_ARCHITECT) && (
+        <AIMorningHuddle appointments={todaysFullSchedule} patients={patients} currentUser={currentUser} />
+      )}
 
       <div className="grid gap-8 items-start dashboard-grid">
         <div className="dashboard-col-1">{roleBasedLayout[0]}</div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement } from '../types';
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 // Fix: Change to named import for RegistrationMedical to resolve module export issue.
 import { RegistrationMedical } from './RegistrationMedical';
@@ -34,7 +34,13 @@ const stepsInfo = [
     { id: 5, label: "Finalize & Sign", icon: CheckCircle }
 ];
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
+const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, readOnly }: {
+  initialData: Patient | null;
+  onSave: (patient: Partial<Patient>) => Promise<void>;
+  onClose: () => void;
+  currentBranch?: string;
+  readOnly?: boolean;
+}) => {
   const toast = useToast();
   const { fieldSettings } = useSettings();
   const { patients } = usePatient();
@@ -46,28 +52,24 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const [isSaving, setIsSaving] = useState(false);
   const [isViewingConsent, setIsViewingConsent] = useState(false);
   
-  const initialFormState: Partial<Patient> = {
+  const initialFormState: Partial<Patient> = useMemo(() => ({
     id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
-    isPwd: false, dentalChart: [], perioChart: [], registrationSignature: '', registrationSignatureTimestamp: '', registryAnswers: {}, customFields: {}, registrationStatus: 'Provisional'
-  };
+    isPwd: false, dentalChart: [], perioChart: [], registrationSignature: '', registrationSignatureTimestamp: '', registryAnswers: {}, customFields: {}, registrationStatus: RegistrationStatus.PROVISIONAL
+  }), []);
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
   
   const generalConsent = useMemo(() => fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), [fieldSettings.consentFormTemplates]);
 
-
   useEffect(() => {
-    if (isOpen) {
-        if (initialData) {
-            setFormData({ ...initialFormState, ...initialData });
-        } else {
-            const generatedId = generateUid('p');
-            setFormData({ ...initialFormState, id: generatedId, registrationBranch: currentBranch });
-        }
-        setStep(1); // Reset to first step when modal opens
+    if (initialData) {
+        setFormData({ ...initialFormState, ...initialData });
+    } else {
+        const generatedId = generateUid('p');
+        setFormData({ ...initialFormState, id: generatedId, registrationBranch: currentBranch });
     }
-  }, [isOpen, initialData, currentBranch]);
-
+    setStep(1);
+  }, [initialData, currentBranch, initialFormState]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -135,7 +137,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     setIsSaving(true);
     try {
         const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-        await onSave({ ...data, name: fullName, registrationStatus: 'Complete' });
+        await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE });
         onClose();
     } catch (error) {
         // Error toast is handled by dataContext
@@ -171,7 +173,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         if (!formData.dpaConsent) errors.push("DPA Consent is mandatory.");
         if (!formData.clinicalMediaConsent) errors.push("Treatment Authorization is mandatory.");
     }
-    // Add validation for other steps if needed
     if (errors.length > 0) {
         errors.forEach(e => toast.error(e));
         return false;
@@ -185,11 +186,35 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         setStep(s => Math.min(s + 1, stepsInfo.length));
     }
   };
+
   const handleBack = () => {
       setAnimationDirection('backward');
       setStep(s => Math.max(s - 1, 1));
   };
+  
+  return {
+      step, animationDirection, formData, isSaving,
+      showPrivacyPolicy, setShowPrivacyPolicy,
+      showSignaturePad, setShowSignaturePad,
+      isViewingConsent, setIsViewingConsent,
+      generalConsent, fieldSettings, patients,
+      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handlePerioChange,
+      handleNext, handleBack, handleFinalSubmit, handleSignatureCaptured
+  };
+};
 
+
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
+  const workflow = useRegistrationWorkflow({ initialData, onSave, onClose, currentBranch, readOnly });
+  const { 
+      step, animationDirection, formData, isSaving,
+      showPrivacyPolicy, setShowPrivacyPolicy,
+      showSignaturePad, setShowSignaturePad,
+      isViewingConsent, setIsViewingConsent,
+      generalConsent, fieldSettings, patients,
+      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handlePerioChange,
+      handleNext, handleBack, handleFinalSubmit, handleSignatureCaptured
+  } = workflow;
 
   if (!isOpen || !fieldSettings) return null;
 

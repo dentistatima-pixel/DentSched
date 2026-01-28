@@ -5,7 +5,7 @@ import {
   Sliders, Settings, ChevronRight, DollarSign, Box, MapPin, User as UserIcon, Pill, 
   ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
   Sparkles, Zap, Wrench, ClipboardList, Armchair, LayoutPanelLeft, Fingerprint, Key, Printer,
-  Smartphone, Banknote, Building2, Sun, Moon, Scale
+  Smartphone, Banknote, Building2, Sun, Moon, Scale, UserCircle
 } from 'lucide-react';
 
 import FormBuilder from './FormBuilder';
@@ -22,6 +22,8 @@ import GovernanceHub from './GovernanceHub';
 import { useModal } from '../contexts/ModalContext';
 import { useAppContext } from '../contexts/AppContext';
 import ClinicalCatalogHub from './ClinicalCatalogHub';
+import PersonalProfile from './PersonalProfile';
+import { useStaff } from '../contexts/StaffContext';
 
 
 interface FieldManagementProps {
@@ -43,9 +45,10 @@ interface FieldManagementProps {
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const { theme, toggleTheme, setFullScreenView } = useAppContext();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
+    const { handleSaveStaff } = useStaff();
 
     const sidebarItems = [
-        { id: 'branding', label: 'Identity & Theme', icon: Sparkles },
+        { id: 'branding', label: 'Global Profile', icon: Sparkles },
         { id: 'patient_registry_form', label: 'Registration Form', icon: LayoutPanelLeft },
         { id: 'sms_hub', label: 'SMS & Comms Hub', icon: Smartphone },
         { id: 'printouts_hub', label: 'Printouts & Report Hub', icon: Printer },
@@ -57,7 +60,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     ];
 
     const handleOpenStaffModal = (staffMember: Partial<User> | null) => {
-        props.showModal('userProfile', { user: staffMember || {}, isStaffEdit: true });
+        props.showModal('userProfile', { user: staffMember || {}, onSave: handleSaveStaff });
     };
 
     const renderContent = () => {

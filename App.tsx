@@ -29,10 +29,9 @@ const LockScreen = ({ onUnlock }: { onUnlock: () => void }) => {
 };
 
 function App() {
-  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView } = useAppContext();
+  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode } = useAppContext();
   const { route } = useRouter();
   
-  const [isInKioskMode, setIsInKioskMode] = useState(false);
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   
   const idleTimerRef = useRef<any>(null);
@@ -116,7 +115,7 @@ function App() {
   return (
     <>
       {isSessionLocked && <LockScreen onUnlock={() => setIsSessionLocked(false)} />}
-      <Layout onEnterKioskMode={() => setIsInKioskMode(true)}>
+      <Layout>
         <Suspense fallback={<div>Loading Page...</div>}>
           {renderRoute()}
         </Suspense>

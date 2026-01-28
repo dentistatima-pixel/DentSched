@@ -1,11 +1,10 @@
-
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
   CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
   Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart
+  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart, Sparkles
 } from 'lucide-react';
 import { 
   Appointment, User, UserRole, AppointmentStatus, Patient, 
@@ -21,6 +20,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
+import { generateSafetyBriefing } from '../services/geminiService';
 
 interface CalendarViewProps {}
 
@@ -327,6 +327,12 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
         toast.error("Could not move appointment.");
     }
   };
+  
+  const hasMedicalAlerts = inspected && (
+    (inspected.patient.allergies && inspected.patient.allergies.some(a => a.toLowerCase() !== 'none')) ||
+    (inspected.patient.medicalConditions && inspected.patient.medicalConditions.some(c => c.toLowerCase() !== 'none'))
+  );
+
 
   return (
     <div className="flex flex-row h-full bg-slate-50 gap-4 relative overflow-hidden">
@@ -530,6 +536,14 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                 {(inspected.patient.allergies || []).filter(a => a !== 'None').map(a => <div key={a} className="flex items-center gap-2 text-xs font-bold text-red-800"><Droplet size={14}/> {a}</div>)}
                                 {(inspected.patient.medicalConditions || []).filter(c => c !== 'None').map(c => <div key={c} className="flex items-center gap-2 text-xs font-bold text-red-800"><Heart size={14}/> {c}</div>)}
                           </div>
+                          {hasMedicalAlerts && (
+                              <button 
+                                onClick={() => showModal('infoDisplay', { title: `AI Safety Briefing for ${inspected.patient.name}`, fetcher: () => generateSafetyBriefing(inspected.patient, inspected.apt.type) })}
+                                className="w-full mt-3 bg-red-600 text-white p-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
+                              >
+                                <Sparkles size={14} /> AI Safety Briefing
+                              </button>
+                          )}
                        </div>
                   </div>
                   <div className="shrink-0 pt-4 border-t border-slate-100">

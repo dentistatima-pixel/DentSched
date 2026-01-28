@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
@@ -9,12 +8,13 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { formatDate } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
+import DocentSparkle from './DocentSparkle';
 
 interface PatientListProps {
   selectedPatientId: string | null;
 }
 
-const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
+export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { showModal } = useModal();
   const { patients } = usePatient();
@@ -102,7 +102,7 @@ const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Alerts</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Next Visit</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Last Visit</th>
-              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider">Reliability</th>
+              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider flex items-center gap-1 justify-center">Reliability <DocentSparkle elementId="reliabilityScore" context="Patient Registry Table Header" /></th>
               <th className="p-4 text-right font-bold uppercase text-text-secondary text-xs tracking-wider">Balance</th>
               <th className="p-4"></th>
             </tr>
@@ -155,26 +155,18 @@ const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
                             {isProvisional && <FileBadge2 size={16} className="text-blue-600 dark:text-blue-400" title="Provisional Registration"/>}
                         </div>
                     </td>
-                    <td className="p-4 text-left font-mono text-xs font-bold text-text-secondary whitespace-nowrap">
-                        {p.nextVisit ? formatDate(p.nextVisit) : 'None'}
-                    </td>
-                    <td className="p-4 text-left font-mono text-xs font-bold text-text-secondary whitespace-nowrap">
-                        {formatDate(p.lastVisit)}
-                    </td>
-                    <td className={`p-4 text-center font-black text-sm ${
-                        (p.reliabilityScore ?? 100) >= 90 ? 'text-green-600 dark:text-green-400' :
-                        (p.reliabilityScore ?? 100) >= 70 ? 'text-amber-600 dark:text-amber-400' :
-                        'text-red-600 dark:text-red-400'
-                    }`}>
-                        {(p.reliabilityScore ?? 100)}%
-                    </td>
-                    <td className={`p-4 text-right font-mono font-bold ${p.currentBalance && p.currentBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-text-primary'}`}>
-                      ₱{p.currentBalance?.toLocaleString() || '0'}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="w-6 h-6 flex items-center justify-center rounded-full group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                          <ChevronRight className="text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400" size={16}/>
+                    <td className="p-4 text-left font-mono text-xs font-bold">{formatDate(p.nextVisit)}</td>
+                    <td className="p-4 text-left font-mono text-xs">{formatDate(p.lastVisit)}</td>
+                    <td className="p-4 text-center">
+                      <div className={`font-black text-lg ${p.reliabilityScore != null && p.reliabilityScore < 70 ? 'text-red-600' : p.reliabilityScore != null && p.reliabilityScore < 90 ? 'text-amber-600' : 'text-teal-600'}`}>
+                        {p.reliabilityScore ?? 'N/A'}%
                       </div>
+                    </td>
+                    <td className="p-4 text-right font-mono font-bold text-red-700">
+                      {p.currentBalance && p.currentBalance > 0 ? `₱${p.currentBalance.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="p-4">
+                      <ChevronRight size={16} className="text-slate-400 group-hover:text-teal-600 transition-colors" />
                     </td>
                   </tr>
               );
@@ -185,5 +177,3 @@ const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
     </div>
   );
 };
-
-export default PatientList;

@@ -1,7 +1,8 @@
 import React, { useMemo, Suspense } from 'react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
-import PatientList from './components/PatientList';
+// Fix: Use a named import for PatientList as it does not have a default export.
+import { PatientList } from './components/PatientList';
 import FieldManagement from './components/FieldManagement';
 import AdminHub from './components/AdminHub';
 import Financials from './components/Financials';
