@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
@@ -169,7 +168,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           
           if (coreId === 'firstName' || coreId === 'middleName' || coreId === 'surname') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
                       <label className="label flex items-center gap-2">{label} * {isCritical && <ShieldAlert size={12} className="text-red-500"/>}</label>
                       <ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
@@ -179,7 +178,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           }
           if (coreId === 'suffix') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
                       <label className="label">{label}</label>
                       <select name="suffix" value={formData.suffix || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
@@ -192,21 +191,21 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           }
           if (coreId === 'dob') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label font-bold">{label}</label><input name="dob" type="date" value={formData.dob || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'age') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'sex') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div>
                         <label className="label font-bold">{label}</label>
                         <select name="sex" value={formData.sex || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
@@ -219,7 +218,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           }
           if (coreId === 'civilStatus') {
             return (
-              <DesignWrapper id={id} type="identity" className="col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+              <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
                       <label className="label">{label}</label>
                       <select name="civilStatus" value={formData.civilStatus || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
@@ -232,28 +231,28 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           }
           if (coreId === 'homeAddress') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><ControlledInput name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'city' || coreId === 'barangay') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'phone') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label font-bold">{label} *</label><ControlledInput name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
                 </DesignWrapper>
               );
           }
           if (coreId === 'email') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><ControlledInput name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
                 </DesignWrapper>
               );
@@ -267,7 +266,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
           if (field.type === 'header') {
             return (
-                <DesignWrapper id={id} type="identity" className="col-span-12 pt-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-12 pt-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div className="flex items-center gap-3 border-b border-slate-200 pb-2 mb-4">
                         <FileText size={18} className="text-lilac-600"/>
                         <h5 className="font-black text-slate-800 uppercase tracking-widest text-xs">{field.label}</h5>
@@ -277,7 +276,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           }
 
           const val = (formData as any)[field.id];
-          const colSpan = field.width === 'full' ? 'col-span-12' : field.width === 'third' ? 'col-span-4' : field.width === 'quarter' ? 'col-span-3' : 'col-span-6';
+          const colSpan = field.width === 'full' ? 'col-span-1 md:col-span-12' : field.width === 'third' ? 'col-span-1 md:col-span-4' : field.width === 'quarter' ? 'col-span-1 md:col-span-3' : 'col-span-1 md:col-span-6';
           const isCriticalDyn = isCritical || field.isCritical;
           
           if (field.type === 'boolean') {
@@ -338,11 +337,11 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
   return (
     <div className="space-y-12">
         <div className="orientation-grid gap-6">
-            <div className="col-span-3">
+            <div className="col-span-1 md:col-span-3">
                 <label className="label flex items-center gap-2 text-slate-400 font-bold"><Hash size={14} /> System ID</label>
                 <div className="input bg-slate-50 text-slate-400 font-mono text-sm border-slate-200">{formData.id || 'AUTO_GEN'}</div>
             </div>
-            <div className="col-span-4 relative" ref={searchContainerRef}>
+            <div className="col-span-1 md:col-span-4 relative" ref={searchContainerRef}>
                 <label className="label flex items-center gap-2 text-teal-800 font-bold"><Star size={14} fill="currentColor"/> Referral Source</label>
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
@@ -375,7 +374,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                     )}
                 </div>
             </div>
-            <div className="col-span-5">
+            <div className="col-span-1 md:col-span-5">
                 <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
                 <select 
                     name="familyGroupId" 
@@ -396,24 +395,24 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl"><User size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">PATIENT INFORMATION RECORD</h4>
             </div>
-            <div className="orientation-grid grid-cols-12 gap-6">
+            <div className="orientation-grid gap-6">
                 {fieldsPart1.map(id => renderFieldById(id))}
 
                 {showFemaleQuestions && (
-                    <div className="col-span-12 mt-8">
+                    <div className="col-span-1 md:col-span-12 mt-8">
                         <div className={`p-10 rounded-[3rem] border-2 space-y-6 animate-in slide-in-from-top-4 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex justify-between items-center px-2 border-b border-slate-200 pb-4">
                                 <h4 className="text-lg font-black uppercase text-lilac-800 tracking-tight flex items-center gap-3"><Baby size={24}/> OB-GYN Clinical Markers</h4>
                                 {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase">Visible in Design Mode</span>}
                             </div>
-                            <div className="orientation-grid grid-cols-12 gap-6">
+                            <div className="orientation-grid gap-6">
                                 {fieldSettings.femaleQuestionRegistry.map(q => {
                                     const fieldName = femaleFieldMap[q];
                                     const isYes = (formData as any)[fieldName] === true;
                                     const isNo = (formData as any)[fieldName] === false;
 
                                     return (
-                                    <DesignWrapper key={q} id={q} type="question" className="col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                                    <DesignWrapper key={q} id={q} type="question" className="col-span-1 md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                                         <div className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 bg-slate-50 border-slate-100`}>
                                             <div className="flex items-center gap-3">
                                                 <Check size={18} className="text-slate-500"/>
@@ -445,16 +444,16 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 )}
                 
                 {showGuardian && (
-                    <div className="col-span-12 mt-8">
+                    <div className="col-span-1 md:col-span-12 mt-8">
                         <div className={`p-10 rounded-[3rem] border-2 space-y-8 animate-in slide-in-from-top-4 duration-500 ${designMode ? 'bg-lilac-50/20 border-lilac-200 border-dashed' : 'bg-slate-50 border-slate-200'}`}>
                             <div className="flex justify-between items-center border-b border-slate-200 pb-4">
                                 <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight flex items-center gap-3"><Users size={24} className="text-lilac-600"/> Legal Guardian Profile (For Minors/PWD)</h4>
                                 {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
                             </div>
-                            <div className="orientation-grid grid-cols-12 gap-6">
-                                <div className="col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
-                                <div className="col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
-                                <div className="col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
+                            <div className="orientation-grid gap-6">
+                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
+                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
+                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
                             </div>
                         </div>
                     </div>
@@ -467,4 +466,5 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
   );
 };
 
-export const RegistrationBasicInfo = React.memo(RegistrationBasicInfoInternal);
+// FIX: Change to a default export to resolve module import ambiguity.
+export default React.memo(RegistrationBasicInfoInternal);

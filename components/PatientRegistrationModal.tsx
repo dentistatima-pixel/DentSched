@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent } from '../types';
-// Fix: Use a named import for RegistrationBasicInfo as it does not have a default export.
-import { RegistrationBasicInfo } from './RegistrationBasicInfo';
-import { RegistrationMedical } from './RegistrationMedical';
+// FIX: Changed to a default import as suggested by the error message.
+import RegistrationBasicInfo from './PatientRegistrationBasicInfo';
+import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
@@ -14,9 +13,7 @@ import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useFormPersistence } from '../hooks/useFormPersistence';
-// Fix: Use a named import for ActionButton as it does not have a default export.
 import { ActionButton } from './ActionButton';
-// Fix: Use a named import for FormStatusIndicator as it does not have a default export.
 import { FormStatusIndicator, FormStatus } from './FormStatusIndicator';
 import { useModal } from '../contexts/ModalContext';
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { AuditLogEntry, User } from '../types';
 import { Fingerprint, Search, ShieldCheck, RefreshCw, AlertTriangle, User as UserIcon } from 'lucide-react';
@@ -42,47 +43,6 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
             );
     }, [auditLog, searchTerm, userFilter, actionFilter]);
 
-    const verifyIntegrityChain = useCallback(() => {
-        setIsVerifying(true);
-        setTimeout(() => {
-            if (auditLog.length <= 1) {
-                toast.success("Chain integrity verified (Genesis record).");
-                setIsVerifying(false);
-                return;
-            }
-            let isValid = true;
-            let breachIndex = -1;
-            // Iterate backwards from the most recent entry
-            for (let i = auditLog.length - 1; i > 0; i--) {
-                const current = auditLog[i];
-                const prev = auditLog[i-1];
-                
-                // Verify the link
-                if (current.previousHash !== prev.hash) {
-                    isValid = false;
-                    breachIndex = i;
-                    break;
-                }
-                
-                // Verify the current entry's hash
-                const payload = `${current.timestamp}|${current.userId}|${current.action}|${current.entityId}|${current.previousHash}`;
-                const expectedHash = CryptoJS.SHA256(payload).toString();
-                if (current.hash !== expectedHash) {
-                    isValid = false;
-                    breachIndex = i;
-                    break;
-                }
-            }
-            
-            if (isValid) {
-                toast.success("Forensic chain verified. No tampering detected.");
-            } else {
-                toast.error(`CHAIN BREACH: Log integrity violation detected at record #${breachIndex}.`);
-            }
-            setIsVerifying(false);
-        }, 1500);
-    }, [auditLog, toast]);
-    
     return (
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -90,12 +50,30 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
                     <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Forensic Audit Trail</h3>
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Immutable session and data change logs</p>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={verifyIntegrityChain} disabled={isVerifying} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 ${isVerifying ? 'bg-slate-100 text-slate-400' : 'bg-teal-600 text-white shadow-teal-600/30 hover:scale-105 active:scale-95'}`}>
-                        {isVerifying ? <RefreshCw size={20} className="animate-spin"/> : <ShieldCheck size={20}/>} {isVerifying ? 'Validating Chain...' : 'Verify Chain Integrity'}
-                    </button>
-                </div>
             </div>
+
+            {auditLogVerified === true && (
+                <div className="bg-teal-50 border-l-4 border-teal-500 p-4">
+                    <div className="flex items-center gap-3">
+                        <ShieldCheck className="h-6 w-6 text-teal-600" />
+                        <div>
+                            <h3 className="text-sm font-bold text-teal-800">Chain Integrity Verified</h3>
+                            <p className="text-xs text-teal-700">The cryptographic hash chain of this audit log is intact. No tampering detected.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {auditLogVerified === false && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 animate-pulse">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-6 w-6 text-red-600" />
+                        <div>
+                            <h3 className="text-sm font-bold text-red-800">CRITICAL: LOG TAMPERING DETECTED</h3>
+                            <p className="text-xs text-red-700">The integrity of this audit trail has been compromised. Records may not be reliable for legal use.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative group md:col-span-1">
@@ -130,7 +108,13 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
                                 </td>
                                 <td className="p-6"><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border ${log.action.includes('SECURITY') || log.action.includes('IMPERSONATE') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{log.action}</span></td>
                                 <td className="p-6"><p className="text-xs font-bold text-slate-600 leading-relaxed max-w-md">{log.details}</p></td>
-                                <td className="p-6 text-right"><div className="flex justify-end gap-2" title={log.hash}><div className="bg-teal-50 text-teal-700 p-2 rounded-xl shadow-sm"><Fingerprint size={16}/></div></div></td>
+                                <td className="p-6 text-right">
+                                    <div className="flex justify-end" title={log.hash}>
+                                        <div className="bg-teal-50 text-teal-700 p-2 rounded-xl shadow-sm font-mono text-xs">
+                                            {log.hash?.substring(0, 8)}...
+                                        </div>
+                                    </div>
+                                </td>
                             </tr>
                         ))}
                     </tbody>

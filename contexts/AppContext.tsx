@@ -6,6 +6,7 @@ import { useToast } from '../components/ToastSystem';
 import CryptoJS from 'crypto-js';
 import { db } from '../services/db';
 import { DataService } from '../services/dataService';
+import { getTrustedTime } from '../services/timeService';
 
 
 type Theme = 'light' | 'dark';
@@ -26,7 +27,7 @@ interface AppContextType {
   setSystemStatus: (status: SystemStatus) => void;
   isOnline: boolean;
   auditLog: AuditLogEntry[];
-  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => Promise<void>;
   isAuditLogVerified: boolean | null;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
@@ -129,8 +130,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         if (successCount > 0 && successCount === queue.length) {
             toast.success("All offline changes have been synced successfully.");
-            // Reload to fetch fresh, consistent data from the "server"
-            // This is a simple strategy to avoid complex state merging post-sync
             setTimeout(() => window.location.reload(), 1500);
         } else if (successCount > 0) {
             toast.warning(`${successCount} changes synced, but some failed. They will be retried on next connection.`);
@@ -178,23 +177,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isReadOnly = useMemo(() => currentUser?.status === 'Inactive' || isAuthorityLocked, [currentUser, isAuthorityLocked]);
 
-    const logAction = useCallback((action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
+    const logAction = useCallback(async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
       if (!currentUser) return; // Don't log actions if no user is logged in
+      
+      const { timestamp, isVerified } = await getTrustedTime();
+      
       setAuditLog(prevLog => {
           const lastLog = prevLog[prevLog.length - 1];
-          const previousHash = lastLog ? lastLog.hash : '0'.repeat(64);
-          const timestamp = new Date().toISOString();
-          const payload = `${timestamp}|${currentUser.id}|${action}|${entityId}|${previousHash}`;
-          const hash = CryptoJS.SHA256(payload).toString();
+          const previousHash = lastLog ? lastLog.hash : 'GENESIS';
+          
+          const dataToHash = JSON.stringify({
+            timestamp,
+            userId: currentUser.id,
+            action,
+            entity,
+            entityId,
+            details,
+            previousHash
+          });
+          const hash = CryptoJS.SHA256(dataToHash).toString();
 
           const newLogEntry: AuditLogEntry = {
-              id: generateUid('al'), timestamp, userId: currentUser.id, userName: currentUser.name,
-              action, entity, entityId, details, hash, previousHash,
-              impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined
+              id: generateUid('al'),
+              timestamp,
+              isVerifiedTimestamp: isVerified,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              action,
+              entity,
+              entityId,
+              details,
+              hash,
+              previousHash,
+              impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined,
           };
           return [...prevLog, newLogEntry];
       });
     }, [currentUser, originalUser]);
+    
+    useEffect(() => {
+        const verifyAuditLogIntegrity = (log: AuditLogEntry[]): boolean => {
+            for (let i = 1; i < log.length; i++) {
+                const current = log[i];
+                const previous = log[i - 1];
+                
+                if (current.previousHash !== previous.hash) {
+                    console.error('AUDIT LOG TAMPERED! Hash chain mismatch at entry:', current);
+                    toast.error(`CRITICAL: Audit log integrity compromised at record #${current.id}.`, { duration: 15000 });
+                    return false;
+                }
+            }
+            return true;
+        };
+    
+        if (auditLog.length > 0) {
+            const isVerified = verifyAuditLogIntegrity(auditLog);
+            setIsAuditLogVerified(isVerified);
+            if (isVerified) {
+                console.log("Audit log chain integrity verified successfully.");
+            }
+        }
+    }, [auditLog, toast]);
 
     const handleStartImpersonating = (userToImpersonate: User) => {
         if (!currentUser || currentUser.id === userToImpersonate.id) return;

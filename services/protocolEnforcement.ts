@@ -5,11 +5,7 @@ export const checkClinicalProtocols = (
   patient: Patient,
   procedure: ProcedureItem,
   rules: ClinicalProtocolRule[]
-): { violations: string[]; requiresClearance: boolean; documentCategory?: string } => {
-  
-  const violations: string[] = [];
-  let requiresClearance = false;
-  let documentCategory: string | undefined = undefined;
+): { violations: string[]; requiresClearance: boolean; documentCategory?: string; rule?: ClinicalProtocolRule } => {
   
   for (const rule of rules) {
     // Check if procedure matches rule trigger
@@ -30,18 +26,22 @@ export const checkClinicalProtocols = (
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
       
       const hasClearance = (patient.clearanceRequests || []).some(cr =>
-        cr.documentCategory === rule.requiresDocumentCategory &&
+        // Match by specialty if category isn't defined on older requests
+        (cr.documentCategory ? cr.documentCategory === rule.requiresDocumentCategory : cr.specialty === rule.requiresDocumentCategory) &&
         cr.status === 'Approved' &&
         cr.approvedAt && new Date(cr.approvedAt) > threeMonthsAgo
       );
       
       if (!hasClearance) {
-        violations.push(rule.alertMessage);
-        requiresClearance = true;
-        documentCategory = rule.requiresDocumentCategory;
+        return { 
+            violations: [rule.alertMessage], 
+            requiresClearance: true, 
+            documentCategory: rule.requiresDocumentCategory,
+            rule: rule 
+        };
       }
     }
   }
   
-  return { violations, requiresClearance, documentCategory };
+  return { violations: [], requiresClearance: false };
 };

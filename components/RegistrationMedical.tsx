@@ -186,7 +186,7 @@ interface RegistrationMedicalProps {
   selectedFieldId?: string;
 }
 
-export const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
+const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
     formData,
     onCustomChange,
     registryAnswers,
@@ -346,3 +346,4 @@ export const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
         </div>
     );
 };
+export default RegistrationMedical;

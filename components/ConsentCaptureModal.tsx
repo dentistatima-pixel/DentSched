@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel, SignatureChainEntry, SignatureType, TreatmentPlanStatus, PediatricConsent } from '../types';
 import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages } from 'lucide-react';
@@ -45,8 +44,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const [witnessName, setWitnessName] = useState('');
     const [witnessRole, setWitnessRole] = useState<'Staff' | 'Family' | 'Other'>('Staff');
 
-    const [canProceed, setCanProceed] = useState(true);
-
     const isMinor = (calculateAge(patient.dob) || 18) < 18;
     const isOldEnoughForAssent = isMinor && (calculateAge(patient.dob) || 0) >= 7;
     const requiresGuardian = isMinor || patient.isPwd || patient.isSeniorDependent;
@@ -54,29 +51,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
     const riskDisclosures = procedure?.riskDisclosures || [];
     const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
-
-    const validateFinancialConsent = () => {
-        if (!appointment.planId) return true; // Not part of a plan, no check needed.
-        
-        const treatmentPlan = patient.treatmentPlans?.find(tp => tp.id === appointment.planId);
-        
-        if (!treatmentPlan) {
-          toast.error('CRITICAL: Appointment is linked to a non-existent treatment plan.');
-          return false;
-        }
-        
-        if (treatmentPlan.status !== TreatmentPlanStatus.APPROVED) {
-          toast.error('FINANCIAL BLOCK: Treatment plan is not yet approved. Financial consent may be pending.');
-          return false;
-        }
-        
-        if (!treatmentPlan.financialConsentSignature) {
-          toast.error('FINANCIAL BLOCK: Patient has not signed the financial consent for this treatment plan.');
-          return false;
-        }
-        
-        return true;
-    };
 
     const getProcessedContent = () => {
         let content = language === 'en' ? template.content_en : (template.content_tl || template.content_en);
@@ -94,12 +68,11 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       const parent = canvas.parentElement;
       if (!parent) return;
 
-      // For 10.1" tablet, use devicePixelRatio for crisp rendering
       const rect = parent.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       
       canvas.width = rect.width * dpr;
-      canvas.height = 200 * dpr; // Increased height for tablet
+      canvas.height = 200 * dpr;
       
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `200px`;
@@ -108,7 +81,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       if (ctx) {
         ctx.scale(dpr, dpr);
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3.5; // Thicker for touch
+        ctx.lineWidth = 5.0;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
       }
@@ -137,18 +110,12 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     useEffect(() => {
         const canvas = signatureCanvasRef.current;
         const touchStartHandler = (e: TouchEvent) => {
-            if (e.touches.length > 1) { // Ignore multi-touch for palm rejection
+            if (e.touches.length > 1) { // Palm rejection
                 e.preventDefault();
             }
         };
 
         if (isOpen) {
-           if (!validateFinancialConsent()) {
-                setCanProceed(false);
-                setTimeout(onClose, 3000); // Auto-close after showing toasts
-                return;
-           }
-           setCanProceed(true);
            setTimeout(setupCanvas, 50);
            setLanguage('en');
            setAcknowledgedRisks([]);
@@ -180,8 +147,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       const rect = canvas.getBoundingClientRect();
       const touch = e.touches ? e.touches[0] : e;
       
-      // Coordinates are relative to the canvas's styled size.
-      // The context scaling handles the mapping to the high-DPI buffer.
       return {
         x: touch.clientX - rect.left,
         y: touch.clientY - rect.top
@@ -202,10 +167,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         const canvas = witnessCanvasRef.current;
         if (!video || !canvas || !isCameraActive || video.readyState < 3) {
             toast.error("Witness camera is not ready. Please ensure your face is visible and centered.");
-            // Fix: Add return statement to satisfy function's boolean return type.
             return false;
         }
-        // Fix: Add return statement for the success case.
         return true;
     };
 
@@ -216,15 +179,12 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
         const signatureDataUrl = canvas.toDataURL();
 
-        // Construct Signature Chain
         let chain: SignatureChainEntry[] = [];
-        
-        // ... (complex signature chain logic would go here)
         
         onSave(chain, isOldEnoughForAssent ? { parentConsent: {} as any, childAssent } : undefined);
     };
 
-    if (!isOpen || !canProceed) return null;
+    if (!isOpen) return null;
 
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">

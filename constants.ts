@@ -1,8 +1,5 @@
 
-// Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
-// Fix: Add CommunicationChannel to imports for type safety.
 import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus } from './types';
-// Fix: Add imports for appointment status pipeline config.
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
@@ -76,7 +73,6 @@ export const isWithin30Days = (dateStr?: string | null): boolean => {
     return expiryDate > today && expiryDate <= thirtyDaysFromNow;
 };
 
-// Fix: Add APPOINTMENT_STATUS_WORKFLOW and getAppointmentStatusConfig for use in AppointmentStatusPipeline.tsx
 export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
     AppointmentStatus.SCHEDULED,
     AppointmentStatus.CONFIRMED,
@@ -142,7 +138,6 @@ export const getAppointmentStatusConfig = (status: AppointmentStatus): Appointme
 export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
 export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
 
-// Fix: Add and export missing mock data constants.
 export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
     { id: 'al_1', timestamp: getPastDateStr(1), userId: 'doc1', userName: 'Dr. Alexander Crentist', action: 'LOGIN', entity: 'System', entityId: 'doc1', details: 'User logged in successfully.' },
     { id: 'al_2', timestamp: getTodayStr(), userId: 'admin1', userName: 'Sarah Connor', action: 'CREATE', entity: 'Appointment', entityId: 'apt_today_01', details: 'Created new appointment for Michael Scott.' }
@@ -171,7 +166,6 @@ export const MOCK_WAITLIST: WaitlistEntry[] = [
     { id: 'wl_2', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Consultation', durationMinutes: 30, priority: 'Low' },
 ];
 
-// New mapping for procedure-specific consent forms
 export const PROCEDURE_TO_CONSENT_MAP: Record<string, string> = {
     'extraction': 'EXTRACTION',
     'root canal': 'ROOT_CANAL',
@@ -197,7 +191,50 @@ export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
     { id: 'ROOT_CANAL', name: 'Endodontics (Root Canal)', content_en: "I understand there is no guarantee that a root canal treatment will save a tooth & that complications can occur from the treatment & that occasionally root canal filling materials may extend through the tooth which does not necessarily effect the success of the treatment. I understand that endodontic files & drills are very fine instruments & stresses vented in their manufacture & calcifications present in teeth can cause them to break during use. I understand that referral to the endodontist for additional treatments may be necessary following any root canal treatment & I agree that I am responsible for any additional cost for treatment performed by the endodontist. I understand that a tooth may require removal in spite of all efforts to save it.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na walang garantiya na ang isang root canal treatment ay makakapagligtas sa isang ngipin at maaaring magkaroon ng mga komplikasyon mula sa paggamot at na paminsan-minsan ang mga materyales sa pagpuno ng root canal ay maaaring lumampas sa ngipin na hindi kinakailangang makaapekto sa tagumpay ng paggamot. Nauunawaan ko na ang mga endodontic file at drill ay napakapinong mga instrumento at ang mga stress na ibinubuga sa kanilang paggawa at mga calcification na naroroon sa mga ngipin ay maaaring maging sanhi ng pagkasira nito sa panahon ng paggamit. Nauunawaan ko na ang referral sa endodontist para sa mga karagdagang paggamot ay maaaring kailanganin kasunod ng anumang root canal treatment at sumasang-ayon ako na ako ang may pananagutan para sa anumang karagdagang gastos para sa paggamot na ginawa ng endodontist. Nauunawaan ko na ang isang ngipin ay maaaring kailanganing tanggalin sa kabila ng lahat ng pagsisikap na iligtas ito." },
     { id: 'PERIODONTAL', name: 'Periodontal Disease', content_en: "I understand that periodontal disease is a serious condition causing gum & bone inflammation &/or loss & that can lead eventually to the loss of my teeth. I understand the alternative treatment plans to correct periodontal disease, including gum surgery tooth extractions with or without replacement. I understand that undertaking any dental procedures may have future adverse effect on my periodontal Conditions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang periodontal disease ay isang seryesong kondisyon na nagdudulot ng pamamaga at/o pagkawala ng gilagid at buto at maaaring humantong sa pagkawala ng aking mga ngipin. Nauunawaan ko ang mga alternatibong plano sa paggamot upang itama ang periodontal disease, kabilang ang operasyon sa gilagid, pagbunot ng ngipin na mayroon o walang kapalit. Nauunawaan ko na ang pagsasagawa ng anumang mga pamamaraan sa ngipin ay maaaring magkaroon ng masamang epekto sa hinaharap sa aking mga kondisyon sa periodontal." },
     { id: 'FILLINGS', name: 'Fillings', content_en: "I understand that care must be exercised in chewing on fillings, especially during the first 24 hours to avoid breakage. I understand that a more extensive filling or a crown may be required, as additional decay or fracture may become evident after initial excavation. I understand that significant sensitivity is a common, but usually temporary, after-effect of a newly placed filling. I further understand that filling a tooth may irritate the nerve tissue creating sensitivity & treating such sensitivity could require root canal therapy or extractions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na dapat mag-ingat sa pagnguya sa mga pasta, lalo na sa unang 24 na oras upang maiwasan ang pagkasira. Nauunawaan ko na maaaring kailanganin ang isang mas malawak na pasta o korona, dahil maaaring maging malinaw ang karagdagang pagkabulok o bali pagkatapos ng paunang paghuhukay. Nauunawaan ko na ang makabuluhang pagiging sensitibo ay isang karaniwan, ngunit kadalasang pansamantala, na epekto pagkatapos ng isang bagong inilagay na pasta. Higit pa rito, nauunawaan ko na ang pagpasta sa isang ngipin ay maaaring makairita sa tisyu ng nerbiyos na lumilikha ng pagiging sensitibo at ang paggamot sa naturang pagiging sensitibo ay maaaring mangailangan ng root canal therapy o pagbunot." },
-    { id: 'DENTURES', name: 'Dentures', content_en: "I understand that wearing of dentures can be difficult. Sore spots, altered speech & difficulty in eating are common problems. Immediate dentures (placement of denture immediately after extractions) may be painful. Immediate dentures may require considerable adjusting & several relines. I understand that it is my responsibility to return for delivery of dentures. I understand that failure to keep my delivery appointment may result in poorly fitted dentures. If a remake is required due to my delays of more than 30 days, there will be additional charges. A permanent reline will be needed later, which is not included in the initial fee. I understand that all adjustment or alterations of any kind after this initial period is subject to charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagsusuot ng pustiso ay maaaring mahirap. Ang mga masakit na bahagi, nabagong pagsasalita at kahirapan sa pagkain ay mga karaniwang problema. Ang mga agarang pustiso (paglalagay ng pustiso kaagad pagkatapos ng pagbunot) ay maaaring masakit. Ang mga agarang pustiso ay maaaring mangailangan ng malaking pagsasaayos at ilang reline. Nauunawaan ko na responsibilidad kong bumalik para sa paghahatid ng pustiso. Nauunawaan ko na ang hindi pagtupad sa aking appointment sa paghahatid ay maaaring magresulta sa hindi magandang pagkakalagay ng pustiso. Kung kinakailangan ang muling paggawa dahil sa aking mga pagkaantala ng higit sa 30 araw, magkakaroon ng mga karagdagang singil. Kakailanganin ang isang permanenteng reline sa kalaunan, na hindi kasama sa paunang bayad. Nauunawaan ko na ang lahat ng pagsasaayos o pagbabago ng anumang uri pagkatapos ng paunang panahon na ito ay napapailalim sa mga singil." }
+    { id: 'DENTURES', name: 'Dentures', content_en: "I understand that wearing of dentures can be difficult. Sore spots, altered speech & difficulty in eating are common problems. Immediate dentures (placement of denture immediately after extractions) may be painful. Immediate dentures may require considerable adjusting & several relines. I understand that it is my responsibility to return for delivery of dentures. I understand that failure to keep my delivery appointment may result in poorly fitted dentures. If a remake is required due to my delays of more than 30 days, there will be additional charges. A permanent reline will be needed later, which is not included in the initial fee. I understand that all adjustment or alterations of any kind after this initial period is subject to charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagsusuot ng pustiso ay maaaring mahirap. Ang mga masakit na bahagi, nabagong pagsasalita at kahirapan sa pagkain ay mga karaniwang problema. Ang mga agarang pustiso (paglalagay ng pustiso kaagad pagkatapos ng pagbunot) ay maaaring masakit. Ang mga agarang pustiso ay maaaring mangailangan ng malaking pagsasaayos at ilang reline. Nauunawaan ko na responsibilidad kong bumalik para sa paghahatid ng pustiso. Nauunawaan ko na ang hindi pagtupad sa aking appointment sa paghahatid ay maaaring magresulta sa hindi magandang pagkakalagay ng pustiso. Kung kinakailangan ang muling paggawa dahil sa aking mga pagkaantala ng higit sa 30 araw, magkakaroon ng mga karagdagang singil. Kakailanganin ang isang permanenteng reline sa kalaunan, na hindi kasama sa paunang bayad. Nauunawaan ko na ang lahat ng pagsasaayos o pagbabago ng anumang uri pagkatapos ng paunang panahon na ito ay napapailalim sa mga singil." },
+    { id: 'MEDIA_CONSENT', name: 'Clinical Media Consent', content_en: `I, the undersigned, hereby authorize the dental professionals at this clinic to capture, use, and store clinical photographs, radiographs (x-rays), and videos ("Media") related to my dental treatment.
+
+1.  **Purpose**: I understand this Media is essential for diagnosis, treatment planning, documentation of my care, and for communication with other healthcare providers or dental laboratories as necessary.
+2.  **Confidentiality**: I understand this Media is part of my confidential patient record and is protected under the Data Privacy Act of 2012 (R.A. 10173).
+3.  **Educational Use (Optional)**: I may separately consent to the anonymized use of my Media for professional education, scientific publications, or case presentations. All my personal identifying information will be removed.
+4.  **Patient Rights**: I have the right to inspect my Media. I also have the right to withdraw this consent for future use by providing a written request, though this will not affect Media already captured.
+
+My signature below confirms that I have read, understood, and agree to these terms.`, content_tl: `[Pagsasalin sa Tagalog]: Ako, ang nakalagda, ay nagbibigay pahintulot sa mga propesyonal na dentista sa klinika na ito na kumuha, gumamit, at mag-imbak ng mga klinikal na litrato, radiograph (x-ray), at video ("Media") na may kaugnayan sa aking paggamot sa ngipin.
+
+1.  **Layunin**: Nauunawaan ko na ang Media na ito ay mahalaga para sa diagnosis, pagpaplano ng paggamot, dokumentasyon ng aking pangangalaga, at para sa komunikasyon sa iba pang mga healthcare provider o dental laboratory kung kinakailangan.
+2.  **Pagiging Kumpidensyal**: Nauunawaan ko na ang Media na ito ay bahagi ng aking kumpidensyal na talaan ng pasyente at protektado sa ilalim ng Data Privacy Act of 2012 (R.A. 10173).
+3.  **Paggamit para sa Edukasyon (Opsyonal)**: Maaari akong magbigay ng hiwalay na pahintulot para sa hindi pagpapakilalang paggamit ng aking Media para sa propesyonal na edukasyon, mga siyentipikong publikasyon, o mga paglalahad ng kaso. Ang lahat ng aking personal na impormasyon sa pagkakakilanlan ay aalisin.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman hindi nito maaapektuhan ang Media na nakuha na.
+
+Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ayon ako sa mga tuntuning ito.` },
+    { id: 'FINANCIAL_CONSENT', name: 'Financial Consent', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
+
+1.  **Estimate vs. Actual Cost**: The provided quote is an estimate. Unforeseen clinical findings during treatment may require changes to the plan and associated costs. I will be informed of any significant changes.
+2.  **Financial Responsibility**: I am fully responsible for the total payment of all procedures performed. I agree to pay for services at the time they are rendered unless other arrangements have been made in advance.
+3.  **Insurance**: My dental insurance is a contract between me and my insurance provider. I understand that I am responsible for any remaining balance not covered by my insurance. This clinic will assist in processing claims, but ultimate responsibility for payment rests with me.
+4.  **Patient Rights**: I have the right to ask for a detailed breakdown of costs and to discuss payment options with the clinic staff.
+5.  **Withdrawal**: I understand that withdrawing from treatment after it has commenced does not absolve me of financial responsibility for services already rendered.`, content_tl: `[Pagsasalin sa Tagalog]: Kinikilala ko na nabigyan ako ng pagtatantya ng mga gastos para sa aking iminungkahing plano sa paggamot. Nauunawaan at sumasang-ayon ako sa mga sumusunod:
+
+1.  **Tantya vs. Aktwal na Gastos**: Ang ibinigay na quote ay isang pagtatantya. Ang mga hindi inaasahang klinikal na natuklasan sa panahon ng paggamot ay maaaring mangailangan ng mga pagbabago sa plano at mga kaugnay na gastos. Ipapabatid sa akin ang anumang makabuluhang pagbabago.
+2.  **Responsibilidad sa Pinansyal**: Ako ang may buong pananagutan para sa kabuuang bayad ng lahat ng mga pamamaraang isinagawa. Sumasang-ayon akong magbayad para sa mga serbisyo sa oras na ito ay isagawa maliban kung may ibang mga kasunduan na ginawa nang maaga.
+3.  **Insurance**: Ang aking dental insurance ay isang kontrata sa pagitan ko at ng aking insurance provider. Nauunawaan ko na ako ang may pananagutan para sa anumang natitirang balanse na hindi sakop ng aking insurance. Tutulong ang klinika na ito sa pagproseso ng mga claim, ngunit ang pangunahing responsibilidad sa pagbabayad ay nasa akin.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong humingi ng detalyadong breakdown ng mga gastos at talakayin ang mga opsyon sa pagbabayad sa mga kawani ng klinika.
+5.  **Pag-atras**: Nauunawaan ko na ang pag-atras mula sa paggamot matapos itong magsimula ay hindi nag-aalis sa akin ng responsibilidad sa pananalapi para sa mga serbisyong naisagawa na.` },
+    { id: 'PEDIATRIC_CONSENT', name: 'Consent for Treatment of a Minor', content_en: `As the parent or legal guardian of the minor patient, **{PatientName}**, I hereby authorize **{DoctorName}** and their designated staff to perform the necessary dental procedures as have been explained to me.
+
+1.  **Informed Consent**: I confirm that the nature of the proposed treatment, potential risks, benefits, and reasonable alternatives have been explained to me in terms I can understand. I have had the opportunity to ask questions, and my questions have been answered to my satisfaction.
+2.  **Anesthesia & Medications**: I consent to the use of local anesthetics, sedatives, or other medications as deemed necessary by the dentist for my child's safe and effective treatment.
+3.  **Guardian's Rights**: I understand that I have the right to be present during treatment, where appropriate, and to make decisions on behalf of my child.
+4.  **Withdrawal**: I can withdraw this consent at any time by notifying the dental staff, which will not affect any treatment already provided.
+
+My signature confirms my authority to consent for this minor and my agreement to the above terms.`, content_tl: `[Pagsasalin sa Tagalog]: Bilang magulang o legal na tagapag-alaga ng menor de edad na pasyente, si **{PatientName}**, pinahihintulutan ko si **{DoctorName}** at ang kanilang mga itinalagang tauhan na isagawa ang mga kinakailangang pamamaraan sa ngipin na ipinaliwanag sa akin.
+
+1.  **May Kaalamang Pahintulot**: Kinukumpirma ko na ang likas na katangian ng iminungkahing paggamot, mga potensyal na panganib, benepisyo, at makatwirang mga alternatibo ay ipinaliwanag sa akin sa mga terminong naiintindihan ko. Nagkaroon ako ng pagkakataong magtanong, at ang aking mga tanong ay nasagot nang kasiya-siya.
+2.  **Anesthesia at mga Gamot**: Sumasang-ayon ako sa paggamit ng mga lokal na anestisya, pampakalma, o iba pang mga gamot na itinuturing na kinakailangan ng dentista para sa ligtas at epektibong paggamot ng aking anak.
+3.  **Mga Karapatan ng Tagapag-alaga**: Nauunawaan ko na may karapatan akong dumalo sa panahon ng paggamot, kung naaangkop, at gumawa ng mga desisyon para sa aking anak.
+4.  **Pagbawi**: Maaari kong bawiin ang pahintulot na ito anumang oras sa pamamagitan ng pag-abiso sa mga kawani ng ngipin, na hindi makakaapekto sa anumang paggamot na naibigay na.
+
+Ang aking lagda ay nagpapatunay ng aking awtoridad na magbigay ng pahintulot para sa menor de edad na ito at ang aking pagsang-ayon sa mga tuntunin sa itaas.` }
 ];
 
 export const MOCK_BRANCH_PROFILES: Branch[] = [
@@ -912,7 +949,6 @@ export const PATIENTS: Patient[] = [
         physicianSpecialty: 'OB-GYN',
         physicianAddress: 'Medical City, Ortigas',
         physicianNumber: '02-8-987-6543',
-// Fix: The 'clinicalMediaConsent' property was assigned a boolean value, which does not match the 'ClinicalMediaConsent' type. It has been replaced with a valid object.
         dpaConsent: true, marketingConsent: true, practiceCommConsent: true, clinicalMediaConsent: {
             generalConsent: true,
             consentVersion: '1.0',
@@ -974,9 +1010,7 @@ export const PATIENTS: Patient[] = [
         familyGroupId: 'fam_scott_01',
         registrationStatus: RegistrationStatus.COMPLETE,
         communicationLog: [
-          // Fix: Use CommunicationChannel enum for type safety.
           { id: 'comm1', timestamp: getPastDateStr(30), channel: CommunicationChannel.SYSTEM, authorId: 'system', authorName: 'System', content: 'Welcome to the practice, Michael!' },
-          // Fix: Use CommunicationChannel enum for type safety.
           { id: 'comm2', timestamp: getPastDateStr(2), channel: CommunicationChannel.SMS, authorId: 'admin1', authorName: 'Sarah Connor', content: 'Appointment reminder for tomorrow at 10 AM.' }
         ]
     },
@@ -1071,7 +1105,6 @@ export const PATIENTS: Patient[] = [
         dpaConsent: true,
         marketingConsent: true,
         practiceCommConsent: true,
-// Fix: The 'clinicalMediaConsent' property was assigned a boolean value, which does not match the 'ClinicalMediaConsent' type. It has been replaced with a valid object.
         clinicalMediaConsent: {
             generalConsent: true,
             consentVersion: '1.0',
@@ -1242,8 +1275,6 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
     'payment_receipt': { id: 'payment_receipt', label: 'Payment Receipt', text: 'Thank you for your payment of {Amount} at {ClinicName} on {Date}. Your new balance is {Balance}. Ref: {ORNumber}.', enabled: false, category: 'Financial', triggerDescription: 'After a payment with an official receipt is recorded' },
 };
 
-// --- DEFAULT SETTINGS ---
-// Fix: Export DEFAULT_SETTINGS constant to make it available for other modules.
 export const DEFAULT_SETTINGS: FieldSettings = {
   clinicName: 'dentsched',
   clinicProfile: 'corporate',

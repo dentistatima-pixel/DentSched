@@ -1,4 +1,3 @@
-
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
@@ -68,9 +67,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // FIX: The error "Property 'props' does not exist" on a class component
-    // is often due to a misconfiguration or linter rule. Destructuring `children`
-    // from `this.props` is a common and clean workaround.
+    // Fix: Destructuring `children` from `this.props` to resolve potential type inference issues.
     const { children } = this.props;
     return children;
   }

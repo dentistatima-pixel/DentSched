@@ -30,9 +30,6 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
     const handleTemplateChange = (id: string, field: keyof SmsTemplateConfig, value: any) => {
         let valueToSave = value;
         if (field === 'text' && clinicName) {
-            // Use a regex to replace all occurrences of the clinic name with the placeholder
-            // This ensures that if the clinic name changes, the templates don't contain the old hardcoded name.
-            // It also escapes any special regex characters in the clinic name.
             const escapedClinicName = clinicName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             valueToSave = value.replace(new RegExp(escapedClinicName, 'g'), '{ClinicName}');
         }
@@ -40,7 +37,6 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
         onUpdateSettings({ ...settings, smsTemplates: newTemplates });
     };
 
-    // Fix: Explicitly cast 'config' as SmsTemplateConfig to resolve TypeScript's inference of 'unknown' from Object.values().
     const hasViolations = Object.values(smsTemplates).some(config => 
         PDA_FORBIDDEN_COMMERCIAL_TERMS.some(term => (config as SmsTemplateConfig).text.toLowerCase().includes(term))
     );
@@ -75,6 +71,20 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                 </div>
             </div>
             
+             <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div className="ml-3">
+                        <h3 className="text-sm font-bold text-amber-800">SMS Preview Mode</h3>
+                        <div className="mt-2 text-sm text-amber-700">
+                            <p>The SMS gateway is not connected. All SMS actions are simulated and logged for now. No messages will be sent to patients.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Config Sections */}
             <div className="grid grid-cols-1 gap-8">
                 {/* Local Server Config */}

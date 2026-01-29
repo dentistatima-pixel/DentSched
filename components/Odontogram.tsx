@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { formatDate } from '../constants';
@@ -71,7 +70,10 @@ const GeometricTooth: React.FC<{
     const handleClick = (e: React.MouseEvent, surface: string) => {
         e.stopPropagation();
         if (readOnly) return;
-        if (isLongPress.current) return; 
+        if (isLongPress.current) return;
+        if (window.navigator.vibrate) {
+            window.navigator.vibrate(10); // Haptic feedback
+        }
         onSurfaceClick(number, surface);
     };
 

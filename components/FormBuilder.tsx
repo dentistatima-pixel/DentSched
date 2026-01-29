@@ -1,12 +1,11 @@
-
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
 import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
 import { useToast } from './ToastSystem';
-// Fix: Use a named import for RegistrationBasicInfo as it does not have a default export.
-import { RegistrationBasicInfo } from './RegistrationBasicInfo';
-// Fix: Change to named import for RegistrationMedical to resolve module export issue.
-import { RegistrationMedical } from './RegistrationMedical';
+// Fix: `RegistrationBasicInfo` is exported as default, so changed to a default import.
+import RegistrationBasicInfo from './RegistrationBasicInfo';
+// Fix: Changed to a default import for consistency.
+import RegistrationMedical from './RegistrationMedical';
 import CoreFieldEditor from './form-builder/CoreFieldEditor';
 import DynamicFieldEditor from './form-builder/DynamicFieldEditor';
 import QuestionEditor from './form-builder/QuestionEditor';

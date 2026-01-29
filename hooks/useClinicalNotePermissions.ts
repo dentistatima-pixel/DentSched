@@ -14,11 +14,11 @@ export const useClinicalNotePermissions = (
     activeProcedureDef?: ProcedureItem
 ) => {
     const isPediatricBlocked = useMemo(() => {
-        // Fix: Replace direct `age` access with `calculateAge` function.
         if (!patient || (calculateAge(patient.dob) || 18) >= 18 || isArchitect) return false;
-        // Fix: Changed check from non-existent 'signedConsentUrl' to 'consentSignatureChain' to align with the Appointment type.
+        
         const hasTodayConsent = !!(activeAppointmentToday?.consentSignatureChain && activeAppointmentToday.consentSignatureChain.length > 0);
         const hasFullGuardian = patient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
+        
         return !hasTodayConsent || !hasFullGuardian;
     }, [patient, activeAppointmentToday, isArchitect]);
 

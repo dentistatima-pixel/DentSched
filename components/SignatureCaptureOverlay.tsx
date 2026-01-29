@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 /* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
@@ -39,15 +40,24 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
 
   const setupCanvas = () => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = canvas.parentElement?.clientWidth || 400;
-      canvas.height = 200;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-      }
+    if (!canvas || !canvas.parentElement) return;
+
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = rect.width * dpr;
+    canvas.height = 200 * dpr;
+
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `200px`;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 5.0;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
     }
   };
 
@@ -72,14 +82,30 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   };
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    const touchStartHandler = (e: TouchEvent) => {
+        if (e.touches.length > 1) { // Palm rejection
+            e.preventDefault();
+        }
+    };
+
     if (isOpen) {
       setTimeout(setupCanvas, 100);
       startCamera();
       setHasInk(false);
+      if (canvas) {
+        canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
+      }
     } else {
       stopCamera();
     }
-    return () => stopCamera();
+    
+    return () => {
+      stopCamera();
+      if (canvas) {
+        canvas.removeEventListener('touchstart', touchStartHandler);
+      }
+    };
   }, [isOpen]);
 
   const getCoords = (e: any) => {
@@ -115,7 +141,10 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
 
   const handleClear = () => {
     const canvas = canvasRef.current;
-    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
     setHasInk(false);
   };
 

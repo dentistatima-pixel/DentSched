@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { Appointment, AppointmentStatus, UserRole } from '../types';
+import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent } from '../types';
 import { APPOINTMENTS, generateUid, PROCEDURE_TO_CONSENT_MAP } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
 import { useModal } from './ModalContext';
 import { usePatient } from './PatientContext';
 import { useSettings } from './SettingsContext';
-// Fix: Import DataService to handle appointment data persistence.
 import { DataService } from '../services/dataService';
+import { checkClinicalProtocols } from '../services/protocolEnforcement';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -81,6 +81,29 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         const isNew = !appointments.some(a => a.id === appointmentData.id);
 
         if (procedure?.requiresConsent && isNew && patient) {
+            // --- PRE-FLIGHT FINANCIAL CONSENT CHECK ---
+            if (appointmentData.planId) {
+                const plan = patient.treatmentPlans?.find(tp => tp.id === appointmentData.planId);
+
+                if (!plan) {
+                    toast.error('CRITICAL ERROR: Appointment is linked to a non-existent treatment plan.');
+                    return;
+                }
+
+                if (plan.status === TreatmentPlanStatus.DRAFT || plan.status === TreatmentPlanStatus.PENDING_REVIEW) {
+                    toast.warning('This procedure is part of a plan that has not been clinically approved yet.');
+                    showModal('approvalDashboard', { patient, plan, onConfirm: () => {}, onReject: () => {} });
+                    return;
+                }
+
+                if (plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
+                    toast.error('Financial consent for the treatment plan must be captured before this procedure.');
+                    showModal('financialConsent', { patient, plan });
+                    return;
+                }
+            }
+            // --- END PRE-FLIGHT CHECK ---
+            
             let consentTemplateId = 'GENERAL_AUTHORIZATION'; // Default
             const procedureNameLower = procedure.name.toLowerCase();
 
@@ -104,9 +127,13 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                 appointment: appointmentData,
                 template: consentTemplate,
                 procedure,
-                onSave: (signatureUrl: string) => {
-                    const finalAppointment = { ...appointmentData, signedConsentUrl: signatureUrl };
-                    _finishSavingAppointment(finalAppointment);
+                onSave: (chain: SignatureChainEntry[], pediatricConsent?: PediatricConsent) => {
+                    const finalAppointment = { 
+                        ...appointmentData, 
+                        consentSignatureChain: chain,
+                        pediatricConsent: pediatricConsent,
+                    };
+                    _finishSavingAppointment(finalAppointment as Appointment);
                 }
             });
         } else {
@@ -145,8 +172,8 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error('Failed to move appointment.');
         }
     };
-
-    const handleUpdateAppointmentStatus = async (appointmentId: string, status: AppointmentStatus, additionalData: Partial<Appointment> = {}): Promise<void> => {
+    
+    const handleUpdateAppointmentStatus = async (appointmentId: string, status: AppointmentStatus, additionalData: Partial<Appointment> = {}, bypassProtocol = false): Promise<void> => {
         if (!canManageAppointments) {
             toast.error("Authorization Denied: You cannot update appointment status.");
             return;
@@ -157,9 +184,30 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error("Appointment not found");
             return;
         }
-
+    
+        // PROTOCOL ENFORCEMENT GATE
+        if (status === AppointmentStatus.TREATING && !bypassProtocol && fieldSettings.features.enableClinicalProtocolAlerts) {
+            const patient = patients.find(p => p.id === aptToUpdate.patientId);
+            const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
+    
+            if (patient && procedure) {
+                const { violations, rule } = checkClinicalProtocols(patient, procedure, fieldSettings.clinicalProtocolRules || []);
+                
+                if (violations.length > 0 && rule) {
+                    showModal('protocolOverride', {
+                        rule: rule,
+                        onConfirm: (reason: string) => {
+                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${rule.name}. Reason: ${reason}`);
+                            handleUpdateAppointmentStatus(appointmentId, status, additionalData, true); // Re-call with bypass
+                        }
+                    });
+                    return; // Stop execution until override is confirmed
+                }
+            }
+        }
+    
         const updatedApt = { ...aptToUpdate, status, ...additionalData };
-
+    
         if (!isOnline) {
             const offlineApt = { ...updatedApt, isPendingSync: true };
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
@@ -167,7 +215,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.info(`Offline: Status update saved locally.`);
             return;
         }
-
+    
         try {
             await DataService.saveAppointment(updatedApt);
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
@@ -176,7 +224,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error('Failed to update appointment status.');
         }
     };
-    
+
     const handleVerifyDowntimeEntry = async (id: string) => {
         await handleUpdateAppointmentStatus(id, appointments.find(a => a.id === id)!.status, { reconciled: true });
         toast.success("Downtime entry reconciled.");

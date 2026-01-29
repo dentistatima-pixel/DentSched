@@ -1,7 +1,6 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Patient, DentalChartEntry, ClinicalIncident, Appointment, User } from '../types';
-// Fix: Import `calculateAge` to derive patient's age from date of birth.
 import { calculateAge } from '../constants';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -30,7 +29,11 @@ export const generateSoapNote = async (procedure: string, toothNumber?: number):
         },
     });
 
-    const jsonText = response.text.trim();
+    // Fix: Added a null check for `response.text` to prevent potential runtime errors when the API returns an undefined response.
+    const jsonText = response.text?.trim();
+    if (!jsonText) {
+        throw new Error("AI returned an empty response.");
+    }
     return JSON.parse(jsonText);
   } catch (error) {
     console.error("Gemini SOAP note generation failed:", error);
@@ -56,7 +59,8 @@ export const generateSafetyBriefing = async (patient: Patient, procedureType: st
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini safety briefing failed:", error);
         throw new Error("Could not generate AI safety briefing.");
@@ -76,7 +80,8 @@ export const explainProcedures = async (procedureNames: string[]): Promise<strin
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini procedure explanation failed:", error);
         throw new Error("Could not generate explanation.");
@@ -104,7 +109,8 @@ export const analyzeRadiograph = async (dataUrl: string): Promise<string> => {
             contents: { parts: [imagePart, textPart] },
         });
 
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini radiograph analysis failed:", error);
         throw new Error("Could not analyze radiograph.");
@@ -131,7 +137,8 @@ export const reviewClinicalNote = async (note: Partial<DentalChartEntry>): Promi
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini note review failed:", error);
         throw new Error("Could not get AI review for the note.");
@@ -152,7 +159,8 @@ export const analyzeIncidents = async (incidents: ClinicalIncident[]): Promise<s
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini incident analysis failed:", error);
         throw new Error("Could not analyze incidents.");
@@ -176,7 +184,8 @@ export const draftReferralLetter = async (patient: Patient, referredTo: string, 
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini referral letter drafting failed:", error);
         throw new Error("Could not draft referral letter.");
@@ -222,14 +231,14 @@ export const generateMorningHuddle = async (appointments: Appointment[], patient
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini morning huddle generation failed:", error);
         throw new Error("Could not generate AI Morning Huddle.");
     }
 };
 
-// Fix: Add missing 'summarizePatient' function.
 export const summarizePatient = async (patient: Patient): Promise<string> => {
     try {
         const prompt = `
@@ -252,14 +261,14 @@ export const summarizePatient = async (patient: Patient): Promise<string> => {
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini patient summarization failed:", error);
         throw new Error("Could not generate AI patient summary.");
     }
 };
 
-// Fix: Add missing 'translateText' function.
 export const translateText = async (text: string, targetLanguage: 'tl'): Promise<string> => {
     try {
         const prompt = `Translate the following English text to Tagalog for patient understanding. This is for a dental consent form. Maintain a professional and clear tone.
@@ -276,7 +285,8 @@ export const translateText = async (text: string, targetLanguage: 'tl'): Promise
             contents: prompt,
         });
 
-        let translatedText = response.text.trim();
+        // Fix: Added a null check for `response.text` to prevent potential runtime errors when the API returns an undefined response.
+        let translatedText = response.text?.trim() || '';
         if (translatedText.startsWith('TAGALOG TRANSLATION:')) {
             translatedText = translatedText.replace('TAGALOG TRANSLATION:', '').trim();
         }
@@ -306,7 +316,8 @@ export const getDocentExplanation = async (elementId: string, context: string, u
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        return response.text;
+        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        return response.text || '';
     } catch (error) {
         console.error("Gemini Docent explanation failed:", error);
         throw new Error("Could not generate AI explanation.");

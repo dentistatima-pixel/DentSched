@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 export interface Branch {
@@ -703,6 +704,22 @@ export interface SignatureChainEntry {
   };
 }
 
+export interface EmergencyTreatmentConsent {
+  patientId: string;
+  emergencyType: 'Trauma' | 'Severe Pain' | 'Infection' | 'Bleeding';
+  triageLevel: 'Level 1: Trauma/Bleeding';
+  verbalConsentGiven: boolean;
+  verbalConsentWitnessId: string;
+  verbalConsentTimestamp: string;
+  signatureObtainedPostTreatment: boolean;
+  signatureTimestamp?: string;
+  emergencyPhotos?: string[];
+  emergencyNarrative: string;
+  authorizingDentistId: string;
+  authorizingDentistSignature: string;
+  authorizationTimestamp: string;
+}
+
 export interface Appointment {
   id: string;
   patientId: string;
@@ -742,6 +759,7 @@ export interface Appointment {
   consentSignatureChain?: SignatureChainEntry[];
   triageLevel?: TriageLevel;
   postOpVerified?: boolean;
+  postOpVerifiedAt?: string;
   isLate?: boolean;
   recurrenceRule?: string;
   recurrenceId?: string;
@@ -754,6 +772,7 @@ export interface Appointment {
       userName: string;
   }[];
   cancellationReason?: string;
+  emergencyConsent?: EmergencyTreatmentConsent;
 }
 
 export enum RegistrationStatus {
@@ -839,6 +858,20 @@ export interface ClinicalMediaConsent {
   revocationEvidence?: string;
 }
 
+export interface DataDeletionRequest {
+  id: string;
+  patientId: string;
+  requestedAt: string;
+  requestedBy: string;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  rejectionReason?: string;
+  approvedAt?: string;
+  approvedBy?: string; // Lead dentist ID
+  anonymizedAt?: string;
+  retentionPeriod: number; // Years
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -912,6 +945,7 @@ export interface Patient {
   registryAnswers?: Record<string, any>;
   customFields?: { [key: string]: any };
   isAnonymized?: boolean;
+  isLockedForInvestigation?: boolean;
   referredById?: string;
   orthoHistory?: OrthoAdjustment[];
   installmentPlans?: InstallmentPlan[];
@@ -959,6 +993,7 @@ export interface Patient {
   pediatricConsent?: PediatricConsent;
   informedRefusals?: InformedRefusal[];
   prescriptions?: EPrescription[];
+  dataDeletionRequests?: DataDeletionRequest[];
 }
 
 export enum TreatmentPlanStatus {
@@ -985,6 +1020,7 @@ export interface TreatmentPlan {
   isComplexityDisclosed?: boolean;
   color?: string;
   financialConsentSignature?: string;
+  financialConsentTimestamp?: string;
   discountAmount?: number;
   discountReason?: string;
   consultations?: {
@@ -1008,6 +1044,7 @@ export interface PinboardTask {
   assignedTo: string;
   createdBy: string;
   patientId?: string;
+  dueDate?: Date;
 }
 
 export type TreatmentStatus = 'Planned' | 'Completed' | 'Existing' | 'Condition';
@@ -1149,6 +1186,8 @@ export interface ConsentFormTemplate {
   name: string;
   content_en: string;
   content_tl: string;
+  validityDays?: number;
+  requiresRenewal?: boolean;
 }
 
 export interface PurchaseOrder {
