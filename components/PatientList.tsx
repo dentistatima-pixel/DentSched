@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
-import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2 } from 'lucide-react';
+import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -23,7 +23,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   const { currentBranch } = useAppContext();
   
   const fuse = useMemo(() => new Fuse(patients, {
-    keys: ['name', 'id', 'phone'],
+    keys: ['name', 'id', 'phone', 'nickname'],
     threshold: 0.3,
   }), [patients]);
 
@@ -115,6 +115,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
               const isPwdOrMinor = p.isPwd || isMinor;
               const isSelected = p.id === selectedPatientId;
               const isProvisional = p.registrationStatus === 'Provisional';
+              const isPendingSync = p.isPendingSync;
 
               return (
                   <tr 
@@ -149,6 +150,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                     </td>
                     <td className="p-4">
                         <div className="flex items-center gap-2.5">
+                            {isPendingSync && <CloudOff size={16} className="text-lilac-600 dark:text-lilac-400 animate-pulse" title="Pending Sync"/>}
                             {hasFlags && <ShieldAlert size={16} className="text-red-600 dark:text-red-400" title="Critical Medical Alert"/>}
                             {isMinor && <Baby size={16} className="text-amber-600 dark:text-amber-400" title="Minor Patient"/>}
                             {p.isPwd && <UserCircle size={16} className="text-amber-600 dark:text-amber-400" title="PWD"/>}

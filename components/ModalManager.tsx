@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 
 // Lazy load modals to improve initial load time
@@ -24,6 +22,9 @@ const DailyReportModal = React.lazy(() => import('./Financials').then(module => 
 const InfoDisplayModal = React.lazy(() => import('./InfoDisplayModal'));
 const PrintPreviewModal = React.lazy(() => import('./PrintPreviewModal'));
 const PreparationChecklistModal = React.lazy(() => import('./PreparationChecklistModal'));
+const InformedRefusalModal = React.lazy(() => import('./InformedRefusalModal'));
+const PhotoCaptureModal = React.lazy(() => import('./PhotoCaptureModal'));
+const QuickCheckInModal = React.lazy(() => import('./QuickCheckInModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -49,6 +50,9 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     infoDisplay: InfoDisplayModal,
     printPreview: PrintPreviewModal,
     preparationChecklist: PreparationChecklistModal,
+    informedRefusal: InformedRefusalModal,
+    photoCapture: PhotoCaptureModal,
+    quickCheckIn: QuickCheckInModal,
 };
 
 const ModalManager: React.FC = () => {

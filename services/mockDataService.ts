@@ -1,12 +1,16 @@
+
 import { Patient, Appointment, FieldSettings, Branch } from '../types';
 import { 
-    PATIENTS, APPOINTMENTS, DEFAULT_FIELD_SETTINGS
+    PATIENTS, APPOINTMENTS, 
+// Fix: Corrected import name from DEFAULT_FIELD_SETTINGS to DEFAULT_SETTINGS.
+    DEFAULT_SETTINGS
 } from '../constants';
 
 // In-memory "database" to simulate a backend
 let mockPatients: Patient[] = JSON.parse(JSON.stringify(PATIENTS));
 let mockAppointments: Appointment[] = JSON.parse(JSON.stringify(APPOINTMENTS));
-let mockSettings: FieldSettings = JSON.parse(JSON.stringify(DEFAULT_FIELD_SETTINGS));
+// Fix: Used corrected import name DEFAULT_SETTINGS.
+let mockSettings: FieldSettings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {

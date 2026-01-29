@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ShieldAlert, Zap } from 'lucide-react';
 
@@ -20,7 +21,7 @@ const SafetyAlertModal: React.FC<SafetyAlertModalProps> = ({ isOpen, onClose, ti
         <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-10 text-center border-4 border-red-500 animate-in zoom-in-95">
             <ShieldAlert size={48} className="text-red-600 mx-auto mb-6 animate-pulse" />
             <h2 className="text-2xl font-black uppercase text-red-900 tracking-tighter">{title}</h2>
-            <p className="text-slate-600 mt-4 leading-relaxed font-medium">{message}</p>
+            <p className="text-slate-600 mt-4 leading-relaxed font-medium whitespace-pre-line">{message}</p>
             <div className="mt-8 flex flex-col gap-3">
                 {onAction && actionLabel && (
                     <button 

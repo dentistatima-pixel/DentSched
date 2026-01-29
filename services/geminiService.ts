@@ -1,6 +1,8 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Patient, DentalChartEntry, ClinicalIncident, Appointment, User } from '../types';
+// Fix: Import `calculateAge` to derive patient's age from date of birth.
+import { calculateAge } from '../constants';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -162,7 +164,7 @@ export const draftReferralLetter = async (patient: Patient, referredTo: string, 
         const prompt = `
         Draft a professional and concise dental referral letter with the following details.
 
-        - Patient: ${patient.name}, Age: ${patient.age}
+        - Patient: ${patient.name}, Age: ${calculateAge(patient.dob)}
         - Relevant Medical History: ${(patient.medicalConditions || []).join(', ') || 'None reported'}. Allergies: ${(patient.allergies || []).join(', ') || 'None reported'}.
         - Referring to: ${referredTo}
         - Reason for referral: ${reason}
@@ -234,7 +236,7 @@ export const summarizePatient = async (patient: Patient): Promise<string> => {
         Summarize the following patient record for a quick clinical overview. Highlight critical risks, allergies, ongoing treatments, and recent major procedures. Be concise and use bullet points. Format as markdown.
 
         Patient Name: ${patient.name}
-        Age: ${patient.age}
+        Age: ${calculateAge(patient.dob)}
         Sex: ${patient.sex}
         
         Critical Medical Conditions: ${(patient.medicalConditions || []).join(', ') || 'None'}

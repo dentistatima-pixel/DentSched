@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 
 export interface Branch {
@@ -93,6 +92,17 @@ export interface AppNotification {
     modal?: string;
     // other payload data
   };
+}
+
+// --- NEW ALERT TYPE ---
+export type AlertType = 'medical' | 'allergy' | 'medication' | 'clearance' | 'social' | 'financial' | 'incomplete';
+
+export interface PatientAlert {
+  type: AlertType;
+  level: 'critical' | 'warning' | 'info';
+  message: string;
+  icon: React.ElementType;
+  colorClass: string;
 }
 
 
@@ -249,6 +259,7 @@ export interface ClearanceRequest {
     verificationMethod?: VerificationMethod;
     verifiedByPractitionerId?: string;
     verifiedByPractitionerName?: string;
+    documentCategory?: string;
 }
 
 export interface WaitlistEntry {
@@ -283,9 +294,39 @@ export interface ClinicalIncident {
     isDataBreach?: boolean;
     breachDetails?: {
         affectedPatientIds: string[];
+        dataTypesCompromised?: Array<'Medical History' | 'Contact Info' | 'Financial' | 'Images' | 'Insurance'>;
+        
+        discoveryTimestamp: string;
+        npcDeadline: string;
         npcNotifiedAt?: string;
         npcRefNumber?: string;
+        npcNotificationStatus?: 'Pending' | 'Filed' | 'Late Filing' | 'Exemption Claimed';
+        exemptionReason?: string;
+        
+        patientsNotifiedAt?: string;
+        notificationMethod?: 'SMS' | 'Email' | 'Registered Mail' | 'Personal Contact';
+        notificationTemplateId?: string;
+        
+        breachSeverityLevel: 'Minor' | 'Moderate' | 'Severe';
+        breachCause?: 'Hacking' | 'Theft' | 'Loss' | 'Unauthorized Access' | 'Accidental Disclosure' | 'Other';
         summary: string;
+        
+        remediationActions?: Array<{
+          action: string;
+          responsible: string; // user id
+          completedAt?: string;
+          status: 'Planned' | 'In Progress' | 'Completed';
+        }>;
+        rootCauseAnalysis?: string;
+        preventiveMeasures?: string;
+        
+        // Kept from old for compatibility
+        remediationSteps?: string[]; 
+        dpoApproval?: {
+            dpoName: string;
+            approvedAt: string;
+            signature: string;
+        };
     };
 }
 
@@ -329,6 +370,7 @@ export interface HMOClaim {
   dateSubmitted?: string;
   dateReceived?: string;
   notes?: string;
+  rejectionReason?: string;
 }
 
 export interface PhilHealthClaim {
@@ -535,6 +577,19 @@ export interface ScheduledSms {
   status: 'Pending' | 'Sent';
 }
 
+export interface SmsLog {
+    id: string;
+    patientId: string;
+    phoneNumber: string;
+    message: string;
+    templateId: string;
+    sentAt: string;
+    deliveredAt?: string;
+    status: 'pending' | 'sent' | 'delivered' | 'failed';
+    failureReason?: string;
+    gatewayResponse?: string;
+}
+
 export interface ClinicalProtocolRule {
     id: string;
     name: string;
@@ -597,7 +652,7 @@ export interface SmsConfig {
     // Cloud server config
     cloudUrl?: string; // Cloud Address
     cloud_username?: string;
-    cloud_password?: string;
+    cloud_password?: string; 
     cloud_deviceId?: string; 
 }
 
@@ -631,6 +686,23 @@ export interface User {
   showDigitalDocent?: boolean;
 }
 
+export type SignatureType = 'patient' | 'guardian' | 'dentist' | 'witness' | 'child';
+
+export interface SignatureChainEntry {
+  id: string;
+  signatureType: SignatureType;
+  signatureDataUrl: string;
+  timestamp: string;
+  signerName: string;
+  signerRole?: string;
+  hash: string;
+  previousHash: string;
+  metadata: {
+    deviceInfo: string;
+    [key: string]: any; // To embed childAssent data
+  };
+}
+
 export interface Appointment {
   id: string;
   patientId: string;
@@ -645,6 +717,7 @@ export interface Appointment {
   isBlock?: boolean;
   title?: string;
   notes?: string;
+  planId?: string;
   labStatus?: LabStatus;
   labDetails?: {
     vendorId: string;
@@ -666,7 +739,7 @@ export interface Appointment {
   dataTransferId?: string;
   queuedAt?: string;
   isStale?: boolean;
-  signedConsentUrl?: string;
+  consentSignatureChain?: SignatureChainEntry[];
   triageLevel?: TriageLevel;
   postOpVerified?: boolean;
   isLate?: boolean;
@@ -674,11 +747,96 @@ export interface Appointment {
   recurrenceId?: string;
   modifiedAt?: string;
   safetyChecklistVerified?: boolean;
+  statusHistory?: {
+      status: AppointmentStatus;
+      timestamp: string;
+      userId: string;
+      userName: string;
+  }[];
+  cancellationReason?: string;
 }
 
 export enum RegistrationStatus {
   PROVISIONAL = 'Provisional',
   COMPLETE = 'Complete',
+}
+
+export interface InformedRefusal {
+  id: string;
+  patientId: string;
+  relatedEntity: {
+    type: 'TreatmentPlan' | 'Procedure' | 'Medication' | 'Referral' | 'Diagnostic' | 'FollowUp';
+    entityId: string;
+    entityDescription: string;
+  };
+  refusalReason: string;
+  risksDisclosed: Array<{
+    risk: string;
+    acknowledged: boolean;
+  }>;
+  alternativesOffered: string[];
+  dentistRecommendation: string;
+  patientUnderstandsConsequences: boolean;
+  patientSignature: string;
+  patientSignatureTimestamp: string;
+  dentistSignature: string;
+  dentistSignatureTimestamp: string;
+  witnessSignature?: string;
+  witnessName?: string;
+  formVersion: string;
+  printedAt?: string;
+  printedByUserId?: string;
+}
+
+export interface EPrescription {
+  id: string;
+  patientId: string;
+  medicationId: string; 
+  dateIssued: string;
+  dosage: string;
+  instructions: string;
+  quantity: number;
+  drugClassification: 'OTC' | 'Rx' | 'S2-Controlled' | 'S3-Controlled';
+  dohControlNumber?: string;
+  prescriptionPadNumber?: string;
+  dentistS2License?: string;
+  isAntibiotic?: boolean;
+  antibioticJustification?: string;
+  overrideReason?: string;
+}
+
+export interface ClinicalMediaConsent {
+  generalConsent: boolean;
+  consentVersion: string;
+  consentTimestamp: string;
+  consentSignature: string;
+  
+  permissions: {
+    intraoralPhotos: boolean;
+    extraoralPhotos: boolean;
+    xrays: boolean;
+    videography: boolean;
+    caseStudyUse: boolean;
+    marketingUse: boolean;
+    thirdPartySharing: boolean;
+  };
+  
+  mediaCapturedLogs: Array<{
+    sessionId: string;
+    date: string;
+    capturedBy: string;
+    mediaType: 'Photo' | 'Video' | 'X-Ray';
+    imageHashes: string[];
+    procedure: string;
+    device: string;
+    consentReconfirmed: boolean;
+    purpose: 'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing';
+  }>;
+  
+  consentRevoked?: boolean;
+  revokedAt?: string;
+  revocationScope?: 'All Media' | 'Marketing Only' | 'Future Only';
+  revocationEvidence?: string;
 }
 
 export interface Patient {
@@ -690,7 +848,6 @@ export interface Patient {
   suffix?: string;
   nickname?: string;
   dob: string;
-  age?: number;
   sex?: string;
   civilStatus?: string;
   nationality?: string;
@@ -766,7 +923,7 @@ export interface Patient {
   seriousIllnessDetails?: string;
   lastHospitalizationDetails?: string;
   lastHospitalizationDate?: string;
-  clinicalMediaConsent?: boolean;
+  clinicalMediaConsent?: ClinicalMediaConsent;
   thirdPartyDisclosureConsent?: boolean;
   thirdPartyAttestation?: boolean;
   physicianName?: string;
@@ -782,8 +939,26 @@ export interface Patient {
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
   registrationStatus?: RegistrationStatus;
-  registrationBranch?: string;
   isPendingSync?: boolean;
+  registrationBranch?: string;
+  consentHistory?: {
+      timestamp: string;
+      consentType: string;
+      granted: boolean;
+      ipAddress: string;
+      userAgent: string;
+      witnessHash?: string;
+  }[];
+  avatarUrl?: string;
+  emergencyContact?: {
+    name: string;
+    relationship: string;
+    phoneNumber: string;
+    alternatePhone?: string;
+  };
+  pediatricConsent?: PediatricConsent;
+  informedRefusals?: InformedRefusal[];
+  prescriptions?: EPrescription[];
 }
 
 export enum TreatmentPlanStatus {
@@ -812,6 +987,17 @@ export interface TreatmentPlan {
   financialConsentSignature?: string;
   discountAmount?: number;
   discountReason?: string;
+  consultations?: {
+      dentistId: string;
+      dentistName: string;
+      specialty: string;
+      consultDate: string;
+      recommendation: string;
+      signature: string;
+      prcLicense: string;
+  }[];
+  isMultiDisciplinary?: boolean;
+  primaryDentistId?: string; // Lead dentist (final authority)
 }
 
 export interface PinboardTask {
@@ -857,6 +1043,16 @@ export interface DentalChartEntry {
   resourceName?: string;
   sterilizationCycleId?: string;
   imageHashes?: string[];
+  imageMetadata?: Array<{
+    hash: string;
+    fileName: string;
+    captureTimestamp: string;
+    capturedBy: string;
+    device: string;
+    toothNumber?: number;
+    viewAngle: 'Buccal' | 'Lingual' | 'Occlusal' | 'Lateral' | 'Intraoral' | 'Extraoral';
+    consentVerified: boolean;
+  }>;
   boilerplateScore?: number;
   needsProfessionalismReview?: boolean;
   isVerifiedTime?: boolean;
@@ -1026,6 +1222,7 @@ export interface FieldSettings {
   clinicLogo?: string;
   strictMode: boolean;
   editBufferWindowMinutes: number;
+  sessionTimeoutMinutes: number;
   suffixes: string[];
   civilStatus: string[];
   sex: string[];
@@ -1088,10 +1285,10 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
-  // Fix: Add missing 'priceBookEntries' property to the FieldSettings interface.
   priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
+  savedViews?: SavedView[];
 }
 
 export interface Medication {
@@ -1104,6 +1301,7 @@ export interface Medication {
     contraindicatedAllergies?: string[];
     interactions?: string[];
     isS2Controlled?: boolean;
+    drugClassification?: 'OTC' | 'Rx' | 'S2-Controlled' | 'S3-Controlled';
 }
 
 export type GovernanceTrack = 'STATUTORY' | 'OPERATIONAL';
@@ -1122,4 +1320,39 @@ export interface PrintJob {
   createdAt: string;
   status: PrintJobStatus;
   branch: string;
+}
+
+// --- NEW TYPES FOR SEARCH & FILTER ---
+export interface SavedView {
+  id: string;
+  name: string;
+  context: 'patients' | 'appointments'; // Which view this applies to
+  filters: any; // The filter object
+}
+
+export interface CommandBarAction {
+    id: string;
+    name: string;
+    icon: React.ElementType;
+    section: 'Actions';
+    perform: () => void;
+}
+
+export interface PediatricConsent {
+    parentConsent: {
+        guardianName: string;
+        signature: string;
+        timestamp: string;
+        witnessHash: string;
+    };
+    
+    // NEW: Child's assent (if 7-17 years old)
+    childAssent?: {
+        childExplanationGiven: boolean; // Doctor explained in child-friendly terms
+        childUnderstanding: 'Full' | 'Partial' | 'None';
+        childAgreement: boolean; // Child verbally agreed
+        childSignature?: string; // Optional for older children
+        dentistAttestation: string; // Dentist certifies child was consulted
+        timestamp: string;
+    };
 }

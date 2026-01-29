@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -14,6 +13,7 @@ import {
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
+// Fix: Use default import for GlobalSearchModal as it's a default export.
 import GlobalSearchModal from './GlobalSearchModal';
 
 import { useAppointments } from '../contexts/AppointmentContext';
@@ -362,7 +362,7 @@ const AIMorningHuddle: React.FC<{ appointments: Appointment[], patients: Patient
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = () => {
+export const Dashboard: React.FC<DashboardProps> = () => {
   const { showModal } = useModal();
   const navigate = useNavigate();
   const { appointments, handleUpdateAppointmentStatus: onUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
@@ -454,7 +454,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const roleBasedLayout = useMemo(() => {
     const components = {
         schedule: <DailySchedule appointments={todaysFullSchedule} patients={patients} settings={fieldSettings} />,
-        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateAppointmentStatus} settings={fieldSettings} stock={stock} />,
+        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateAppointmentStatus} settings={fieldSettings!} stock={stock} />,
         actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={onToggleTask} />,
     };
 
@@ -504,5 +504,3 @@ const Dashboard: React.FC<DashboardProps> = () => {
     </div>
   );
 };
-
-export default Dashboard;

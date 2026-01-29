@@ -3,7 +3,8 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
 import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import RegistrationBasicInfo from './RegistrationBasicInfo';
+// Fix: Use a named import for RegistrationBasicInfo as it does not have a default export.
+import { RegistrationBasicInfo } from './RegistrationBasicInfo';
 // Fix: Change to named import for RegistrationMedical to resolve module export issue.
 import { RegistrationMedical } from './RegistrationMedical';
 import CoreFieldEditor from './form-builder/CoreFieldEditor';
@@ -267,7 +268,7 @@ const FormBuilder: React.FC = () => {
                          {activeSection === 'IDENTITY' ? (
                             <div className="p-8">
                                 <RegistrationBasicInfo 
-                                    formData={{sex: 'Female', age: 16}} 
+                                    formData={{sex: 'Female'}} 
                                     handleChange={() => {}}
                                     handleCustomChange={() => {}}
                                     readOnly={true} 

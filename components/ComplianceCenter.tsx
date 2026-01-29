@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { FieldSettings, Patient } from '../types';
 import { Shield, Archive, Trash2, Search, AlertTriangle } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { checkRetentionPolicy } from '../services/validationService';
+import { formatDate } from '../constants';
 
 interface ComplianceCenterProps {
     settings: FieldSettings;
@@ -14,8 +17,25 @@ interface ComplianceCenterProps {
 const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateSettings, patients, onAnonymizePatient, initialTab }) => {
     const toast = useToast();
     const [patientSearch, setPatientSearch] = useState('');
+
+    const { retentionPolicy } = settings;
+
+    const recordsForPurge = useMemo(() => {
+        if (!retentionPolicy || !patients) return [];
+        return patients.filter(p => {
+            const result = checkRetentionPolicy(p, retentionPolicy);
+            return result.action === 'PURGE';
+        });
+    }, [patients, retentionPolicy]);
     
     const filteredPatients = patients.filter(p => !p.isAnonymized && p.name.toLowerCase().includes(patientSearch.toLowerCase()));
+
+    const handleConfirmAnonymize = (patient: Patient) => {
+        if (window.confirm(`WARNING: This action is irreversible.\n\nAre you sure you want to permanently anonymize all personally identifiable information for "${patient.name}"?`)) {
+            onAnonymizePatient(patient.id);
+            setPatientSearch('');
+        }
+    };
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500">
@@ -51,13 +71,31 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="label text-xs">Archival Period (Years)</label>
-                        <input type="number" value={settings.retentionPolicy.archivalYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...settings.retentionPolicy, archivalYears: +e.target.value }})} className="input" />
+                        <input type="number" value={retentionPolicy.archivalYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...settings.retentionPolicy, archivalYears: +e.target.value }})} className="input" />
                     </div>
                      <div>
                         <label className="label text-xs">Anonymization Period (Years)</label>
-                        <input type="number" value={settings.retentionPolicy.purgeYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...settings.retentionPolicy, purgeYears: +e.target.value }})} className="input" />
+                        <input type="number" value={retentionPolicy.purgeYears} onChange={e => onUpdateSettings({...settings, retentionPolicy: {...settings.retentionPolicy, purgeYears: +e.target.value }})} className="input" />
                     </div>
                 </div>
+
+                {recordsForPurge.length > 0 && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <h4 className="font-bold text-amber-800 text-sm mb-2">{recordsForPurge.length} record(s) flagged for anonymization</h4>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                          {recordsForPurge.map(p => (
+                            <div key={p.id} className="flex justify-between items-center p-2 bg-white rounded-md">
+                                <div>
+                                    <p className="font-bold text-xs">{p.name}</p>
+                                    <p className="text-[10px] text-slate-500">Last visit: {formatDate(p.lastVisit)}</p>
+                                </div>
+                                <button onClick={() => handleConfirmAnonymize(p)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 size={14}/></button>
+                            </div>
+                          ))}
+                        </div>
+                    </div>
+                )}
+                
                 <div className="bg-red-50 p-6 rounded-2xl border-2 border-dashed border-red-200">
                     <h4 className="font-bold text-sm text-red-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Right to Erasure (Anonymization)</h4>
                     <p className="text-xs text-red-700 mb-4">This action is irreversible and redacts all Personally Identifiable Information (PII) from a patient's record while retaining their non-identifiable clinical history for regulatory compliance. Use only to fulfill a data subject's formal request.</p>
@@ -66,7 +104,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
                         {patientSearch && filteredPatients.map(p => (
                             <div key={p.id} className="flex justify-between items-center p-2 bg-white rounded-lg">
                                 <span className="text-sm font-bold">{p.name}</span>
-                                <button onClick={() => { if(window.confirm(`Anonymize ${p.name}? This cannot be undone.`)) onAnonymizePatient(p.id) }} className="p-2 bg-red-100 text-red-600 rounded-lg"><Trash2 size={14}/></button>
+                                <button onClick={() => handleConfirmAnonymize(p) } className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 size={14}/></button>
                             </div>
                         ))}
                      </div>

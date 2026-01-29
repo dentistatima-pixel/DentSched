@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
+// Fix: Use default import for PatientRegistrationModal.
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -14,7 +16,7 @@ interface KioskViewProps {
 
 type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affirmation' | 'update' | 'thankyou';
 
-const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
+export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
   const toast = useToast();
   const { patients, handleSavePatient: onUpdatePatient } = usePatient();
   const [step, setStep] = useState<KioskStep>('welcome');
@@ -400,5 +402,3 @@ const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
     </div>
   );
 };
-
-export default KioskView;

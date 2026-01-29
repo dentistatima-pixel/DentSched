@@ -11,6 +11,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppointments } from '../contexts/AppointmentContext';
+import { useLicenseValidation } from '../hooks/useLicenseValidation';
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -55,6 +56,20 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     const [patientSearch, setPatientSearch] = useState('');
     const [searchResults, setSearchResults] = useState<Patient[]>([]);
     
+    const { isPrcExpired, licenseAlerts } = useLicenseValidation(providerId);
+    
+    useEffect(() => {
+        if (isOpen) {
+            licenseAlerts.forEach(alert => {
+                if(alert.startsWith('CRITICAL')) {
+                    toast.error(alert, { duration: 10000 });
+                } else {
+                    toast.warning(alert, { duration: 6000 });
+                }
+            });
+        }
+    }, [isOpen, JSON.stringify(licenseAlerts)]);
+
     const patientFuse = useMemo(() => new Fuse(patients, { keys: ['name', 'id', 'phone'], threshold: 0.3 }), [patients]);
 
     useEffect(() => {
@@ -159,6 +174,25 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const provider = staff.find(s => s.id === providerId);
+        const procedure = fieldSettings.procedures.find(p => p.name === procedureType);
+
+        if (!provider) {
+            toast.error("A provider must be selected.");
+            return;
+        }
+
+        if (isPrcExpired) {
+            toast.error(`Cannot book: ${provider.name}'s PRC license has expired.`);
+            return;
+        }
+
+        if (!isBlock && procedure && procedure.allowedLicenseCategories && !procedure.allowedLicenseCategories.includes(provider.licenseCategory!)) {
+            toast.error(`Scope of Practice Violation: ${procedure.name} requires a ${procedure.allowedLicenseCategories.join('/')} license. ${provider.name} is a ${provider.licenseCategory}.`);
+            return;
+        }
+
         setIsSaving(true);
         try {
             const appointmentData: Partial<Appointment> = {
@@ -180,9 +214,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 entryMode: isDowntime ? 'MANUAL' : 'AUTO',
             };
             
-            const errors = validateAppointment(appointmentData, appointments, existingAppointment?.id);
+            const errors = validateAppointment(appointmentData, appointments, patients, staff, existingAppointment?.id);
             if (errors) {
-                Object.values(errors).forEach(errorMsg => toast.error(errorMsg));
+                Object.values(errors).forEach(errorMsg => toast.error(errorMsg, { duration: 6000 }));
                 setIsSaving(false);
                 return;
             }
@@ -229,6 +263,11 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                                 <option value="">Select Provider</option>
                                 {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
+                            {isPrcExpired && (
+                                <div className="mt-2 p-2 bg-red-50 text-red-700 text-xs font-bold rounded-lg flex items-center gap-2">
+                                    <ShieldAlert size={14}/> PRC License Expired - Cannot Book
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="label">Resource / Chair</label>
@@ -295,7 +334,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     </button>
                     <div className="flex gap-3">
                         <button type="button" onClick={onClose} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-widest">Cancel</button>
-                        <button type="submit" form="appointment-form" disabled={isSaving || readOnly} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 disabled:opacity-50 flex items-center gap-2">
+                        <button type="submit" form="appointment-form" disabled={isSaving || readOnly || isPrcExpired} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 disabled:opacity-50 flex items-center gap-2">
                             {isSaving ? <RotateCcw size={16} className="animate-spin" /> : <Save size={16} />}
                             {isSaving ? 'Saving...' : (existingAppointment ? 'Update' : 'Save')}
                         </button>

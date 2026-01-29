@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
@@ -15,10 +16,14 @@ import {
     // Fix: Import ClinicalIncident type.
     ClinicalIncident 
 } from '../types';
+// Fix: Use default import for Analytics as it's a default export.
 import Analytics from './Analytics';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import jsPDF from 'jspdf';
+import { useSettings } from '../contexts/SettingsContext';
+// Fix: Add missing imports for jsPDF to resolve 'Cannot find name' error.
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -29,7 +34,7 @@ interface DailyReportModalProps {
   fieldSettings?: FieldSettings;
 }
 
-const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onClose, appointments, patients, incidents, fieldSettings }) => {
+export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onClose, appointments, patients, incidents, fieldSettings }) => {
     const reportData = useMemo(() => {
         const todayStr = new Date().toLocaleDateString('en-CA');
         const todaysApts = appointments.filter(a => a.date === todayStr);
@@ -105,13 +110,12 @@ const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onClose, ap
 interface FinancialsProps {
   claims: HMOClaim[];
   onSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => void;
-  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, amountReceived?: number) => void;
+  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => void;
   expenses: Expense[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
   philHealthClaims?: PhilHealthClaim[];
   patients?: Patient[];
   appointments?: Appointment[];
-  fieldSettings?: FieldSettings;
   staff?: StaffUser[];
   currentUser: StaffUser;
   onUpdatePhilHealthClaim: (updatedClaim: PhilHealthClaim) => void;
@@ -142,7 +146,7 @@ const HMOClaimsTab: React.FC<{
   claims: HMOClaim[],
   patients: Patient[],
   onSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => void;
-  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, amountReceived?: number) => void;
+  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => void;
 }> = ({ claims, patients, onSaveHmoClaim, onUpdateHmoClaimStatus }) => {
     const [showForm, setShowForm] = useState(false);
     const [selectedLedgerEntry, setSelectedLedgerEntry] = useState<{patientId: string, entryId: string} | null>(null);
@@ -199,8 +203,8 @@ const HMOClaimsTab: React.FC<{
                             <td className="p-3 text-center">
                                 {claim.status === 'Submitted' && 
                                     <div className="flex gap-2 justify-center">
-                                        <button onClick={() => { const amt = prompt("Enter amount received:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.PAID, parseFloat(amt || '0'))}} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</button>
-                                        <button onClick={() => onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.REJECTED)} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Reject</button>
+                                        <button onClick={() => { const amt = prompt("Enter amount received:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.PAID, { amountReceived: parseFloat(amt || '0') })}} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</button>
+                                        <button onClick={() => { const reason = prompt("Reason for rejection:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.REJECTED, { rejectionReason: reason || 'No reason provided' })}} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Reject</button>
                                     </div>
                                 }
                             </td>
@@ -261,203 +265,56 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
                         <div><label className="label text-xs">OR #</label><input type="text" name="receiptNumber" value={form.receiptNumber} onChange={handleChange} className="input"/></div>
                         <div><label className="label text-xs">Supplier TIN</label><input type="text" name="supplierTIN" value={form.supplierTIN} onChange={handleChange} className="input"/></div>
                     </div>
-                    <div className="flex justify-end gap-2"><button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs">Cancel</button><button onClick={handleSubmit} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-bold">Save</button></div>
+                    <div className="flex justify-end gap-2"><button onClick={() => setShowForm(false)} className="px-4 py-2 text-xs font-bold">Cancel</button><button onClick={handleSubmit} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold">Save Expense</button></div>
                 </div>
             )}
             <div className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
                 <table className="w-full text-sm">
-                    <thead><tr className="bg-bg-tertiary text-xs text-text-secondary uppercase"><th className="p-3 text-left">Date</th><th className="p-3 text-left">Description</th><th className="p-3 text-left">Category</th><th className="p-3 text-right">Amount</th></tr></thead>
-                    <tbody>{expenses.map(exp => <tr key={exp.id} className="border-t border-border-secondary"><td className="p-3 text-text-secondary">{formatDate(exp.date)}</td><td className="p-3 font-bold text-text-primary">{exp.description}</td><td className="p-3 text-text-primary">{exp.category}</td><td className="p-3 text-right font-mono text-text-primary">₱{exp.amount.toLocaleString()}</td></tr>)}</tbody>
+                    <thead><tr className="bg-bg-tertiary text-xs uppercase"><th className="p-3 text-left text-text-secondary">Date</th><th className="p-3 text-left text-text-secondary">Description</th><th className="p-3 text-left text-text-secondary">Category</th><th className="p-3 text-right text-text-secondary">Amount</th></tr></thead>
+                    <tbody>{expenses.map(exp => (
+                        <tr key={exp.id} className="border-t border-border-secondary">
+                            <td className="p-3 font-mono text-xs text-text-secondary">{formatDate(exp.date)}</td>
+                            <td className="p-3 font-bold text-text-primary">{exp.description}</td>
+                            <td className="p-3 text-text-secondary">{exp.category}</td>
+                            <td className="p-3 text-right font-mono font-bold text-text-primary">₱{exp.amount.toLocaleString()}</td>
+                        </tr>
+                    ))}</tbody>
                 </table>
             </div>
         </div>
     );
 };
 
+// Fix: Add export to Financials component
+export const Financials: React.FC<FinancialsProps> = (props) => {
+    const { onBack, activeSubTab } = props;
+    const { fieldSettings } = useSettings();
+    const [activeTab, setActiveTab] = useState(activeSubTab || 'hmo');
+    const [showEODReport, setShowEODReport] = useState(false);
 
-const CashReconciliationTab: React.FC<{
-  onSave: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
-  currentUser: StaffUser;
-  currentBranch: string;
-  reconciliations: ReconciliationRecord[];
-  cashSessions: CashSession[];
-  patients: Patient[];
-  fieldSettings?: FieldSettings;
-  onStartSession: (openingBalance: number) => void;
-  onCloseSession: (sessionId: string) => void;
-}> = ({ onSave, currentUser, currentBranch, reconciliations, cashSessions, patients, fieldSettings, onStartSession, onCloseSession }) => {
-    const [form, setForm] = useState({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
-    const [openingBalance, setOpeningBalance] = useState('');
-
-    const activeSession = useMemo(() => cashSessions.find(s => s.branch === currentBranch && s.status === 'Open'), [cashSessions, currentBranch]);
+    const tabs = [
+        { id: 'hmo', label: 'HMO Claims', icon: Briefcase },
+        { id: 'expenses', label: 'Expenses', icon: DollarSign },
+        { id: 'payroll', label: 'Payroll', icon: Calculator },
+        { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
+    ];
     
-    const sessionPayments = useMemo(() => {
-        if (!activeSession) return [];
-        const cashPaymentModes = (fieldSettings?.paymentModes || []).filter(pm => pm.toLowerCase().includes('cash')).map(pm => pm.toLowerCase());
-        
-        return patients.flatMap(p => p.ledger || [])
-            .filter(l => 
-                l.type === 'Payment' &&
-                new Date(l.date) >= new Date(activeSession.startTime) &&
-                cashPaymentModes.some(mode => l.description.toLowerCase().includes(mode))
-            );
-    }, [activeSession, patients, fieldSettings]);
-
-    const systemExpected = useMemo(() => {
-        if (!activeSession) return 0;
-        const paymentTotal = sessionPayments.reduce((sum, l) => sum + l.amount, 0);
-        return activeSession.openingBalance + paymentTotal;
-    }, [activeSession, sessionPayments]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setForm(prev => ({...prev, [name]: value}));
-    };
-    
-    const handleSubmit = () => {
-        if (!activeSession) return;
-        const cash = parseFloat(form.actualCash) || 0;
-        const card = parseFloat(form.actualCard) || 0;
-        const ewallet = parseFloat(form.actualEWallet) || 0;
-        const actualTotal = cash + card + ewallet;
-        
-        onSave({
-            date: new Date().toISOString().split('T')[0],
-            branch: currentBranch,
-            expectedTotal: systemExpected,
-            actualCash: cash,
-            actualCard: card,
-            actualEWallet: ewallet,
-            discrepancy: actualTotal - systemExpected,
-            notes: form.notes,
-            verifiedBy: currentUser.id,
-            verifiedByName: currentUser.name,
-            sessionId: activeSession.id,
-        });
-        
-        onCloseSession(activeSession.id);
-        setForm({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
-    };
-
-    if (!activeSession) {
-        return (
-             <div className="bg-bg-secondary p-8 rounded-[2.5rem] border-4 border-teal-100 dark:border-teal-900 shadow-xl space-y-6 max-w-md mx-auto">
-                <h3 className="text-lg font-black text-text-primary uppercase tracking-tighter text-center">Start of Day Session</h3>
-                <p className="text-sm text-center text-text-secondary">No active cash session for {currentBranch}. Enter opening balance to begin.</p>
-                <div>
-                    <label className="label text-xs">Opening Cash Balance (₱)</label>
-                    <input type="number" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)} className="input text-center font-black text-2xl" autoFocus/>
-                </div>
-                <button onClick={() => onStartSession(parseFloat(openingBalance) || 0)} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-600/20">Start Session</button>
-             </div>
-        );
-    }
-
-    const { actualCash, actualCard, actualEWallet } = form;
-    const actualTotal = (parseFloat(actualCash) || 0) + (parseFloat(actualCard) || 0) + (parseFloat(actualEWallet) || 0);
-    const discrepancy = actualTotal - systemExpected;
-
     return (
-        <div className="space-y-6 max-w-lg mx-auto">
-            <div className="bg-bg-secondary p-8 rounded-[2.5rem] border-4 border-teal-100 dark:border-teal-900 shadow-xl space-y-6">
-                <h3 className="text-lg font-black text-text-primary uppercase tracking-tighter">End of Day Session Reconciliation</h3>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-bg-tertiary p-4 rounded-xl">
-                        <label className="label text-xs">System Expected Total</label>
-                        <div className="text-2xl font-black text-teal-700 dark:text-teal-400">₱{systemExpected.toLocaleString()}</div>
-                    </div>
-                    <div className={`p-4 rounded-xl ${discrepancy !== 0 ? 'bg-red-50 dark:bg-red-900/30' : 'bg-green-50 dark:bg-green-900/30'}`}>
-                        <label className="label text-xs">Discrepancy</label>
-                        <div className={`text-2xl font-black ${discrepancy !== 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>₱{discrepancy.toLocaleString()}</div>
-                    </div>
-                </div>
-                <div>
-                    <label className="label text-xs">Actual Cash Count</label>
-                    <input type="number" name="actualCash" value={form.actualCash} onChange={handleChange} className="input text-lg" />
-                </div>
-                <div>
-                    <label className="label text-xs">Actual Card Slips Total</label>
-                    <input type="number" name="actualCard" value={form.actualCard} onChange={handleChange} className="input text-lg" />
-                </div>
-                <div>
-                    <label className="label text-xs">Actual E-Wallet Total</label>
-                    <input type="number" name="actualEWallet" value={form.actualEWallet} onChange={handleChange} className="input text-lg" />
-                </div>
-                <div>
-                    <label className="label text-xs">Notes (for discrepancies)</label>
-                    <textarea name="notes" value={form.notes} onChange={handleChange} className="input h-24" />
-                </div>
-                <button onClick={handleSubmit} className="w-full py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-600/20">Finalize & Close Session</button>
-            </div>
+      <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center gap-4">
+            {onBack && (<button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub"><ArrowLeft size={24} className="text-slate-600"/></button>)}
+            <div className="bg-emerald-600 p-4 rounded-3xl text-white shadow-xl"><DollarSign size={36} /></div>
+            <div><h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Financials</h1><p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Claims, Expenses, and Reconciliation</p></div>
         </div>
+        <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm self-start flex gap-2">
+            {tabs.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500'}`}><tab.icon size={16} /> {tab.label}</button>))}
+             <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg"><History size={16}/> EOD Report</button>
+        </div>
+        <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+            {activeTab === 'hmo' && <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />}
+            {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
+        </div>
+        <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
+      </div>
     );
 };
-
-const Financials: React.FC<FinancialsProps> = (props) => {
-  const [activeTab, setActiveTab] = useState('analytics');
-  const [showReportModal, setShowReportModal] = useState(false);
-  
-  const { 
-    claims, expenses, philHealthClaims = [], patients = [], appointments = [], fieldSettings, staff = [], 
-    currentUser, onUpdatePhilHealthClaim, reconciliations = [], cashSessions = [], 
-    currentBranch, payrollPeriods, payrollAdjustments, commissionDisputes, onUpdatePayrollPeriod,
-    onAddPayrollAdjustment, onApproveAdjustment, onAddCommissionDispute, onResolveCommissionDispute,
-    governanceTrack, setGovernanceTrack, onAddPayrollPeriod, onSaveReconciliation, onStartCashSession,
-    onCloseCashSession, onBack, onAddExpense, onSaveHmoClaim, onUpdateHmoClaimStatus, incidents
-  } = props;
-
-  const renderContent = () => {
-    switch(activeTab) {
-        case 'analytics': return <Analytics patients={patients} appointments={appointments} fieldSettings={fieldSettings} staff={staff} />;
-        case 'hmo': return <HMOClaimsTab claims={claims} patients={patients} onSaveHmoClaim={onSaveHmoClaim} onUpdateHmoClaimStatus={onUpdateHmoClaimStatus} />;
-        case 'expenses': return <ExpensesTab expenses={expenses} categories={fieldSettings?.expenseCategories || []} onAddExpense={onAddExpense} currentBranch={currentBranch} />;
-        case 'reconciliation': return <CashReconciliationTab onSave={onSaveReconciliation} currentUser={currentUser} currentBranch={currentBranch} reconciliations={reconciliations} cashSessions={cashSessions} patients={patients} fieldSettings={fieldSettings} onStartSession={onStartCashSession} onCloseSession={onCloseCashSession} />;
-        default: return null;
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <header className="flex-shrink-0 flex orientation-flex justify-between items-start gap-6">
-          <div className="flex items-center gap-4">
-              {onBack && (
-                <button onClick={onBack} className="bg-bg-secondary p-4 rounded-full shadow-sm border border-border-primary hover:bg-bg-tertiary transition-all active:scale-90" aria-label="Back to Admin Hub">
-                    <ArrowLeft size={24} className="text-text-primary"/>
-                </button>
-              )}
-              <div className="bg-teal-600 p-4 rounded-3xl text-white shadow-xl" aria-hidden="true"><DollarSign size={36} /></div>
-              <div><h1 className="text-4xl font-black text-text-primary tracking-tighter leading-none">Financial Command</h1><p className="text-sm font-bold text-text-secondary uppercase tracking-widest mt-1">Claims, Payroll, and Performance Intelligence.</p></div>
-          </div>
-          <button onClick={() => setShowReportModal(true)} className="bg-lilac-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-3">
-              <Printer size={16}/> Generate Daily Report
-          </button>
-      </header>
-
-      <div className="bg-bg-secondary rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white dark:border-slate-800/50 flex flex-col relative">
-          <div className="flex border-b border-border-primary px-8 shrink-0 bg-slate-50/50 dark:bg-slate-900/20 overflow-x-auto no-scrollbar justify-between items-center" role="tablist" aria-label="Financial Sections">
-              <div className="flex gap-2 pt-2">
-                  <button role="tab" onClick={() => setActiveTab('analytics')} className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all ${activeTab === 'analytics' ? 'border-teal-600 text-teal-900 dark:text-teal-300 bg-bg-secondary' : 'border-transparent text-text-secondary'}`}><BarChart2 size={18}/> Analytics</button>
-                  <button role="tab" onClick={() => setActiveTab('hmo')} className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all ${activeTab === 'hmo' ? 'border-teal-600 text-teal-900 dark:text-teal-300 bg-bg-secondary' : 'border-transparent text-text-secondary'}`}><Heart size={18}/> HMO Claims</button>
-                  <button role="tab" onClick={() => setActiveTab('expenses')} className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all ${activeTab === 'expenses' ? 'border-teal-600 text-teal-900 dark:text-teal-300 bg-bg-secondary' : 'border-transparent text-text-secondary'}`}><Package size={18}/> Expenses</button>
-                  <button role="tab" onClick={() => setActiveTab('reconciliation')} className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all ${activeTab === 'reconciliation' ? 'border-teal-600 text-teal-900 dark:text-teal-300 bg-bg-secondary' : 'border-transparent text-text-secondary'}`}><Calculator size={18}/> Reconciliation</button>
-              </div>
-          </div>
-          
-          <div className="p-10 bg-bg-primary/50">
-              {renderContent()}
-          </div>
-      </div>
-
-      <DailyReportModal 
-        isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        appointments={appointments}
-        patients={patients}
-        incidents={incidents}
-        fieldSettings={fieldSettings}
-      />
-    </div>
-  );
-};
-
-export default Financials;

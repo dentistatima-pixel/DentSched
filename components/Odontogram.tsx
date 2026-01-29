@@ -48,13 +48,13 @@ const GeometricTooth: React.FC<{
     
     const toothEntries = entries || [];
 
-    const timerRef = useRef<any>(null);
+    const timerRef = useRef<number | null>(null);
     const isLongPress = useRef(false);
 
     const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
         if (readOnly) return;
         isLongPress.current = false;
-        timerRef.current = setTimeout(() => {
+        timerRef.current = window.setTimeout(() => {
             isLongPress.current = true;
             onLongPress(number);
         }, 500);
@@ -198,7 +198,7 @@ const GeometricTooth: React.FC<{
     )
 }
 
-const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, onChartUpdate }) => {
+export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, onChartUpdate }) => {
   const [activeToolId, setActiveToolId] = useState<ToolType>('cursor');
   const [zoomedTooth, setZoomedTooth] = useState<number | null>(null);
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null); 
@@ -421,5 +421,3 @@ const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, 
     </div>
   );
 };
-
-export default Odontogram;

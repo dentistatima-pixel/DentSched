@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
 import Fuse from 'fuse.js';
+import { calculateAge } from '../constants';
 
 /**
  * REFACTORED: This is now a standard controlled input component.
@@ -76,6 +77,7 @@ const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, on
 interface RegistrationBasicInfoProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleCustomChange: (fieldName: string, value: any, type: RegistrationField['type']) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings;
   patients?: Patient[]; 
@@ -85,8 +87,8 @@ interface RegistrationBasicInfoProps {
   selectedFieldId?: string;
 }
 
-const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({ 
-    formData, handleChange, readOnly, fieldSettings, patients = [], isMasked = false,
+const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({ 
+    formData, handleChange, handleCustomChange, readOnly, fieldSettings, patients = [], isMasked = false,
     designMode = false, onFieldClick, selectedFieldId
 }) => {
   const [refSearch, setRefSearch] = useState('');
@@ -146,7 +148,7 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
     setSearchResults([]);
   };
 
-  const isMinor = useMemo(() => formData.age !== undefined && formData.age < 18, [formData.age]);
+  const isMinor = useMemo(() => (calculateAge(formData.dob) || 18) < 18, [formData.dob]);
   const showGuardian = isMinor || formData.isPwd || formData.isSeniorDependent || designMode;
   const showFemaleQuestions = formData.sex === 'Female' || designMode;
 
@@ -198,7 +200,7 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
           if (coreId === 'age') {
               return (
                 <DesignWrapper id={id} type="identity" className="col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{formData.age ?? '--'}</div></div>
+                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
                 </DesignWrapper>
               );
           }
@@ -465,4 +467,4 @@ const RegistrationBasicInfo: React.FC<RegistrationBasicInfoProps> = ({
   );
 };
 
-export default React.memo(RegistrationBasicInfo);
+export const RegistrationBasicInfo = React.memo(RegistrationBasicInfoInternal);

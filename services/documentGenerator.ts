@@ -1,6 +1,7 @@
 
 import { Patient, User, FieldSettings, Appointment, AppointmentStatus } from '../types';
-import { formatDate } from '../constants';
+// Fix: Import `calculateAge` to derive patient's age from date of birth.
+import { formatDate, calculateAge } from '../constants';
 
 export const generatePatientDocument = (templateContent: string, patient: Patient, practitioner: User, settings: FieldSettings, appointments: Appointment[]): string => {
     let content = templateContent;
@@ -22,7 +23,8 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
 
     // Basic replacements
     content = content.replace(/{patientName}/g, patient.name || '');
-    content = content.replace(/{patientAge}/g, patient.age?.toString() || '');
+    // Fix: Replace direct `age` access with `calculateAge` function.
+    content = content.replace(/{patientAge}/g, calculateAge(patient.dob)?.toString() || '');
     content = content.replace(/{patientSex}/g, patient.sex || '');
     content = content.replace(/{patientAddress}/g, patient.homeAddress || '');
     content = content.replace(/{patientPhone}/g, patient.phone || '');

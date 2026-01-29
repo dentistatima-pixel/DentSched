@@ -1,35 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, AlertCircle, HeartPulse, Clock, CheckCircle } from 'lucide-react';
-import { Patient } from '../types';
+import { Patient, PatientAlert } from '../types';
 
 interface SafetyTimeoutModalProps {
     patient: Patient;
+    alerts: PatientAlert[];
     onConfirm: () => void;
+    onClose: () => void;
 }
 
-const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, onConfirm }) => {
+const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, alerts, onConfirm, onClose }) => {
     const [secondsLeft, setSecondsLeft] = useState(5);
     const [progress, setProgress] = useState(100);
-
-    const redFlags = [
-        ...(patient.allergies?.filter(a => a !== 'None') || []),
-        ...(patient.medicalConditions?.filter(c => c !== 'None') || [])
-    ];
 
     useEffect(() => {
         const timer = setInterval(() => {
             setSecondsLeft((prev) => {
-                if (prev <= 0) {
+                if (prev <= 1) {
                     clearInterval(timer);
                     return 0;
                 }
                 return prev - 1;
             });
-            setProgress((prev) => Math.max(0, prev - 20));
+            setProgress((prev) => Math.max(0, prev - (100 / 5)));
         }, 1000);
 
         return () => clearInterval(timer);
     }, []);
+
+    const criticalAlerts = alerts.filter(a => a.level === 'critical');
 
     return (
         <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -50,10 +49,10 @@ const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, onConf
                             <HeartPulse size={16}/> Critical Red Flags Detected
                         </div>
                         <div className="grid grid-cols-1 gap-3">
-                            {redFlags.map((flag, idx) => (
+                            {criticalAlerts.map((alert, idx) => (
                                 <div key={idx} className="bg-red-50 border-2 border-red-200 p-6 rounded-2xl flex items-center gap-4 shadow-sm animate-in slide-in-from-left-4" style={{ animationDelay: `${idx * 100}ms` }}>
-                                    <AlertCircle size={28} className="text-red-600" />
-                                    <span className="text-2xl font-black text-red-900 uppercase tracking-tight">{flag}</span>
+                                    <alert.icon size={28} className="text-red-600" />
+                                    <span className="text-2xl font-black text-red-900 uppercase tracking-tight">{alert.message}</span>
                                 </div>
                             ))}
                         </div>
@@ -83,7 +82,7 @@ const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, onConf
                     >
                         {secondsLeft > 0 ? (
                             <>
-                                <Clock size={24} className="animate-spin" /> 
+                                <Clock size={24} /> 
                                 Review required for {secondsLeft}s
                             </>
                         ) : (

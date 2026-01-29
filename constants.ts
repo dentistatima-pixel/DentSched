@@ -1,6 +1,11 @@
+
 // Fix: Import ProcedureItem to explicitly type DEFAULT_PROCEDURES.
 // Fix: Add CommunicationChannel to imports for type safety.
 import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus } from './types';
+// Fix: Add imports for appointment status pipeline config.
+import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
+import type { ElementType } from 'react';
+import CryptoJS from 'crypto-js';
 
 // Generators for mock data
 export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -12,8 +17,8 @@ const getTomorrowStr = () => {
     d.setDate(d.getDate() + 1);
     return d.toLocaleDateString('en-CA');
 }
-const getPastDateStr = (days: number) => {
-    const d = new Date();
+const getPastDateStr = (days: number, date = new Date()) => {
+    const d = new Date(date);
     d.setDate(d.getDate() - days);
     return d.toLocaleDateString('en-CA');
 }
@@ -38,8 +43,133 @@ export const formatDate = (dateStr: string | undefined | null) => {
   });
 };
 
+export const calculateAge = (dob: string | null | undefined): number | undefined => {
+    if (!dob) return undefined;
+    try {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    } catch {
+        return undefined;
+    }
+};
+
+export const isExpired = (dateStr?: string | null): boolean => {
+    if (!dateStr) return false;
+    // Set to end of day to be inclusive of the expiry date
+    const expiryDate = new Date(dateStr);
+    expiryDate.setHours(23, 59, 59, 999);
+    return expiryDate < new Date();
+};
+
+export const isWithin30Days = (dateStr?: string | null): boolean => {
+    if (!dateStr) return false;
+    const expiryDate = new Date(dateStr);
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    return expiryDate > today && expiryDate <= thirtyDaysFromNow;
+};
+
+// Fix: Add APPOINTMENT_STATUS_WORKFLOW and getAppointmentStatusConfig for use in AppointmentStatusPipeline.tsx
+export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
+    AppointmentStatus.SCHEDULED,
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.ARRIVED,
+    AppointmentStatus.SEATED,
+    AppointmentStatus.TREATING,
+    AppointmentStatus.COMPLETED,
+];
+
+interface AppointmentStatusConfig {
+    label: string;
+    icon: ElementType;
+    badgeClass: string;
+}
+
+const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, AppointmentStatusConfig> = {
+    [AppointmentStatus.SCHEDULED]: {
+        label: 'Scheduled',
+        icon: Calendar,
+        badgeClass: 'bg-slate-100 text-slate-700',
+    },
+    [AppointmentStatus.CONFIRMED]: {
+        label: 'Confirmed',
+        icon: CheckCircle,
+        badgeClass: 'bg-blue-100 text-blue-700',
+    },
+    [AppointmentStatus.ARRIVED]: {
+        label: 'Arrived',
+        icon: UserCheck,
+        badgeClass: 'bg-orange-100 text-orange-700',
+    },
+    [AppointmentStatus.SEATED]: {
+        label: 'Seated',
+        icon: Armchair,
+        badgeClass: 'bg-lilac-100 text-lilac-700',
+    },
+    [AppointmentStatus.TREATING]: {
+        label: 'Treating',
+        icon: Activity,
+        badgeClass: 'bg-lilac-200 text-lilac-800',
+    },
+    [AppointmentStatus.COMPLETED]: {
+        label: 'Completed',
+        icon: CompletedIcon,
+        badgeClass: 'bg-teal-100 text-teal-700',
+    },
+    [AppointmentStatus.CANCELLED]: {
+        label: 'Cancelled',
+        icon: XCircle,
+        badgeClass: 'bg-red-100 text-red-700',
+    },
+    [AppointmentStatus.NO_SHOW]: {
+        label: 'No Show',
+        icon: UserX,
+        badgeClass: 'bg-red-200 text-red-800',
+    },
+};
+
+export const getAppointmentStatusConfig = (status: AppointmentStatus): AppointmentStatusConfig => {
+    return APPOINTMENT_STATUS_CONFIG[status];
+};
+
 export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
 export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
+
+// Fix: Add and export missing mock data constants.
+export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
+    { id: 'al_1', timestamp: getPastDateStr(1), userId: 'doc1', userName: 'Dr. Alexander Crentist', action: 'LOGIN', entity: 'System', entityId: 'doc1', details: 'User logged in successfully.' },
+    { id: 'al_2', timestamp: getTodayStr(), userId: 'admin1', userName: 'Sarah Connor', action: 'CREATE', entity: 'Appointment', entityId: 'apt_today_01', details: 'Created new appointment for Michael Scott.' }
+];
+
+export const MOCK_STOCK: StockItem[] = [
+    { id: 'item_01', name: 'Anesthetic Cartridge', category: StockCategory.CONSUMABLES, quantity: 200, lowStockThreshold: 50, branch: 'Makati Main' },
+    { id: 'item_02', name: 'Composite Resin A2', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, branch: 'Makati Main' },
+    { id: 'item_03', name: 'Examination Set', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, branch: 'Makati Main' },
+];
+
+export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = [
+    { id: 'cycle_01', date: getPastDateStr(1), autoclaveName: 'Autoclave A', cycleNumber: 'C-2024-001', operator: 'John Doe', passed: true }
+];
+
+export const MOCK_CLAIMS: HMOClaim[] = [
+    { id: 'claim_01', patientId: 'p_heavy_01', ledgerEntryId: 'l1', hmoProvider: 'Maxicare', procedureName: 'Zirconia Crown', amountClaimed: 20000, status: HMOClaimStatus.SUBMITTED, dateSubmitted: getPastDateStr(25) },
+];
+
+export const MOCK_EXPENSES: Expense[] = [
+    { id: 'exp_01', date: getPastDateStr(5), category: 'Office Supplies', description: 'Bond paper and pens', amount: 1500, branch: 'Makati Main' },
+];
+
+export const MOCK_WAITLIST: WaitlistEntry[] = [
+    { id: 'wl_1', patientId: 'p_reliable_01', patientName: 'Eleanor Shellstrop', procedure: 'Oral Prophylaxis', durationMinutes: 45, priority: 'Normal' },
+    { id: 'wl_2', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Consultation', durationMinutes: 30, priority: 'Low' },
+];
 
 // New mapping for procedure-specific consent forms
 export const PROCEDURE_TO_CONSENT_MAP: Record<string, string> = {
@@ -704,7 +834,6 @@ export const PATIENTS: Patient[] = [
         suffix: 'Jr.',
         nickname: 'Sammy',
         dob: '2007-07-15',
-        age: 17,
         sex: 'Female',
         civilStatus: 'Single',
         nationality: 'Filipino',
@@ -783,7 +912,23 @@ export const PATIENTS: Patient[] = [
         physicianSpecialty: 'OB-GYN',
         physicianAddress: 'Medical City, Ortigas',
         physicianNumber: '02-8-987-6543',
-        dpaConsent: true, marketingConsent: true, practiceCommConsent: true, clinicalMediaConsent: true, thirdPartyDisclosureConsent: true, thirdPartyAttestation: true,
+// Fix: The 'clinicalMediaConsent' property was assigned a boolean value, which does not match the 'ClinicalMediaConsent' type. It has been replaced with a valid object.
+        dpaConsent: true, marketingConsent: true, practiceCommConsent: true, clinicalMediaConsent: {
+            generalConsent: true,
+            consentVersion: '1.0',
+            consentTimestamp: getPastDateStr(10),
+            consentSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+            permissions: {
+                intraoralPhotos: true,
+                extraoralPhotos: true,
+                xrays: true,
+                videography: false,
+                caseStudyUse: false,
+                marketingUse: false,
+                thirdPartySharing: false,
+            },
+            mediaCapturedLogs: []
+        }, thirdPartyDisclosureConsent: true, thirdPartyAttestation: true,
         philHealthPIN: '01-234567890-1',
         philHealthCategory: 'Dependent',
         philHealthMemberStatus: 'Active',
@@ -821,7 +966,7 @@ export const PATIENTS: Patient[] = [
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_heavy_01', name: 'Michael Scott', firstName: 'Michael', surname: 'Scott', insuranceProvider: 'Maxicare', dob: '1965-03-15', age: 59, sex: 'Male', phone: '0917-111-2222', email: 'm.scott@dunder.com', occupation: 'Regional Manager', lastVisit: getPastDateStr(2), nextVisit: getFutureDateStr(1), chiefComplaint: 'Checkup on my bridges.', notes: 'Very talkative. Loves jokes. Gag reflex.', currentBalance: 5000, recallStatus: RecallStatus.BOOKED,
+        id: 'p_heavy_01', name: 'Michael Scott', firstName: 'Michael', surname: 'Scott', insuranceProvider: 'Maxicare', dob: '1965-03-15', sex: 'Male', phone: '0917-111-2222', email: 'm.scott@dunder.com', occupation: 'Regional Manager', lastVisit: getPastDateStr(2), nextVisit: getFutureDateStr(1), chiefComplaint: 'Checkup on my bridges.', notes: 'Very talkative. Loves jokes. Gag reflex.', currentBalance: 5000, recallStatus: RecallStatus.BOOKED,
         attendanceStats: { totalBooked: 10, completedCount: 9, noShowCount: 1, lateCancelCount: 0 }, reliabilityScore: 90,
         treatmentPlans: [{ id: 'tp1', patientId: 'p_heavy_01', name: 'Phase 1 - Urgent Care', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: 'Please check #16 for fracture lines before proceeding.' }],
         ledger: [ {id: 'l1', date: getPastDateStr(30), description: 'Zirconia Crown', type: 'Charge', amount: 20000, balanceAfter: 20000}, {id: 'l2', date: getPastDateStr(29), description: 'GCash Payment', type: 'Payment', amount: 15000, balanceAfter: 5000} ],
@@ -836,12 +981,12 @@ export const PATIENTS: Patient[] = [
         ]
     },
      {
-        id: 'p_fam_02', name: 'Dwight Schrute', firstName: 'Dwight', surname: 'Schrute', dob: '1970-01-20', age: 54, sex: 'Male', phone: '0917-333-4444', email: 'd.schrute@dunder.com', lastVisit: getPastDateStr(365), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
+        id: 'p_fam_02', name: 'Dwight Schrute', firstName: 'Dwight', surname: 'Schrute', dob: '1970-01-20', sex: 'Male', phone: '0917-333-4444', email: 'd.schrute@dunder.com', lastVisit: getPastDateStr(365), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
         familyGroupId: 'fam_scott_01', attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_reliable_01', name: 'Eleanor Shellstrop', firstName: 'Eleanor', surname: 'Shellstrop', dob: '1988-10-25', age: 35, sex: 'Female', phone: '0917-123-4567', email: 'e.shell@thegood.place', lastVisit: getPastDateStr(180), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_reliable_01', name: 'Eleanor Shellstrop', firstName: 'Eleanor', surname: 'Shellstrop', dob: '1988-10-25', sex: 'Female', phone: '0917-123-4567', email: 'e.shell@thegood.place', lastVisit: getPastDateStr(180), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 5, completedCount: 5, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
@@ -853,7 +998,6 @@ export const PATIENTS: Patient[] = [
         middleName: 'Eleazar',
         suffix: 'PhD',
         dob: '1982-04-12',
-        age: 42,
         sex: 'Male',
         civilStatus: 'Married',
         bloodGroup: 'O+',
@@ -927,7 +1071,23 @@ export const PATIENTS: Patient[] = [
         dpaConsent: true,
         marketingConsent: true,
         practiceCommConsent: true,
-        clinicalMediaConsent: true,
+// Fix: The 'clinicalMediaConsent' property was assigned a boolean value, which does not match the 'ClinicalMediaConsent' type. It has been replaced with a valid object.
+        clinicalMediaConsent: {
+            generalConsent: true,
+            consentVersion: '1.0',
+            consentTimestamp: getPastDateStr(30),
+            consentSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+            permissions: {
+                intraoralPhotos: true,
+                extraoralPhotos: true,
+                xrays: true,
+                videography: false,
+                caseStudyUse: false,
+                marketingUse: false,
+                thirdPartySharing: false,
+            },
+            mediaCapturedLogs: []
+        },
         thirdPartyDisclosureConsent: true,
         thirdPartyAttestation: true,
         philHealthPIN: '01-123456789-0',
@@ -975,61 +1135,61 @@ export const PATIENTS: Patient[] = [
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_credit_03', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', age: 29, sex: 'Female', phone: '0920-345-6789', email: 'm.clara@noli.me', lastVisit: getPastDateStr(45), nextVisit: null, currentBalance: 2500, recallStatus: RecallStatus.DUE,
+        id: 'p_credit_03', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', sex: 'Female', phone: '0920-345-6789', email: 'm.clara@noli.me', lastVisit: getPastDateStr(45), nextVisit: null, currentBalance: 2500, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 3, completedCount: 3, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1990-01-01', age: 34, sex: 'Male', phone: '0921-456-7890', email: 'juan.dc@example.com', lastVisit: getPastDateStr(7), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1990-01-01', sex: 'Male', phone: '0921-456-7890', email: 'juan.dc@example.com', lastVisit: getPastDateStr(7), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 6, completedCount: 6, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         dentalChart: [ { id: 'dc_surg1', toothNumber: 38, procedure: 'Surgical Extraction (Impacted/Wisdom Tooth)', status: 'Planned', date: getPastDateStr(7), price: 7500 } ],
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_pediatric_05', name: 'Tahani Al-Jamil', firstName: 'Tahani', surname: 'Al-Jamil', dob: '2014-09-01', age: 9, sex: 'Female', phone: '0922-567-8901', email: 'tahani.aj@thegood.place', lastVisit: getPastDateStr(120), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_pediatric_05', name: 'Tahani Al-Jamil', firstName: 'Tahani', surname: 'Al-Jamil', dob: '2014-09-01', sex: 'Female', phone: '0922-567-8901', email: 'tahani.aj@thegood.place', lastVisit: getPastDateStr(120), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         guardianProfile: { legalName: 'Kamilah Al-Jamil', relationship: 'Mother', mobile: '0922-555-8888', authorityLevel: AuthorityLevel.FULL },
         attendanceStats: { totalBooked: 4, completedCount: 4, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_plan_06', name: 'Janet Della-Denunzio', firstName: 'Janet', surname: 'Della-Denunzio', dob: '1992-12-08', age: 31, sex: 'Female', phone: '0923-678-9012', email: 'janet@thegood.place', lastVisit: getPastDateStr(30), nextVisit: getFutureDateStr(30), currentBalance: 0, recallStatus: RecallStatus.BOOKED,
+        id: 'p_plan_06', name: 'Janet Della-Denunzio', firstName: 'Janet', surname: 'Della-Denunzio', dob: '1992-12-08', sex: 'Female', phone: '0923-678-9012', email: 'janet@thegood.place', lastVisit: getPastDateStr(30), nextVisit: getFutureDateStr(30), currentBalance: 0, recallStatus: RecallStatus.BOOKED,
         treatmentPlans: [{ id: 'tp_janet', patientId: 'p_plan_06', name: 'Restorative Phase', createdAt: getPastDateStr(30), createdBy: 'Dr. Maria Clara', status: TreatmentPlanStatus.APPROVED }],
         dentalChart: [ { id: 'dc_janet1', toothNumber: 14, procedure: 'Composite Restoration (2 Surfaces)', status: 'Planned', date: getPastDateStr(30), price: 2000, planId: 'tp_janet' }, { id: 'dc_janet2', toothNumber: 25, procedure: 'Composite Restoration (1 Surface)', status: 'Planned', date: getPastDateStr(30), price: 1500, planId: 'tp_janet' } ],
         attendanceStats: { totalBooked: 7, completedCount: 7, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_unreliable_08', name: 'Jason Mendoza', firstName: 'Jason', surname: 'Mendoza', dob: '1993-07-22', age: 30, sex: 'Male', phone: '0925-890-1234', email: 'j.mendoza@thegood.place', lastVisit: getPastDateStr(200), nextVisit: null, currentBalance: 800, recallStatus: RecallStatus.OVERDUE, referredById: 'p_referrer_07',
+        id: 'p_unreliable_08', name: 'Jason Mendoza', firstName: 'Jason', surname: 'Mendoza', dob: '1993-07-22', sex: 'Male', phone: '0925-890-1234', email: 'j.mendoza@thegood.place', lastVisit: getPastDateStr(200), nextVisit: null, currentBalance: 800, recallStatus: RecallStatus.OVERDUE, referredById: 'p_referrer_07',
         attendanceStats: { totalBooked: 10, completedCount: 4, noShowCount: 5, lateCancelCount: 1 }, reliabilityScore: 40,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_referrer_07', name: 'Shawn Magtanggol', firstName: 'Shawn', surname: 'Magtanggol', dob: '1970-05-15', age: 54, sex: 'Male', phone: '0924-789-0123', email: 'shawn@thebad.place', lastVisit: getPastDateStr(5), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_referrer_07', name: 'Shawn Magtanggol', firstName: 'Shawn', surname: 'Magtanggol', dob: '1970-05-15', sex: 'Male', phone: '0924-789-0123', email: 'shawn@thebad.place', lastVisit: getPastDateStr(5), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 15, completedCount: 15, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1985-11-30', age: 38, sex: 'Male', phone: '0931-111-9999', email: 'r.runner@example.com', lastVisit: getPastDateStr(300), nextVisit: null, currentBalance: 15500, recallStatus: RecallStatus.OVERDUE,
+        id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1985-11-30', sex: 'Male', phone: '0931-111-9999', email: 'r.runner@example.com', lastVisit: getPastDateStr(300), nextVisit: null, currentBalance: 15500, recallStatus: RecallStatus.OVERDUE,
         attendanceStats: { totalBooked: 9, completedCount: 7, noShowCount: 1, lateCancelCount: 1 }, reliabilityScore: 68,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_archive_10', name: 'Mindy St. Claire', firstName: 'Mindy', surname: 'St. Claire', dob: '1975-02-18', age: 49, sex: 'Female', phone: '0932-222-8888', email: 'mindy@themedium.place', lastVisit: getPastDateStr(365 * 14), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
+        id: 'p_archive_10', name: 'Mindy St. Claire', firstName: 'Mindy', surname: 'St. Claire', dob: '1975-02-18', sex: 'Female', phone: '0932-222-8888', email: 'mindy@themedium.place', lastVisit: getPastDateStr(365 * 14), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
         attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_hmo_11', name: 'Derek Hofstetler', firstName: 'Derek', surname: 'Hofstetler', dob: '1998-08-08', age: 25, sex: 'Male', phone: '0933-333-7777', email: 'derek@thegood.place', lastVisit: getPastDateStr(60), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_hmo_11', name: 'Derek Hofstetler', firstName: 'Derek', surname: 'Hofstetler', dob: '1998-08-08', sex: 'Male', phone: '0933-333-7777', email: 'derek@thegood.place', lastVisit: getPastDateStr(60), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         insuranceProvider: 'Intellicare', philHealthPIN: '12-345678901-2', philHealthCategory: 'Direct Contributor',
         attendanceStats: { totalBooked: 3, completedCount: 3, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
-        id: 'p_new_clean_12', name: 'Pillboi', firstName: 'Pillboi', surname: '', dob: '1999-03-03', age: 25, sex: 'Male', phone: '0945-444-6666', email: 'pillboi@thegood.place', lastVisit: 'First Visit', nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_new_clean_12', name: 'Pillboi', firstName: 'Pillboi', surname: '', dob: '1999-03-03', sex: 'Male', phone: '0945-444-6666', email: 'pillboi@thegood.place', lastVisit: 'First Visit', nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         registrationStatus: RegistrationStatus.PROVISIONAL,
     },
     {
-        id: 'p_full_perio_02', name: 'Sofia Reyes', firstName: 'Sofia', surname: 'Reyes', dob: '1991-04-10', age: 33, sex: 'Female', phone: '0919-987-6543', email: 'sofia.r@example.com', lastVisit: getPastDateStr(10), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        id: 'p_full_perio_02', name: 'Sofia Reyes', firstName: 'Sofia', surname: 'Reyes', dob: '1991-04-10', sex: 'Female', phone: '0919-987-6543', email: 'sofia.r@example.com', lastVisit: getPastDateStr(10), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         perioChart: [
             { toothNumber: 18, date: getPastDateStr(180), pocketDepths: [3,2,3,3,2,3], recession: [1,1,1,1,1,1], bleeding: [false,true,false,false,true,false], mobility: 0 },
@@ -1052,202 +1212,54 @@ export const APPOINTMENTS: Appointment[] = [
     // Past appointments
     { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
     { id: 'apt_past_02', patientId: 'p_unreliable_08', providerId: 'doc2', branch: 'Quezon City Satellite', date: getPastDateStr(30), time: '13:00', durationMinutes: 60, type: 'Composite Restoration (1 Surface)', status: AppointmentStatus.NO_SHOW },
-    { id: 'apt_past_03', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(7), time: '09:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.COMPLETED, recurrenceRule: 'weekly' },
-
+    // A cancelled appointment
+    { id: 'apt_past_03', patientId: 'p_reliable_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(15), time: '10:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CANCELLED, cancellationReason: 'Patient called to reschedule' },
     // Future appointments
-    { id: 'apt_future_01', patientId: 'p_plan_06', providerId: 'doc2', branch: 'Quezon City Satellite', date: getFutureDateStr(7), time: '10:00', durationMinutes: 60, type: 'Composite Restoration (2 Surfaces)', status: AppointmentStatus.SCHEDULED },
-    { id: 'apt_future_02', patientId: 'p_hmo_11', providerId: 'doc1', branch: 'Makati Main', date: getFutureDateStr(14), time: '16:00', durationMinutes: 60, type: 'Oral Prophylaxis (Light/Routine Cleaning)', status: AppointmentStatus.SCHEDULED },
-    
-    // Block time
-    { id: 'apt_block_01', patientId: 'ADMIN_BLOCK', providerId: 'doc1', branch: 'Makati Main', date: getTodayStr(), time: '12:00', durationMinutes: 60, type: 'Clinical Block', isBlock: true, title: 'Staff Lunch', status: AppointmentStatus.SCHEDULED }
+    { id: 'apt_future_01', patientId: 'p_plan_06', providerId: 'doc2', branch: 'Quezon City Satellite', date: getFutureDateStr(30), time: '10:00', durationMinutes: 60, type: 'Composite Restoration (2 Surfaces)', status: AppointmentStatus.CONFIRMED, planId: 'tp_janet' },
+    { id: 'apt_future_02', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getFutureDateStr(1), time: '10:00', durationMinutes: 30, type: 'Follow-up Check', status: AppointmentStatus.SCHEDULED },
+    // Admin blocks
+    { id: 'apt_block_01', patientId: 'ADMIN_BLOCK', providerId: 'doc1', branch: 'Makati Main', date: getTodayStr(), time: '12:00', durationMinutes: 60, type: 'Meeting', title: 'Staff Meeting', isBlock: true, status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_block_02', patientId: 'ADMIN_BLOCK', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '12:00', durationMinutes: 30, type: 'Lunch', title: 'Lunch Break', isBlock: true, status: AppointmentStatus.SCHEDULED },
 ];
 
-export const MOCK_WAITLIST: WaitlistEntry[] = [
-    { id: 'wl_1', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Restoration', durationMinutes: 60, priority: 'High', notes: 'Flexible anytime AM' },
-    { id: 'wl_2', patientId: 'p_surg_04', patientName: 'Juan Dela Cruz', procedure: 'Extraction', durationMinutes: 30, priority: 'Normal', notes: 'Prefer afternoons' },
-    { id: 'wl_3', patientId: 'p_full_perio_02', patientName: 'Sofia Reyes', procedure: 'Cleaning', durationMinutes: 45, priority: 'Low', notes: 'Short notice ok' },
-    { id: 'wl_4', patientId: 'p_debt_09', patientName: 'Ronnie Runner', procedure: 'Root Canal', durationMinutes: 60, priority: 'High', notes: 'Emergency opening requested' },
+
+export const DEFAULT_PROCEDURES: ProcedureItem[] = [
+  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30 },
+  { id: 'proc_prophy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Preventive', defaultDurationMinutes: 60 },
+  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Preventive', defaultDurationMinutes: 15 },
+  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45 },
+  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60 },
+  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30 },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 90 },
+  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60 },
+  { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10 },
 ];
 
-export const MOCK_CLAIMS: HMOClaim[] = [
-    { id: 'claim_1', patientId: 'p_heavy_01', ledgerEntryId: 'l1', hmoProvider: 'Maxicare', procedureName: 'Composite Restoration (1 Surface)', amountClaimed: 1500, status: HMOClaimStatus.SUBMITTED, dateSubmitted: getPastDateStr(1) },
-    { id: 'claim_2', patientId: 'p_hmo_11', ledgerEntryId: 'l_hmo_1', hmoProvider: 'Intellicare', procedureName: 'Oral Prophylaxis (Light/Routine)', amountClaimed: 1200, status: HMOClaimStatus.PENDING }
-];
-
-export const MOCK_STOCK: StockItem[] = [
-    { id: 'stk_1', name: 'Anesthetic Carpules', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 20, expiryDate: getFutureDateStr(60), branch: 'Makati Main' },
-    { id: 'stk_2', name: 'Composite Resin (A2)', category: StockCategory.RESTORATIVE, quantity: 15, lowStockThreshold: 10, expiryDate: getFutureDateStr(180), branch: 'Makati Main' },
-    { id: 'stk_3', name: 'Examination Gloves (Box)', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, branch: 'Quezon City Satellite' }
-];
-
-export const MOCK_RESOURCES: ClinicResource[] = [
-    { id: 'res_chair_01', name: 'Operatory Chair A', type: ResourceType.CHAIR, branch: 'Makati Main', colorCode: '#14b8a6' },
-    { id: 'res_chair_02', name: 'Operatory Chair B (Surg)', type: ResourceType.CHAIR, branch: 'Makati Main', colorCode: '#c026d3' },
-    { id: 'res_xray_01', name: 'Imaging Suite 1', type: ResourceType.XRAY, branch: 'Makati Main', colorCode: '#3b82f6' },
-    { id: 'res_qc_chair_1', name: 'QC Chair 1', type: ResourceType.CHAIR, branch: 'Quezon City Satellite', colorCode: '#14b8a6' },
-];
-
-export const MOCK_ASSETS: MaintenanceAsset[] = [
-    { id: 'ast_1', name: 'Autoclave unit 01', brand: 'W&H', serialNumber: 'WH-88912-A', lastService: getPastDateStr(45), frequencyMonths: 6, status: 'Ready', branch: 'Makati Main' },
-    { id: 'ast_2', name: 'Intraoral Scanner', brand: 'iTero', serialNumber: 'IT-552-XP', lastService: getPastDateStr(180), frequencyMonths: 12, status: 'Service Due', branch: 'Makati Main' }
-];
-
-export const MOCK_INSTRUMENT_SETS: InstrumentSet[] = [
-    { id: 'set_alpha_1', name: 'Surgery Set Alpha', status: 'Sterile', branch: 'Makati Main' },
-    { id: 'set_prophy_1', name: 'Prophy Set A', status: 'Used', branch: 'Makati Main' },
-    { id: 'set_qc_basic_1', name: 'QC Basic Kit 1', status: 'Contaminated', branch: 'Quezon City Satellite' }
-];
-
-export const MOCK_STERILIZATION_CYCLES: SterilizationCycle[] = [
-    { id: 'cycle_001', date: getPastDateStr(1), autoclaveName: 'Autoclave 1', cycleNumber: '2024-05-20-01', operator: 'Asst. Sarah', passed: true, instrumentSetIds: ['set_alpha_1'] }
-];
-
-export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = MOCK_STERILIZATION_CYCLES;
-
-export const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp_1', date: getPastDateStr(1), category: 'Lab Fee', description: 'Crown for M. Scott', amount: 4000, branch: 'Makati Main', staffId: 'doc1' },
-    { id: 'exp_2', date: getPastDateStr(5), category: 'Dental Supplies (Consumables)', description: 'Order #4552 from Supplier', amount: 8500, branch: 'Makati Main', receiptNumber: 'OR-12345', supplierTIN: '123-456-789-000' }
-];
-
-export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
-    { id: 'al1', timestamp: new Date().toISOString(), userId: 'admin1', userName: 'Sarah Connor', action: 'LOGIN', entity: 'System', entityId: 'System', details: 'System Initialized.' }
-];
-
-export const MOCK_AUDIT_LOG_INITIALIZED: AuditLogEntry[] = MOCK_AUDIT_LOG;
-
-export const MOCK_VENDORS: Vendor[] = [
-    { id: 'v1', name: 'Precision Dental Lab', type: 'Lab', contactPerson: 'John Smith', contactNumber: '0917-123-4567', email: 'orders@precisionlab.ph', status: 'Active', dsaSignedDate: getPastDateStr(365), dsaExpiryDate: getFutureDateStr(365) },
-    { id: 'v2', name: 'Intellicare', type: 'HMO', contactPerson: 'Jane Doe', contactNumber: '0918-987-6543', email: 'claims@intellicare.com.ph', status: 'Active', priceBookId: 'pb_hmo_1' }
-];
-
-const DEFAULT_SMS: SmsTemplates = {
-    // Onboarding & Patient Management
-    welcome: { id: 'welcome', label: 'Welcome to Practice', text: 'Welcome to {ClinicName}, {PatientName}! Your digital health record is now active.', enabled: true, category: 'Onboarding', triggerDescription: 'New patient registration.' },
-    update_registration: { id: 'update_registration', label: 'Registration Updated', text: 'Hi {PatientName}, we have successfully updated your patient profile and medical records. Thank you for keeping your data current.', enabled: true, category: 'Efficiency', triggerDescription: 'Existing patient data update.' },
-    yearly_data_verification: { id: 'yearly_data_verification', label: 'Yearly Data Verification', text: 'Hi {PatientName}, to ensure compliance with the Data Privacy Act, please tap this link to quickly verify or update your medical and personal information for the year: {Link}', enabled: true, category: 'Security', triggerDescription: 'Annual patient data verification request.' },
-    
-    // Appointments & Scheduling
-    booking: { id: 'booking', label: 'Booking Confirmation', text: 'Confirmed: {Procedure} on {Date} @ {Time} with {Doctor}.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment scheduled.' },
-    appointment_reminder_24h: { id: 'appointment_reminder_24h', label: '24-Hour Reminder', text: 'Hi {PatientName}, this is a friendly reminder for your appointment tomorrow, {Date}, at {Time} with {Doctor}. If you need to reschedule, please call our clinic.', enabled: true, category: 'Logistics', triggerDescription: '24 hours before a scheduled appointment.' },
-    reschedule: { id: 'reschedule', label: 'Reschedule Alert', text: 'Your session has been moved. New Slot: {Date} @ {Time}. See you then!', enabled: true, category: 'Logistics', triggerDescription: 'Appointment date/time changed.' },
-    cancellation: { id: 'cancellation', label: 'Cancellation Confirmation', text: 'Your appointment for {Date} has been cancelled. We look forward to seeing you in the future.', enabled: true, category: 'Logistics', triggerDescription: 'Appointment status set to Cancelled.' },
-    clinic_late: { id: 'clinic_late', label: 'Clinic Running Late', text: 'Hi {PatientName}, we are running slightly behind schedule at {ClinicName} today. We apologize for any inconvenience and appreciate your patience.', enabled: false, category: 'Logistics', triggerDescription: 'Manual trigger by front-desk for delays.' },
-    ready_to_seat: { id: 'ready_to_seat', label: 'Ready to be Seated', text: 'Hi {PatientName}, we\'re ready for you! Please proceed to the reception desk to be seated for your appointment.', enabled: false, category: 'Logistics', triggerDescription: 'When patient is next in line from waiting room.' },
-    missed_appointment: { id: 'missed_appointment', label: 'Missed Appointment', text: 'We missed you at your appointment today at {ClinicName}. Please call us at your earliest convenience to reschedule.', enabled: true, category: 'Logistics', triggerDescription: 'When appointment is marked as No-Show.' },
-    waitlist_confirmation: { id: 'waitlist_confirmation', label: 'Waitlist Confirmation', text: 'You have been added to the waitlist at {ClinicName} for {Procedure}. We will notify you as soon as a slot that matches your preference becomes available.', enabled: true, category: 'Logistics', triggerDescription: 'Patient is added to the waitlist.' },
-    waitlist_opening: { id: 'waitlist_opening', label: 'Waitlist Opening', text: 'Good news! A slot for {Procedure} has opened up at {ClinicName} on {Date} at {Time}. Please call us within the next hour if you would like to claim this appointment.', enabled: true, category: 'Logistics', triggerDescription: 'A suitable slot opens up for a waitlisted patient.' },
-    
-    // Clinical & Treatment
-    treatment_signed: { id: 'treatment_signed', label: 'Clinical Note Receipt', text: 'Clinical Record Sealed: Your signature has been bound to today\'s session record for {Procedure}.', enabled: true, category: 'Safety', triggerDescription: 'Patient signs a clinical note.' },
-    followup_1w: { id: 'followup_1w', label: '7-Day Post-Op Check', text: 'Hi {PatientName}, it has been a week since your {Procedure}. We hope you are healing well! Please call our clinic if you have any discomfort.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-week follow-up after signed treatment.' },
-    followup_1m: { id: 'followup_1m', label: '1-Month Wellness Check', text: 'Checking in: It has been a month since your {Procedure}. Don\'t forget to maintain good hygiene for lasting results!', enabled: true, category: 'Recovery', triggerDescription: 'Automated 1-month follow-up.' },
-    followup_3m: { id: 'followup_3m', label: '3-Month Recall Preparation', text: 'Time flies! It has been 3 months since your last major procedure. We recommend a cleaning soon to protect your investment.', enabled: true, category: 'Recovery', triggerDescription: 'Automated 3-month follow-up.' },
-    medical_clearance: { id: 'medical_clearance', label: 'Medical Clearance Request', text: 'Action Required: Your dentist requests medical clearance from your {Provider} specialist for your upcoming procedure.', enabled: true, category: 'Safety', triggerDescription: 'Practitioner requests physician clearance.' },
-    lab_delay: { id: 'lab_delay', label: 'Laboratory Set Delay', text: 'Service Update: The lab set for your {Procedure} has been delayed. Please await further notice before visiting.', enabled: true, category: 'Logistics', triggerDescription: 'Lab status set to Delayed.' },
-    lab_received: { id: 'lab_received', label: 'Lab Case Received', text: 'Good news! Your lab work (e.g., crown, denture) for {Procedure} has arrived at {ClinicName}. Please call us to schedule your fitting appointment.', enabled: true, category: 'Logistics', triggerDescription: 'Lab case status is marked as Received.' },
-    new_prescription: { id: 'new_prescription', label: 'e-Prescription Issued', text: 'Your e-prescription from {Doctor} for {Medication} has been issued. Please check your email or pick up a printed copy at the clinic.', enabled: true, category: 'Safety', triggerDescription: 'An e-prescription is generated for the patient.' },
-    treatment_plan_review: { id: 'treatment_plan_review', label: 'Treatment Plan Ready', text: 'Hi {PatientName}, your proposed treatment plan is ready for your review. Please visit the clinic to discuss the details.', enabled: true, category: 'Efficiency', triggerDescription: 'A new treatment plan is created for the patient.' },
-
-    // Financial & Billing
-    philhealth_status: { id: 'philhealth_status', label: 'PhilHealth Claim Update', text: 'PhilHealth Update: Your claim for {Procedure} is now {Provider}.', enabled: true, category: 'Financial', triggerDescription: 'PhilHealth claim status transition.' },
-    hmo_claim_update: { id: 'hmo_claim_update', label: 'HMO Claim Update', text: 'HMO Update for {PatientName}: Your claim with {HMOProvider} for {Procedure} is now {Status}.', enabled: true, category: 'Financial', triggerDescription: 'HMO claim status is updated.' },
-    payment_receipt: { id: 'payment_receipt', label: 'Payment Receipt', text: 'Thank you for your payment of {Amount} to {ClinicName} on {Date}. Your new balance is {Balance}. OR #: {ORNumber}', enabled: true, category: 'Financial', triggerDescription: 'A payment is recorded in the patient ledger.' },
-    overdue_balance: { id: 'overdue_balance', label: 'Overdue Balance Reminder', text: 'Hi {PatientName}, a friendly reminder from {ClinicName} that you have an outstanding balance of {Balance}. Please contact us to settle your account.', enabled: true, category: 'Financial', triggerDescription: 'Patient has an overdue balance.' },
-    installment_due: { id: 'installment_due', label: 'Installment Due Reminder', text: 'Hi {PatientName}, your monthly installment of {Amount} for your treatment plan is due on {DueDate}. Thank you.', enabled: true, category: 'Financial', triggerDescription: 'An installment plan payment is due soon.' },
-    
-    // Reputation & Patient Engagement
-    referral_thanks: { id: 'referral_thanks', label: 'Referral Thank You', text: 'Thank you {PatientName}! We noticed you referred a new patient to our practice. We appreciate your trust!', enabled: true, category: 'Reputation', triggerDescription: 'New patient lists this patient as referral source.' },
-    recall_prophylaxis: { id: 'recall_prophylaxis', label: 'Recall/Prophylaxis Reminder', text: 'Hi {PatientName}, it\'s time for your regular 6-month check-up and cleaning at {ClinicName}. Maintaining your oral health is key! Call us to book your visit.', enabled: true, category: 'Reputation', triggerDescription: 'Patient is due for their 6-month recall.' },
-    post_visit_feedback: { id: 'post_visit_feedback', label: 'Post-Visit Feedback', text: 'Thank you for visiting {ClinicName} today. We\'d love to hear about your experience! Please take a moment to leave us a review: {Link}', enabled: true, category: 'Reputation', triggerDescription: 'Sent after an appointment is completed.' },
-    birthday_greeting: { id: 'birthday_greeting', label: 'Birthday Greeting', text: 'The team at {ClinicName} wishes you a very happy birthday, {PatientName}! We hope you have a fantastic day.', enabled: true, category: 'Reputation', triggerDescription: 'On the patient\'s birthday.' },
+export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
+    'appointment_reminder': { id: 'appointment_reminder', label: 'Appointment Reminder', text: 'Hi {PatientName}, this is a reminder for your appointment at {ClinicName} on {Date} at {Time}. Please reply YES to confirm or call us to reschedule.', enabled: true, category: 'Logistics', triggerDescription: '24 hours before a scheduled appointment' },
+    'post_op_checkin': { id: 'post_op_checkin', label: 'Post-Op Check-in', text: 'Hi {PatientName}, this is {ClinicName} checking in. We hope you are recovering well from your procedure. Please contact us if you have any concerns.', enabled: true, category: 'Recovery', triggerDescription: '24 hours after a surgical procedure' },
+    'recall_due': { id: 'recall_due', label: 'Recall Due', text: 'Hi {PatientName}, our records show you are due for your regular dental check-up at {ClinicName}. Please call us to book your next visit. Thank you!', enabled: true, category: 'Reputation', triggerDescription: 'When a patient\'s recall status becomes "Due"' },
+    'payment_receipt': { id: 'payment_receipt', label: 'Payment Receipt', text: 'Thank you for your payment of {Amount} at {ClinicName} on {Date}. Your new balance is {Balance}. Ref: {ORNumber}.', enabled: false, category: 'Financial', triggerDescription: 'After a payment with an official receipt is recorded' },
 };
 
-const DEFAULT_SMS_CONFIG: SmsConfig = {
-    mode: 'LOCAL',
-    isPollingEnabled: false,
-
-    // Local server config
-    gatewayUrl: '192.168.1.188:8080',
-    publicAddress: '175.158.219.112:8080',
-    local_username: 'sms',
-    local_password: '9EWSEOt4',
-    local_deviceId: '00000000768614ef0000019a',
-
-    // Cloud server config
-    cloudUrl: 'api.sms-gate.app:443',
-    cloud_username: 'CSAAHI',
-    cloud_password: 'ypcsxllu442tha',
-    cloud_deviceId: 'obd9qcsflj8YkCkPgbxDS'
-};
-
-// Fix: Explicitly type as ProcedureItem[] to ensure type compatibility.
-const DEFAULT_PROCEDURES: ProcedureItem[] = [
-    // I. Diags & Prev
-    { id: 'proc_01', name: 'Initial Consultation & Examination', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_02', name: 'Digital Periapical X-Ray (per shot)', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_03', name: 'Panoramic X-Ray (OPG)', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_04', name: 'Cephalometric X-Ray', category: 'Diags & Prev', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_05', name: 'Oral Prophylaxis (Light/Routine Cleaning)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_06', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_07', name: 'Topical Fluoride Application', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
-    { id: 'proc_08', name: 'Pit and Fissure Sealant (per tooth)', category: 'Diags & Prev', allowedLicenseCategories: ['DENTIST'] },
-
-    // II. Restorative
-    { id: 'proc_09', name: 'Composite Restoration (1 Surface)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_10', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_11', name: 'Composite Restoration (3+ Surfaces/Build-up)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_12', name: 'Temporary Filling (IRM/GIC)', category: 'Restorative', allowedLicenseCategories: ['DENTIST'] },
-    
-    // III. Endodontics
-    { id: 'proc_13', name: 'Root Canal Treatment (Anterior Tooth)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_14', name: 'Root Canal Treatment (Premolar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_15', name: 'Root Canal Treatment (Molar)', category: 'Endodontics', requiresXray: true, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-
-    // IV. Periodontics
-    { id: 'proc_16', name: 'Deep Scaling & Root Planing (per quadrant)', category: 'Periodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_17', name: 'Gingivectomy (per quadrant)', category: 'Periodontics', requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_18', name: 'Frenectomy (Lingual or Labial)', category: 'Periodontics', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    
-    // V. Prosthodontics
-    { id: 'proc_19', name: 'PFM (Porcelain Fused to Metal) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_20', name: 'IPS E.max (All-Porcelain) Crown', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_21', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_22', name: 'Porcelain Veneer', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_23', name: 'Fixed Bridge (per unit)', category: 'Prosthodontics', requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_24', name: 'Full Denture (Acrylic, per arch)', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_25', name: 'Partial Denture (Flexible, Valplast)', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_26', name: 'Denture Repair / Relining', category: 'Prosthodontics', allowedLicenseCategories: ['DENTIST'] },
-    
-    // VI. Oral Surgery
-    { id: 'proc_27', name: 'Simple Extraction (Erupted Tooth)', category: 'Oral Surgery', requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_28', name: 'Complicated Extraction (Requires sectioning)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_29', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Oral Surgery', requiresXray: true, requiresConsent: true, requiresWitness: true, allowedLicenseCategories: ['DENTIST'] },
-    
-    // VII. Orthodontics
-    { id: 'proc_30', name: 'Comprehensive Orthodontic Treatment (Braces Package)', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_31', name: 'Monthly Orthodontic Adjustment', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_32', name: 'Hawley/Essix Retainers (per arch)', category: 'Orthodontics', allowedLicenseCategories: ['DENTIST'] },
-    
-    // VIII. Cosmetic
-    { id: 'proc_33', name: 'In-Office Teeth Whitening', category: 'Cosmetic', allowedLicenseCategories: ['DENTIST'] },
-    { id: 'proc_34', name: 'Take-Home Whitening Kit', category: 'Cosmetic', allowedLicenseCategories: ['DENTIST'] }
-];
-
-export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
-  clinicName: 'Ivory Dental Office',
-  clinicProfile: 'boutique',
+// --- DEFAULT SETTINGS ---
+// Fix: Export DEFAULT_SETTINGS constant to make it available for other modules.
+export const DEFAULT_SETTINGS: FieldSettings = {
+  clinicName: 'dentsched',
+  clinicProfile: 'corporate',
   strictMode: true,
-  editBufferWindowMinutes: 60,
-  suffixes: ['Mr', 'Ms', 'Mrs', 'Dr', 'Jr', 'Sr', 'III'],
+  editBufferWindowMinutes: 5,
+  sessionTimeoutMinutes: 30,
+  suffixes: ['Jr.', 'Sr.', 'II', 'III', 'IV'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated'],
   sex: ['Male', 'Female'],
-  insuranceProviders: ['Maxicare', 'Intellicare', 'PhilHealth', 'Medicard'],
-  bloodGroups: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-  nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'British'],
-  religions: ['None', 'Roman Catholic', 'Christian', 'Islam', 'Iglesia ni Cristo'],
-  relationshipTypes: ['Mother', 'Father', 'Legal Guardian', 'Spouse', 'Self'],
-  habitRegistry: ['Tobacco Use', 'Alcohol Consumption', 'Vaping', 'Bruxism'],
-  documentCategories: ['X-Ray', 'Medical Clearance', 'Lab Result', 'Consent Form'],
+  insuranceProviders: ['Maxicare', 'Intellicare', 'Medicard', 'PhilCare'],
+  bloodGroups: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'Korean'],
+  religions: ['Roman Catholic', 'Christian', 'Muslim', 'Iglesia ni Cristo', 'Other'],
+  relationshipTypes: ['Parent', 'Spouse', 'Sibling', 'Guardian', 'Other'],
+  habitRegistry: ['Smoking', 'Vaping', 'Alcohol Consumption', 'Betel Nut Chewing', 'Bruxism'],
+  documentCategories: ['Medical Clearance', 'Imaging Results', 'Informed Consent', 'Insurance Documents', 'PWD Certificate'],
   allergies: ['None', 'Local Anesthetic (ex. Lidocaine)', 'Penicillin', 'Antibiotics', 'Sulfa drugs', 'Aspirin', 'Latex'],
   medicalConditions: [
     'High Blood Pressure', 'Low Blood Pressure', 'Epilepsy / Convulsions', 
@@ -1260,64 +1272,21 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
     'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
   ],
-  // DEFAULT DYNAMIC REGISTRIES
-  identityFields: [
-    { id: 'isPwd', label: 'Is the patient a Person with Disability (PWD)?', type: 'boolean', section: 'IDENTITY', width: 'full' },
-    { id: 'nickname', label: 'Nickname', type: 'text', section: 'IDENTITY', width: 'half' },
-    { id: 'religion', label: 'Religion', type: 'dropdown', section: 'IDENTITY', registryKey: 'religions', width: 'half' },
-    { id: 'nationality', label: 'Nationality', type: 'dropdown', section: 'IDENTITY', registryKey: 'nationalities', width: 'half' },
-    { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', width: 'half' },
-    { id: 'homeNumber', label: 'Home Num', type: 'tel', section: 'CONTACT', width: 'third' },
-    { id: 'officeNumber', label: 'Office Num', type: 'tel', section: 'CONTACT', width: 'third' },
-    { id: 'faxNumber', label: 'Fax Num', type: 'tel', section: 'CONTACT', width: 'third' },
-    { id: 'dentalInsurance', label: 'Dental Insurance', type: 'text', section: 'INSURANCE', width: 'half' },
-    { id: 'insuranceEffectiveDate', label: 'Insurance Effective Date', type: 'date', section: 'INSURANCE', width: 'half' },
-    { id: 'chiefComplaint', label: 'Reason for dental consultation', type: 'textarea', section: 'DENTAL', width: 'full' },
-    { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', width: 'half' },
-    { id: 'lastDentalVisit', label: 'Last Dental Visit', type: 'date', section: 'DENTAL', width: 'half' },
-  ],
-  fieldLabels: {
-      firstName: 'First Name',
-      middleName: 'Middle Name',
-      surname: 'Surname',
-      suffix: 'Suffix',
-      dob: 'Birth Date',
-      age: 'Age',
-      sex: 'Sex',
-      civilStatus: 'Civil Status',
-      bloodGroup: 'Blood Type',
-      homeAddress: 'Home Address',
-      city: 'City',
-      barangay: 'Barangay',
-      phone: 'Cel/Mobile No.',
-      email: 'Email Add.',
-      homeNumber: 'Home Num',
-      officeNumber: 'Office Num',
-      faxNumber: 'Fax Num'
-  },
+  identityFields: [],
+  fieldLabels: {},
   identityLayoutOrder: [
-      'core_firstName', 'core_middleName', 'core_surname', 'core_suffix',
-      'core_dob', 'core_age', 'core_sex', 'core_civilStatus', 'field_isPwd',
-      'field_nickname', 'field_religion', 'field_nationality', 'field_occupation',
-      'core_homeAddress', 'core_city', 'core_barangay',
-      'field_homeNumber', 'field_officeNumber', 'field_faxNumber', 'core_phone', 'core_email',
-      'field_dentalInsurance', 'field_insuranceEffectiveDate',
-      'field_chiefComplaint',
-      'field_previousDentist', 'field_lastDentalVisit'
+      'core_firstName', 'core_middleName', 'core_surname',
+      'core_suffix', 'core_dob', 'core_age', 'core_sex', 'core_civilStatus',
+      'core_homeAddress', 'core_barangay', 'core_city',
+      'core_phone', 'core_email'
   ],
   medicalLayoutOrder: [
-      'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
       'Are you in good health?',
       'Are you under medical treatment now?*',
       'Have you ever had serious illness or surgical operation?*',
       'Have you ever been hospitalized?*',
       'Are you taking any prescription/non-prescription medication?*',
-      'Do you use tobacco products?',
-      'Do you use alcohol, cocaine or other dangerous drugs?',
-      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
-      'Taking Bisphosphonates? (Fosamax, Zometa)',
-      'core_bloodGroup', 'core_bloodPressure',
-      'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex', 'field_otherAllergies'
+      'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex',
   ],
   identityQuestionRegistry: [
     'Are you in good health?',
@@ -1327,119 +1296,56 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
     'Are you taking any prescription/non-prescription medication?*',
     'Do you use tobacco products?',
     'Do you use alcohol, cocaine or other dangerous drugs?',
-    'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
-    'Taking Bisphosphonates? (Fosamax, Zometa)'
   ],
   femaleQuestionRegistry: [
-    'Are you pregnant?',
-    'Are you nursing?',
-    'Are you taking birth control pills?'
+      'Are you pregnant?',
+      'Are you nursing?',
+      'Are you taking birth control pills?'
   ],
-  medicalRiskRegistry: [],
-  dentalHistoryRegistry: [
-    'Previous Attending Dentist',
-    'Approximate Date of Last Visit'
+  medicalRiskRegistry: [
+      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+      'Taking Bisphosphonates? (Fosamax, Zometa)',
   ],
+  dentalHistoryRegistry: [],
   criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
-  medications: [
-      { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: '1 capsule every 8 hours for 7 days', contraindicatedAllergies: ['Penicillin'] },
-      { id: 'm2', genericName: 'Clindamycin', brandName: 'Dalacin C', dosage: '300mg', instructions: '1 capsule every 8 hours for 5 days' },
-      { id: 'm3', genericName: 'Co-Amoxiclav', brandName: 'Augmentin', dosage: '625mg', instructions: '1 tablet every 12 hours for 7 days', contraindicatedAllergies: ['Penicillin'] },
-      { id: 'm4', genericName: 'Mefenamic Acid', brandName: 'Ponstan', dosage: '500mg', instructions: '1 capsule every 8 hours as needed for pain' },
-      { id: 'm5', genericName: 'Ibuprofen', brandName: 'Advil', dosage: '400mg', instructions: '1 tablet every 6 hours as needed for pain', interactions: ['Warfarin', 'Aspirin'] },
-      { id: 'm6', genericName: 'Celecoxib', brandName: 'Celebrex', dosage: '200mg', instructions: '1 capsule every 12 hours for 3 to 5 days', interactions: ['Warfarin'] },
-      { id: 'm7', genericName: 'Paracetamol', brandName: 'Biogesic', dosage: '500mg', instructions: '1-2 tablets every 4 hours for fever/mild pain' },
-      { id: 'm8', genericName: 'Chlorhexidine Gluconate', brandName: 'Orahex', dosage: '0.12%', instructions: 'Swish 15ml for 30 seconds twice daily' },
-      { id: 'm9', genericName: 'Tranexamic Acid', brandName: 'Hemostan', dosage: '500mg', instructions: '1 capsule every 8 hours (for bleeding control)' }
-  ],
-  shadeGuides: [
-      'A1', 'A2', 'A3', 'A3.5', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'D2', 'D3', 'D4',
-      '1M1', '1M2', '2M1', '2M2', '2M3', '3M1', '3M2', '3M3', '4M1', '4M2', '4M3', '5M1', '5M2', '5M3',
-      'BL1', 'BL2', 'BL3', 'BL4', 'Chromascop System'
-  ],
-  restorativeMaterials: [
-      'Composite (Light-Cure Micro-Hybrid)',
-      'Glass Ionomer Cement (GIC Type IX)',
-      'Zirconia (Multi-layered/High Translucency)',
-      'IPS e.max (Lithium Disilicate)',
-      'PFM (Non-Precious/Semi-Precious)',
-      'Acrylic Resin (Heat-Cured)',
-      'Flexible Denture Material (Valplast)'
-  ],
-  permissions: {
-      [UserRole.ADMIN]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true },
-      [UserRole.DENTIST]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      [UserRole.DENTAL_ASSISTANT]: { canVoidNotes: false, canEditFinancials: false, canDeletePatients: false, canOverrideProtocols: false, canOverrideMandatoryMedical: false, canManageInventory: true },
-      [UserRole.SYSTEM_ARCHITECT]: { canVoidNotes: true, canEditFinancials: true, canDeletePatients: true, canOverrideProtocols: true, canOverrideMandatoryMedical: true, canManageInventory: true, canOverrideClinicalSafety: true }
-  },
-  currentPrivacyVersion: '1.0',
-  acknowledgedAlertIds: [],
-  retentionPolicy: { archivalYears: 10, purgeYears: 15 },
-  kioskSettings: {
-    welcomeMessage: 'Welcome to Ivory Dental. Please use this terminal to manage your patient record securely.',
-    privacyNotice: 'Your data is protected under RA 10173. All entries are logged for security.'
-  },
-  instrumentSets: MOCK_INSTRUMENT_SETS,
-  stockItems: MOCK_STOCK,
-  payrollAdjustmentTemplates: [
-      { id: 'adj1', label: 'Performance Bonus', type: 'Credit', category: 'Incentives' },
-      { id: 'adj2', label: 'Lab Fee Reimbursement', type: 'Credit', category: 'Operational' },
-      { id: 'adj3', label: 'Referral Incentive', type: 'Credit', category: 'Incentives' },
-      { id: 'adj4', label: 'Continuing Education Subsidy', type: 'Credit', category: 'Incentives' },
-      { id: 'adj5', label: 'Late Penalty', type: 'Debit', category: 'Attendance' },
-      { id: 'adj6', label: 'Material Waste Charge', type: 'Debit', category: 'Operational' },
-      { id: 'adj7', label: 'Statutory SSS/PhilHealth/Pag-IBIG', type: 'Debit', category: 'Statutory' },
-      { id: 'adj8', label: 'Withholding Tax (10%)', type: 'Debit', category: 'Statutory', defaultAmount: 0.10 }
-  ],
-  expenseCategories: [
-      'Dental Supplies (Consumables)',
-      'Laboratory Fees (External)',
-      'Medical Waste Disposal',
-      'Equipment Maintenance',
-      'Rent & Utilities',
-      'Marketing & Advertising',
-      'Software Subscriptions',
-      'Staff Salaries & Benefits'
-  ],
-  branches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
+  medications: [],
+  shadeGuides: ['Vita Classical', 'Vita 3D Master'],
+  restorativeMaterials: ['Composite', 'Amalgam', 'Glass Ionomer', 'Zirconia', 'EMax'],
+  branches: ['Makati Main', 'Quezon City Satellite'],
   branchProfiles: MOCK_BRANCH_PROFILES,
   documentTemplates: DEFAULT_DOCUMENT_TEMPLATES,
   communicationTemplates: DEFAULT_COMMUNICATION_TEMPLATES,
-  branchColors: {
-    'Makati Main': '#0d9488', // teal-600
-    'Quezon City Satellite': '#86198f', // lilac-700
-    'BGC Premium': '#fbbf24', // amber-400
-    'Alabang South': '#dc2626' // red-600
-  },
-  resources: MOCK_RESOURCES,
-  assets: MOCK_ASSETS,
-  vendors: MOCK_VENDORS,
-  hospitalAffiliations: [
-      { id: 'h1', name: 'St. Lukes Medical Center', location: 'Global City', hotline: '02-8789-7700' },
-      { id: 'h2', name: 'Makati Medical Center', location: 'Makati', hotline: '02-8888-8999' }
+  resources: [
+      { id: 'res_chair_01', name: 'Chair 1', type: ResourceType.CHAIR, branch: 'Makati Main' },
+      { id: 'res_chair_02', name: 'Chair 2', type: ResourceType.CHAIR, branch: 'Makati Main' },
+      { id: 'res_chair_qc_01', name: 'QC Chair 1', type: ResourceType.CHAIR, branch: 'Quezon City Satellite' },
+      { id: 'res_xray_01', name: 'Imaging Room', type: ResourceType.XRAY, branch: 'Makati Main' },
   ],
-  smsTemplates: DEFAULT_SMS,
-  smsConfig: DEFAULT_SMS_CONFIG,
+  assets: [],
+  vendors: [
+      { id: 'v1', name: 'Ceramix Dental Lab', type: 'Lab', contactPerson: 'John Lab', contactNumber: '0917-111-2222', email: 'lab@ceramix.ph', status: 'Active' },
+      { id: 'v2', name: 'Global Dental Supplies', type: 'Supplier', contactPerson: 'Jane Supplier', contactNumber: '0917-333-4444', email: 'sales@globaldental.ph', status: 'Active' },
+  ],
+  hospitalAffiliations: [],
+  smsTemplates: DEFAULT_SMS_TEMPLATES,
+  smsConfig: {
+      mode: 'LOCAL',
+      isPollingEnabled: false,
+      gatewayUrl: 'http://192.168.1.100:8080'
+  },
   consentFormTemplates: DEFAULT_CONSENT_FORM_TEMPLATES,
-  smartPhrases: [
-      { id: 'sp1', label: 'Routine Checkup', s: 'Patient in for routine prophylaxis. No acute pain.', o: 'No significant findings on visual examination. Plaque and calculus present on posterior teeth.', a: 'Generalized gingivitis.', p: 'Performed oral prophylaxis. Provided oral hygiene instructions.' },
-      { id: 'sp2', label: 'Simple Restoration', s: 'Patient reports sensitivity on upper right quadrant.', o: 'Visual inspection reveals caries on tooth #16 occlusal surface.', a: 'Occlusal caries, tooth #16.', p: 'Administered local anesthesia. Placed composite restoration on #16-O. Advised patient on post-op sensitivity.' }
-  ],
-  paymentModes: ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Credit Card', 'HMO Direct Payout', 'Check'],
-  taxConfig: {
-    vatRate: 12,
-    withholdingRate: 10,
-    nextOrNumber: 1001,
-  },
-  features: {
+  smartPhrases: [],
+  paymentModes: ['Cash', 'Credit Card', 'GCash', 'Bank Transfer'],
+  taxConfig: { vatRate: 12, withholdingRate: 5, nextOrNumber: 1001 },
+  features: { 
       enableLabTracking: true,
       enableComplianceAudit: true,
       enableMultiBranch: true,
       enableDentalAssistantFlow: true,
       enableHMOClaims: true,
       enableInventory: true,
-      inventoryComplexity: 'SIMPLE',
+      inventoryComplexity: 'ADVANCED',
       enableAnalytics: true,
       enableDigitalConsent: true,
       enableAutomatedRecall: true,
@@ -1447,48 +1353,39 @@ export const DEFAULT_FIELD_SETTINGS: FieldSettings = {
       enableEPrescription: true,
       enableAdvancedPermissions: true,
       enablePhilHealthClaims: true,
-      enableLabPortal: true,
+      enableLabPortal: false,
       enableDocumentManagement: true,
       enableClinicalProtocolAlerts: true,
-      enableTreatmentPlanApprovals: true, 
+      enableTreatmentPlanApprovals: true,
       enableAccountabilityLog: true,
       enableReferralTracking: true,
-      enablePromotions: true,
+      enablePromotions: false,
       enableSmsAutomation: true,
-      enableMaterialTraceability: true, 
-      enableBirComplianceMode: false,
-      enableStatutoryBirTrack: true, 
+      enableMaterialTraceability: true,
+      enableBirComplianceMode: true,
+      enableStatutoryBirTrack: true,
       enableHmoInsuranceTrack: true,
       enableDigitalDocent: true,
   },
-  practitionerDelays: { 'doc1': 15 }, // For Gap 10
-  priceBooks: [
-      { id: 'pb_1', name: 'Standard Clinic Price', isDefault: true },
-      { id: 'pb_hmo_1', name: 'Intellicare HMO Rates' }
+  permissions: {},
+  currentPrivacyVersion: '1.2',
+  acknowledgedAlertIds: [],
+  retentionPolicy: { archivalYears: 10, purgeYears: 15 },
+  kioskSettings: { welcomeMessage: 'Welcome to our clinic!', privacyNotice: 'Your data is safe with us.'},
+  instrumentSets: [
+      { id: 'set1', name: 'Basic Exam Set', status: 'Sterile', branch: 'Makati Main' },
+      { id: 'set2', name: 'Surgical Set', status: 'Used', branch: 'Makati Main' },
   ],
-  priceBookEntries: [
-    ...DEFAULT_PROCEDURES.map(p => ({
-        priceBookId: 'pb_1',
-        procedureId: p.id,
-        price: Math.floor(Math.random() * 5000) + 1000 // Dummy prices for now
-    })),
-    ...DEFAULT_PROCEDURES.map(p => ({
-        priceBookId: 'pb_hmo_1',
-        procedureId: p.id,
-        price: Math.floor((Math.floor(Math.random() * 5000) + 1000) * 0.8) // 20% discount for HMO
-    }))
+  stockItems: [],
+  payrollAdjustmentTemplates: [
+      { id: 'adj1', label: 'Perfect Attendance Bonus', type: 'Credit', category: 'Incentives', defaultAmount: 500 },
+      { id: 'adj2', label: 'Tardiness Deduction', type: 'Debit', category: 'Attendance' },
   ],
+  expenseCategories: ['Office Supplies', 'Utilities', 'Lab Fees', 'Rent', 'Salaries'],
   familyGroups: [
-      { id: 'fam_scott_01', familyName: 'Scott-Schrute Family', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
+    { id: 'fam_scott_01', familyName: 'Scott-Schrute', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
   ],
   clinicalProtocolRules: [
-    { 
-        id: 'rule_surg_clearance', 
-        name: 'Surgical Clearance Protocol (PDA Rule 4)', 
-        triggerProcedureCategories: ['Oral Surgery'], 
-        requiresMedicalConditions: CRITICAL_CLEARANCE_CONDITIONS, 
-        requiresDocumentCategory: 'Medical Clearance', 
-        alertMessage: "REFERRAL HARD-STOP: Medical clearance is REQUIRED for a high-risk patient before any surgical procedure. No valid clearance found on file within the last 3 months."
-    }
+    { id: 'proto_bp', name: 'Hypertension Protocol', triggerProcedureCategories: ['Surgery'], requiresMedicalConditions: ['High Blood Pressure', 'High BP'], requiresDocumentCategory: 'Medical Clearance', alertMessage: 'Hypertension Protocol: Patient requires valid Medical Clearance for surgical procedures.' }
   ]
 };

@@ -6,6 +6,8 @@ import { useAppContext } from './AppContext';
 import { useModal } from './ModalContext';
 import { usePatient } from './PatientContext';
 import { useSettings } from './SettingsContext';
+// Fix: Import DataService to handle appointment data persistence.
+import { DataService } from '../services/dataService';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -30,19 +32,11 @@ const AppointmentContext = createContext<AppointmentContextType | undefined>(und
 
 export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
-    const { isOnline, logAction, currentUser } = useAppContext();
+    const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
     const { showModal } = useModal();
     const { patients } = usePatient();
     const { fieldSettings } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
-    const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
-
-     const isAuthorityLocked = useMemo(() => {
-        if (!currentUser || currentUser.status === 'Inactive') return true;
-        const isPrcExpired = currentUser.prcExpiry && new Date(currentUser.prcExpiry) < new Date();
-        const isMalpracticeExpired = currentUser.malpracticeExpiry && new Date(currentUser.malpracticeExpiry) < new Date();
-        return isPrcExpired || isMalpracticeExpired;
-    }, [currentUser]);
     
     const canManageAppointments = useMemo(() => {
         if (!currentUser) return false;
@@ -55,19 +49,22 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             
             const isNew = !appointments.some(a => a.id === appointmentData.id);
             const oldApt = isNew ? null : appointments.find(a => a.id === appointmentData.id);
-            const finalAppointment = { ...appointmentData, isPendingSync: !isOnline };
+            
+            if (!isOnline) {
+                const offlineApt = { ...appointmentData, isPendingSync: true };
+                setAppointments(prev => isNew ? [...prev, offlineApt] : prev.map(a => a.id === offlineApt.id ? offlineApt : a));
+                await enqueueAction(isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', offlineApt);
+                toast.info('Offline: Appointment saved locally.');
+                return;
+            }
+            
+            const finalAppointment = await DataService.saveAppointment(appointmentData);
 
             setAppointments(prev => isNew ? [...prev, finalAppointment] : prev.map(a => a.id === finalAppointment.id ? finalAppointment : a));
             
-            if (!isOnline) {
-                setOfflineQueue(prev => [...prev, { id: generateUid('sync'), action: isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', payload: finalAppointment, timestamp: new Date().toISOString() }]);
-                toast.info(`Offline: Appointment saved locally.`);
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                setAppointments(prev => prev.map(a => a.id === finalAppointment.id ? { ...a, isPendingSync: false } : a));
-                logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', finalAppointment.id, generateDiff(oldApt, finalAppointment));
-                toast.success(`Appointment saved.`);
-            }
+            logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', finalAppointment.id, generateDiff(oldApt, finalAppointment));
+            toast.success(`Appointment saved.`);
+
         } catch (e) {
             toast.error('Failed to save appointment.');
         }
@@ -122,21 +119,28 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error("Authorization Denied: You cannot move appointments.");
             return;
         }
-        try {
-            const aptToMove = appointments.find(a => a.id === appointmentId);
-            if (!aptToMove) throw new Error("Appointment not found");
-            const updatedApt = { ...aptToMove, date: newDate, time: newTime, providerId: newProviderId, resourceId: newResourceId, isPendingSync: !isOnline };
-            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedApt : apt));
+        
+        const aptToMove = appointments.find(a => a.id === appointmentId);
+        if (!aptToMove) {
+            toast.error("Appointment not found");
+            return;
+        }
 
-            if (!isOnline) {
-                setOfflineQueue(prev => [...prev, { id: generateUid('sync'), action: 'UPDATE_APPOINTMENT', payload: updatedApt, timestamp: new Date().toISOString() }]);
-                toast.info("Offline: Appointment move saved locally.");
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
-                toast.success("Appointment rescheduled.");
-                logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
-            }
+        const updatedApt = { ...aptToMove, date: newDate, time: newTime, providerId: newProviderId, resourceId: newResourceId };
+        
+        if (!isOnline) {
+            const offlineApt = { ...updatedApt, isPendingSync: true };
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
+            await enqueueAction('UPDATE_APPOINTMENT', offlineApt);
+            toast.info("Offline: Appointment move saved locally.");
+            return;
+        }
+
+        try {
+            await DataService.saveAppointment(updatedApt);
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
+            toast.success("Appointment rescheduled.");
+            logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
         } catch (e) {
             toast.error('Failed to move appointment.');
         }
@@ -147,19 +151,27 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error("Authorization Denied: You cannot update appointment status.");
             return;
         }
+        
+        const aptToUpdate = appointments.find(a => a.id === appointmentId);
+        if (!aptToUpdate) {
+            toast.error("Appointment not found");
+            return;
+        }
+
+        const updatedApt = { ...aptToUpdate, status, ...additionalData };
+
+        if (!isOnline) {
+            const offlineApt = { ...updatedApt, isPendingSync: true };
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
+            await enqueueAction('UPDATE_STATUS', offlineApt);
+            toast.info(`Offline: Status update saved locally.`);
+            return;
+        }
+
         try {
-            const aptToUpdate = appointments.find(a => a.id === appointmentId);
-            if (!aptToUpdate) throw new Error("Appointment not found");
-            const updatedApt = { ...aptToUpdate, status, ...additionalData, isPendingSync: !isOnline };
-            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? updatedApt : apt));
-            if (!isOnline) {
-                setOfflineQueue(prev => [...prev, { id: generateUid('sync'), action: 'UPDATE_STATUS', payload: updatedApt, timestamp: new Date().toISOString() }]);
-                toast.info(`Offline: Status update saved locally.`);
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, isPendingSync: false } : a));
-                logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
-            }
+            await DataService.saveAppointment(updatedApt);
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
+            logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
         } catch (e) {
             toast.error('Failed to update appointment status.');
         }

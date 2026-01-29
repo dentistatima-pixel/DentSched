@@ -1,8 +1,10 @@
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit } from 'lucide-react';
+// Fix: Add missing 'Droplet' icon import from lucide-react.
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare } from 'lucide-react';
 import { formatDate, generateUid } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -14,6 +16,8 @@ import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
+import AuditTrailViewer from './AuditTrailViewer';
+import CommunicationLog from './CommunicationLog';
 
 
 // Lazy load heavy components
@@ -22,6 +26,7 @@ const Odontogram = React.lazy(() => import('./Odontogram'));
 const PerioChart = React.lazy(() => import('./PerioChart'));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger'));
+const PatientAppointmentsView = React.lazy(() => import('./PatientAppointmentsView'));
 
 
 interface PatientDetailViewProps {
@@ -52,6 +57,7 @@ interface PatientDetailViewProps {
   onSupervisorySeal?: (note: DentalChartEntry) => void;
   onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
   onOpenPostOpHandover: (appointment: Appointment) => void;
+  auditLog: AuditLogEntry[];
 }
 
 const TabLoader: React.FC = () => (
@@ -285,8 +291,8 @@ const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, onOpenRevocation
                     </div>
                 </div>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                 <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm mt-8">
+                <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3">
                     <FileSignature size={18} className="text-lilac-600"/>
                     Other Affirmations
                 </h4>
@@ -294,6 +300,41 @@ const ComplianceTab: React.FC<ComplianceTabProps> = ({ patient, onOpenRevocation
                     <InfoItem label="Treatment Authorization (General)" value={patient.clinicalMediaConsent ? "Affirmed" : "Not Given"} icon={patient.clinicalMediaConsent ? CheckCircle : AlertCircle} isFlag={!patient.clinicalMediaConsent} />
                     <InfoItem label="Third Party Attestation" value={patient.thirdPartyAttestation ? "Affirmed" : "Not Given"} icon={patient.thirdPartyAttestation ? CheckCircle : AlertCircle} isFlag={!patient.thirdPartyAttestation} />
                     {patient.registrationSignatureTimestamp && <InfoItem label="Registration Signature Date" value={new Date(patient.registrationSignatureTimestamp).toLocaleString()} icon={History} />}
+                </div>
+            </div>
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm mt-8">
+                <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3">
+                    <History size={18} className="text-teal-600"/>
+                    Consent History Log
+                </h4>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="text-xs uppercase text-slate-400">
+                            <tr>
+                                <th className="p-2 text-left">Timestamp</th>
+                                <th className="p-2 text-left">Type</th>
+                                <th className="p-2 text-left">Action</th>
+                                <th className="p-2 text-left">Forensic Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(patient.consentHistory || []).map((log, i) => (
+                                <tr key={i} className="border-t">
+                                    <td className="p-2 font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</td>
+                                    <td className="p-2 font-bold">{log.consentType}</td>
+                                    <td className={`p-2 font-bold ${log.granted ? 'text-teal-600' : 'text-red-600'}`}>
+                                        {log.granted ? 'Granted' : 'Revoked'}
+                                    </td>
+                                    <td className="p-2 font-mono text-xs text-slate-500" title={log.userAgent}>
+                                        IP: {log.ipAddress} | Hash: {log.witnessHash?.substring(0,8)}...
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                     {(!patient.consentHistory || patient.consentHistory.length === 0) && (
+                        <p className="text-center text-xs text-slate-400 italic py-8">No granular consent history logged.</p>
+                     )}
                 </div>
             </div>
         </div>
@@ -342,7 +383,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     fieldSettings, logAction, incidents = [], onSaveIncident, referrals = [], onSaveReferral, onBack,
     governanceTrack, onOpenRevocationModal, readOnly, sterilizationCycles, onUpdateSettings,
     onRequestProtocolOverride, onDeleteClinicalNote, onInitiateFinancialConsent, onSupervisorySeal,
-    onRecordPaymentWithReceipt, onOpenPostOpHandover
+    onRecordPaymentWithReceipt, onOpenPostOpHandover, auditLog
 }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const [noteToAutoEdit, setNoteToAutoEdit] = useState<DentalChartEntry | null>(null);
@@ -388,358 +429,111 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   
   const headerStyle = useMemo(() => {
     const flags = getCriticalFlags(patient);
-    const hasFlags = flags.length > 0;
-    const isMinor = patient.age !== undefined && patient.age < 18;
-    const isPwdOrMinor = patient.isPwd || isMinor;
-
-    if (hasFlags) {
-        return 'bg-red-200 border-red-300';
-    }
-    if (isPwdOrMinor) {
-        return 'bg-amber-200 border-amber-300';
-    }
-    return 'border-slate-100';
-  }, [patient, fieldSettings]);
-
-  const patientAppointments = useMemo(() => {
-      return appointments.filter(a => a.patientId === patient?.id);
-  }, [appointments, patient]);
-  
-  const referrer = useMemo(() => {
-      if (!patient?.referredById) return null;
-      return patients.find(p => p.id === patient.referredById);
-  }, [patient?.referredById, patients]);
-
-  const familyGroup = useMemo(() => {
-      if (!patient?.familyGroupId || !fieldSettings?.familyGroups) return null;
-      return fieldSettings.familyGroups.find(fg => fg.id === patient.familyGroupId);
-  }, [patient?.familyGroupId, fieldSettings?.familyGroups]);
-
-  const attendanceString = useMemo(() => {
-      if (!patient?.attendanceStats) return 'No History';
-      const stats = patient.attendanceStats;
-      return `Completed: ${stats.completedCount}/${stats.totalBooked} | No-Shows: ${stats.noShowCount}`;
-  }, [patient?.attendanceStats]);
-
-  const handleUpdateChart = (newEntry: DentalChartEntry) => {
-    if (!patient) return;
-    const existingIndex = patient.dentalChart?.findIndex(e => e.id === newEntry.id);
-    let newChart: DentalChartEntry[];
-    if (existingIndex !== undefined && existingIndex > -1) {
-        newChart = [...(patient.dentalChart || [])];
-        newChart[existingIndex] = newEntry;
-    } else {
-        newChart = [...(patient.dentalChart || []), newEntry];
-    }
-    onQuickUpdatePatient({ ...patient, dentalChart: newChart });
-  };
-  
-  const generateBoilerplateSoap = (procedure: string, toothNumber?: number) => {
-    const procLower = procedure.toLowerCase();
-    if (procLower.includes('caries')) {
-        return {
-            subjective: 'Patient reports no specific complaints.',
-            objective: `Visual and tactile examination reveals clinical signs of caries on tooth #${toothNumber}.`,
-            assessment: `Dental Caries, Tooth #${toothNumber}.`,
-            plan: 'Recommend appropriate restorative treatment. Discussed findings, risks, benefits, and alternatives with patient.'
-        };
-    }
-    if (procLower.includes('restoration')) {
-        return {
-            subjective: 'Patient presents for scheduled restorative procedure.',
-            objective: `Administered local anesthesia. Isolated tooth #${toothNumber} with rubber dam. Excavated carious lesion. Placed composite restoration. Finished and polished. Occlusion checked and verified.`,
-            assessment: `Composite Restoration, Tooth #${toothNumber}.`,
-            plan: 'Provided post-operative instructions. Advised patient on potential for transient sensitivity.'
-        };
-    }
-    if (procLower.includes('extraction')) {
-        return {
-            subjective: 'Patient presents for scheduled extraction of tooth due to [REASON, e.g., extensive caries, periodontal disease, impaction].',
-            objective: `Administered local anesthesia. Pre-operative radiograph reviewed. Tooth #${toothNumber} luxated and extracted. Hemostasis achieved.`,
-            assessment: `Surgical Extraction, Tooth #${toothNumber}.`,
-            plan: 'Provided post-operative instructions (verbal and written). Gauze pack placed. Prescription for analgesics given.'
-        };
-    }
-    return { subjective: '', objective: '', assessment: '', plan: '' };
-  };
-  
-  const handleOpenNoteForTooth = (toothNumber: number) => {
-    setNoteToAutoEdit({ toothNumber } as DentalChartEntry);
-    setActiveTab('notes');
-  };
-
-  const handleChartUpdateFromOdontogram = (newEntry: DentalChartEntry) => {
-    const soapNotes = generateBoilerplateSoap(newEntry.procedure, newEntry.toothNumber);
-    const entryWithSoap = { ...newEntry, ...soapNotes };
-    handleUpdateChart(entryWithSoap);
-    setNoteToAutoEdit(entryWithSoap);
-    setActiveTab('notes');
-  };
-
-  // FIX: Change parameter type from DentalChartEntry[] to PerioMeasurement[]
-  const handleUpdatePerioChart = (newPerioData: PerioMeasurement[]) => {
-    if (!patient) return;
-    
-    let updatedDentalChart = [...(patient.dentalChart || [])];
-    let conditionsAdded = 0;
-
-    newPerioData.forEach(measurement => {
-        const hasSignificantPockets = (measurement.pocketDepths || []).some(depth => depth !== null && depth >= 5);
-        if (hasSignificantPockets) {
-            const conditionExists = updatedDentalChart.some(entry => 
-                entry.toothNumber === measurement.toothNumber && 
-                entry.procedure === 'Periodontal Pocketing' &&
-                entry.status === 'Condition'
-            );
-            if (!conditionExists) {
-                const newCondition: DentalChartEntry = {
-                    id: generateUid('dc_perio'),
-                    toothNumber: measurement.toothNumber,
-                    procedure: 'Periodontal Pocketing',
-                    status: 'Condition',
-                    date: new Date().toISOString().split('T')[0],
-                    notes: 'Detected pocket depth >= 5mm during perio exam.',
-                    author: currentUser.name,
-                    authorId: currentUser.id,
-                };
-                updatedDentalChart.push(newCondition);
-                conditionsAdded++;
-            }
-        }
-    });
-
-    onQuickUpdatePatient({ ...patient, perioChart: newPerioData, dentalChart: updatedDentalChart });
-
-    if (conditionsAdded > 0) {
-        toast.info(`${conditionsAdded} new periodontal condition(s) logged on the Odontogram.`);
-    }
-  };
-
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
-
-  const generateSummary = async () => {
-      if (!patient) return;
-      setIsSummaryLoading(true);
-      try {
-          const result = await summarizePatient(patient);
-          setSummary(result || "Could not generate summary.");
-      } catch (error) {
-          setSummary("Error generating summary.");
-      } finally {
-          setIsSummaryLoading(false);
-      }
-  }
-
-  const isProvisional = patient.registrationStatus === 'Provisional';
+    if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
+    if (patient.isPwd) return { bg: 'bg-amber-500', text: 'text-white', sub: 'text-amber-100' };
+    if ((patient.age || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
+    return { bg: 'bg-teal-700', text: 'text-white', sub: 'text-teal-200' };
+  }, [patient]);
 
   const tabs = [
-    { id: 'summary', label: 'Details', icon: BarChart },
-    { id: 'plan', label: 'Plan', icon: ClipboardList },
-    { id: 'notes', label: 'Narrative', icon: FileText },
-    { id: 'chart', label: 'Odontogram', icon: Stethoscope },
-    { id: 'perio', label: 'Perio', icon: History },
-    { id: 'ledger', label: 'Ledger', icon: DollarSign },
-    { id: 'imaging', label: 'Imaging', icon: ImageIcon },
-    { id: 'compliance', label: 'Compliance', icon: Shield },
+      { id: 'summary', label: 'Details', icon: UserIcon },
+      { id: 'appointments', label: 'Appointments', icon: Calendar },
+      { id: 'comms', label: 'Comms', icon: MessageSquare },
+      { id: 'notes', label: 'Notes', icon: ClipboardList },
+      { id: 'odontogram', label: 'Chart', icon: Stethoscope },
+      { id: 'perio', label: 'Perio', icon: Activity },
+      { id: 'plans', label: 'Strategy', icon: Briefcase },
+      { id: 'ledger', label: 'Ledger', icon: DollarSign },
+      { id: 'images', label: 'Imaging', icon: ImageIcon },
+      { id: 'compliance', label: 'Compliance', icon: Shield },
+      { id: 'history', label: 'History', icon: History },
   ];
-
-  const renderContent = () => {
-    switch(activeTab) {
-        case 'summary':
-            const otherContacts = [patient.homeNumber, patient.officeNumber, patient.faxNumber].filter(Boolean).join(' / ');
-            const physicianInfo = [
-                patient.physicianName ? `${patient.physicianName} (${patient.physicianSpecialty || 'N/A'})` : 'N/A',
-                patient.physicianAddress,
-                patient.physicianNumber
-            ].filter(Boolean).join(' | ');
-
-            return (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in duration-500">
-
-                    {/* NEW TOP SECTION: PRACTICE OVERVIEW & NOTES */}
-                    <div className="md:col-span-12">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Practice Overview & Notes</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                            <InfoItem label="Patient Notes" value={patient.notes} icon={FileText} />
-                            <InfoItem label="Reliability Score" value={`${patient.reliabilityScore || 100}%`} icon={CheckCircle} />
-                            <InfoItem label="Attendance" value={attendanceString} icon={History} />
-                            <InfoItem label="Balance" value={`₱${patient.currentBalance?.toLocaleString() || '0'}`} icon={DollarSign} isFlag={(patient.currentBalance || 0) > 0} />
-                        </div>
-                    </div>
-                    
-                    {/* TOP PRIORITY: CLINICAL FLAGS & NOTES */}
-                    <div className="md:col-span-12">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Clinical Flags & Notes</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <InfoItem label="Chief Complaint" value={patient.chiefComplaint} icon={AlertCircle} isFlag />
-                            <InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={AlertCircle} isFlag />
-                            <InfoItem label="Allergies" value={patient.allergies} icon={AlertCircle} isFlag />
-                            <InfoItem label="Current Medications" value={patient.medicationDetails} icon={AlertCircle} isFlag />
-                            {patient.otherConditions && <InfoItem label="Other Conditions" value={patient.otherConditions} icon={AlertCircle} isFlag />}
-                            {patient.otherAllergies && <InfoItem label="Other Allergies" value={patient.otherAllergies} icon={AlertCircle} isFlag />}
-                        </div>
-                    </div>
-
-                    {/* SECOND PRIORITY: MEDICAL HISTORY QUESTIONNAIRE */}
-                    <MedicalHistoryAnswers patient={patient} />
-
-                    {/* Section: Practice Metrics */}
-                    <div className="md:col-span-12 pt-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Practice Metrics</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <InfoItem label="Recall Status" value={patient.recallStatus} icon={Zap} />
-                            <InfoItem label="Referred By" value={referrer?.name} icon={Send} />
-                            {familyGroup && <InfoItem label="Family Group" value={familyGroup.familyName} icon={Users} isSpecial />}
-                            {patient.guardianProfile && <InfoItem label="Guardian Details" value={`${patient.guardianProfile.legalName} (${patient.guardianProfile.relationship}), ${patient.guardianProfile.mobile}. Authority: ${patient.guardianProfile.authorityLevel}`} icon={Baby} isSpecial />}
-                        </div>
-                    </div>
-
-                    {/* Section: Contact, Personal & Vitals */}
-                    <div className="md:col-span-12 pt-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Contact, Personal & Vitals</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <InfoItem label="Mobile Phone" value={patient.phone} icon={Phone} />
-                            <InfoItem label="Email" value={patient.email} icon={Mail} />
-                            {otherContacts && <InfoItem label="Other Contact #" value={otherContacts} icon={Phone} />}
-                            <InfoItem label="Address" value={`${patient.homeAddress || ''}, ${patient.barangay || ''}, ${patient.city || ''}`} icon={MapPin} />
-                            <InfoItem label="Sex" value={patient.sex} icon={UserIcon} />
-                            <InfoItem label="Nickname" value={patient.nickname} icon={UserIcon} />
-                            <InfoItem label="Civil Status" value={patient.civilStatus} icon={BookUser} />
-                            <InfoItem label="Nationality" value={patient.nationality} icon={Briefcase} />
-                            <InfoItem label="Religion" value={patient.religion} icon={Briefcase} />
-                            <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
-                            <InfoItem label="Blood Group" value={patient.bloodGroup} icon={Heart} />
-                            <InfoItem label="Last BP" value={patient.bloodPressure} icon={Activity} />
-                            <InfoItem label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : 'N/A'} icon={Weight} />
-                        </div>
-                    </div>
-
-                    {/* Section: Insurance, Physician & Dental History */}
-                    <div className="md:col-span-12 pt-6">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Insurance, Physician & Dental History</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <InfoItem label="Primary Insurance" value={`${patient.insuranceProvider} - ${patient.insuranceNumber}`} icon={Shield} />
-                            <InfoItem label="Dental Insurance" value={`${patient.dentalInsurance} (eff. ${formatDate(patient.insuranceEffectiveDate)})`} icon={Shield} />
-                            <InfoItem label="Responsible Party" value={patient.responsibleParty} icon={Users} />
-                            <InfoItem label="PhilHealth" value={`${patient.philHealthPIN} (${patient.philHealthCategory} / ${patient.philHealthMemberStatus})`} icon={ShieldCheck} />
-                            <InfoItem label="Attending Physician" value={physicianInfo} icon={Stethoscope} />
-                            <InfoItem label="Previous Dentist" value={patient.previousDentist} icon={History} />
-                            <InfoItem label="Last Dental Visit" value={formatDate(patient.lastDentalVisit)} icon={History} />
-                        </div>
-                    </div>
-                    
-                    {/* Full Width: AI Summary */}
-                    {can('use:ai-features') && (
-                        <div className="md:col-span-12">
-                            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold text-sm flex items-center gap-2"><Sparkles size={16} className="text-teal-500"/> AI Clinical Summary</h4>
-                                    <button onClick={() => showModal('infoDisplay', { title: `AI Summary for ${patient.name}`, fetcher: () => summarizePatient(patient) })} className="text-xs font-bold text-teal-600 flex items-center gap-1">
-                                      <Sparkles size={12}/> Show Full Summary
-                                    </button>
-                                </div>
-                                {isSummaryLoading ? <p>Loading...</p> : summary ? <ReactMarkdown className="text-sm prose">{summary}</ReactMarkdown> : <p className="text-sm text-slate-400 italic">Generate a summary for a quick overview.</p>}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Full Width: History */}
-                    <div className="md:col-span-12">
-                         <div className="pt-6 border-t border-slate-100">
-                            <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4">Chronological History</h4>
-                            <div className="space-y-3">
-                                {patientAppointments.slice().reverse().slice(0, 5).map(apt => {
-                                    const provider = staff.find(s => s.id === apt.providerId);
-                                    const isSurgical = apt.type.toLowerCase().includes('surg') || apt.type.toLowerCase().includes('extract');
-                                    const isCompletedRecently = apt.status === AppointmentStatus.COMPLETED && new Date(apt.date) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-                                    const needsHandover = isSurgical && isCompletedRecently && !apt.postOpVerified;
-
-                                    return (
-                                        <div key={apt.id} className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-slate-50/50 transition-colors shadow-sm">
-                                            <div className="flex-1">
-                                                <p className="font-bold text-slate-800">{apt.type}</p>
-                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{formatDate(apt.date)} @ {apt.time} with Dr. {provider?.surname || provider?.name}</p>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shadow-sm ${apt.status === AppointmentStatus.COMPLETED ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                    {apt.status}
-                                                </span>
-                                                {needsHandover && (
-                                                    <button onClick={() => onOpenPostOpHandover(apt)} className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 animate-pulse hover:animate-none transition-all shadow-lg shadow-amber-500/20">
-                                                        <ShieldCheck size={14}/> Post-Op Handover
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )
-        case 'notes': return <Suspense fallback={<TabLoader />}><Odontonotes entries={patient.dentalChart || []} onAddEntry={handleUpdateChart} onUpdateEntry={handleUpdateChart} onDeleteEntry={(id: string) => onDeleteClinicalNote && onDeleteClinicalNote(patient.id, id)} currentUser={currentUser} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} /></Suspense>;
-        case 'chart': return <Suspense fallback={<TabLoader />}><Odontogram chart={patient.dentalChart || []} onToothClick={handleOpenNoteForTooth} onChartUpdate={handleChartUpdateFromOdontogram} readOnly={readOnly}/></Suspense>;
-        case 'perio': return <Suspense fallback={<TabLoader />}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handleUpdatePerioChart} readOnly={readOnly}/></Suspense>;
-        case 'plan': return <Suspense fallback={<TabLoader />}><TreatmentPlanModule patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} fieldSettings={fieldSettings} onOpenRevocationModal={onOpenRevocationModal} onInitiateFinancialConsent={onInitiateFinancialConsent}/></Suspense>;
-        case 'ledger': return <Suspense fallback={<TabLoader />}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} fieldSettings={fieldSettings} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt} /></Suspense>;
-        case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
-        case 'compliance': return <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />;
-        default: return null;
-    }
-  }
-
+  
+  const handleChartUpdate = (entry: DentalChartEntry) => {
+      const isNew = !patient.dentalChart?.some(e => e.id === entry.id);
+      const nextChart = isNew ? [...(patient.dentalChart || []), entry] : patient.dentalChart?.map(e => e.id === entry.id ? entry : e);
+      onQuickUpdatePatient({ id: patient.id, dentalChart: nextChart });
+      setActiveTab('notes');
+      setNoteToAutoEdit(entry);
+  };
+  
+  const handlePerioSave = (newData: PerioMeasurement[]) => {
+      onQuickUpdatePatient({ id: patient.id, perioChart: newData });
+  };
+  
+  const handleNoteAction = (action: 'add' | 'update' | 'delete', entry: DentalChartEntry) => {
+      let nextChart: DentalChartEntry[] = patient.dentalChart ? [...patient.dentalChart] : [];
+      if (action === 'add') {
+          nextChart.push(entry);
+      } else if (action === 'update') {
+          nextChart = nextChart.map(e => e.id === entry.id ? entry : e);
+      } else if (action === 'delete') {
+          nextChart = nextChart.filter(e => e.id !== entry.id);
+      }
+      onQuickUpdatePatient({ id: patient.id, dentalChart: nextChart });
+  };
+  
   return (
-    <div className="h-full w-full flex flex-col bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className={`p-6 flex items-center justify-between gap-4 shrink-0 border-b transition-colors duration-300 ${headerStyle}`}>
-            {isProvisional && (
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-400 text-black px-4 py-1 rounded-b-lg text-[10px] font-black uppercase tracking-widest animate-pulse z-20">
-                    Provisional Record
+    <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
+        <header className={`p-6 flex items-center justify-between gap-4 shrink-0 rounded-t-[2.5rem] ${headerStyle.bg}`}>
+            <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-4xl text-white">{patient.firstName[0]}{patient.surname[0]}</div>
+                <div>
+                    <h2 className={`text-3xl font-black ${headerStyle.text}`}>{patient.name}</h2>
+                    <p className={`text-sm font-bold uppercase tracking-widest ${headerStyle.sub}`}>ID: {patient.id}</p>
+                </div>
+                 {patient.isPendingSync && (
+                    <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-lilac-600/50 text-white text-[10px] font-black uppercase tracking-widest animate-pulse">
+                        <CloudOff size={10}/> Offline Record
+                    </div>
+                )}
+            </div>
+            <div className="flex gap-3">
+                <button onClick={() => onBookAppointment(patient.id)} className="bg-white/20 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2"><CalendarPlus size={16}/> New Appt</button>
+                <button onClick={() => onEditPatient(patient)} className="bg-white text-teal-900 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2"><Edit size={16}/> Edit Profile</button>
+            </div>
+        </header>
+        
+        <div className="p-2 border-b border-border-primary flex items-center gap-1 overflow-x-auto no-scrollbar bg-slate-50">
+            {tabs.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow text-teal-700' : 'text-slate-500 hover:bg-white/50'}`}>
+                    <tab.icon size={14}/> {tab.label}
+                </button>
+            ))}
+        </div>
+
+        <div className="flex-1 overflow-auto no-scrollbar bg-bg-tertiary">
+            {activeTab === 'summary' && (
+                <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-500">
+                    <div className="md:col-span-12">
+                        <div className="flex flex-wrap gap-3">
+                            {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
+                                <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
+                            ))}
+                        </div>
+                    </div>
+                    <InfoItem label="Mobile" value={patient.phone} icon={Phone} />
+                    <InfoItem label="Email" value={patient.email} icon={Mail} />
+                    <div className="md:col-span-2"><InfoItem label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} /></div>
+                    <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
+                    <InfoItem label="Guardian" value={patient.guardianProfile?.legalName} icon={Baby} isSpecial={!!patient.guardianProfile} />
+                    <InfoItem label="Allergies" value={patient.allergies} icon={Droplet} isFlag={patient.allergies?.some(a => a.toLowerCase() !== 'none')} />
+                    <div className="md:col-span-2"><InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={Heart} isFlag={patient.medicalConditions?.some(a => a.toLowerCase() !== 'none')} /></div>
+                    <InfoItem label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
+                    <MedicalHistoryAnswers patient={patient} />
                 </div>
             )}
-            <div className="flex items-center gap-6">
-                {onBack && (
-                    <button onClick={onBack} className="p-3 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-600 transition-colors active:scale-90" aria-label="Back to Patient Registry">
-                        <ArrowLeft size={20} />
-                    </button>
-                )}
-                <div>
-                    <h2 className="text-xl font-black text-slate-800">{patient.name}</h2>
-                    <div className="text-sm text-slate-500 font-mono">ID: {patient.id} &bull; Age: {patient.age}</div>
-                </div>
-            </div>
-            <div className="flex items-center gap-3">
-                 <button 
-                    onClick={() => showModal('infoDisplay', { title: `AI Summary for ${patient.name}`, fetcher: () => summarizePatient(patient) })}
-                    className="p-3 bg-white/50 hover:bg-white text-lilac-700 rounded-lg shadow-sm"
-                    aria-label="Show AI Patient Summary"
-                >
-                    <Sparkles size={20}/>
-                </button>
-                {isProvisional ? (
-                    <button onClick={() => onEditPatient(patient)} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Edit size={14}/> Complete Registration</button>
-                ) : (
-                    <button onClick={() => onEditPatient(patient)} className="p-3 text-slate-400 hover:text-teal-600 rounded-lg"><Edit size={20}/></button>
-                )}
-                <button onClick={() => onBookAppointment(patient.id)} className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><CalendarPlus size={16}/> New Appt.</button>
-            </div>
-        </div>
-        
-        <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-2 border-b flex items-center justify-between">
-                <div className="flex">
-                    {tabs.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 text-sm font-bold rounded-lg flex items-center gap-2 ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}>
-                            <tab.icon size={14}/> {tab.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className={`flex-1 overflow-auto no-scrollbar ${activeTab === 'chart' || activeTab === 'perio' || activeTab === 'ledger' || activeTab === 'notes' || activeTab === 'plan' ? 'bg-slate-50/50 p-0' : 'bg-slate-50/50 p-6'}`}>
-                {renderContent()}
-            </div>
+            
+            {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
+            {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
+            {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} /></Suspense>}
+            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} /></Suspense>}
+            {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
+            {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule staff={staff} patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} onInitiateFinancialConsent={onInitiateFinancialConsent} /></Suspense>}
+            {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
+            {activeTab === 'images' && <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />}
+            {activeTab === 'compliance' && <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />}
+            {activeTab === 'history' && <AuditTrailViewer auditLog={auditLog.filter(log => log.entityId === patient.id)} auditLogVerified={true}/>}
         </div>
     </div>
   );

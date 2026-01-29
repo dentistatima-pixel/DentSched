@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 import { 
@@ -56,7 +55,6 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
         { id: 'catalog_hub', label: 'Clinical Catalog', icon: Box },
         { id: 'finance_hub', label: 'Financial Hub', icon: Receipt },
         { id: 'infrastructure', label: 'Infrastructure', icon: Wrench },
-        { id: 'governance_hub', label: 'Governance Hub', icon: ShieldCheck }
     ];
 
     const handleOpenStaffModal = (staffMember: Partial<User> | null) => {
@@ -86,18 +84,6 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             // Infrastructure
             case 'infrastructure':
                 return <InfrastructureManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} initialTab={'resources'} />;
-
-            // Governance
-            case 'governance_hub':
-                return <GovernanceHub 
-                            patients={props.patients}
-                            showModal={props.showModal}
-                            auditLog={props.auditLog}
-                            auditLogVerified={props.auditLogVerified}
-                            settings={props.settings}
-                            onUpdateSettings={props.onUpdateSettings}
-                            onAnonymizePatient={props.onPurgePatient}
-                        />;
             
             default:
                 return (

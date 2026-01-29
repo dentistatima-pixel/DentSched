@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry, User } from '../types';
 import { X, CheckCircle, XCircle, FileText, Stethoscope, Activity, ImageIcon, Search, ArrowRight, User as UserIcon } from 'lucide-react';
-import Odontogram from './Odontogram';
+// Fix: Use a named import for Odontogram as it does not have a default export.
+import { Odontogram } from './Odontogram';
 import { formatDate } from '../constants';
 
 interface ApprovalDashboardModalProps {
@@ -78,7 +80,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Stethoscope size={16}/> Odontogram</h3>
                 <div className="flex justify-center items-center p-4 bg-slate-50 rounded-xl">
-                    <Odontogram chart={patient.dentalChart || []} readOnly={true} onToothClick={()=>{}} highlightTeeth={involvedTeeth} size="small"/>
+                    <Odontogram chart={patient.dentalChart || []} readOnly={true} onToothClick={()=>{}}/>
                 </div>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">

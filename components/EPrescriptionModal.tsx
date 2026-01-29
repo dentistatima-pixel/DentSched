@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
 import { useSettings } from '../contexts/SettingsContext';
+import { calculateAge } from '../constants';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -35,10 +36,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
     
     const drugsAndMedsConsent = useMemo(() => {
-        return settings.consentFormTemplates.find(t => t.id === 'DRUGS_MEDICATIONS')?.content || "Default drugs and medications warning text.";
+        return settings.consentFormTemplates.find(t => t.id === 'DRUGS_MEDICATIONS')?.content_en || "Default drugs and medications warning text.";
     }, [settings.consentFormTemplates]);
 
-    const isPediatric = (patient.age || 0) < 12;
+    const isPediatric = (calculateAge(patient.dob) || 0) < 12;
     
     // --- PRC AUTHORITY HARD LOCK ---
     const isPrcExpired = useMemo(() => {
@@ -154,7 +155,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         doc.line(10, 32, 138, 32);
 
         doc.setFontSize(10); doc.text(`PATIENT: ${patient.name}`, 15, 40);
-        doc.text(`AGE: ${patient.age || '-'}   SEX: ${patient.sex || '-'}`, 15, 45);
+        doc.text(`AGE: ${calculateAge(patient.dob) || '-'}   SEX: ${patient.sex || '-'}`, 15, 45);
         if (isPediatric) doc.text(`WEIGHT: ${patientWeight} kg`, 100, 45);
         doc.text(`DATE: ${new Date().toLocaleDateString()}`, 100, 40);
 

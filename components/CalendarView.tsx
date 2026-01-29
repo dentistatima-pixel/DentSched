@@ -1,3 +1,4 @@
+
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -310,14 +311,20 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
             const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
             if (!overlap) return false;
 
-            if (newResourceId && apt.resourceId === newResourceId) return true;
+            // Provider conflict
             if (!apt.isBlock && apt.providerId === newProviderId) return true;
+
+            // Resource conflict
+            if (newResourceId && apt.resourceId === newResourceId) return true;
+
+            // Patient conflict
+            if (!originalApt.isBlock && !apt.isBlock && apt.patientId === originalApt.patientId) return true;
 
             return false;
         });
 
         if (isConflict) {
-            toast.error("Scheduling Conflict: This time slot is already occupied.");
+            toast.error("Scheduling Conflict: This time slot overlaps for the patient, provider, or resource.");
             return;
         }
 

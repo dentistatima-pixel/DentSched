@@ -10,7 +10,7 @@ const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
     const changes: string[] = [];
     const keys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
-    const ignoredKeys = ['lastDigitalUpdate', 'lastPrintedDate', 'dentalChart', 'ledger', 'perioChart', 'treatmentPlans', 'files', 'timestamp', 'isVerifiedTimestamp', 'hash', 'previousHash']; 
+    const ignoredKeys = ['lastDigitalUpdate', 'lastPrintedDate', 'dentalChart', 'ledger', 'perioChart', 'treatmentPlans', 'files', 'timestamp', 'isVerifiedTimestamp', 'hash', 'previousHash', 'isPendingSync']; 
 
     keys.forEach(key => {
         if (ignoredKeys.includes(key)) return;
@@ -28,8 +28,9 @@ const generateDiff = (oldObj: any, newObj: any): string => {
 
 interface PatientContextType {
     patients: Patient[];
+    isLoading: boolean;
     handleSavePatient: (patientData: Partial<Patient>) => Promise<void>;
-    handlePurgePatient: (patientId: string) => Promise<void>;
+    handleAnonymizePatient: (patientId: string) => Promise<void>;
     handleUpdatePatientRecall: (patientId: string, status: RecallStatus) => Promise<void>;
     handleDeleteClinicalNote: (patientId: string, noteId: string) => Promise<void>;
     handleSupervisorySeal: (patientId: string, noteToSeal: DentalChartEntry) => Promise<void>;
@@ -42,17 +43,18 @@ const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
-    const { isOnline, logAction, currentUser, isAuthorityLocked } = useAppContext();
+    const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction } = useAppContext();
     const { fieldSettings, setFieldSettings, addScheduledSms } = useSettings();
     const [patients, setPatients] = useState<Patient[]>([]);
-    const [offlineQueue, setOfflineQueue] = useState<any[]>([]); // Simplified for this context
+    const [isLoading, setIsLoading] = useState(true);
     
     useEffect(() => {
+        setIsLoading(true);
         DataService.getPatients().then(setPatients).catch(err => {
             toast.error("Failed to load patient data.");
             console.error(err);
-        });
-    }, []);
+        }).finally(() => setIsLoading(false));
+    }, [toast]);
 
     const canManagePatients = useMemo(() => {
         if (!currentUser) return false;
@@ -91,13 +93,25 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             toast.error("CLINICAL AUTHORITY LOCKED: Your credentials have expired. Data modification is disabled.");
             throw new Error("Authority Locked");
         }
+        
+        const isNew = !patientData.id || !patients.some(p => p.id === patientData.id);
+        const oldPatient = isNew ? null : patients.find(p => p.id === patientData.id);
+        const fullName = `${patientData.firstName || ''} ${patientData.middleName || ''} ${patientData.surname || ''}`.replace(/\s+/g, ' ').trim();
+
+        if (!isOnline) {
+            const offlinePatient = { ...patientData, name: fullName, isPendingSync: true } as Patient;
+            
+            setPatients(prev => isNew ? [...prev, offlinePatient] : prev.map(p => p.id === offlinePatient.id ? offlinePatient : p));
+            await enqueueAction(isNew ? 'REGISTER_PATIENT' : 'UPDATE_PATIENT', offlinePatient);
+            toast.info(`Offline: Patient "${offlinePatient.name}" saved locally.`);
+            return;
+        }
 
         try {
-            const oldPatient = patients.find(p => p.id === patientData.id) || null;
-            const updatedPatient = await DataService.savePatient(patientData);
+            const patientToSave = { ...patientData, name: fullName };
+            const updatedPatient = await DataService.savePatient(patientToSave);
 
             setPatients(prev => {
-                const isNew = !prev.some(p => p.id === updatedPatient.id);
                 return isNew ? [...prev, updatedPatient] : prev.map(p => p.id === updatedPatient.id ? updatedPatient : p);
             });
 
@@ -148,10 +162,53 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         toast.success("Financial consent approved.");
     };
 
-    const handlePurgePatient = async (patientId: string) => {
-        setPatients(p => p.filter(i => i.id !== patientId));
-        logAction('SECURITY_ALERT', 'Patient', patientId, 'Patient record permanently purged.');
-        toast.success("Patient record purged.");
+    const handleAnonymizePatient = async (patientId: string): Promise<void> => {
+        const patientToAnonymize = patients.find(p => p.id === patientId);
+        if (!patientToAnonymize) {
+            toast.error("Patient not found for anonymization.");
+            return;
+        }
+
+        const anonymizedPatient: Partial<Patient> = {
+            ...patientToAnonymize,
+            isAnonymized: true,
+            name: `ANONYMIZED-${patientId}`,
+            firstName: 'ANONYMIZED',
+            surname: `PATIENT-${patientId}`,
+            middleName: '',
+            suffix: '',
+            nickname: '',
+            phone: '000-000-0000',
+            email: `${patientId}@anonymized.local`,
+            homeAddress: 'REDACTED',
+            city: 'REDACTED',
+            barangay: 'REDACTED',
+            homeNumber: '',
+            officeNumber: '',
+            faxNumber: '',
+            occupation: 'REDACTED',
+            insuranceProvider: '',
+            insuranceNumber: '',
+            dentalInsurance: '',
+            guardianProfile: undefined,
+            referredById: undefined,
+            responsibleParty: undefined,
+            previousDentist: 'REDACTED',
+            physicianName: 'REDACTED',
+            physicianSpecialty: 'REDACTED',
+            physicianAddress: 'REDACTED',
+            physicianNumber: 'REDACTED',
+            philHealthPIN: undefined,
+            registrationSignature: undefined,
+            registrationSignatureTimestamp: undefined,
+            registrationPhotoHash: undefined,
+            familyGroupId: undefined,
+        };
+
+        // Re-use handleSavePatient to persist the changes
+        await handleSavePatient(anonymizedPatient);
+        logAction('SECURITY_ALERT', 'Patient', patientId, 'Patient record anonymized (Right to Erasure).');
+        toast.success("Patient record has been successfully anonymized.");
     };
 
     const handleUpdatePatientRecall = async (patientId: string, status: RecallStatus) => {
@@ -184,10 +241,11 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const value: PatientContextType = {
         patients: scopedPatients,
+        isLoading,
         handleSavePatient,
         handleRecordPaymentWithReceipt,
         handleApproveFinancialConsent,
-        handlePurgePatient,
+        handleAnonymizePatient,
         handleUpdatePatientRecall,
         handleDeleteClinicalNote,
         handleSupervisorySeal,

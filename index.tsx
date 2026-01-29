@@ -1,7 +1,7 @@
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { App } from './App';
 import { ToastProvider } from './components/ToastSystem';
 import { AppProvider } from './contexts/AppContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -14,6 +14,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { ClinicalOpsProvider } from './contexts/ClinicalOpsContext';
 import { Router } from './contexts/RouterContext';
 import { DocentProvider } from './contexts/DocentContext';
+import { SearchProvider } from './contexts/SearchContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -53,19 +54,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    if (this.state.hasError) {
+    const { hasError, error } = this.state;
+
+    if (hasError) {
       return (
         <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif' }}>
           <h1>Something went wrong.</h1>
           <p>Please refresh the page.</p>
           <pre style={{textAlign: 'left', background: '#f0f0f0', padding: 20, borderRadius: 8, overflow: 'auto', fontSize: '12px'}}>
-            {this.state.error?.toString()}
+            {error?.toString()}
           </pre>
         </div>
       );
     }
 
-    return (this as any).props.children;
+    // FIX: The error "Property 'props' does not exist" on a class component
+    // is often due to a misconfiguration or linter rule. Destructuring `children`
+    // from `this.props` is a common and clean workaround.
+    const { children } = this.props;
+    return children;
   }
 }
 
@@ -76,25 +83,27 @@ root.render(
         <ToastProvider>
             <AppProvider>
                 <SettingsProvider>
-                  <DocentProvider>
-                    <ModalProvider>
-                      <PatientProvider>
-                          <AppointmentProvider>
-                              <StaffProvider>
-                                  <InventoryProvider>
-                                      <FinancialProvider>
-                                          <ClinicalOpsProvider>
-                                            <Router>
-                                                <App />
-                                            </Router>
-                                          </ClinicalOpsProvider>
-                                      </FinancialProvider>
-                                  </InventoryProvider>
-                              </StaffProvider>
-                          </AppointmentProvider>
-                      </PatientProvider>
-                    </ModalProvider>
-                  </DocentProvider>
+                  <SearchProvider>
+                    <DocentProvider>
+                      <ModalProvider>
+                        <PatientProvider>
+                            <AppointmentProvider>
+                                <StaffProvider>
+                                    <InventoryProvider>
+                                        <FinancialProvider>
+                                            <ClinicalOpsProvider>
+                                              <Router>
+                                                  <App />
+                                              </Router>
+                                            </ClinicalOpsProvider>
+                                        </FinancialProvider>
+                                    </InventoryProvider>
+                                </StaffProvider>
+                            </AppointmentProvider>
+                        </PatientProvider>
+                      </ModalProvider>
+                    </DocentProvider>
+                  </SearchProvider>
                 </SettingsProvider>
             </AppProvider>
         </ToastProvider>

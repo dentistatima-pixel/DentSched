@@ -16,7 +16,7 @@ interface FinancialContextType {
     commissionDisputes: CommissionDispute[];
     philHealthClaims: PhilHealthClaim[];
     handleSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => Promise<void>;
-    handleUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, amountReceived?: number) => Promise<void>;
+    handleUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => Promise<void>;
     handleAddExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
     handleUpdatePhilHealthClaim: (updatedClaim: PhilHealthClaim) => Promise<void>;
     handleSaveReconciliation: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => Promise<void>;
@@ -85,7 +85,18 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
             hmoClaims, expenses, reconciliations, cashSessions, payrollPeriods, payrollAdjustments, 
             commissionDisputes, philHealthClaims,
             handleSaveHmoClaim: createAsyncHandler((claim: Omit<HMOClaim, 'id'>) => setHmoClaims(c => [...c, {id: generateUid('hmo'), ...claim}]), "HMO Claim filed."),
-            handleUpdateHmoClaimStatus: createAsyncHandler((claimId: string, status: HMOClaimStatus, amountReceived?: number) => { setHmoClaims(c => c.map(claim => claim.id === claimId ? { ...claim, status: status, amountReceived: amountReceived } : claim)); }, "HMO Claim status updated."),
+            handleUpdateHmoClaimStatus: createAsyncHandler((claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => { 
+                setHmoClaims(c => c.map(claim => 
+                    claim.id === claimId 
+                    ? { 
+                        ...claim, 
+                        status: status, 
+                        amountReceived: data?.amountReceived ?? claim.amountReceived,
+                        rejectionReason: data?.rejectionReason ?? claim.rejectionReason,
+                        dateReceived: status === HMOClaimStatus.PAID ? new Date().toISOString().split('T')[0] : claim.dateReceived,
+                      } 
+                    : claim));
+            }, "HMO Claim status updated."),
             handleAddExpense: createAsyncHandler((expense: Omit<Expense, 'id'>) => setExpenses(e => [...e, { id: generateUid('exp'), ...expense }]), "Expense logged."),
             handleUpdatePhilHealthClaim: async (updatedClaim: PhilHealthClaim) => setPhilHealthClaims(prev => prev.map(c => c.id === updatedClaim.id ? updatedClaim : c)),
             handleSaveReconciliation: createAsyncHandler((record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => setReconciliations(r => [...r, {id: generateUid('rec'), timestamp: new Date().toISOString(), ...record}])),

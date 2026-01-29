@@ -186,7 +186,6 @@ interface RegistrationMedicalProps {
   selectedFieldId?: string;
 }
 
-// Fix: Change component declaration to be a named export.
 export const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
     formData,
     onCustomChange,

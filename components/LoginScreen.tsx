@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { STAFF } from '../constants';
@@ -7,7 +8,7 @@ interface LoginScreenProps {
   onLogin: (user: User) => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -48,7 +49,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
   if (selectedUser) {
     return (
-        <div className="w-full h-screen bg-teal-900 flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
+        <div className="w-full min-h-screen bg-teal-900 flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
              <div className="w-full max-w-sm">
                 <div className="text-center mb-10">
                     <div className="w-24 h-24 rounded-full border-4 border-teal-400 mx-auto mb-4 shadow-2xl bg-teal-800 flex items-center justify-center">
@@ -61,7 +62,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 <div className="relative mb-6">
                     <div className={`flex justify-center gap-4 ${error ? 'animate-in shake' : ''}`}>
                         {[0,1,2,3].map(i => (
-                            <div key={i} className={`w-12 h-16 rounded-lg flex items-center justify-center text-4xl font-bold text-white ${error ? 'bg-red-200 border-2 border-red-500' : 'bg-white/20'}`}>
+                            <div key={i} className={`w-12 h-16 rounded-lg flex items-center justify-center text-4xl font-bold text-white ${error ? 'bg-red-200/50 border-2 border-red-500' : 'bg-white/20'}`}>
                                 {pin[i] ? <span className="inline-block animate-pop-in">•</span> : ''}
                             </div>
                         ))}
@@ -69,13 +70,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     {error && <p className="text-center text-red-400 font-bold mt-3 text-sm">{error}</p>}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 text-white text-2xl font-bold">
+                <div className="grid grid-cols-3 gap-4 text-2xl font-bold">
                     {[1,2,3,4,5,6,7,8,9].map(n => (
-                        <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all">{n}</button>
+                        <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">{n}</button>
                     ))}
                     <div/>
-                    <button onClick={() => handlePinChange('0')} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all">0</button>
-                    <button onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center">
+                    <button onClick={() => handlePinChange('0')} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">0</button>
+                    <button onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-teal-200">
                         <ArrowLeft size={28}/>
                     </button>
                 </div>
@@ -86,7 +87,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   }
 
   return (
-    <div className="w-full h-screen bg-teal-900 flex flex-col items-center justify-center p-8">
+    <div className="w-full min-h-screen bg-teal-900 flex flex-col items-center justify-center p-8">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-black text-white uppercase tracking-widest">dentsched</h1>
         <p className="text-teal-300 font-bold mt-2">Practice Management System</p>
@@ -94,7 +95,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
       <div className="w-full max-w-md bg-white/10 p-8 rounded-3xl border border-white/20 backdrop-blur-lg">
         <h2 className="text-white font-bold text-center mb-6">Select Your Profile to Login</h2>
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar">
           {STAFF.map(user => (
             <button 
               key={user.id}
@@ -119,5 +120,3 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     </div>
   );
 };
-
-export default LoginScreen;

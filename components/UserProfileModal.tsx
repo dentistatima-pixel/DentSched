@@ -68,10 +68,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
   };
   
   const handleDocentToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!onSave) return;
-    const updatedUser = { ...formData, showDigitalDocent: e.target.checked };
-    setFormData(updatedUser);
-    onSave(updatedUser);
+    setFormData(prev => ({ ...prev, showDigitalDocent: e.target.checked }));
   };
 
   return (
@@ -221,9 +218,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                         checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
                                         onChange={handleDocentToggle}
                                         className="sr-only peer"
+                                        disabled={!isEditing}
                                     />
-                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
-                                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6 peer-disabled:cursor-not-allowed"></div>
                                 </div>
                             </div>
                         </div>

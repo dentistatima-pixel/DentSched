@@ -1,8 +1,12 @@
+
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { User, SystemStatus, AuditLogEntry, GovernanceTrack } from '../types';
+import { User, SystemStatus, AuditLogEntry, GovernanceTrack, SyncIntent } from '../types';
 import { STAFF, MOCK_AUDIT_LOG, generateUid } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import CryptoJS from 'crypto-js';
+import { db } from '../services/db';
+import { DataService } from '../services/dataService';
+
 
 type Theme = 'light' | 'dark';
 
@@ -36,6 +40,9 @@ interface AppContextType {
   setFullScreenView: (view: FullScreenView | null) => void;
   isInKioskMode: boolean;
   setIsInKioskMode: (isKiosk: boolean) => void;
+  syncQueueCount: number;
+  isSyncing: boolean;
+  enqueueAction: (action: SyncIntent['action'], payload: any) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -53,6 +60,85 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [theme, setTheme] = useState<Theme>('light');
     const [fullScreenView, setFullScreenView] = useState<FullScreenView | null>(null);
     const [isInKioskMode, setIsInKioskMode] = useState(false);
+    
+    const [syncQueueCount, setSyncQueueCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const refreshQueueCount = useCallback(async () => {
+        const queue = await db.getAll<SyncIntent>('actionQueue');
+        setSyncQueueCount(queue.length);
+    }, []);
+
+    useEffect(() => {
+        refreshQueueCount();
+    }, [refreshQueueCount]);
+
+    const enqueueAction = useCallback(async (action: SyncIntent['action'], payload: any) => {
+        const intent: SyncIntent = {
+            id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            action,
+            payload,
+            timestamp: new Date().toISOString()
+        };
+        await db.set('actionQueue', intent);
+        await refreshQueueCount();
+    }, [refreshQueueCount]);
+    
+    const processSyncQueue = useCallback(async () => {
+        if (isSyncing || !isOnline) return;
+
+        const queue = await db.getAll<SyncIntent>('actionQueue');
+        if (queue.length === 0) {
+            return;
+        }
+
+        setIsSyncing(true);
+        toast.info(`Syncing ${queue.length} offline change(s)...`);
+
+        let successCount = 0;
+        for (const intent of queue) {
+            try {
+                let success = false;
+                switch (intent.action) {
+                    case 'UPDATE_PATIENT':
+                    case 'REGISTER_PATIENT':
+                        await DataService.savePatient(intent.payload);
+                        success = true;
+                        break;
+                    case 'UPDATE_APPOINTMENT':
+                    case 'CREATE_APPOINTMENT':
+                    case 'UPDATE_STATUS':
+                        await DataService.saveAppointment(intent.payload);
+                        success = true;
+                        break;
+                }
+
+                if (success) {
+                    await db.del('actionQueue', intent.id);
+                    successCount++;
+                }
+            } catch (error) {
+                console.error("Sync error for action:", intent, error);
+                toast.error(`Failed to sync: ${intent.action}. Retrying later.`);
+                break; // Stop on the first error to maintain order
+            }
+        }
+
+        await refreshQueueCount();
+        setIsSyncing(false);
+        
+        if (successCount > 0 && successCount === queue.length) {
+            toast.success("All offline changes have been synced successfully.");
+            // Reload to fetch fresh, consistent data from the "server"
+            // This is a simple strategy to avoid complex state merging post-sync
+            setTimeout(() => window.location.reload(), 1500);
+        } else if (successCount > 0) {
+            toast.warning(`${successCount} changes synced, but some failed. They will be retried on next connection.`);
+            setTimeout(() => window.location.reload(), 1500);
+        }
+
+    }, [isSyncing, isOnline, toast, refreshQueueCount]);
+
 
     const toggleTheme = () => {
         setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -75,10 +161,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
     const isAuthorityLocked = useMemo(() => {
-      if (!currentUser) return false;
-      const isPrcExpired = currentUser.prcExpiry ? new Date(currentUser.prcExpiry) < new Date() : false;
-      const isMalpracticeExpired = currentUser.malpracticeExpiry ? new Date(currentUser.malpracticeExpiry) < new Date() : false;
-      return isPrcExpired || isMalpracticeExpired;
+        if (!currentUser) return false;
+
+        const isExpiredWithGrace = (expiryDate?: string): boolean => {
+            if (!expiryDate) return false;
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            return new Date(expiryDate) < sevenDaysAgo;
+        };
+
+        const isPrcLocked = isExpiredWithGrace(currentUser.prcExpiry);
+        const isMalpracticeLocked = isExpiredWithGrace(currentUser.malpracticeExpiry);
+      
+        return isPrcLocked || isMalpracticeLocked;
     }, [currentUser]);
 
     const isReadOnly = useMemo(() => currentUser?.status === 'Inactive' || isAuthorityLocked, [currentUser, isAuthorityLocked]);
@@ -128,7 +223,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
+        const handleOnline = () => {
+            setIsOnline(true);
+            processSyncQueue();
+        };
         const handleOffline = () => setIsOnline(false);
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
@@ -136,7 +234,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           window.removeEventListener('online', handleOnline);
           window.removeEventListener('offline', handleOffline);
         };
-    }, []);
+    }, [processSyncQueue]);
 
     const value: AppContextType = {
         currentUser,
@@ -163,6 +261,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setFullScreenView,
         isInKioskMode,
         setIsInKioskMode,
+        syncQueueCount,
+        isSyncing,
+        enqueueAction,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

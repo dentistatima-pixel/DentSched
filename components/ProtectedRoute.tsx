@@ -1,3 +1,4 @@
+
 import React, { ReactNode } from 'react';
 import { UserRole } from '../types';
 import { useAppContext } from '../contexts/AppContext';
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
   requiredRoles: UserRole[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
   const { currentUser } = useAppContext();
   const navigate = useNavigate();
 
@@ -28,5 +29,3 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles
 
   return <>{children}</>;
 };
-
-export default ProtectedRoute;

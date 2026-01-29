@@ -6,7 +6,7 @@ import {
     Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
     ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, 
     Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
-    Sparkles, Sun, Moon
+    Sparkles, Sun, Moon, Search
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
 import { UserRole, SystemStatus, AppNotification, Patient } from '../types';
@@ -14,19 +14,22 @@ import { useAppContext } from '../contexts/AppContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
-import { useFinancials } from '../contexts/FinancialContext';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { usePatient } from '../contexts/PatientContext';
-import GeminiAssistant from './GeminiAssistant';
+import { GeminiAssistant } from './GeminiAssistant';
 import { useDocent } from '../contexts/DocentContext';
+import { CommandBar } from './CommandBar';
+import { useAppointments } from '../contexts/AppointmentContext';
+// Fix: Import the useFinancials hook to access financial context.
+import { useFinancials } from '../contexts/FinancialContext';
 
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ 
+export const Layout: React.FC<LayoutProps> = ({ 
   children
 }) => {
   const { showModal } = useModal();
@@ -40,16 +43,19 @@ const Layout: React.FC<LayoutProps> = ({
     handleStopImpersonating, logout: handleLogout,
     currentBranch, setCurrentBranch, isAuthorityLocked, setIsInKioskMode,
     theme, toggleTheme,
+    syncQueueCount, isSyncing,
   } = useAppContext();
   const { staff, handleSaveStaff } = useStaff();
   const { patients } = usePatient();
+  const { appointments, handleSaveAppointment } = useAppointments();
   const { fieldSettings } = useSettings();
-  const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks } = useClinicalOps();
+  const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks, handleAddToWaitlist } = useClinicalOps();
   const { handleStartCashSession, handleCloseCashSession, cashSessions } = useFinancials();
   
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false);
+  const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   
   const { isDocentEnabled, isPanelOpen, togglePanel } = useDocent();
 
@@ -67,6 +73,17 @@ const Layout: React.FC<LayoutProps> = ({
         setNewTaskAssignee(currentUser.id);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandBarOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (!currentUser) return null; // Or a loading/error state
 
@@ -126,6 +143,24 @@ const Layout: React.FC<LayoutProps> = ({
   const sentTasks = useMemo(() => tasks.filter(t => t.createdBy === currentUser.id && t.assignedTo !== currentUser.id).sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0) || (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0)), [tasks, currentUser.id]);
   const currentTaskList = pinboardTab === 'inbox' ? inboxTasks : sentTasks;
 
+  const handleCommandNavigation = (type: 'patient' | 'action', payload?: any) => {
+    setIsCommandBarOpen(false); // Close modal first
+    if (type === 'patient') {
+      navigate(`patients/${payload}`);
+    } else if (type === 'action' && payload === 'newPatient') {
+      showModal('patientRegistration', { currentBranch });
+    } else if (type === 'action' && payload === 'newAppointment') {
+      showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch });
+    }
+  };
+  
+  const todaysFullSchedule = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    return appointments
+      .filter(a => a.date === todayStr && a.branch === currentBranch)
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [appointments, currentBranch]);
+
   return (
     <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
@@ -159,7 +194,7 @@ const Layout: React.FC<LayoutProps> = ({
              </div>
              
             {/* --- Main Navigation --- */}
-            <nav className="hidden md:flex items-center gap-2" role="tablist" aria-label="Main Navigation">
+            <nav className="flex items-center gap-2" role="tablist" aria-label="Main Navigation">
                 {navItems.map((item) => (
                 <button 
                     key={item.id} 
@@ -183,6 +218,43 @@ const Layout: React.FC<LayoutProps> = ({
             </nav>
 
              <div className="flex items-center gap-4">
+                 <button
+                    onClick={() => setIsCommandBarOpen(true)}
+                    className={`p-3.5 rounded-2xl transition-all focus:ring-offset-2 ${
+                        isDowntime
+                            ? 'bg-black/50 text-white hover:bg-black/70'
+                            : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                    aria-label="Open Command Bar (Ctrl+K)"
+                 >
+                    <Search size={22} />
+                 </button>
+
+                 {/* Sync Status Indicator */}
+                <div 
+                    className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                        isSyncing ? 'bg-blue-100 text-blue-700' :
+                        syncQueueCount > 0 ? 'bg-lilac-100 text-lilac-700' :
+                        'bg-teal-50 text-teal-700'
+                    }`}
+                    title={
+                        isSyncing ? 'Syncing offline changes...' :
+                        syncQueueCount > 0 ? `${syncQueueCount} change(s) pending sync` :
+                        'All changes synced'
+                    }
+                >
+                    {isSyncing ? (
+                        <RefreshCcw size={16} className="animate-spin" />
+                    ) : syncQueueCount > 0 ? (
+                        <CloudOff size={16} />
+                    ) : (
+                        <Cloud size={16} />
+                    )}
+                    {syncQueueCount > 0 && !isSyncing && (
+                        <span>{syncQueueCount}</span>
+                    )}
+                </div>
+
                 {/* User Menu */}
                 <div className="relative">
                     <button
@@ -406,8 +478,14 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
         </div>
       )}
+      
+      <CommandBar
+        isOpen={isCommandBarOpen}
+        onClose={() => setIsCommandBarOpen(false)}
+        patients={patients}
+        todaysAppointments={todaysFullSchedule}
+        onNavigate={handleCommandNavigation}
+      />
     </div>
   );
 };
-
-export default Layout;

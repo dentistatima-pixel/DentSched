@@ -1,20 +1,25 @@
 
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus } from '../types';
-import RegistrationBasicInfo from './RegistrationBasicInfo';
-// Fix: Change to named import for RegistrationMedical to resolve module export issue.
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent } from '../types';
+// Fix: Use a named import for RegistrationBasicInfo as it does not have a default export.
+import { RegistrationBasicInfo } from './RegistrationBasicInfo';
 import { RegistrationMedical } from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-// Fix: Removed unused import 'PDA_INFORMED_CONSENT_TEXTS' which was causing an error.
-import { generateUid } from '../constants';
+import { generateUid, calculateAge } from '../constants';
 import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
+import { useFormPersistence } from '../hooks/useFormPersistence';
+// Fix: Use a named import for ActionButton as it does not have a default export.
+import { ActionButton } from './ActionButton';
+// Fix: Use a named import for FormStatusIndicator as it does not have a default export.
+import { FormStatusIndicator, FormStatus } from './FormStatusIndicator';
+import { useModal } from '../contexts/ModalContext';
+
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -53,11 +58,18 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   const [isViewingConsent, setIsViewingConsent] = useState(false);
   
   const initialFormState: Partial<Patient> = useMemo(() => ({
-    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', age: undefined, homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: false, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
+    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: undefined, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     isPwd: false, dentalChart: [], perioChart: [], registrationSignature: '', registrationSignatureTimestamp: '', registryAnswers: {}, customFields: {}, registrationStatus: RegistrationStatus.PROVISIONAL
   }), []);
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
+
+  const { formStatus, clearSavedDraft } = useFormPersistence<Partial<Patient>>(
+    `patient-reg-${initialData?.id || 'new'}`,
+    formData,
+    setFormData,
+    readOnly
+  );
   
   const generalConsent = useMemo(() => fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), [fieldSettings.consentFormTemplates]);
 
@@ -77,17 +89,37 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     setFormData(prev => {
         const newData = { ...prev };
         if (type === 'checkbox') { 
-            (newData as any)[name] = (e.target as HTMLInputElement).checked; 
+            const checked = (e.target as HTMLInputElement).checked; 
+            if (name === 'clinicalMediaConsent') {
+                if(checked) {
+                    newData.clinicalMediaConsent = {
+                        generalConsent: true,
+                        consentVersion: fieldSettings.currentPrivacyVersion,
+                        consentTimestamp: new Date().toISOString(),
+                        consentSignature: '', // to be captured later
+                        permissions: { // Default permissions
+                            intraoralPhotos: true,
+                            extraoralPhotos: true,
+                            xrays: true,
+                            videography: false,
+                            caseStudyUse: false,
+                            marketingUse: false,
+                            thirdPartySharing: false,
+                        },
+                        mediaCapturedLogs: []
+                    };
+                } else {
+                    newData.clinicalMediaConsent = undefined;
+                }
+            } else {
+                (newData as any)[name] = checked;
+            }
         } else { 
             (newData as any)[name] = value; 
         }
-        if (name === 'dob' && value) {
-            const age = new Date().getFullYear() - new Date(value).getFullYear();
-            newData.age = Math.max(0, age);
-        }
         return newData;
     });
-  }, [readOnly]);
+  }, [readOnly, fieldSettings.currentPrivacyVersion]);
 
   const handleCustomChange = useCallback((fieldName: string, value: any, type: 'text' | 'checklist' | 'boolean') => {
       if (readOnly) return;
@@ -138,6 +170,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     try {
         const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
         await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE });
+        clearSavedDraft();
         onClose();
     } catch (error) {
         // Error toast is handled by dataContext
@@ -165,18 +198,14 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   };
 
   const validateStep = (currentStep: number) => {
-    const errors: string[] = [];
     if (currentStep === 1) {
-        if (!formData.firstName?.trim() || !formData.surname?.trim()) errors.push("First Name and Surname are required.");
-        if (!formData.phone?.trim()) errors.push("Mobile Number is required.");
-        if (!/^(09)\d{9}$/.test(formData.phone?.trim() || '')) errors.push("Please enter a valid 11-digit mobile number.");
-        if (!formData.dpaConsent) errors.push("DPA Consent is mandatory.");
-        if (!formData.clinicalMediaConsent) errors.push("Treatment Authorization is mandatory.");
+        const errors = validatePatient(formData);
+        if (errors) {
+            Object.values(errors).forEach(e => toast.error(e));
+            return false;
+        }
     }
-    if (errors.length > 0) {
-        errors.forEach(e => toast.error(e));
-        return false;
-    }
+    // Add validation for other steps if needed
     return true;
   };
 
@@ -193,7 +222,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   };
   
   return {
-      step, animationDirection, formData, isSaving,
+      step, animationDirection, formData, isSaving, formStatus,
       showPrivacyPolicy, setShowPrivacyPolicy,
       showSignaturePad, setShowSignaturePad,
       isViewingConsent, setIsViewingConsent,
@@ -207,7 +236,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
   const workflow = useRegistrationWorkflow({ initialData, onSave, onClose, currentBranch, readOnly });
   const { 
-      step, animationDirection, formData, isSaving,
+      step, animationDirection, formData, isSaving, formStatus,
       showPrivacyPolicy, setShowPrivacyPolicy,
       showSignaturePad, setShowSignaturePad,
       isViewingConsent, setIsViewingConsent,
@@ -248,7 +277,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 {step === 1 && (
                      <div key={1} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
                         <div className="bg-white border-2 border-teal-100 p-8 rounded-[2.5rem] shadow-sm space-y-8">
-                            <RegistrationBasicInfo formData={formData} handleChange={handleChange} handleCustomChange={handleCustomChange} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
+                            <RegistrationBasicInfo formData={formData} handleChange={handleChange} handleCustomChange={() => {}} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
                             <div className="grid grid-cols-2 gap-4 pt-8 border-t border-slate-100">
                                <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
                                     <input type="checkbox" name="dpaConsent" checked={!!formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
@@ -268,7 +297,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                     </div>
                 )}
                 {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
-                {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} readOnly={readOnly} /></div>}
+                {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} registrationFields={fieldSettings.identityFields} /></div>}
                 {step === 4 && (
                     <div key={4} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-x-auto">
@@ -305,13 +334,17 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         </div>
 
         <div className="p-6 border-t border-slate-200 bg-white/80 backdrop-blur-md shrink-0 flex justify-between items-center z-10">
-            <button type="button" onClick={handleBack} disabled={step === 1} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50 flex items-center gap-2"><ArrowLeft size={16}/> Back</button>
+            <div className="flex items-center gap-4">
+                <button type="button" onClick={handleBack} disabled={step === 1} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50 flex items-center gap-2"><ArrowLeft size={16}/> Back</button>
+                <FormStatusIndicator status={formStatus} />
+            </div>
+
             {step < stepsInfo.length ? (
                 <button type="button" onClick={handleNext} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">Next Step <ArrowRight size={16}/></button>
             ) : (
-                <button type="button" onClick={handleFinalSubmit} disabled={isSaving} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50 disabled:grayscale">
+                <ActionButton type="button" onClick={handleFinalSubmit} isLoading={isSaving} loadingText="Saving...">
                     <Save size={18}/> {isSaving ? 'Saving...' : 'Finalize & Sign'}
-                </button>
+                </ActionButton>
             )}
         </div>
       </div>
@@ -334,7 +367,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       )}
 
       {showPrivacyPolicy && <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />}
-      {showSignaturePad && <SignatureCaptureOverlay isOpen={showSignaturePad} onClose={() => setShowSignaturePad(false)} onSave={handleSignatureCaptured} title="Digital Identity Anchor" instruction="To ensure non-repudiation and forensic integrity, please provide your digital signature." themeColor="teal"/>}
+      {showSignaturePad && <SignatureCaptureOverlay patientId={formData.id || ''} isOpen={showSignaturePad} onClose={() => setShowSignaturePad(false)} onSave={handleSignatureCaptured} title="Digital Identity Anchor" instruction="To ensure non-repudiation and forensic integrity, please provide your digital signature." themeColor="teal"/>}
     </div>
   );
 };

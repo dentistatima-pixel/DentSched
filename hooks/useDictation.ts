@@ -9,6 +9,29 @@ interface DictationSetters {
     p: Dispatch<SetStateAction<string>>;
 }
 
+const DENTAL_TERMINOLOGY: Record<string, string> = {
+    'numba': '#',
+    'number': '#',
+    'mesial': 'M',
+    'distal': 'D',
+    'occlusal': 'O',
+    'buccal': 'B',
+    'lingual': 'L',
+    'palatal': 'P',
+    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+    'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'zero': '0'
+};
+
+const enhanceTranscript = (text: string): string => {
+    let enhanced = text;
+    Object.entries(DENTAL_TERMINOLOGY).forEach(([spoken, written]) => {
+        const regex = new RegExp(`\\b${spoken}\\b`, 'gi');
+        enhanced = enhanced.replace(regex, written);
+    });
+    return enhanced;
+};
+
+
 // Audio utility functions
 function encode(bytes: Uint8Array): string {
   let binary = '';
@@ -110,8 +133,9 @@ export const useDictation = (setters: DictationSetters) => {
                         if (message.serverContent?.inputTranscription) {
                             const text = message.serverContent.inputTranscription.text;
                             if (text && activeFieldRef.current) {
+                                const enhancedText = enhanceTranscript(text);
                                 const setter = setters[activeFieldRef.current];
-                                setter(prev => (prev ? `${prev} ${text}` : text).trim());
+                                setter(prev => (prev ? `${prev} ${enhancedText}` : enhancedText).trim());
                             }
                         }
                     },

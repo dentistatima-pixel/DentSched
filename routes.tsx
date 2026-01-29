@@ -1,17 +1,25 @@
+
 import React, { useMemo, Suspense } from 'react';
-import Dashboard from './components/Dashboard';
+import { Dashboard } from './components/Dashboard';
+// Fix: CalendarView is a default export, not a named export.
 import CalendarView from './components/CalendarView';
-// Fix: Use a named import for PatientList as it does not have a default export.
 import { PatientList } from './components/PatientList';
+// Fix: FieldManagement is a default export, not a named export.
 import FieldManagement from './components/FieldManagement';
-import AdminHub from './components/AdminHub';
-import Financials from './components/Financials';
+import { AdminHub } from './components/AdminHub';
+// Fix: Financials is a named export, not a default export.
+import { Financials } from './components/Financials';
+// Fix: Inventory is a default export, not a named export.
 import Inventory from './components/Inventory';
+// Fix: RecallCenter is a default export, not a named export.
 import RecallCenter from './components/RecallCenter';
+// Fix: ReferralManager is a default export, not a named export.
 import ReferralManager from './components/ReferralManager';
+// Fix: RosterView is a default export, not a named export.
 import RosterView from './components/RosterView';
+// Fix: LeaveAndShiftManager is a default export, not a named export.
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
-import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment } from './types';
+import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus } from './types';
 
 // Import all necessary hooks for the new container components
 import { usePatient } from './contexts/PatientContext';
@@ -24,6 +32,7 @@ import { useSettings } from './contexts/SettingsContext';
 import { useClinicalOps } from './contexts/ClinicalOpsContext';
 import { useModal } from './contexts/ModalContext';
 import { useNavigate } from './contexts/RouterContext';
+import { PatientListSkeleton, PatientDetailSkeleton } from './skeletons/PatientSkeletons';
 
 export interface RouteConfig {
   path: string;
@@ -45,35 +54,80 @@ const PageLoader: React.FC = () => (
 
 // --- CONTAINER COMPONENTS ---
 
+// Fix: Correct lazy import syntax for default exports.
+const AnalyticsHub = React.lazy(() => import('./components/Analytics'));
+const GovernanceHub = React.lazy(() => import('./components/GovernanceHub'));
 const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
 
 function CommunicationHubContainer() {
-    return <CommunicationHub />;
+    return <Suspense fallback={<PageLoader />}><CommunicationHub /></Suspense>;
 }
 
 function AdminHubContainer({ route }: { route: { param: string | null } }) {
-    const { appointments, handleVerifyDowntimeEntry, handleVerifyMedHistory, handleConfirmFollowUp } = useAppointments();
-    const { patients, handleSavePatient } = usePatient();
-    const { incidents, handleResolveIncident } = useClinicalOps();
-    const { showModal } = useModal();
     const navigate = useNavigate();
-    const { staff } = useStaff();
+
+    const renderAdminPage = () => {
+        switch (route.param) {
+            case 'financials':
+                return <FinancialsContainer route={route} />;
+            case 'inventory':
+                return <InventoryContainer />;
+            case 'analytics':
+                return <Suspense fallback={<PageLoader />}><AnalyticsHubContainer /></Suspense>;
+            case 'governance':
+                return <Suspense fallback={<PageLoader />}><GovernanceHubContainer onNavigate={navigate} /></Suspense>;
+            case 'communications':
+                return <CommunicationHubContainer />;
+            case 'recall':
+                return <RecallCenterContainer />;
+            case 'referrals':
+                return <ReferralManagerContainer />;
+            case 'roster':
+                return <RosterViewContainer />;
+            case 'leave':
+                return <LeaveAndShiftManagerContainer />;
+            default:
+                // If no param, show the main Admin Hub dashboard
+                return <AdminHub onNavigate={navigate} />;
+        }
+    };
     
-    return <AdminHub 
-        adminQueue={route.param} 
-        appointments={appointments}
+    return <div className="h-full w-full">{renderAdminPage()}</div>;
+}
+
+
+function AnalyticsHubContainer() {
+    const { patients } = usePatient();
+    const { appointments } = useAppointments();
+    const { fieldSettings } = useSettings();
+    const { staff } = useStaff();
+
+    return <AnalyticsHub
         patients={patients}
-        incidents={incidents}
+        appointments={appointments}
+        fieldSettings={fieldSettings}
         staff={staff}
-        onVerifyDowntime={handleVerifyDowntimeEntry}
-        onVerifyMedHistory={handleVerifyMedHistory}
-        onConfirmFollowUp={handleConfirmFollowUp}
-        onSavePatient={handleSavePatient}
-        onResolveIncident={handleResolveIncident}
-        onShowModal={showModal}
-        onNavigate={navigate}
     />;
 }
+
+function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
+    const { patients, handleAnonymizePatient: onPurgePatient } = usePatient();
+    const { showModal } = useModal();
+    const { auditLog, isAuditLogVerified } = useAppContext();
+    const { fieldSettings, handleUpdateSettings } = useSettings();
+
+    return <GovernanceHub 
+        patients={patients}
+        showModal={showModal}
+        auditLog={auditLog}
+        auditLogVerified={isAuditLogVerified}
+        settings={fieldSettings}
+        onUpdateSettings={handleUpdateSettings}
+        onAnonymizePatient={onPurgePatient}
+        onBack={() => onNavigate('admin')}
+    />;
+}
+
 
 function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { 
@@ -146,7 +200,7 @@ function FieldManagementContainer() {
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { staff, handleDeactivateStaff } = useStaff();
     const { auditLog, isAuditLogVerified, currentUser, handleStartImpersonating } = useAppContext();
-    const { patients, handlePurgePatient } = usePatient();
+    const { patients, handleAnonymizePatient: handlePurgePatient } = usePatient();
     const { appointments } = useAppointments();
     const { showModal } = useModal();
 
@@ -228,53 +282,25 @@ export const routes: RouteConfig[] = [
     component: AdminHubContainer, 
     requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
   },
-  {
-    path: 'communications',
-    component: CommunicationHubContainer,
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT]
-  },
   { 
     path: 'field-mgmt', 
     component: FieldManagementContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'financials', 
-    component: FinancialsContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'inventory', 
-    component: InventoryContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'recall', 
-    component: RecallCenterContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'referrals', 
-    component: ReferralManagerContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'roster', 
-    component: RosterViewContainer, 
-    requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
-  },
-  { 
-    path: 'leave', 
-    component: LeaveAndShiftManagerContainer, 
     requiredRoles: [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT] 
   },
 ];
 
 // Special layout for the patient list/detail view
 function PatientListLayout({ route }: { route: { param: string | null } }) {
+  const { isLoading: arePatientsLoading } = usePatient();
   const selectedPatientId = route.param;
   const navigate = useNavigate();
 
+  if (arePatientsLoading) {
+      return selectedPatientId 
+          ? <PatientDetailSkeleton /> 
+          : <PatientListSkeleton />;
+  }
+  
   if (!selectedPatientId) {
     // Full screen patient list view
     return (
@@ -293,26 +319,27 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
 }
 
 const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailView').then(module => ({ default: module.PatientPlaceholder })));
+// Fix: Correct lazy import syntax for default exports.
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
-  const { patients, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation } = usePatient();
+  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
-  const { currentUser, logAction, governanceTrack, isReadOnly } = useAppContext();
+  const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
   const { fieldSettings, handleUpdateSettings } = useSettings();
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
   const { showModal } = useModal();
   
   const patient = useMemo(() => patients.find(p => p.id === patientId) || null, [patients, patientId]);
 
-  if (!patientId) {
-    return <Suspense fallback={<PageLoader />}><PatientPlaceholder /></Suspense>;
+  if (isLoading) {
+    return <PatientDetailSkeleton />;
   }
 
-  if (!patient || !currentUser || !fieldSettings) {
-    return <PageLoader />;
+  if (!patientId || !patient || !currentUser || !fieldSettings) {
+    return <Suspense fallback={<PageLoader />}><PatientPlaceholder /></Suspense>;
   }
   
   const onBookAppointment = (pId: string) => showModal('appointment', { 
@@ -334,7 +361,8 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
     showModal('postOpHandover', { 
         appointment: apt,
         onConfirm: async () => {
-            await handleUpdateAppointmentStatus(apt.id, apt.status, { postOpVerified: true });
+            // Fix: Use correct enum member 'COMPLETED'.
+            await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { postOpVerified: true });
         }
     });
   };
@@ -366,9 +394,10 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRequestProtocolOverride={onRequestProtocolOverride}
         onDeleteClinicalNote={(noteId: string) => handleDeleteClinicalNote(patient.id, noteId)}
         onInitiateFinancialConsent={onInitiateFinancialConsent}
-        onSupervisorySeal={handleSupervisorySeal}
+        onSupervisorySeal={(note) => handleSupervisorySeal(patient.id, note)}
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
+        auditLog={auditLog}
       />
     </Suspense>
   );

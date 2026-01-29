@@ -11,7 +11,7 @@ interface GeminiAssistantProps {
   onClose: () => void;
 }
 
-const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClose }) => {
+export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClose }) => {
   const { currentUser } = useAppContext();
   const { route } = useRouter();
   const [chatHistory, setChatHistory] = useState<{ query: string; response: string; }[]>([]);
@@ -104,5 +104,3 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClose }) =>
     </div>
   );
 };
-
-export default GeminiAssistant;

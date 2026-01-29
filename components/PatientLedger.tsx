@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack } from '../types';
 import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
@@ -8,15 +9,14 @@ interface PatientLedgerProps {
     patient: Patient;
     onUpdatePatient: (updatedPatient: Patient) => void;
     readOnly?: boolean;
-    fieldSettings?: FieldSettings;
     governanceTrack?: GovernanceTrack;
-    onUpdateSettings?: (settings: FieldSettings) => void;
     onRecordPaymentWithReceipt?: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => void;
 }
 
-const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, fieldSettings, governanceTrack, onUpdateSettings, onRecordPaymentWithReceipt }) => {
+export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, governanceTrack, onRecordPaymentWithReceipt }) => {
     const toast = useToast();
     const isBirMode = governanceTrack === 'STATUTORY';
+    const { fieldSettings, handleUpdateSettings } = useSettings();
     
     const [mode, setMode] = useState<'view' | 'add_charge' | 'add_payment' | 'hmo_setup' | 'add_installment'>('view');
     
@@ -246,4 +246,5 @@ const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient,
     );
 };
 
-export default PatientLedger;
+// This needs to be imported to avoid breaking the component
+import { useSettings } from '../contexts/SettingsContext';

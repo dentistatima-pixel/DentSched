@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { FieldSettings, ScheduledSms } from '../types';
-import { DEFAULT_FIELD_SETTINGS } from '../constants';
+// Fix: Corrected import name from DEFAULT_FIELD_SETTINGS to DEFAULT_SETTINGS.
+import { DEFAULT_SETTINGS } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { DataService } from '../services/dataService';
 
@@ -16,7 +18,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
-    const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_FIELD_SETTINGS);
+    // Fix: Used corrected import name DEFAULT_SETTINGS.
+    const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_SETTINGS);
     const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
 
     useEffect(() => {

@@ -1,5 +1,8 @@
+
 import { useMemo } from 'react';
 import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
+// Fix: Import `calculateAge` to derive patient's age from date of birth.
+import { calculateAge } from '../constants';
 
 export const useClinicalNotePermissions = (
     currentUser: User, 
@@ -11,8 +14,10 @@ export const useClinicalNotePermissions = (
     activeProcedureDef?: ProcedureItem
 ) => {
     const isPediatricBlocked = useMemo(() => {
-        if (!patient || (patient.age || 0) >= 18 || isArchitect) return false;
-        const hasTodayConsent = !!activeAppointmentToday?.signedConsentUrl;
+        // Fix: Replace direct `age` access with `calculateAge` function.
+        if (!patient || (calculateAge(patient.dob) || 18) >= 18 || isArchitect) return false;
+        // Fix: Changed check from non-existent 'signedConsentUrl' to 'consentSignatureChain' to align with the Appointment type.
+        const hasTodayConsent = !!(activeAppointmentToday?.consentSignatureChain && activeAppointmentToday.consentSignatureChain.length > 0);
         const hasFullGuardian = patient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
         return !hasTodayConsent || !hasFullGuardian;
     }, [patient, activeAppointmentToday, isArchitect]);

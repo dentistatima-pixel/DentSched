@@ -1,8 +1,6 @@
-
-
 import React from 'react';
-import { Patient, FieldSettings } from '../types';
-import { FileText, AlertCircle, EyeOff, Calendar } from 'lucide-react';
+import { Patient } from '../types';
+import { FileText, AlertCircle, Calendar, Activity } from 'lucide-react';
 
 interface RegistrationDentalProps {
   formData: Partial<Patient>;
@@ -14,9 +12,13 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
     formData, handleChange, readOnly
 }) => {
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div className="orientation-grid gap-6">
-            <div className="col-span-6">
+    <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+        <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Activity size={24}/></div>
+            <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">DENTAL HISTORY</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
                 <label className="label flex items-center gap-2">
                     <FileText size={14}/>
                     Previous Attending Dentist
@@ -30,7 +32,7 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                     className="input" 
                 />
             </div>
-            <div className="col-span-6">
+            <div>
                 <label className="label flex items-center gap-2">
                     <Calendar size={14}/>
                     Approximate Date of Last Visit
@@ -38,8 +40,8 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
                 <input 
                     disabled={readOnly} 
                     type="date" 
-                    name="lastVisit" 
-                    value={formData.lastVisit || ''} 
+                    name="lastDentalVisit" 
+                    value={formData.lastDentalVisit || ''} 
                     onChange={handleChange} 
                     className="input" 
                 />

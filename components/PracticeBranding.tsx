@@ -230,6 +230,10 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                             <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
                             <select id="clinicProfile" value={settings.clinicProfile} onChange={(e) => onUpdateSettings({ ...settings, clinicProfile: e.target.value as any })} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
                         </div>
+                        <div>
+                            <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
+                            <input id="sessionTimeout" type="number" value={settings.sessionTimeoutMinutes} onChange={(e) => onUpdateSettings({ ...settings, sessionTimeoutMinutes: parseInt(e.target.value) || 30 })} className="input text-lg font-bold"/>
+                        </div>
                     </div>
                     <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
                         <div><h4 className="font-bold text-text-primary">Interface Theme</h4><p className="text-sm text-text-secondary">Current: <span className="font-bold capitalize">{theme}</span></p></div>
