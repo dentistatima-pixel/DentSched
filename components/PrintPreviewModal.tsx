@@ -86,12 +86,14 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
                     </div>
                     <button onClick={onClose}><X size={24} className="text-slate-500" /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
+                <div className="flex-1 overflow-y-auto p-8 bg-slate-200">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full"><Loader className="animate-spin text-teal-600"/></div>
                     ) : (
-                        <div id="print-content" className="bg-white p-8 rounded-lg shadow-md prose prose-sm max-w-none">
-                            <ReactMarkdown>{content}</ReactMarkdown>
+                        <div id="print-content" className="bg-white p-12 rounded-lg shadow-lg mx-auto" style={{ width: '210mm', minHeight: '297mm', transform: 'scale(0.8)', transformOrigin: 'top center' }}>
+                            <ReactMarkdown className="prose prose-sm max-w-none">
+                                {content}
+                            </ReactMarkdown>
                         </div>
                     )}
                 </div>

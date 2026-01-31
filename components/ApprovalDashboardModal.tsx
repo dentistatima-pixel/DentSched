@@ -5,6 +5,10 @@ import { X, CheckCircle, XCircle, FileText, Stethoscope, Activity, ImageIcon, Se
 // Fix: Use a named import for Odontogram as it does not have a default export.
 import { Odontogram } from './Odontogram';
 import { formatDate } from '../constants';
+import { useModal } from '../contexts/ModalContext';
+import { usePatient } from '../contexts/PatientContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { useAppContext } from '../contexts/AppContext';
 
 interface ApprovalDashboardModalProps {
   isOpen: boolean;
@@ -19,6 +23,11 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
   const [rejectionReason, setRejectionReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  
+  const { showModal } = useModal();
+  const { handleSaveInformedRefusal } = usePatient();
+  const { fieldSettings } = useSettings();
+  const { currentUser } = useAppContext();
 
   const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
   const planTotal = useMemo(() => planItems.reduce((acc, item) => acc + (item.price || 0), 0), [planItems]);
@@ -32,7 +41,54 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
         alert("A reason is required for rejection.");
         return;
     }
-    onReject(plan.id, rejectionReason);
+    
+    if (window.confirm(
+        "This rejection should be documented as an Informed Refusal. " +
+        "Would you like to create the informed refusal form now?"
+    )) {
+        const planItems = patient.dentalChart?.filter(item => item.planId === plan.id) || [];
+        const extractRisksFromPlan = (planItems: DentalChartEntry[]): string[] => {
+            const risks = new Set<string>();
+            planItems.forEach(item => {
+                const procedure = fieldSettings.procedures.find(p => p.name === item.procedure);
+                if (procedure?.riskDisclosures) {
+                    procedure.riskDisclosures.forEach(risk => risks.add(risk));
+                }
+            });
+            if (risks.size === 0) {
+                risks.add("Progression of disease");
+                risks.add("Potential for complications");
+                risks.add("Future treatment may be more complex or costly");
+            }
+            return Array.from(risks);
+        };
+
+        const extractAlternativesFromPlan = (planItems: DentalChartEntry[]): string[] => {
+            return ["No treatment", "Alternative conservative management", "Referral to specialist"];
+        };
+        
+        showModal('informedRefusal', {
+          patient,
+          currentUser,
+          relatedEntity: {
+            type: 'TreatmentPlan',
+            entityId: plan.id,
+            entityDescription: `Rejection of Treatment Plan: "${plan.name}"`,
+          },
+          risks: extractRisksFromPlan(planItems),
+          alternatives: extractAlternativesFromPlan(planItems),
+          recommendation: plan.clinicalRationale || `Proceed with the treatment plan "${plan.name}" as recommended.`,
+          onSave: (refusalData: any) => {
+            handleSaveInformedRefusal(patient.id, refusalData);
+            onReject(plan.id, rejectionReason);
+            onClose(); 
+          }
+        });
+
+    } else {
+       onReject(plan.id, rejectionReason);
+       onClose();
+    }
   };
 
   return (
@@ -69,9 +125,9 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
                 </div>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><UserIcon size={16}/> Clinical Rationale</h3>
-                <p className="text-sm text-slate-600 italic">"{plan.clinicalRationale || 'No rationale provided.'}"</p>
-                <p className="text-right text-xs font-bold text-slate-400 mt-2">- {plan.createdBy}</p>
+                 <h3 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><UserIcon size={16}/> Clinical Rationale</h3>
+                 <p className="text-sm text-slate-600 italic">"{plan.clinicalRationale || 'No rationale provided.'}"</p>
+                 <p className="text-right text-xs font-bold text-slate-400 mt-2">- {plan.createdBy}</p>
               </div>
             </div>
 

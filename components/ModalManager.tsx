@@ -25,6 +25,15 @@ const PreparationChecklistModal = React.lazy(() => import('./PreparationChecklis
 const InformedRefusalModal = React.lazy(() => import('./InformedRefusalModal'));
 const PhotoCaptureModal = React.lazy(() => import('./PhotoCaptureModal'));
 const QuickCheckInModal = React.lazy(() => import('./QuickCheckInModal'));
+const LeadDentistApprovalModal = React.lazy(() => import('./LeadDentistApprovalModal'));
+const MedicalHistoryAffirmationModal = React.lazy(() => import('./MedicalHistoryAffirmationModal'));
+const VoidNoteModal = React.lazy(() => import('./VoidNoteModal'));
+const PatientSignOffModal = React.lazy(() => import('./PatientSignOffModal'));
+const EmergencyConsentModal = React.lazy(() => import('./EmergencyConsentModal'));
+const EPrescriptionModal = React.lazy(() => import('./EPrescriptionModal'));
+const SterilizationVerificationModal = React.lazy(() => import('./SterilizationVerificationModal'));
+const DataSubjectRightsModal = React.lazy(() => import('./DataSubjectRightsModal'));
+const ShortcutHelpModal = React.lazy(() => import('./ShortcutHelpModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -53,6 +62,15 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     informedRefusal: InformedRefusalModal,
     photoCapture: PhotoCaptureModal,
     quickCheckIn: QuickCheckInModal,
+    leadDentistApproval: LeadDentistApprovalModal,
+    medicalHistoryAffirmation: MedicalHistoryAffirmationModal,
+    voidNote: VoidNoteModal,
+    patientSignOff: PatientSignOffModal,
+    emergencyConsent: EmergencyConsentModal,
+    ePrescription: EPrescriptionModal,
+    sterilizationVerification: SterilizationVerificationModal,
+    dataSubjectRights: DataSubjectRightsModal,
+    shortcutHelp: ShortcutHelpModal,
 };
 
 const ModalManager: React.FC = () => {

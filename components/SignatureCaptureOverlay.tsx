@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 /* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
 import CryptoJS from 'crypto-js';
+import { useToast } from './ToastSystem';
 
 interface SignatureCaptureOverlayProps {
   isOpen: boolean;
@@ -11,31 +11,42 @@ interface SignatureCaptureOverlayProps {
   title: string;
   instruction: string;
   themeColor: 'teal' | 'lilac';
+  contextSummary?: React.ReactNode;
 }
 
 const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
-  isOpen, onClose, onSave, title, instruction, themeColor
+  isOpen, onClose, onSave, title, instruction, themeColor, contextSummary
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
+  const toast = useToast();
   const [isSigning, setIsSigning] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [hasInk, setHasInk] = useState(false);
+  const [affirmations, setAffirmations] = useState({
+    isTrue: false,
+    isPrivacyRead: false,
+    isFeesAcknowledged: false,
+  });
+
+  const allAffirmed = affirmations.isTrue && affirmations.isPrivacyRead && affirmations.isFeesAcknowledged;
 
   const colors = themeColor === 'teal' ? {
     bg: 'bg-teal-900',
     btn: 'bg-teal-600 hover:bg-teal-700',
     ring: 'ring-teal-500/10',
     text: 'text-teal-900',
-    sub: 'text-teal-400'
+    sub: 'text-teal-400',
+    shadow: 'shadow-teal-600/30'
   } : {
     bg: 'bg-lilac-900',
     btn: 'bg-lilac-600 hover:bg-lilac-700',
     ring: 'ring-lilac-500/10',
     text: 'text-lilac-900',
-    sub: 'text-lilac-400'
+    sub: 'text-lilac-400',
+    shadow: 'shadow-lilac-600/30'
   };
 
   const setupCanvas = () => {
@@ -46,12 +57,12 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = rect.width * dpr;
-    canvas.height = 200 * dpr;
+    canvas.height = (contextSummary ? 300 : 400) * dpr;
 
     canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `200px`;
+    canvas.style.height = contextSummary ? '300px' : `400px`;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { desynchronized: true });
     if (ctx) {
       ctx.scale(dpr, dpr);
       ctx.strokeStyle = '#000';
@@ -93,6 +104,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
       setTimeout(setupCanvas, 100);
       startCamera();
       setHasInk(false);
+      setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true }); // Default to true for simpler flows unless context is provided
       if (canvas) {
         canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
       }
@@ -108,29 +120,31 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     };
   }, [isOpen]);
 
-  const getCoords = (e: any) => {
+  const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const startDraw = (e: any) => {
+  const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!allAffirmed && contextSummary) return;
     e.preventDefault();
     setIsSigning(true);
     const { x, y } = getCoords(e);
-    canvasRef.current?.getContext('2d')?.beginPath();
-    canvasRef.current?.getContext('2d')?.moveTo(x, y);
+    const ctx = canvasRef.current?.getContext('2d');
+    ctx?.beginPath();
+    ctx?.moveTo(x, y);
   };
 
-  const draw = (e: any) => {
-    if (!isSigning) return;
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isSigning || (!allAffirmed && contextSummary)) return;
     e.preventDefault();
     const { x, y } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
+      const pressure = e.pressure || 0.5;
+      ctx.lineWidth = Math.max(2, Math.min(8, pressure * 10));
       ctx.lineTo(x, y);
       ctx.stroke();
       setHasInk(true);
@@ -149,8 +163,11 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   };
 
   const handleAuthorize = () => {
-    if (!hasInk || !canvasRef.current) return;
-    const sigData = canvasRef.current.toDataURL();
+    if (!hasInk || (!allAffirmed && contextSummary)) {
+      if (!allAffirmed) toast.error("Please acknowledge all statements before signing.");
+      return;
+    }
+    const sigData = canvasRef.current!.toDataURL();
     
     let witnessHash = CryptoJS.SHA256(sigData + Date.now()).toString(); // Fallback hash
     
@@ -175,7 +192,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-white">
+      <div className={`bg-white w-full ${contextSummary ? 'max-w-4xl' : 'max-w-lg'} rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-white flex flex-col max-h-[95vh]`}>
         <div className={`${colors.bg} p-8 text-white flex justify-between items-center`}>
           <div className="flex items-center gap-4">
             <div className="bg-white/20 p-2 rounded-xl"><ShieldCheck size={24} /></div>
@@ -187,32 +204,54 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
         </div>
 
-        <div className="p-8 space-y-6">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <p className="text-xs text-slate-600 font-bold leading-relaxed">{instruction}</p>
+        <div className="p-8 space-y-6 flex-1 flex flex-col overflow-hidden">
+          {contextSummary && (
+            <div className="flex-1 overflow-y-auto no-scrollbar pr-2 mb-6 border-b pb-6">
+                {contextSummary}
             </div>
-            <div className={`w-20 h-20 rounded-full border-4 overflow-hidden bg-slate-200 relative ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
-              {isCameraActive ? <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <Camera className="w-8 h-8 text-slate-400 m-6" />}
-              {isFaceDetected && <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center"><UserCheck size={32} className="text-teal-600 opacity-60" /></div>}
-            </div>
-          </div>
+          )}
 
-          <div className="relative bg-white rounded-3xl border-2 border-dashed border-slate-300 p-2 group transition-all hover:border-slate-400">
+          {!contextSummary && (
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-xs text-slate-600 font-bold leading-relaxed">{instruction}</p>
+              </div>
+              <div className={`w-20 h-20 rounded-full border-4 overflow-hidden bg-slate-200 relative ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
+                {isCameraActive ? <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <Camera className="w-8 h-8 text-slate-400 m-6" />}
+                {isFaceDetected && <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center"><UserCheck size={32} className="text-teal-600 opacity-60" /></div>}
+              </div>
+            </div>
+          )}
+
+          {!contextSummary && (
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                  <input type="checkbox" checked={affirmations.isTrue} onChange={e => setAffirmations(p => ({ ...p, isTrue: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
+                  <span className="text-xs font-medium text-slate-700">I certify that the information I have provided is true and correct to the best of my knowledge.</span>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                  <input type="checkbox" checked={affirmations.isPrivacyRead} onChange={e => setAffirmations(p => ({ ...p, isPrivacyRead: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
+                  <span className="text-xs font-medium text-slate-700">I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information.</span>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+                  <input type="checkbox" checked={affirmations.isFeesAcknowledged} onChange={e => setAffirmations(p => ({ ...p, isFeesAcknowledged: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
+                  <span className="text-xs font-medium text-slate-700">I acknowledge that I am responsible for all fees associated with my treatment.</span>
+              </label>
+            </div>
+          )}
+
+          <div className={`relative bg-white rounded-3xl border-2 p-2 group transition-all ${allAffirmed || !contextSummary ? 'border-dashed border-slate-300 hover:border-slate-400' : 'border-solid border-slate-200 opacity-50 grayscale'}`}>
             <div className="absolute top-4 left-4 flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-widest">
               <Fingerprint size={12} /> Digital Ink Pad
             </div>
             <button onClick={handleClear} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><Eraser size={16} /></button>
             <canvas 
               ref={canvasRef} 
-              className="w-full h-[200px] touch-none cursor-crosshair"
-              onMouseDown={startDraw}
-              onMouseMove={draw}
-              onMouseUp={endDraw}
-              onMouseLeave={endDraw}
-              onTouchStart={startDraw}
-              onTouchMove={draw}
-              onTouchEnd={endDraw}
+              className={`w-full touch-none cursor-crosshair ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
+              onPointerDown={startDraw}
+              onPointerMove={draw}
+              onPointerUp={endDraw}
+              onPointerLeave={endDraw}
             />
             <div className="absolute bottom-10 left-8 right-8 h-px bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none" />
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-300 uppercase">Signature Baseline</div>
@@ -222,8 +261,8 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button>
             <button 
               onClick={handleAuthorize}
-              disabled={!hasInk}
-              className={`flex-[2] py-4 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all ${hasInk ? colors.btn : 'bg-slate-200 text-slate-400 grayscale'}`}
+              disabled={!hasInk || (!!contextSummary && !allAffirmed)}
+              className={`flex-[2] py-4 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all ${hasInk && (allAffirmed || !contextSummary) ? `${colors.btn} ${colors.shadow}` : 'bg-slate-200 text-slate-400 grayscale'}`}
             >
               Authorize & Complete
             </button>

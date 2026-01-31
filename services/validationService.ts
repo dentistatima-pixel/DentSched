@@ -1,26 +1,51 @@
-
 import { Patient, Appointment, User, FieldSettings } from '../types';
 
-export const validatePatient = (patient: Partial<Patient>): Record<string, string> | null => {
-    const errors: Record<string, string> = {};
+// Schema-based validation for Patient
+const patientSchema = {
+    name: (patient: Partial<Patient>) => {
+        if (!patient.firstName?.trim() || !patient.surname?.trim()) {
+            return "First Name and Surname are required.";
+        }
+        return null;
+    },
+    phone: (patient: Partial<Patient>) => {
+        if (!patient.phone?.trim()) {
+            return "Mobile Number is required.";
+        }
+        if (!/^(09)\d{9}$/.test(patient.phone.trim())) {
+            return "Please enter a valid 11-digit mobile number (e.g., 09171234567).";
+        }
+        return null;
+    },
+    dpaConsent: (patient: Partial<Patient>) => {
+        if (!patient.dpaConsent) {
+            return "Compliance Error: Data Privacy Consent must be accepted.";
+        }
+        return null;
+    },
+    clinicalMediaConsent: (patient: Partial<Patient>) => {
+        if (!patient.clinicalMediaConsent) {
+            return "Compliance Error: General Treatment Authorization must be acknowledged.";
+        }
+        return null;
+    }
+};
 
-    if (!patient.firstName?.trim() || !patient.surname?.trim()) {
-        errors.name = "First Name and Surname are required.";
+const validate = (schema: any, data: any): Record<string, string> | null => {
+    const errors: Record<string, string> = {};
+    for (const key in schema) {
+        const error = schema[key](data);
+        if (error) {
+            errors[key] = error;
+        }
     }
-    if (!patient.phone?.trim()) {
-        errors.phone = "Mobile Number is required.";
-    } else if (!/^(09)\d{9}$/.test(patient.phone.trim())) {
-        errors.phone = "Please enter a valid 11-digit mobile number (e.g., 09171234567).";
-    }
-    if (!patient.dpaConsent) {
-        errors.dpaConsent = "Compliance Error: Data Privacy Consent must be accepted.";
-    }
-    if (!patient.clinicalMediaConsent) {
-        errors.clinicalMediaConsent = "Compliance Error: General Treatment Authorization must be acknowledged.";
-    }
-    
     return Object.keys(errors).length > 0 ? errors : null;
 };
+
+export const validatePatient = (patient: Partial<Patient>): Record<string, string> | null => {
+    return validate(patientSchema, patient);
+};
+
 
 export const validateAppointment = (
     appointmentData: Partial<Appointment>, 

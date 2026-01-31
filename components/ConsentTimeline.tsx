@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Patient, Appointment, TreatmentPlan } from '../types';
 import { formatDate } from '../constants';
@@ -9,7 +10,7 @@ interface ConsentTimelineProps {
 }
 
 const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
-    // Fix: Fetch appointments directly from the context instead of passing as a prop, improving component encapsulation.
+    // FIX: Fetch appointments directly from the context instead of passing as a prop, improving component encapsulation.
     const { appointments } = useAppointments();
     const patientAppointments = appointments.filter(a => a.patientId === patient.id);
 

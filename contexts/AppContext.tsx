@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { User, SystemStatus, AuditLogEntry, GovernanceTrack, SyncIntent } from '../types';
 import { STAFF, MOCK_AUDIT_LOG, generateUid } from '../constants';
@@ -35,6 +34,7 @@ interface AppContextType {
   setCurrentBranch: (branch: string) => void;
   isReadOnly: boolean;
   isAuthorityLocked: boolean;
+  setIsAuthorityLocked: (isLocked: boolean) => void;
   theme: Theme;
   toggleTheme: () => void;
   fullScreenView: FullScreenView | null;
@@ -64,6 +64,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     const [syncQueueCount, setSyncQueueCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    const [isAuthorityLocked, setIsAuthorityLocked] = useState(false);
 
     const refreshQueueCount = useCallback(async () => {
         const queue = await db.getAll<SyncIntent>('actionQueue');
@@ -139,9 +141,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [isSyncing, isOnline, toast, refreshQueueCount]);
 
 
-    const toggleTheme = () => {
+    const toggleTheme = useCallback(() => {
         setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
-    };
+    }, []);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -157,22 +159,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (currentUser) {
             setCurrentBranch(currentUser.defaultBranch);
         }
-    }, [currentUser]);
-
-    const isAuthorityLocked = useMemo(() => {
-        if (!currentUser) return false;
-
-        const isExpiredWithGrace = (expiryDate?: string): boolean => {
-            if (!expiryDate) return false;
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            return new Date(expiryDate) < sevenDaysAgo;
-        };
-
-        const isPrcLocked = isExpiredWithGrace(currentUser.prcExpiry);
-        const isMalpracticeLocked = isExpiredWithGrace(currentUser.malpracticeExpiry);
-      
-        return isPrcLocked || isMalpracticeLocked;
     }, [currentUser]);
 
     const isReadOnly = useMemo(() => currentUser?.status === 'Inactive' || isAuthorityLocked, [currentUser, isAuthorityLocked]);
@@ -239,31 +225,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [auditLog, toast]);
 
-    const handleStartImpersonating = (userToImpersonate: User) => {
+    const handleStartImpersonating = useCallback((userToImpersonate: User) => {
         if (!currentUser || currentUser.id === userToImpersonate.id) return;
         logAction('SECURITY_ALERT', 'System', userToImpersonate.id, `Impersonation started by ${currentUser.name} for user ${userToImpersonate.name}.`);
         setOriginalUser(currentUser);
         setCurrentUser(userToImpersonate);
         toast.warning(`Now impersonating ${userToImpersonate.name}.`);
-    };
+    }, [currentUser, logAction, toast]);
 
-    const handleStopImpersonating = () => {
+    const handleStopImpersonating = useCallback(() => {
         if (originalUser) {
             logAction('SECURITY_ALERT', 'System', currentUser!.id, `Impersonation stopped. Reverted to ${originalUser.name}.`);
             setCurrentUser(originalUser);
             setOriginalUser(null);
             toast.info("Impersonation stopped.");
         }
-    };
+    }, [originalUser, currentUser, logAction, toast]);
     
-    const logout = () => {
+    const logout = useCallback(() => {
         if (currentUser) {
             logAction('LOGOUT', 'System', currentUser.id, 'User logged out.');
         }
         setCurrentUser(null);
         setOriginalUser(null);
         toast.info("You have been logged out.");
-    };
+    }, [currentUser, logAction, toast]);
 
     useEffect(() => {
         const handleOnline = () => {
@@ -279,7 +265,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
     }, [processSyncQueue]);
 
-    const value: AppContextType = {
+    const value: AppContextType = useMemo(() => ({
         currentUser,
         setCurrentUser,
         originalUser,
@@ -298,6 +284,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCurrentBranch,
         isReadOnly,
         isAuthorityLocked,
+        setIsAuthorityLocked,
         theme,
         toggleTheme,
         fullScreenView,
@@ -307,7 +294,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         syncQueueCount,
         isSyncing,
         enqueueAction,
-    };
+    }), [
+        currentUser, originalUser, systemStatus, isOnline, auditLog, 
+        isAuditLogVerified, governanceTrack, currentBranch, isReadOnly, 
+        isAuthorityLocked, theme, fullScreenView, isInKioskMode, 
+        syncQueueCount, isSyncing, logAction, handleStartImpersonating,
+        handleStopImpersonating, logout, toggleTheme, enqueueAction
+    ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

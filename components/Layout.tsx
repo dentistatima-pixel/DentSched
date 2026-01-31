@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
@@ -6,7 +5,7 @@ import {
     Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
     ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, 
     Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
-    Sparkles, Sun, Moon, Search
+    Sparkles, Sun, Moon, Search, HelpCircle
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
 import { UserRole, SystemStatus, AppNotification, Patient } from '../types';
@@ -21,8 +20,8 @@ import { GeminiAssistant } from './GeminiAssistant';
 import { useDocent } from '../contexts/DocentContext';
 import { CommandBar } from './CommandBar';
 import { useAppointments } from '../contexts/AppointmentContext';
-// Fix: Import the useFinancials hook to access financial context.
 import { useFinancials } from '../contexts/FinancialContext';
+import { ErrorBoundary } from './ErrorBoundary';
 
 
 interface LayoutProps {
@@ -80,10 +79,14 @@ export const Layout: React.FC<LayoutProps> = ({
         e.preventDefault();
         setIsCommandBarOpen(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        showModal('shortcutHelp');
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showModal]);
 
   if (!currentUser) return null; // Or a loading/error state
 
@@ -172,6 +175,13 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
       
+      {!isOnline && (
+        <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="status">
+            <CloudOff size={18} className="animate-pulse"/>
+            <span>OFFLINE MODE: Changes are being saved locally and will sync when you're back online.</span>
+        </div>
+      )}
+
       {currentUser.status === 'Inactive' && (
         <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
           <ShieldAlert size={18} />
@@ -188,7 +198,6 @@ export const Layout: React.FC<LayoutProps> = ({
                      <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
                      <div className="flex items-center gap-2 mt-2">
                         <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
-                        {!isOnline && <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-lilac-600 text-[8px] font-black uppercase tracking-widest" role="status"><CloudOff size={8}/> Offline Continuity Mode</div>}
                      </div>
                 </div>
              </div>
@@ -291,6 +300,9 @@ export const Layout: React.FC<LayoutProps> = ({
                                     )}
                                     <button onClick={toggleTheme} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />} Theme ({theme})
+                                    </button>
+                                    <button onClick={() => showModal('shortcutHelp')} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                        <HelpCircle size={16} /> Shortcuts
                                     </button>
                                 </div>
                                 <div className="p-2 border-t border-border-primary">
@@ -429,9 +441,11 @@ export const Layout: React.FC<LayoutProps> = ({
       )}
 
       <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-bg-primary relative" role="main">
-        <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} no-scrollbar`}>
-            {children}
-        </div>
+        <ErrorBoundary>
+            <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} no-scrollbar`}>
+                {children}
+            </div>
+        </ErrorBoundary>
       </main>
 
       {/* PDA COMPLIANCE FOOTER */}

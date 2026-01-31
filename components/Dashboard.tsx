@@ -9,11 +9,12 @@ import {
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, UserRole, Patient, 
-  PinboardTask, SyncConflict, SystemStatus, User, FieldSettings, StockItem
+  PinboardTask, SyncConflict, SystemStatus, User, FieldSettings, StockItem,
+  ClinicalIncident, 
+  RegistrationStatus
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
-// Fix: Use default import for GlobalSearchModal as it's a default export.
 import GlobalSearchModal from './GlobalSearchModal';
 
 import { useAppointments } from '../contexts/AppointmentContext';
@@ -116,7 +117,7 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                     }
                     
                     const medicalAlerts = (patient.allergies?.filter(a => a !== 'None').length || 0) + (patient.medicalConditions?.filter(c => c !== 'None').length || 0);
-                    const isProvisional = patient.registrationStatus === 'Provisional';
+                    const isProvisional = patient.registrationStatus === RegistrationStatus.PROVISIONAL;
                     const needsClearance = patient.medicalConditions?.some(c => (settings?.criticalRiskRegistry || []).includes(c)) && !patient.clearanceRequests?.some(r => r.status === 'Approved');
 
                     const config = statusTextConfig[apt.status] || { color: 'text-slate-400', label: apt.status };

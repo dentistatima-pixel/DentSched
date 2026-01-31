@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX } from 'lucide-react';
 
@@ -25,7 +24,7 @@ export const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
         <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Practice-wide Oversight & Management Queues</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      <div className="grid gap-8 admin-hub-grid">
         {adminSections.map(section => (
           <button 
             key={section.id} 

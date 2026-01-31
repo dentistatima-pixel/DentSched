@@ -1,13 +1,50 @@
-
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { STAFF } from '../constants';
 import { ShieldCheck, Key, ArrowLeft, User as UserIcon } from 'lucide-react';
 
+/**
+ * @interface LoginScreenProps
+ * @description Props for the main login screen component.
+ */
 interface LoginScreenProps {
+  /**
+   * Callback function that is triggered upon a successful login attempt.
+   * @param user The authenticated user object.
+   */
   onLogin: (user: User) => void;
 }
 
+/**
+ * JEST/RTL TEST PLAN:
+ * 
+ * 1. Test initial render:
+ *    - It should render the main title "dentsched".
+ *    - It should render a list of staff members from the `STAFF` constant.
+ * 
+ * 2. Test user selection:
+ *    - Simulate a click on a user profile button.
+ *    - Verify that the component transitions to the PIN entry screen for the selected user.
+ *    - The selected user's name and role should be displayed.
+ * 
+ * 3. Test PIN entry:
+ *    - Simulate clicks on the number pad buttons.
+ *    - Verify that the PIN display updates correctly with dots.
+ *    - Test the backspace functionality.
+ * 
+ * 4. Test successful login:
+ *    - Enter the correct PIN for the selected user.
+ *    - Verify that the `onLogin` callback is called exactly once with the correct user object.
+ * 
+ * 5. Test unsuccessful login:
+ *    - Enter an incorrect PIN.
+ *    - Verify that an "Invalid PIN" error message is displayed.
+ *    - Verify that the PIN input is cleared automatically after the error.
+ * 
+ * 6. Test switching users:
+ *    - From the PIN screen, simulate a click on the "Not you? Select another profile" button.
+ *    - Verify that the component returns to the initial user selection screen.
+ */
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pin, setPin] = useState('');
@@ -45,7 +82,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       if (pin.length === 4) {
           handleLoginAttempt();
       }
-  }, [pin]);
+  }, [pin, handleLoginAttempt]);
 
   if (selectedUser) {
     return (

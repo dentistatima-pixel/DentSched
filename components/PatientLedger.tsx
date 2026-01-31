@@ -4,10 +4,11 @@ import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack }
 import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface PatientLedgerProps {
     patient: Patient;
-    onUpdatePatient: (updatedPatient: Patient) => void;
+    onUpdatePatient: (updatedPatient: Partial<Patient>) => Promise<void>;
     readOnly?: boolean;
     governanceTrack?: GovernanceTrack;
     onRecordPaymentWithReceipt?: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => void;
@@ -48,7 +49,7 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
     const currentBalance = useMemo(() => ledger.length === 0 ? 0 : ledger[ledger.length - 1].balanceAfter, [ledger]);
     const installments = patient.installmentPlans || [];
 
-    const handleCharge = (e: React.FormEvent) => {
+    const handleCharge = async (e: React.FormEvent) => {
         e.preventDefault();
         const total = parseFloat(amount) || 0;
         if (total <= 0) return;
@@ -58,23 +59,22 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
             id: generateUid('l'), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
         };
 
-        onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
+        await onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
         setMode('view'); setAmount(''); setDescription('');
         toast.success("Charge recorded.");
     };
 
-    const handlePayment = (e: React.FormEvent) => {
+    const handlePayment = async (e: React.FormEvent) => {
         e.preventDefault();
         const val = parseFloat(amount);
         if (isNaN(val) || val <= 0) return;
 
+        const nextOrNumber = fieldSettings.taxConfig.nextOrNumber;
+        const orNumStr = nextOrNumber.toString();
+
         if (isBirMode) {
-            if (!orNumber.trim()) {
-                toast.error("Compliance Error: BIR Official Receipt (OR) Number is mandatory in Compliance Mode.");
-                return;
-            }
             if (onRecordPaymentWithReceipt) {
-                onRecordPaymentWithReceipt(patient.id, { description, date, amount: val, orNumber });
+                onRecordPaymentWithReceipt(patient.id, { description, date, amount: val, orNumber: orNumStr });
             } else {
                 toast.error("System error: Payment handler not available.");
             }
@@ -87,21 +87,25 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
                 type: 'Payment', 
                 amount: val, 
                 balanceAfter: newBalance,
+                orNumber: orNumStr,
+                orDate: new Date().toISOString()
             };
-            onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
-            toast.success("Payment recorded.");
+            await onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
+            const nextOr = nextOrNumber + 1;
+            await handleUpdateSettings({ ...fieldSettings, taxConfig: { ...fieldSettings.taxConfig, nextOrNumber: nextOr } });
+            toast.success("Payment recorded with OR #" + orNumStr);
         }
 
         setMode('view'); setAmount(''); setDescription(''); setOrNumber('');
     };
 
-    const handleAddInstallment = (e: React.FormEvent) => {
+    const handleAddInstallment = async (e: React.FormEvent) => {
         e.preventDefault();
         const total = parseFloat(instTotal);
         const monthly = parseFloat(instMonthly);
         if (isNaN(total) || isNaN(monthly)) return;
         const newPlan: InstallmentPlan = { id: `inst_${Date.now()}`, description: instDesc, totalAmount: total, paidAmount: 0, startDate: new Date().toISOString().split('T')[0], monthlyDue: monthly, status: 'Active' };
-        onUpdatePatient({ ...patient, installmentPlans: [...installments, newPlan] });
+        await onUpdatePatient({ ...patient, installmentPlans: [...installments, newPlan] });
         setMode('view'); setInstDesc(''); setInstTotal(''); setInstMonthly('');
         toast.success("Installment plan established.");
     };
@@ -245,6 +249,3 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
         </div>
     );
 };
-
-// This needs to be imported to avoid breaking the component
-import { useSettings } from '../contexts/SettingsContext';

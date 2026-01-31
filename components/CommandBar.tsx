@@ -37,14 +37,14 @@ export const CommandBar: React.FC<CommandBarProps> = ({
 
     const lowercasedTerm = searchTerm.toLowerCase();
     
-    const patientResults: SearchResult[] = patientFuse.search(lowercasedTerm).map(r => ({ type: 'patient', item: r.item })).slice(0, 5);
+    const patientResults: SearchResult[] = patientFuse.search(lowercasedTerm).map((r): SearchResult => ({ type: 'patient', item: r.item })).slice(0, 5);
     const appointmentResults: SearchResult[] = todaysAppointments
       .filter(apt => !apt.isBlock && patients.find(p => p.id === apt.patientId)?.name.toLowerCase().includes(lowercasedTerm))
-      .map(apt => ({ type: 'appointment', item: apt }))
+      .map((apt): SearchResult => ({ type: 'appointment', item: apt }))
       .slice(0, 3);
     const actionResults: SearchResult[] = staticActions
       .filter(action => action.name.toLowerCase().includes(lowercasedTerm))
-      .map(action => ({ type: 'action', item: action }));
+      .map((action): SearchResult => ({ type: 'action', item: action }));
 
     return [...patientResults, ...appointmentResults, ...actionResults];
   }, [searchTerm, patientFuse, todaysAppointments, patients, staticActions]);

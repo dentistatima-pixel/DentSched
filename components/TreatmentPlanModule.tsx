@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory } from '../types';
+import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory, InformedRefusal } from '../types';
 import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch, Lock, Sparkles, LayoutGrid } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { formatDate } from '../constants';
-import { useModal } from '../contexts/ModalContext';
+import { formatDate, isExpired } from '../constants';
+import { useModal } from './ModalContext';
 
 // Component for a single plan card
 const PlanCard: React.FC<{
@@ -15,7 +16,9 @@ const PlanCard: React.FC<{
     onEditPlanName: (planId: string, currentName: string) => void;
     onInitiateFinancialConsent: (plan: TreatmentPlanType) => void;
     onManageProcedures: (planId: string) => void;
-}> = ({ plan, patient, currentUser, isApprovalEnabled, onPlanAction, onEditPlanName, onInitiateFinancialConsent, onManageProcedures }) => {
+    onDocumentRefusal: (plan: TreatmentPlanType) => void;
+    onReconfirm: (planId: string) => void;
+}> = ({ plan, patient, currentUser, isApprovalEnabled, onPlanAction, onEditPlanName, onInitiateFinancialConsent, onManageProcedures, onDocumentRefusal, onReconfirm }) => {
     const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
     const planTotal = useMemo(() => planItems.reduce((acc, item) => acc + (item.price || 0), 0), [planItems]);
 
@@ -26,12 +29,16 @@ const PlanCard: React.FC<{
         [TreatmentPlanStatus.APPROVED]: { text: 'Approved', color: 'bg-teal-100 text-teal-800', icon: ShieldCheck },
         [TreatmentPlanStatus.REJECTED]: { text: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
         [TreatmentPlanStatus.COMPLETED]: { text: 'Completed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+        [TreatmentPlanStatus.RECONFIRMED]: { text: 'Reconfirmed', color: 'bg-teal-700 text-white', icon: ShieldCheck },
     };
 
     const currentStatus = statusMap[plan.status];
     const isArchitect = currentUser.role === UserRole.SYSTEM_ARCHITECT;
     const isCreator = currentUser.name === plan.createdBy;
     const isApprover = isApprovalEnabled && (currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.ADMIN) && !isCreator;
+    const canEdit = (plan.status === TreatmentPlanStatus.DRAFT || plan.status === TreatmentPlanStatus.REJECTED) && (isCreator || isArchitect);
+    const isLocked = [TreatmentPlanStatus.APPROVED, TreatmentPlanStatus.COMPLETED, TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT, TreatmentPlanStatus.RECONFIRMED].includes(plan.status);
+
 
     return (
         <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-lg shadow-slate-500/5 overflow-hidden">
@@ -50,6 +57,28 @@ const PlanCard: React.FC<{
                      <button onClick={() => onPlanAction(plan.id, 'delete')} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full"><Trash2 size={16}/></button>
                 </div>
             </div>
+            
+            {plan.status === TreatmentPlanStatus.APPROVED && plan.reviewedBy && (
+                <div className="p-6 bg-teal-50 border-y-4 border-teal-200 flex items-center gap-6 animate-in fade-in shadow-inner">
+                    <div className="bg-teal-600 text-white p-4 rounded-2xl shadow-lg shadow-teal-600/30"><ShieldCheck size={28} /></div>
+                    <div>
+                        <div className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Lead Dentist Approval Seal</div>
+                        <div className="text-base font-black text-slate-800">Approved by {plan.reviewedBy} on {formatDate(plan.reviewedAt || '')}</div>
+                        <p className="text-xs text-slate-500 font-bold mt-1">This plan is now locked and cannot be edited without reverting to draft status.</p>
+                    </div>
+                </div>
+            )}
+
+            {plan.status === TreatmentPlanStatus.RECONFIRMED && plan.reconfirmedBy && (
+                <div className="p-6 bg-teal-700 border-y-4 border-teal-800 flex items-center gap-6 animate-in fade-in shadow-inner text-white">
+                    <div className="bg-white/20 p-4 rounded-2xl"><ShieldCheck size={28} /></div>
+                    <div>
+                        <div className="text-[10px] font-black text-teal-200 uppercase tracking-widest">Final Phase Reconfirmation</div>
+                        <div className="text-base font-black">Reconfirmed by {plan.reconfirmedBy} on {formatDate(plan.reconfirmedAt || '')}</div>
+                        <p className="text-xs font-bold text-teal-100 mt-1">This phase is permanently sealed as complete.</p>
+                    </div>
+                </div>
+            )}
             
             {plan.status === TreatmentPlanStatus.REJECTED && plan.reviewNotes && (
                 <div className="p-4 border-y border-red-200 bg-red-50 text-red-800">
@@ -87,9 +116,10 @@ const PlanCard: React.FC<{
             </div>
 
             <div className="bg-slate-50/50 p-4 border-t border-slate-100 flex justify-end items-center gap-2">
-                {(plan.status === TreatmentPlanStatus.DRAFT || plan.status === TreatmentPlanStatus.REJECTED) && (isCreator || isArchitect) && (
+                 {canEdit && (
                     <>
-                        <button onClick={() => onEditPlanName(plan.id, plan.name)} className="mr-auto px-4 py-2 text-slate-500 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-slate-200"><Edit size={14}/> Edit Name</button>
+                        <button onClick={() => onDocumentRefusal(plan)} className="mr-auto px-4 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-red-100"><XCircle size={14}/> Document Refusal</button>
+                        <button onClick={() => onEditPlanName(plan.id, plan.name)} className="px-4 py-2 text-slate-500 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-slate-200"><Edit size={14}/> Edit Name</button>
                         <button onClick={() => onManageProcedures(plan.id)} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-slate-300 shadow-sm"><LayoutGrid size={14}/> Manage Content</button>
                         <button onClick={() => onPlanAction(plan.id, 'submit')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-black uppercase">Submit for Review</button>
                     </>
@@ -111,6 +141,16 @@ const PlanCard: React.FC<{
                 
                 {plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT && (
                     <button onClick={() => onInitiateFinancialConsent(plan)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase">Capture Financial Consent</button>
+                )}
+
+                {plan.status === TreatmentPlanStatus.COMPLETED && (isCreator || isArchitect) && (
+                     <button onClick={() => onReconfirm(plan.id)} className="px-4 py-2 bg-teal-700 text-white rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-teal-800">
+                        <ShieldCheck size={14}/> Reconfirm Completion
+                     </button>
+                 )}
+                
+                {isLocked && (
+                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase"><Lock size={12}/> Plan Locked</div>
                 )}
             </div>
         </div>
@@ -182,6 +222,14 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
             return;
         }
 
+        if (action === 'approve') {
+            const malpracticeIsExpired = isExpired(currentUser.malpracticeExpiry);
+            if (malpracticeIsExpired) {
+                toast.error("INDEMNITY LOCK: Cannot approve treatment plan. Your malpractice insurance has expired.");
+                return;
+            }
+        }
+
         if (action === 'reject') {
             const reason = window.prompt("Reason for rejection:");
             if (reason && reason.trim()) {
@@ -209,9 +257,9 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                         const planTotal = patient.dentalChart?.filter(item => item.planId === planId).reduce((acc, item) => acc + (item.price || 0), 0) || 0;
                         logAction('APPROVE', 'TreatmentPlan', p.id, `Clinically approved.`);
                         if(planTotal > 0){
-                           return { ...p, status: TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT };
+                           return { ...p, status: TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                         }
-                        return { ...p, status: TreatmentPlanStatus.APPROVED };
+                        return { ...p, status: TreatmentPlanStatus.APPROVED, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                     case 'revert_to_draft': 
                         logAction('UPDATE', 'TreatmentPlan', p.id, `Reverted to draft.`);
                         return { ...p, status: TreatmentPlanStatus.DRAFT, reviewNotes: undefined, reviewedBy: undefined, reviewedAt: undefined };
@@ -220,6 +268,47 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
             return p;
         });
         onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
+    };
+
+    const handleReconfirmPlan = (planId: string) => {
+        const plan = allPlans.find(p => p.id === planId);
+        if (!plan) return;
+
+        const updatedPlans = allPlans.map(p =>
+            p.id === planId
+            ? {
+                ...p,
+                status: TreatmentPlanStatus.RECONFIRMED,
+                reconfirmedBy: currentUser.name,
+                reconfirmedAt: new Date().toISOString()
+              }
+            : p
+        );
+
+        onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
+        logAction('RECONFIRM', 'TreatmentPlan', plan.id, `Final confirmation of completion for plan "${plan.name}".`);
+        toast.success(`Plan "${plan.name}" has been reconfirmed as complete.`);
+    };
+    
+    const handleDocumentRefusal = (plan: TreatmentPlanType) => {
+        showModal('informedRefusal', {
+            patient: patient,
+            currentUser: currentUser,
+            relatedEntity: {
+                type: 'TreatmentPlan',
+                entityId: plan.id,
+                entityDescription: `Refusal of Treatment Plan: "${plan.name}"`,
+            },
+            risks: ['Progression of disease', 'Potential for complications', 'Future treatment may be more complex or costly'],
+            alternatives: ['No treatment', 'Alternative conservative management'],
+            recommendation: `Proceed with plan "${plan.name}" as recommended.`,
+            onSave: (refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => {
+                const newRefusal: InformedRefusal = { ...refusal, id: `ref_${Date.now()}`, patientId: patient.id };
+                const updatedPatient = { ...patient, informedRefusals: [...(patient.informedRefusals || []), newRefusal] };
+                onUpdatePatient(updatedPatient);
+                toast.success("Informed refusal has been documented and sealed.");
+            }
+        });
     };
     
     return (
@@ -275,6 +364,8 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                         onEditPlanName={handleEditPlanName}
                         onInitiateFinancialConsent={onInitiateFinancialConsent}
                         onManageProcedures={handleManageProcedures}
+                        onDocumentRefusal={handleDocumentRefusal}
+                        onReconfirm={handleReconfirmPlan}
                     />
                 ))}
                 {allPlans.length === 0 && !isCreating && (

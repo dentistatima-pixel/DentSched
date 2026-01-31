@@ -1,33 +1,33 @@
-
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { useStaff } from '../contexts/StaffContext';
-// Fix: Import formatDate to resolve "Cannot find name" error.
 import { isExpired, isWithin30Days, formatDate } from '../constants';
 
 interface LicenseValidationResult {
     isPrcExpired: boolean;
+    isMalpracticeExpired: boolean;
     licenseAlerts: string[];
 }
 
 export const useLicenseValidation = (providerId: string | null): LicenseValidationResult => {
     const { staff } = useStaff();
-    const [result, setResult] = useState<LicenseValidationResult>({ isPrcExpired: false, licenseAlerts: [] });
+    const [result, setResult] = useState<LicenseValidationResult>({ isPrcExpired: false, isMalpracticeExpired: false, licenseAlerts: [] });
 
     useEffect(() => {
         if (!providerId) {
-            setResult({ isPrcExpired: false, licenseAlerts: [] });
+            setResult({ isPrcExpired: false, isMalpracticeExpired: false, licenseAlerts: [] });
             return;
         }
 
         const provider = staff.find(s => s.id === providerId);
         if (!provider) {
-            setResult({ isPrcExpired: false, licenseAlerts: [] });
+            setResult({ isPrcExpired: false, isMalpracticeExpired: false, licenseAlerts: [] });
             return;
         }
 
         const alerts: string[] = [];
         let prcIsExpired = false;
+        let malpracticeIsExpired = false;
 
         if (provider.prcLicense) {
             if (isExpired(provider.prcExpiry)) {
@@ -48,13 +48,14 @@ export const useLicenseValidation = (providerId: string | null): LicenseValidati
         
         if (provider.malpracticePolicy) {
             if (isExpired(provider.malpracticeExpiry)) {
+                malpracticeIsExpired = true;
                 alerts.push(`CRITICAL: ${provider.name}'s Malpractice Insurance has expired!`);
             } else if (isWithin30Days(provider.malpracticeExpiry)) {
                 alerts.push(`Warning: ${provider.name}'s Malpractice Insurance expires soon.`);
             }
         }
 
-        setResult({ isPrcExpired: prcIsExpired, licenseAlerts: alerts });
+        setResult({ isPrcExpired: prcIsExpired, isMalpracticeExpired: malpracticeIsExpired, licenseAlerts: alerts });
 
     }, [providerId, staff]);
 

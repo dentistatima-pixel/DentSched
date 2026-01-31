@@ -105,7 +105,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
     }
   };
 
-  const handlePatientSave = (updated: Partial<Patient>) => {
+  const handlePatientSave = async (updated: Partial<Patient>) => {
       const finalPatient = { ...updated };
 
       if (capturedThumb || capturedHash) {
@@ -116,7 +116,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
           finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
       }
       
-      onUpdatePatient(finalPatient);
+      // FIX: The onSave prop expects a Promise. The function is now async and awaits the update operation.
+      await onUpdatePatient(finalPatient);
       setStep('thankyou');
   };
 

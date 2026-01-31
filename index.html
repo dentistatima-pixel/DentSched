@@ -94,17 +94,18 @@
         background-color: var(--bg-primary); 
         color: var(--text-primary);
         transition: background-color 0.3s ease, color 0.3s ease;
+        font-size: 16px; /* Set base font size for tablet readability */
       }
       
       /* Global Form Styling - Tablet Optimized */
       .input { 
         width: 100%;
-        height: 56px; /* Increased for touch */
+        min-height: 56px; /* Increased for touch */
         padding: 0 1rem;
         background-color: var(--input-bg); 
         border: 2px solid var(--input-border);
         border-radius: 1rem; 
-        font-size: 16px; /* Base size for readability */
+        font-size: 1rem; /* Base size for readability */
         font-weight: 600;
         color: var(--text-primary); 
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -151,16 +152,16 @@
 
       /* Validation States */
       .input-error {
-        border-color: #ef4444; /* red-500 */
-        background-color: #fef2f2; /* red-50 */
+        border-color: #ef4444 !important; /* red-500 */
+        background-color: #fef2f2 !important; /* red-50 */
       }
       .dark .input-error {
-        background-color: #450a0a; /* red-950 */
-        border-color: #b91c1c; /* red-700 */
+        background-color: #450a0a !important; /* red-950 */
+        border-color: #b91c1c !important; /* red-700 */
       }
       .input-error:focus {
-        border-color: #dc2626; /* red-600 */
-        box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.15);
+        border-color: #dc2626 !important; /* red-600 */
+        box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.15) !important;
       }
       .error-text {
         color: #b91c1c; /* red-700 */
@@ -189,7 +190,7 @@
 
       .label {
         display: block;
-        font-size: 1rem; /* Increased to 16px for elderly accessibility */
+        font-size: 0.875rem; /* 14px for tablet UI */
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.075em;
@@ -314,8 +315,8 @@
         
         .patient-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .patient-summary-col-1 { grid-column: span 1 / span 1; }
-        .patient-summary-col-2 { grid-column: span 2 / span 2; }
-        .patient-summary-col-3 { grid-column: span 3 / span 3; }
+        .patient-summary-col-2 { grid-column: span 1 / span 1; }
+        .patient-summary-col-3 { grid-column: span 1 / span 1; }
 
         .diagnostic-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 

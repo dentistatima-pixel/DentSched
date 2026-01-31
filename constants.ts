@@ -747,7 +747,9 @@ I certify that the foregoing information is true and correct.
 **Completion Rate:** {completionRate}%
 **No-Show Rate:** {noShowRate}%
 `
-  }
+  },
+  'bir_sales_report': { name: 'BIR Sales Report', content: '...' },
+  'bir_discount_report': { name: 'BIR Discount Report', content: '...' },
 };
 
 export const DEFAULT_COMMUNICATION_TEMPLATES: CommunicationTemplate[] = [
@@ -1263,7 +1265,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45 },
   { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60 },
   { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30 },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 90 },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, requiresWitness: true, defaultDurationMinutes: 90 },
   { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60 },
   { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10 },
 ];
@@ -1337,7 +1339,14 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
       'Taking Bisphosphonates? (Fosamax, Zometa)',
   ],
-  dentalHistoryRegistry: [],
+  dentalHistoryRegistry: [
+      'Are you anxious about dental treatment?',
+      'Do your gums bleed when you brush?',
+      'Do you have sensitive teeth (hot, cold, sweet)?',
+      'Do you clench or grind your teeth?',
+      'Have you had previous orthodontic treatment?',
+      'Are you satisfied with the appearance of your teeth?'
+  ],
   criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
   medications: [],
@@ -1407,6 +1416,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'set1', name: 'Basic Exam Set', status: 'Sterile', branch: 'Makati Main' },
       { id: 'set2', name: 'Surgical Set', status: 'Used', branch: 'Makati Main' },
   ],
+  sterilizationCycles: MOCK_STERILIZATION_CYCLES_INITIALIZED,
   stockItems: [],
   payrollAdjustmentTemplates: [
       { id: 'adj1', label: 'Perfect Attendance Bonus', type: 'Credit', category: 'Incentives', defaultAmount: 500 },
@@ -1418,5 +1428,8 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   ],
   clinicalProtocolRules: [
     { id: 'proto_bp', name: 'Hypertension Protocol', triggerProcedureCategories: ['Surgery'], requiresMedicalConditions: ['High Blood Pressure', 'High BP'], requiresDocumentCategory: 'Medical Clearance', alertMessage: 'Hypertension Protocol: Patient requires valid Medical Clearance for surgical procedures.' }
-  ]
+  ],
+  savedViews: [],
+  dataProtectionOfficerId: undefined,
+  privacyImpactAssessments: [],
 };

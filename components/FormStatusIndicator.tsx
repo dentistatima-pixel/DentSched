@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CheckCircle, AlertCircle, RefreshCw, Save } from 'lucide-react';
 
@@ -9,9 +10,9 @@ interface FormStatusIndicatorProps {
 
 export const FormStatusIndicator: React.FC<FormStatusIndicatorProps> = ({ status }) => {
   const statusConfig = {
-    unsaved: { icon: AlertCircle, text: 'Unsaved Changes', color: 'text-amber-600' },
+    unsaved: { icon: AlertCircle, text: 'Unsaved Changes', color: 'text-amber-600', animate: false },
     saving: { icon: RefreshCw, text: 'Saving...', color: 'text-blue-600', animate: true },
-    saved: { icon: CheckCircle, text: 'All changes saved', color: 'text-teal-600' },
+    saved: { icon: CheckCircle, text: 'All changes saved', color: 'text-teal-600', animate: false },
     restoring: { icon: RefreshCw, text: 'Restoring draft...', color: 'text-blue-600', animate: true },
   };
 

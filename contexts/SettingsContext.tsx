@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { FieldSettings, ScheduledSms } from '../types';
 // Fix: Corrected import name from DEFAULT_FIELD_SETTINGS to DEFAULT_SETTINGS.
@@ -9,6 +8,7 @@ import { DataService } from '../services/dataService';
 interface SettingsContextType {
     fieldSettings: FieldSettings;
     setFieldSettings: React.Dispatch<React.SetStateAction<FieldSettings>>;
+    isLoading: boolean;
     scheduledSms: ScheduledSms[];
     addScheduledSms: (sms: Omit<ScheduledSms, 'id' | 'status'>) => void;
     handleUpdateSettings: (newSettings: FieldSettings) => Promise<void>;
@@ -20,14 +20,16 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const toast = useToast();
     // Fix: Used corrected import name DEFAULT_SETTINGS.
     const [fieldSettings, setFieldSettings] = useState<FieldSettings>(DEFAULT_SETTINGS);
+    const [isLoading, setIsLoading] = useState(true);
     const [scheduledSms, setScheduledSms] = useState<ScheduledSms[]>([]);
 
     useEffect(() => {
+        setIsLoading(true);
         DataService.getSettings().then(setFieldSettings).catch(err => {
             toast.error("Failed to load practice settings.");
             console.error(err);
-        });
-    }, []);
+        }).finally(() => setIsLoading(false));
+    }, [toast]);
 
     const handleUpdateSettings = async (newSettings: FieldSettings) => {
         try {
@@ -49,7 +51,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setScheduledSms(prev => [...prev, newSms]);
     };
 
-    const value = { fieldSettings, setFieldSettings, scheduledSms, addScheduledSms, handleUpdateSettings };
+    const value = { fieldSettings, setFieldSettings, isLoading, scheduledSms, addScheduledSms, handleUpdateSettings };
     
     return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };

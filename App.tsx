@@ -11,9 +11,10 @@ import { useAppContext } from './contexts/AppContext';
 import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
 import { routes, RouteConfig } from './routes';
+import { useLicenseValidation } from './hooks/useLicenseValidation';
 
 import { DentalChartEntry, User, UserRole } from './types';
-import { Lock, X, Key, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
 // Fix: Correctly import the default export from FormBuilder module.
@@ -109,20 +110,26 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 
 
 export const App: React.FC = () => {
-  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout } = useAppContext();
-  const { fieldSettings } = useSettings();
+  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout, setIsAuthorityLocked } = useAppContext();
+  const { fieldSettings, isLoading: areSettingsLoading } = useSettings();
   const { route } = useRouter();
   
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const [isLockWarningVisible, setIsLockWarningVisible] = useState(false);
-  const [warningCountdown, setWarningCountdown] = useState(120);
+  const [warningCountdown, setWarningCountdown] = useState(60);
 
   const idleTimerRef = useRef<number | null>(null);
   const warningTimerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
 
-  const IDLE_TIMEOUT_MINUTES = fieldSettings?.sessionTimeoutMinutes || 30;
-  const WARNING_BEFORE_LOCK_MINUTES = 2;
+  const { isPrcExpired, isMalpracticeExpired } = useLicenseValidation(currentUser?.id || null);
+
+  useEffect(() => {
+      setIsAuthorityLocked(isPrcExpired || isMalpracticeExpired);
+  }, [isPrcExpired, isMalpracticeExpired, setIsAuthorityLocked]);
+  
+  const WARNING_BEFORE_LOCK_MINUTES = 1;
+  const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 2 : (fieldSettings?.sessionTimeoutMinutes || 5);
   
   const lockSession = useCallback(() => {
     setIsSessionLocked(true);
@@ -200,6 +207,15 @@ export const App: React.FC = () => {
         </Suspense>
     );
   };
+  
+  if (areSettingsLoading) {
+      return (
+          <div className="fixed inset-0 bg-teal-900 flex flex-col items-center justify-center text-white gap-4">
+              <Loader size={48} className="animate-spin text-teal-400" />
+              <p className="text-lg font-bold">Loading Practice Settings...</p>
+          </div>
+      );
+  }
 
   if (fullScreenView) {
     let title = 'Clinical Workspace';

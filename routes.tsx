@@ -1,23 +1,23 @@
 
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
-// Fix: CalendarView is a default export, not a named export.
+// FIX: CalendarView is a default export, not a named export.
 import CalendarView from './components/CalendarView';
 import { PatientList } from './components/PatientList';
-// Fix: FieldManagement is a default export, not a named export.
+// FIX: FieldManagement is a default export, not a named export.
 import FieldManagement from './components/FieldManagement';
 import { AdminHub } from './components/AdminHub';
-// Fix: Financials is a named export, not a default export.
+// FIX: Financials is a named export, not a default export.
 import { Financials } from './components/Financials';
-// Fix: Inventory is a default export, not a named export.
+// FIX: Inventory is a default export, not a named export.
 import Inventory from './components/Inventory';
-// Fix: RecallCenter is a default export, not a named export.
+// FIX: RecallCenter is a default export, not a named export.
 import RecallCenter from './components/RecallCenter';
-// Fix: ReferralManager is a default export, not a named export.
+// FIX: ReferralManager is a default export, not a named export.
 import ReferralManager from './components/ReferralManager';
-// Fix: RosterView is a default export, not a named export.
+// FIX: RosterView is a default export, not a named export.
 import RosterView from './components/RosterView';
-// Fix: LeaveAndShiftManager is a default export, not a named export.
+// FIX: LeaveAndShiftManager is a default export, not a named export.
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
 import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus } from './types';
 
@@ -54,7 +54,7 @@ const PageLoader: React.FC = () => (
 
 // --- CONTAINER COMPONENTS ---
 
-// Fix: Correct lazy import syntax for default exports.
+// FIX: Correct lazy import syntax for default exports.
 const AnalyticsHub = React.lazy(() => import('./components/Analytics'));
 const GovernanceHub = React.lazy(() => import('./components/GovernanceHub'));
 const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
@@ -115,6 +115,7 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
     const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
+    const { incidents } = useClinicalOps();
 
     return <GovernanceHub 
         patients={patients}
@@ -125,6 +126,7 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
         onUpdateSettings={handleUpdateSettings}
         onAnonymizePatient={onPurgePatient}
         onBack={() => onNavigate('admin')}
+        incidents={incidents}
     />;
 }
 
@@ -159,7 +161,6 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
         commissionDisputes={commissionDisputes} onAddCommissionDispute={handleAddCommissionDispute} onResolveCommissionDispute={handleResolveCommissionDispute}
         patients={patients}
         appointments={appointments}
-        fieldSettings={fieldSettings}
         staff={staff}
         currentUser={currentUser!}
         currentBranch={currentBranch}
@@ -319,7 +320,7 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
 }
 
 const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailView').then(module => ({ default: module.PatientPlaceholder })));
-// Fix: Correct lazy import syntax for default exports.
+// FIX: Correct lazy import syntax for default exports.
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
@@ -361,7 +362,7 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
     showModal('postOpHandover', { 
         appointment: apt,
         onConfirm: async () => {
-            // Fix: Use correct enum member 'COMPLETED'.
+            // FIX: Use correct enum member 'COMPLETED'.
             await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { postOpVerified: true });
         }
     });

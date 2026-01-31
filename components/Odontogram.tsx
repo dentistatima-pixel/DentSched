@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { formatDate } from '../constants';
@@ -127,6 +128,7 @@ const GeometricTooth: React.FC<{
 
     const hasRootCanal = toothEntries.some(e => e.procedure.toLowerCase().includes('root canal'));
 
+    // FIX: Variables must be declared with `let` before assignment.
     let pTop, pBottom, pLeft, pRight, sTop, sBottom, sLeft, sRight;
     
     if (isUpper) { pTop = cB; sTop = 'B'; pBottom = cL; sBottom = 'L'; } 

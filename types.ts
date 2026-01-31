@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 
 export interface Branch {
@@ -202,8 +201,8 @@ export interface PayrollAdjustmentTemplate {
     id: string;
     label: string;
     type: 'Credit' | 'Debit';
-    defaultAmount?: number;
     category: 'Incentives' | 'Operational' | 'Attendance' | 'Statutory' | 'Other';
+    defaultAmount?: number;
 }
 
 export interface CommissionDispute {
@@ -523,6 +522,7 @@ export interface RegistrationField {
   width?: 'full' | 'half' | 'third' | 'quarter';
   isCritical?: boolean;
   options?: string[];
+  isRequired?: boolean;
 }
 
 export interface FeatureToggles {
@@ -543,7 +543,7 @@ export interface FeatureToggles {
   enableLabPortal: boolean;
   enableDocumentManagement: boolean;
   enableClinicalProtocolAlerts: boolean;
-  enableTreatmentPlanApprovals: boolean; 
+  enableTreatmentPlanApprovals: true; 
   enableAccountabilityLog: true;
   enableReferralTracking: boolean;
   enablePromotions: boolean;
@@ -657,6 +657,16 @@ export interface SmsConfig {
     cloud_deviceId?: string; 
 }
 
+export interface PrivacyImpactAssessment {
+    id: string;
+    date: string;
+    processName: string;
+    description: string;
+    risks: string;
+    mitigation: string;
+    conductedBy: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -667,6 +677,8 @@ export interface User {
   specialization?: string;
   prcLicense?: string;
   prcExpiry?: string;
+  prcLicenseStatus?: 'Verified' | 'Unverified' | 'Invalid';
+  prcVerificationDate?: string;
   s2License?: string;
   s2Expiry?: string;
   ptrNumber?: string;
@@ -744,10 +756,17 @@ export interface Appointment {
   };
   sterilizationCycleId?: string;
   sterilizationVerified?: boolean;
+  linkedInstrumentSetIds?: string[];
   isWaitlistOverride?: boolean;
   authorizedManagerId?: string;
   medHistoryVerified?: boolean;
   medHistoryVerifiedAt?: string;
+  medHistoryAffirmation?: {
+    affirmedAt: string;
+    noChanges: boolean;
+    notes?: string;
+    signature?: string;
+  };
   followUpConfirmed?: boolean;
   followUpConfirmedAt?: string;
   entryMode?: 'AUTO' | 'MANUAL';
@@ -822,6 +841,9 @@ export interface EPrescription {
   isAntibiotic?: boolean;
   antibioticJustification?: string;
   overrideReason?: string;
+  printedByUserId?: string;
+  printedAt?: string;
+  isArchived?: boolean;
 }
 
 export interface ClinicalMediaConsent {
@@ -936,6 +958,7 @@ export interface Patient {
   isSeniorDependent?: boolean;
   marketingConsent?: boolean;
   practiceCommConsent?: boolean;
+  researchConsent?: boolean;
   dpaConsent?: boolean;
   lastDigitalUpdate?: string;
   weightKg?: number;
@@ -982,6 +1005,7 @@ export interface Patient {
       ipAddress: string;
       userAgent: string;
       witnessHash?: string;
+      expiryDate?: string;
   }[];
   avatarUrl?: string;
   emergencyContact?: {
@@ -1002,7 +1026,8 @@ export enum TreatmentPlanStatus {
   PENDING_FINANCIAL_CONSENT = 'Pending Financial Consent',
   APPROVED = 'Approved',
   COMPLETED = 'Completed',
-  REJECTED = 'Rejected'
+  REJECTED = 'Rejected',
+  RECONFIRMED = 'Reconfirmed'
 }
 
 export interface TreatmentPlan {
@@ -1015,6 +1040,9 @@ export interface TreatmentPlan {
   reviewNotes?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  approvalReason?: string;
+  approvalJustification?: string;
+  approvalSignature?: string;
   clinicalRationale?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
@@ -1034,6 +1062,8 @@ export interface TreatmentPlan {
   }[];
   isMultiDisciplinary?: boolean;
   primaryDentistId?: string; // Lead dentist (final authority)
+  reconfirmedBy?: string;
+  reconfirmedAt?: string;
 }
 
 export interface PinboardTask {
@@ -1148,7 +1178,7 @@ export interface LedgerEntry {
   id: string;
   date: string;
   description: string;
-  type: 'Charge' | 'Payment';
+  type: 'Charge' | 'Payment' | 'Discount';
   amount: number;
   balanceAfter: number;
   orNumber?: string;
@@ -1163,9 +1193,11 @@ export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';
 
 export interface ConsentLogEntry {
   category: ConsentCategory;
-  status: 'Given' | 'Revoked';
+  status: 'Given' | 'Revoked' | 'Expired';
   timestamp: string;
   version: string;
+  expiryDate: string;
+  renewalNoticeSentAt?: string;
 }
 
 export enum AuthorityLevel {
@@ -1320,6 +1352,7 @@ export interface FieldSettings {
   };
   instrumentSets?: InstrumentSet[];
   stockItems?: StockItem[];
+  sterilizationCycles?: SterilizationCycle[];
   payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
@@ -1328,6 +1361,8 @@ export interface FieldSettings {
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];
+  dataProtectionOfficerId?: string;
+  privacyImpactAssessments?: PrivacyImpactAssessment[];
 }
 
 export interface Medication {
@@ -1372,7 +1407,8 @@ export interface SavedView {
 export interface CommandBarAction {
     id: string;
     name: string;
-    icon: React.ElementType;
+// FIX: Changed React.ElementType to a more specific ComponentType for better type safety with lucide-react icons.
+    icon: React.ComponentType<{ size?: number }>;
     section: 'Actions';
     perform: () => void;
 }

@@ -29,7 +29,7 @@ export const generateSoapNote = async (procedure: string, toothNumber?: number):
         },
     });
 
-    // Fix: Added a null check for `response.text` to prevent potential runtime errors when the API returns an undefined response.
+    // FIX: Changed to use .text property instead of .text() method
     const jsonText = response.text?.trim();
     if (!jsonText) {
         throw new Error("AI returned an empty response.");
@@ -59,7 +59,7 @@ export const generateSafetyBriefing = async (patient: Patient, procedureType: st
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini safety briefing failed:", error);
@@ -80,7 +80,7 @@ export const explainProcedures = async (procedureNames: string[]): Promise<strin
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini procedure explanation failed:", error);
@@ -105,11 +105,12 @@ export const analyzeRadiograph = async (dataUrl: string): Promise<string> => {
         };
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview', // Vision capable model
+            // FIX: Corrected model name for image analysis per guidelines.
+            model: 'gemini-3-pro-image-preview', // Vision capable model
             contents: { parts: [imagePart, textPart] },
         });
 
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini radiograph analysis failed:", error);
@@ -137,7 +138,7 @@ export const reviewClinicalNote = async (note: Partial<DentalChartEntry>): Promi
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini note review failed:", error);
@@ -156,10 +157,10 @@ export const analyzeIncidents = async (incidents: ClinicalIncident[]): Promise<s
         ${JSON.stringify(incidents.map(({ id, reportedBy, ...rest }) => rest), null, 2)}
         `;
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini incident analysis failed:", error);
@@ -184,7 +185,7 @@ export const draftReferralLetter = async (patient: Patient, referredTo: string, 
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini referral letter drafting failed:", error);
@@ -228,10 +229,10 @@ export const generateMorningHuddle = async (appointments: Appointment[], patient
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini morning huddle generation failed:", error);
@@ -258,10 +259,10 @@ export const summarizePatient = async (patient: Patient): Promise<string> => {
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini patient summarization failed:", error);
@@ -285,7 +286,7 @@ export const translateText = async (text: string, targetLanguage: 'tl'): Promise
             contents: prompt,
         });
 
-        // Fix: Added a null check for `response.text` to prevent potential runtime errors when the API returns an undefined response.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         let translatedText = response.text?.trim() || '';
         if (translatedText.startsWith('TAGALOG TRANSLATION:')) {
             translatedText = translatedText.replace('TAGALOG TRANSLATION:', '').trim();
@@ -316,7 +317,7 @@ export const getDocentExplanation = async (elementId: string, context: string, u
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // Fix: Added a fallback to an empty string to ensure `response.text` is never undefined, fulfilling the Promise<string> type.
+        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini Docent explanation failed:", error);

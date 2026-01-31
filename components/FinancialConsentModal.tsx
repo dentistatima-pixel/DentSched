@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature, DollarSign } from 'lucide-react';
 import { usePatient } from '../contexts/PatientContext';
+import { useToast } from './ToastSystem';
 
 interface FinancialConsentModalProps {
     isOpen: boolean;
@@ -15,17 +16,25 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
 }) => {
     const { handleApproveFinancialConsent } = usePatient();
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
+    const toast = useToast();
     const [isSigning, setIsSigning] = useState(false);
+    const [affirmations, setAffirmations] = useState({
+        understood: false,
+        responsible: false,
+        discussed: false,
+    });
+
+    const allAffirmed = affirmations.understood && affirmations.responsible && affirmations.discussed;
     
     const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
     const planTotal = planItems.reduce((acc, item) => acc + (item.price || 0), 0);
 
     const setupCanvas = () => {
         const canvas = signatureCanvasRef.current;
-        if (canvas) {
-            canvas.width = canvas.parentElement?.clientWidth || 400;
+        if (canvas && canvas.parentElement) {
+            canvas.width = canvas.parentElement.clientWidth;
             canvas.height = 150;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { desynchronized: true });
             if (ctx) {
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 2.5;
@@ -35,33 +44,44 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
     };
 
     useEffect(() => {
+        const canvas = signatureCanvasRef.current;
+        const touchHandler = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+
         if (isOpen) {
            setTimeout(setupCanvas, 50);
+           setAffirmations({ understood: false, responsible: false, discussed: false });
+           canvas?.addEventListener('touchstart', touchHandler, { passive: false });
+        }
+        
+        return () => {
+            canvas?.removeEventListener('touchstart', touchHandler);
         }
     }, [isOpen]);
     
-    // Canvas drawing logic... (same as ConsentCaptureModal)
-    const getCoords = (e: any) => {
-        const canvas = signatureCanvasRef.current;
-        if (!canvas) return { x: 0, y: 0 };
+    const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        const canvas = e.currentTarget;
         const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-    const startSign = (e: any) => { e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
-    const stopSign = (e: any) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: any) => { if (!isSigning) return; e.preventDefault(); const { x, y } = getCoords(e); const ctx = signatureCanvasRef.current?.getContext('2d'); ctx?.lineTo(x, y); ctx?.stroke(); };
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    };
+    
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
+    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
+    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const { x, y, pressure } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(1, Math.min(5, (pressure || 0.5) * 5)); ctx.lineTo(x, y); ctx.stroke(); } };
     const clearCanvas = () => { const canvas = signatureCanvasRef.current; const ctx = canvas?.getContext('2d'); if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); }};
 
     const handleSave = async () => {
         const signatureCanvas = signatureCanvasRef.current;
-        if (!signatureCanvas) return;
+        if (!signatureCanvas || !allAffirmed) {
+            toast.error("Please acknowledge all affirmations and provide a signature before saving.");
+            return;
+        };
 
-        // Simplified signature saving for this fix. In a real app, you'd generate a full PDF like before.
         const signatureDataUrl = signatureCanvas.toDataURL('image/png');
 
         await handleApproveFinancialConsent(patient.id, plan.id, signatureDataUrl);
+        if (window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
         onClose();
     };
 
@@ -89,7 +109,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 space-y-6">
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all ${allAffirmed ? 'opacity-70 grayscale' : ''}`}>
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-200">
@@ -115,12 +135,26 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                             </tfoot>
                         </table>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3 transition-all ${allAffirmed ? 'opacity-70 grayscale' : ''}`}>
+                        <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={affirmations.understood} onChange={e => setAffirmations(p => ({...p, understood: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <span className="text-xs font-medium text-slate-700">I understand the provided quote is an estimate and may change based on clinical findings.</span>
+                        </label>
+                        <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={affirmations.responsible} onChange={e => setAffirmations(p => ({...p, responsible: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <span className="text-xs font-medium text-slate-700">I accept full financial responsibility for the total payment of all procedures performed.</span>
+                        </label>
+                        <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" checked={affirmations.discussed} onChange={e => setAffirmations(p => ({...p, discussed: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <span className="text-xs font-medium text-slate-700">I have had the opportunity to discuss payment options with the clinic staff.</span>
+                        </label>
+                    </div>
+                    <div className={`bg-white p-4 rounded-xl border shadow-sm transition-all ${!allAffirmed ? 'opacity-50 grayscale' : 'border-teal-500'}`}>
                          <div className="flex justify-between items-center mb-2">
                              <h4 className="font-bold text-slate-700">Patient Signature</h4>
-                             <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={12}/> Clear</button>
+                             <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                          </div>
-                         <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onMouseDown={startSign} onMouseUp={stopSign} onMouseLeave={stopSign} onMouseMove={draw} onTouchStart={startSign} onTouchEnd={stopSign} onTouchMove={draw} />
+                         <canvas ref={signatureCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!allAffirmed ? 'cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={allAffirmed ? startSign : undefined} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
                          <p className="text-xs text-slate-500 mt-2">By signing, I confirm I have reviewed this treatment plan quote and agree to be financially responsible for the estimated total cost.</p>
                     </div>
                 </div>
@@ -128,7 +162,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                 {/* Footer Actions */}
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">Cancel</button>
-                    <button onClick={handleSave} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center gap-2">
+                    <button onClick={handleSave} disabled={!allAffirmed} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:grayscale">
                         <CheckCircle size={20} /> I Agree & Save
                     </button>
                 </div>

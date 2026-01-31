@@ -1,11 +1,11 @@
-
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
 // FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
 // Fix: Add missing 'Droplet' icon import from lucide-react.
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare } from 'lucide-react';
-import { formatDate, generateUid } from '../constants';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
+// FIX: Added 'calculateAge' to the import from '../constants' to resolve an undefined function error.
+import { formatDate, generateUid, calculateAge } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
 import PhilHealthCF4Generator from './PhilHealthCF4Generator';
@@ -18,15 +18,18 @@ import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
+// FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
+import { useAppointments } from '../contexts/AppointmentContext';
 
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
-const Odontogram = React.lazy(() => import('./Odontogram'));
-const PerioChart = React.lazy(() => import('./PerioChart'));
+const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
+// FIX: Corrected lazy import to properly handle the named export 'PerioChart'. The previous syntax was causing type resolution issues.
+const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
-const PatientLedger = React.lazy(() => import('./PatientLedger'));
-const PatientAppointmentsView = React.lazy(() => import('./PatientAppointmentsView'));
+const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
+const PatientAppointmentsView = React.lazy(() => import('./PatientAppointmentsView').then(module => ({ default: module.PatientAppointmentsView })));
 
 
 interface PatientDetailViewProps {
@@ -35,7 +38,7 @@ interface PatientDetailViewProps {
   staff: User[];
   stock?: StockItem[];
   currentUser: User;
-  onQuickUpdatePatient: (patient: Partial<Patient>) => void;
+  onQuickUpdatePatient: (patient: Partial<Patient>) => Promise<void>;
   onBookAppointment: (patientId: string) => void;
   onEditPatient: (patient: Patient) => void; 
   fieldSettings?: FieldSettings; 
@@ -238,7 +241,6 @@ const DiagnosticGallery: React.FC<{
     );
 };
 
-// FIX: Export PatientPlaceholder component
 export const PatientPlaceholder: React.FC = () => {
     return (
         <div className="h-full flex flex-col items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 text-center">
@@ -393,6 +395,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const { patients } = usePatient();
   const { setFullScreenView } = useAppContext();
   const { showModal } = useModal();
+  const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -431,7 +434,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     const flags = getCriticalFlags(patient);
     if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
     if (patient.isPwd) return { bg: 'bg-amber-500', text: 'text-white', sub: 'text-amber-100' };
-    if ((patient.age || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
+    if ((calculateAge(patient.dob) || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
     return { bg: 'bg-teal-700', text: 'text-white', sub: 'text-teal-200' };
   }, [patient]);
 
@@ -473,6 +476,15 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       onQuickUpdatePatient({ id: patient.id, dentalChart: nextChart });
   };
   
+  const handleSavePrescription = (prescription: EPrescription) => {
+      const newPrescription: EPrescription = { ...prescription, id: generateUid('rx') };
+      onQuickUpdatePatient({
+          ...patient,
+          prescriptions: [...(patient.prescriptions || []), newPrescription]
+      });
+      toast.success("Prescription saved to patient record.");
+  };
+
   return (
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
         <header className={`p-6 flex items-center justify-between gap-4 shrink-0 rounded-t-[2.5rem] ${headerStyle.bg}`}>
@@ -521,16 +533,34 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                     <div className="md:col-span-2"><InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={Heart} isFlag={patient.medicalConditions?.some(a => a.toLowerCase() !== 'none')} /></div>
                     <InfoItem label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
                     <MedicalHistoryAnswers patient={patient} />
+                    <div className="md:col-span-12">
+                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Actions</h4>
+                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button onClick={() => showModal('ePrescription', { patient, currentUser, fieldSettings, onSavePrescription: handleSavePrescription })} className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl transition-colors">
+                                <Pill size={24} className="text-teal-600"/>
+                                <span className="text-xs font-black text-slate-700 uppercase">New Prescription</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
             
             {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
             {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
             {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} /></Suspense>}
-            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} /></Suspense>}
+            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} /></Suspense>}
             {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
-            {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule staff={staff} patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} currentUser={currentUser} logAction={logAction} featureFlags={fieldSettings.features} onInitiateFinancialConsent={onInitiateFinancialConsent} /></Suspense>}
-            {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
+            {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
+                patient={patient} 
+                onUpdatePatient={onQuickUpdatePatient} 
+                readOnly={readOnly} 
+                currentUser={currentUser} 
+                logAction={logAction} 
+                featureFlags={fieldSettings.features} 
+                onInitiateFinancialConsent={onInitiateFinancialConsent} 
+                onOpenRevocationModal={onOpenRevocationModal}
+            /></Suspense>}
+            {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
             {activeTab === 'images' && <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />}
             {activeTab === 'compliance' && <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />}
             {activeTab === 'history' && <AuditTrailViewer auditLog={auditLog.filter(log => log.entityId === patient.id)} auditLogVerified={true}/>}

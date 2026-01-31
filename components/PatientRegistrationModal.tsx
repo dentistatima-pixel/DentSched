@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent } from '../types';
-// FIX: Changed to a default import as suggested by the error message.
-import RegistrationBasicInfo from './PatientRegistrationBasicInfo';
+import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch, Eraser } from 'lucide-react';
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus } from '../types';
+import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-import { generateUid, calculateAge } from '../constants';
+import { generateUid, calculateAge, formatDate } from '../constants';
 import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -16,6 +15,7 @@ import { useFormPersistence } from '../hooks/useFormPersistence';
 import { ActionButton } from './ActionButton';
 import { FormStatusIndicator, FormStatus } from './FormStatusIndicator';
 import { useModal } from '../contexts/ModalContext';
+import { Odontogram } from './Odontogram';
 
 
 interface PatientRegistrationModalProps {
@@ -33,8 +33,65 @@ const stepsInfo = [
     { id: 2, label: "Medical History", icon: Heart },
     { id: 3, label: "Dental History", icon: Activity },
     { id: 4, label: "Baseline Charting", icon: Award },
-    { id: 5, label: "Finalize & Sign", icon: CheckCircle }
+    { id: 5, label: "Review Summary", icon: FileSearch },
+    { id: 6, label: "Finalize & Sign", icon: CheckCircle }
 ];
+
+const RegistrationSummary: React.FC<{ formData: Partial<Patient>, fieldSettings: FieldSettings }> = ({ formData, fieldSettings }) => {
+    const summaryData = useMemo(() => {
+        const data: { label: string, value: any, section: string }[] = [];
+        
+        // Identity
+        data.push({ label: 'Full Name', value: `${formData.firstName} ${formData.middleName || ''} ${formData.surname}`, section: 'Identity' });
+        data.push({ label: 'Date of Birth', value: formatDate(formData.dob), section: 'Identity' });
+        data.push({ label: 'Sex', value: formData.sex, section: 'Identity' });
+        
+        // Contact
+        data.push({ label: 'Mobile', value: formData.phone, section: 'Contact' });
+        data.push({ label: 'Email', value: formData.email, section: 'Contact' });
+        data.push({ label: 'Address', value: `${formData.homeAddress}, ${formData.barangay}, ${formData.city}`, section: 'Contact' });
+        
+        // Medical
+        data.push({ label: 'Allergies', value: (formData.allergies || []).join(', ') || 'None', section: 'Medical' });
+        data.push({ label: 'Medical Conditions', value: (formData.medicalConditions || []).join(', ') || 'None', section: 'Medical' });
+        
+        // Registry Answers
+        Object.entries(formData.registryAnswers || {}).forEach(([key, value]) => {
+            if (!key.endsWith('_details') && !key.endsWith('_date')) {
+                data.push({ label: key.replace('*',''), value: value, section: 'Medical Questionnaire' });
+                if (value === 'Yes') {
+                    if (formData.registryAnswers?.[`${key}_details`]) data.push({ label: `${key.replace('*','')} Details`, value: formData.registryAnswers[`${key}_details`], section: 'Medical Questionnaire'});
+                    if (formData.registryAnswers?.[`${key}_date`]) data.push({ label: `${key.replace('*','')} Date`, value: formatDate(formData.registryAnswers[`${key}_date`]), section: 'Medical Questionnaire'});
+                }
+            }
+        });
+
+        return data.filter(d => d.value);
+    }, [formData]);
+
+    const sections = Array.from(new Set(summaryData.map(d => d.section)));
+
+    return (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm animate-in fade-in duration-500">
+            <h3 className="text-xl font-black text-slate-800 mb-2">Record Summary for Verification</h3>
+            <p className="text-sm text-slate-500 mb-8">Please review all the information you have provided. This compiled record will be sealed by your signature.</p>
+            {sections.map(section => (
+                <div key={section} className="mb-6">
+                    <h4 className="font-bold text-sm text-teal-700 uppercase tracking-widest border-b-2 border-teal-100 pb-2 mb-4">{section}</h4>
+                    <div className="space-y-3">
+                        {summaryData.filter(d => d.section === section).map((item, index) => (
+                            <div key={index} className="grid grid-cols-3 gap-4 text-sm p-2 rounded-lg hover:bg-slate-50">
+                                <span className="font-bold text-slate-500 col-span-1">{item.label}:</span>
+                                <span className="font-medium text-slate-800 col-span-2">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 
 const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, readOnly }: {
   initialData: Patient | null;
@@ -50,7 +107,6 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   const [step, setStep] = useState(1);
   const [animationDirection, setAnimationDirection] = useState<'forward' | 'backward'>('forward');
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isViewingConsent, setIsViewingConsent] = useState(false);
   
@@ -137,30 +193,41 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
       });
   }, [readOnly]);
 
-  const handleRegistryChange = (newRegistryAnswers: Record<string, any>) => {
+  const handleRegistryChange = useCallback((newRegistryAnswers: Record<string, any>) => {
     if (readOnly) return;
-    setFormData(prev => ({ ...prev, registryAnswers: newRegistryAnswers }));
-  };
+    setFormData(prev => ({ ...prev, registryAnswers: { ...prev.registryAnswers, ...newRegistryAnswers } }));
+  }, [readOnly]);
 
   const handleArrayChange = useCallback((category: 'allergies' | 'medicalConditions', value: string) => {
     if (readOnly) return;
     setFormData(prev => ({...prev, [category]: (prev[category] as string[] || []).includes(value) ? (prev[category] as string[]).filter(item => item !== value) : [...(prev[category] as string[] || []), value]}));
   }, [readOnly]);
-
-  const handlePerioChange = (toothNumber: number, index: number, value: string) => {
+  
+  const handleChartUpdate = useCallback((entry: DentalChartEntry) => {
     if (readOnly) return;
-    const numVal = value === '' ? null : parseInt(value);
-    if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 15)) return;
-
     setFormData(prev => {
-        let toothMeasurement = (prev.perioChart || []).find(m => m.toothNumber === toothNumber) || { toothNumber, pocketDepths: Array(6).fill(null), recession: Array(6).fill(null), bleeding: Array(6).fill(false), mobility: null };
-        const newDepths = [...toothMeasurement.pocketDepths];
-        newDepths[index] = numVal;
-        const updatedMeasurement = { ...toothMeasurement, pocketDepths: newDepths, date: new Date().toISOString().split('T')[0] };
-        const newChart = [...(prev.perioChart || []).filter(m => m.toothNumber !== toothNumber), updatedMeasurement];
-        return { ...prev, perioChart: newChart };
+        const existingChart = prev.dentalChart || [];
+        const isNew = !existingChart.some(e => e.id === entry.id);
+
+        let nextChart: DentalChartEntry[];
+
+        if (isNew) {
+            const baselineEntry: DentalChartEntry = { ...entry, isBaseline: true, status: ['Missing', 'Extraction'].some(p => entry.procedure.includes(p)) ? entry.status : 'Existing' };
+            nextChart = [...existingChart, baselineEntry];
+        } else {
+            // Find and remove if it exists (toggle)
+            const existingEntry = existingChart.find(e => e.toothNumber === entry.toothNumber && e.procedure === entry.procedure && e.surfaces === entry.surfaces);
+            if(existingEntry) {
+                 nextChart = existingChart.filter(e => e.id !== existingEntry.id);
+            } else {
+                 const baselineEntry: DentalChartEntry = { ...entry, isBaseline: true, status: ['Missing', 'Extraction'].some(p => entry.procedure.includes(p)) ? entry.status : 'Existing' };
+                 nextChart = [...existingChart, baselineEntry];
+            }
+        }
+
+        return { ...prev, dentalChart: nextChart };
     });
-  };
+  }, [readOnly]);
 
   const savePatientRecord = async (data: Partial<Patient>) => {
     setIsSaving(true);
@@ -180,18 +247,8 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     const timestamp = new Date().toISOString();
     const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: hash };
     setFormData(updatedData);
-    setShowSignaturePad(false);
     toast.success("Identity Anchor Linked. Record Verified.");
     await savePatientRecord(updatedData);
-  };
-  
-  const handleFinalSubmit = async () => {
-    if (readOnly || isSaving) return;
-    if (!formData.registrationSignature) {
-      setShowSignaturePad(true);
-      return;
-    }
-    await savePatientRecord(formData);
   };
 
   const validateStep = (currentStep: number) => {
@@ -221,11 +278,11 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   return {
       step, animationDirection, formData, isSaving, formStatus,
       showPrivacyPolicy, setShowPrivacyPolicy,
-      showSignaturePad, setShowSignaturePad,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients,
-      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handlePerioChange,
-      handleNext, handleBack, handleFinalSubmit, handleSignatureCaptured
+      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handleChartUpdate,
+      handleNext, handleBack, handleSignatureCaptured,
+      setStep,
   };
 };
 
@@ -235,14 +292,21 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
   const { 
       step, animationDirection, formData, isSaving, formStatus,
       showPrivacyPolicy, setShowPrivacyPolicy,
-      showSignaturePad, setShowSignaturePad,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients,
-      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handlePerioChange,
-      handleNext, handleBack, handleFinalSubmit, handleSignatureCaptured
+      handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handleChartUpdate,
+      handleNext, handleBack, handleSignatureCaptured, setStep
   } = workflow;
+  
+  const [signatureData, setSignatureData] = useState<string | null>(null);
 
   if (!isOpen || !fieldSettings) return null;
+  
+  const handleFinalSubmit = () => {
+      if(signatureData) {
+          workflow.handleSignatureCaptured(signatureData, 'dummy-hash'); // Replace with real witness hash
+      }
+  };
 
   return (
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4"}>
@@ -257,12 +321,12 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           <div className="flex items-center mt-4">
             {stepsInfo.map((s, index) => (
                 <React.Fragment key={s.id}>
-                    <div className={`flex flex-col items-center text-center transition-all duration-500 ${step >= s.id ? 'text-white' : 'text-teal-600'}`}>
+                    <button onClick={() => setStep(s.id)} className={`flex flex-col items-center text-center transition-all duration-500 ${step >= s.id ? 'text-white' : 'text-teal-600'}`}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 ${step > s.id ? 'bg-teal-500 border-teal-400' : step === s.id ? 'bg-white border-teal-400 scale-110 shadow-2xl' : 'bg-teal-800 border-teal-700'}`}>
                             <s.icon size={20} className={step === s.id ? 'text-teal-900' : 'text-white'} />
                         </div>
                         <p className={`text-[10px] font-black uppercase mt-2 w-24 ${step === s.id ? 'text-white' : 'text-teal-400'}`}>{s.label}</p>
-                    </div>
+                    </button>
                     {index < stepsInfo.length - 1 && <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${step > s.id ? 'bg-teal-400' : 'bg-teal-700'}`} />}
                 </React.Fragment>
             ))}
@@ -294,37 +358,33 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                     </div>
                 )}
                 {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
-                {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} handleArrayChange={handleArrayChange} readOnly={readOnly} registrationFields={fieldSettings.identityFields} /></div>}
+                {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} /></div>}
                 {step === 4 && (
                     <div key={4} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-x-auto">
-                            <p className="text-xs text-slate-500 mb-4 font-bold">Enter pocket depths for Ramfjord index teeth to establish a baseline. Leave blank if not applicable.</p>
-                            <table className="w-full text-center">
-                                <thead><tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest"><th className="p-2">Tooth</th><th className="p-2">Distobuccal</th><th className="p-2">Mid-Buccal</th><th className="p-2">Mesiobuccal</th><th className="p-2">Distolingual</th><th className="p-2">Mid-Lingual</th><th className="p-2">Mesiolingual</th></tr></thead>
-                                <tbody>
-                                    {[16, 21, 24, 36, 41, 44].map(toothNum => (
-                                        <tr key={toothNum}>
-                                            <td className="p-2 font-black text-lg text-slate-700">{toothNum}</td>
-                                            {[0,1,2,3,4,5].map(i => (
-                                                <td key={i} className="p-1"><input type="number" value={formData.perioChart?.find(p => p.toothNumber === toothNum)?.pocketDepths[i] ?? ''} onChange={(e) => handlePerioChange(toothNum, i, e.target.value)} min="0" max="15" className="input h-12 w-16 text-center font-black text-lg"/></td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                            <h3 className="text-xl font-black text-slate-800 mb-2">Baseline Charting</h3>
+                            <p className="text-sm text-slate-500 mb-8">Use the tools to mark existing conditions, missing teeth, and prior work. This will be saved as the patient's baseline odontogram.</p>
+                            <Odontogram
+                                chart={formData.dentalChart || []}
+                                onChartUpdate={handleChartUpdate}
+                                readOnly={readOnly}
+                                onToothClick={() => {}}
+                            />
                         </div>
                     </div>
                 )}
-                {step === 5 && (
-                    <div key={5} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
-                        <div className="bg-white p-10 rounded-[3rem] border-2 border-teal-100 shadow-xl space-y-8 text-center">
-                            <Award size={48} className="text-teal-500 mx-auto"/>
-                            <h3 className="text-3xl font-black text-teal-900 uppercase tracking-tighter">Registration Complete</h3>
-                            <p className="text-slate-500 max-w-md mx-auto">Please review your information for accuracy. Provide your digital signature to finalize and secure your clinical record.</p>
-                            {formData.registrationSignature && (
-                                <div className="p-4 bg-teal-50 text-teal-700 rounded-2xl border border-teal-200 inline-flex items-center gap-2"><CheckCircle size={16}/> Signature Verified</div>
-                            )}
-                        </div>
+                {step === 5 && <RegistrationSummary formData={formData} fieldSettings={fieldSettings} />}
+                {step === 6 && (
+                    <div key={6} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
+                        <SignatureCaptureOverlay 
+                            isOpen={true} 
+                            onClose={onClose} 
+                            onSave={handleSignatureCaptured}
+                            title="Finalize & Sign"
+                            instruction="Please review the summary of your information above. Your signature below legally binds this record, including your consent to our Data Privacy Policy and terms of treatment."
+                            themeColor="teal"
+                            contextSummary={<RegistrationSummary formData={formData} fieldSettings={fieldSettings} />}
+                        />
                     </div>
                 )}
             </div>
@@ -335,13 +395,13 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <button type="button" onClick={handleBack} disabled={step === 1} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50 flex items-center gap-2"><ArrowLeft size={16}/> Back</button>
                 <FormStatusIndicator status={formStatus} />
             </div>
-
+            
             {step < stepsInfo.length ? (
-                <button type="button" onClick={handleNext} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">Next Step <ArrowRight size={16}/></button>
+                 <button type="button" onClick={handleNext} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                    {step === stepsInfo.length - 1 ? 'Proceed to Signature' : 'Next Step'} <ArrowRight size={16}/>
+                 </button>
             ) : (
-                <ActionButton type="button" onClick={handleFinalSubmit} isLoading={isSaving} loadingText="Saving...">
-                    <Save size={18}/> {isSaving ? 'Saving...' : 'Finalize & Sign'}
-                </ActionButton>
+                <div/>
             )}
         </div>
       </div>
@@ -364,7 +424,6 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       )}
 
       {showPrivacyPolicy && <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />}
-      {showSignaturePad && <SignatureCaptureOverlay patientId={formData.id || ''} isOpen={showSignaturePad} onClose={() => setShowSignaturePad(false)} onSave={handleSignatureCaptured} title="Digital Identity Anchor" instruction="To ensure non-repudiation and forensic integrity, please provide your digital signature." themeColor="teal"/>}
     </div>
   );
 };

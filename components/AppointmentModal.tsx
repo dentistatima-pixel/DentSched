@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
 import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem, OperationalHours } from '../types';
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from '../contexts/ModalContext';
+import { useModal } from './ModalContext';
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
@@ -56,7 +55,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     const [patientSearch, setPatientSearch] = useState('');
     const [searchResults, setSearchResults] = useState<Patient[]>([]);
     
-    const { isPrcExpired, licenseAlerts } = useLicenseValidation(providerId);
+    const { isPrcExpired, isMalpracticeExpired, licenseAlerts } = useLicenseValidation(providerId);
     
     useEffect(() => {
         if (isOpen) {
@@ -176,8 +175,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         e.preventDefault();
         
         const provider = staff.find(s => s.id === providerId);
-        const procedure = fieldSettings.procedures.find(p => p.name === procedureType);
-
         if (!provider) {
             toast.error("A provider must be selected.");
             return;
@@ -185,6 +182,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
         if (isPrcExpired) {
             toast.error(`Cannot book: ${provider.name}'s PRC license has expired.`);
+            return;
+        }
+
+        const procedure = fieldSettings.procedures.find(p => p.name === procedureType);
+        const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
+        const isHighRisk = highRiskCats.includes(procedure?.category || '');
+
+        if (isHighRisk && isMalpracticeExpired) {
+            toast.error(`Cannot book: ${provider.name}'s Malpractice Insurance is expired for this high-risk procedure.`);
             return;
         }
 

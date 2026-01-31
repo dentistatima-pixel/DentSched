@@ -27,29 +27,18 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
     const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
     const [understandsConsequences, setUnderstandsConsequences] = useState(false);
     const [refusalReason, setRefusalReason] = useState('');
+    const [isVoluntary, setIsVoluntary] = useState(false);
+    
+    const [patientSignatureData, setPatientSignatureData] = useState<string | null>(null);
+    const [dentistSignatureData, setDentistSignatureData] = useState<string | null>(null);
     
     const [signingFor, setSigningFor] = useState<'patient' | 'dentist' | null>(null);
 
-    useEffect(() => {
-        if (isOpen) {
-            setAcknowledgedRisks([]);
-            setUnderstandsConsequences(false);
-            setRefusalReason('');
-            setTimeout(() => {
-                setupCanvas(patientCanvasRef.current);
-                setupCanvas(dentistCanvasRef.current);
-            }, 50);
-        }
-    }, [isOpen]);
-    
-    const allRisksAcknowledged = acknowledgedRisks.length === risks.length;
-    const canSave = allRisksAcknowledged && understandsConsequences && refusalReason.trim() !== '';
-
     const setupCanvas = (canvas: HTMLCanvasElement | null) => {
-        if (canvas) {
-            canvas.width = canvas.parentElement?.clientWidth || 300;
+        if (canvas && canvas.parentElement) {
+            canvas.width = canvas.parentElement.clientWidth;
             canvas.height = 100;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { desynchronized: true });
             if (ctx) {
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 2;
@@ -58,54 +47,88 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
         }
     };
     
-    const getCoords = (e: any, canvas: HTMLCanvasElement | null) => {
-        if (!canvas) return { x: 0, y: 0 };
+    useEffect(() => {
+        if (isOpen) {
+            setAcknowledgedRisks([]);
+            setUnderstandsConsequences(false);
+            setRefusalReason('');
+            setIsVoluntary(false);
+            setPatientSignatureData(null);
+            setDentistSignatureData(null);
+            setTimeout(() => {
+                setupCanvas(patientCanvasRef.current);
+                setupCanvas(dentistCanvasRef.current);
+            }, 50);
+        }
+    }, [isOpen]);
+    
+    const allRisksAcknowledged = acknowledgedRisks.length === risks.length;
+    const affirmationsChecked = allRisksAcknowledged && understandsConsequences && isVoluntary;
+    const canPatientSign = affirmationsChecked && !patientSignatureData;
+    const canDentistSign = !!patientSignatureData && !dentistSignatureData;
+    const canSave = !!patientSignatureData && !!dentistSignatureData && refusalReason.trim() !== '';
+    
+    const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        const canvas = e.currentTarget;
         const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
     };
 
-    const startSign = (e: any, signer: 'patient' | 'dentist') => {
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'dentist') => {
         e.preventDefault();
+        if ((signer === 'patient' && !canPatientSign) || (signer === 'dentist' && !canDentistSign)) return;
         setSigningFor(signer);
-        const canvas = signer === 'patient' ? patientCanvasRef.current : dentistCanvasRef.current;
-        const { x, y } = getCoords(e, canvas);
-        canvas?.getContext('2d')?.beginPath();
-        canvas?.getContext('2d')?.moveTo(x, y);
+        const { x, y } = getCoords(e);
+        e.currentTarget.getContext('2d')?.beginPath();
+        e.currentTarget.getContext('2d')?.moveTo(x, y);
     };
 
-    const draw = (e: any) => {
+    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
         if (!signingFor) return;
+        if ((signingFor === 'patient' && !canPatientSign) || (signingFor === 'dentist' && !canDentistSign)) return;
         e.preventDefault();
-        const canvas = signingFor === 'patient' ? patientCanvasRef.current : dentistCanvasRef.current;
-        const { x, y } = getCoords(e, canvas);
-        canvas?.getContext('2d')?.lineTo(x, y);
-        canvas?.getContext('2d')?.stroke();
+        const { x, y, pressure } = getCoords(e);
+        const ctx = e.currentTarget.getContext('2d');
+        if(ctx) {
+            ctx.lineWidth = Math.max(1, Math.min(4, (pressure || 0.5) * 4));
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
     };
     
-    const stopSign = (e: any) => { e.preventDefault(); setSigningFor(null); };
-    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        e.preventDefault();
+        if (signingFor === 'patient' && patientCanvasRef.current) {
+            setPatientSignatureData(patientCanvasRef.current.toDataURL());
+        } else if (signingFor === 'dentist' && dentistCanvasRef.current) {
+            setDentistSignatureData(dentistCanvasRef.current.toDataURL());
+        }
+        setSigningFor(null);
+    };
+    
+    const clearCanvas = (signer: 'patient' | 'dentist') => {
+        const canvasRef = signer === 'patient' ? patientCanvasRef : dentistCanvasRef;
+        if (!((signer === 'patient' && patientSignatureData) || (signer === 'dentist' && dentistSignatureData))) {
+            const canvas = canvasRef.current;
+            canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    };
 
     const handleSave = () => {
-        if (!canSave || !patientCanvasRef.current || !dentistCanvasRef.current) {
+        if (!canSave) {
             toast.error("Please complete all fields and provide signatures.");
             return;
         }
         
-        const patientSignature = patientCanvasRef.current.toDataURL();
-        const dentistSignature = dentistCanvasRef.current.toDataURL();
-
         onSave({
-            relatedEntity,
-            refusalReason,
+            relatedEntity, refusalReason,
             risksDisclosed: risks.map(r => ({ risk: r, acknowledged: acknowledgedRisks.includes(r) })),
             alternativesOffered: alternatives,
             dentistRecommendation: recommendation,
             patientUnderstandsConsequences: understandsConsequences,
-            patientSignature,
+            patientSignature: patientSignatureData!,
             patientSignatureTimestamp: new Date().toISOString(),
-            dentistSignature,
+            dentistSignature: dentistSignatureData!,
             dentistSignatureTimestamp: new Date().toISOString(),
             formVersion: '1.0',
         });
@@ -133,38 +156,43 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
                     
                     <div>
                         <label className="label text-xs">Patient's Stated Reason for Refusal</label>
-                        <textarea value={refusalReason} onChange={e => setRefusalReason(e.target.value)} className="input h-20" />
+                        <textarea value={refusalReason} onChange={e => setRefusalReason(e.target.value)} className="input h-20" disabled={!!patientSignatureData} />
                     </div>
 
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div className={`p-4 rounded-xl border transition-all ${patientSignatureData ? 'opacity-70 grayscale' : 'bg-slate-50 border-slate-200'}`}>
                         <h4 className="font-black text-slate-800 text-sm mb-3">Risks Disclosed & Acknowledged</h4>
                         {risks.map(risk => (
                             <label key={risk} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white cursor-pointer">
-                                <input type="checkbox" checked={acknowledgedRisks.includes(risk)} onChange={() => setAcknowledgedRisks(p => p.includes(risk) ? p.filter(r => r !== risk) : [...p, risk])} className="w-5 h-5 accent-teal-600 mt-0.5"/>
+                                <input type="checkbox" checked={acknowledgedRisks.includes(risk)} onChange={() => setAcknowledgedRisks(p => p.includes(risk) ? p.filter(r => r !== risk) : [...p, risk])} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={!!patientSignatureData}/>
                                 <span className="text-sm font-medium text-slate-700">{risk}</span>
                             </label>
                         ))}
                     </div>
 
-                    <label className="flex items-start gap-4 p-4 rounded-xl border-2 border-slate-200 bg-white cursor-pointer">
-                        <input type="checkbox" checked={understandsConsequences} onChange={e => setUnderstandsConsequences(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1"/>
+                    <label className={`flex items-start gap-4 p-4 rounded-xl border-2 bg-white cursor-pointer transition-all ${patientSignatureData ? 'opacity-70 grayscale' : 'border-slate-200'}`}>
+                        <input type="checkbox" checked={understandsConsequences} onChange={e => setUnderstandsConsequences(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1" disabled={!!patientSignatureData}/>
                         <span className="font-bold text-slate-800">I attest that I have had the opportunity to ask questions, understand the consequences, and voluntarily refuse the recommended treatment.</span>
+                    </label>
+
+                    <label className={`flex items-start gap-4 p-4 rounded-xl border-2 bg-white cursor-pointer transition-all ${patientSignatureData ? 'opacity-70 grayscale' : 'border-slate-200'}`}>
+                        <input type="checkbox" checked={isVoluntary} onChange={e => setIsVoluntary(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1" disabled={!!patientSignatureData}/>
+                        <span className="font-bold text-slate-800">I am signing this form voluntarily after careful consideration.</span>
                     </label>
 
                     <div className="grid grid-cols-2 gap-6 pt-4 border-t">
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="font-bold text-slate-700 text-sm">Patient Signature</label>
-                                <button onClick={() => clearCanvas(patientCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
+                                {!patientSignatureData && <button onClick={() => clearCanvas('patient')} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>}
                             </div>
-                            <canvas ref={patientCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none" onMouseDown={e => startSign(e, 'patient')} onMouseMove={draw} onMouseUp={stopSign} onMouseLeave={stopSign} onTouchStart={e => startSign(e, 'patient')} onTouchMove={draw} onTouchEnd={stopSign}/>
+                            <canvas ref={patientCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canPatientSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
                         </div>
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="font-bold text-slate-700 text-sm">Dentist Signature</label>
-                                <button onClick={() => clearCanvas(dentistCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
+                                {!dentistSignatureData && <button onClick={() => clearCanvas('dentist')} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>}
                             </div>
-                            <canvas ref={dentistCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none" onMouseDown={e => startSign(e, 'dentist')} onMouseMove={draw} onMouseUp={stopSign} onMouseLeave={stopSign} onTouchStart={e => startSign(e, 'dentist')} onTouchMove={draw} onTouchEnd={stopSign}/>
+                            <canvas ref={dentistCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canDentistSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'dentist')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
                         </div>
                     </div>
                 </div>

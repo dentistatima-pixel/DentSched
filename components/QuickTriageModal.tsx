@@ -1,24 +1,84 @@
+
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
-import { TriageLevel } from '../types';
+// FIX: Added RecallStatus to the import from ../types to make the enum available.
+import { Appointment, AppointmentStatus, Patient, RegistrationStatus, TriageLevel, RecallStatus } from '../types';
+import { useModal } from '../contexts/ModalContext';
+import { useAppointments } from '../contexts/AppointmentContext';
+import { usePatient } from '../contexts/PatientContext';
+import { useAppContext } from '../contexts/AppContext';
+import { generateUid } from '../constants';
 
 interface QuickTriageModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (name: string, phone: string, complaint: string, isEmergency: boolean) => void;
+    currentBranch: string;
 }
 
-const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, onSave }) => {
+const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, currentBranch }) => {
+    const { showModal } = useModal();
+    const { handleSaveAppointment } = useAppointments();
+    const { handleSavePatient } = usePatient();
+    const { currentUser } = useAppContext();
+    
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [complaint, setComplaint] = useState('');
     const [isEmergency, setIsEmergency] = useState(false);
 
-    const handleSubmit = () => {
-        if (!name || !complaint) return;
-        onSave(name, phone, complaint, isEmergency);
-        setName(''); setPhone(''); setComplaint('');
-        setIsEmergency(false);
+    const resetState = () => {
+        setName(''); setPhone(''); setComplaint(''); setIsEmergency(false);
+    };
+
+    const handleSubmit = async () => {
+        if (!name || !complaint || !currentUser) return;
+
+        const provisionalPatient: Partial<Patient> = {
+            id: generateUid('p'),
+            name: name,
+            firstName: name.split(' ')[0],
+            surname: name.split(' ').slice(1).join(' ') || name.split(' ')[0],
+            phone: phone,
+            registrationStatus: RegistrationStatus.PROVISIONAL,
+            lastVisit: new Date().toISOString(),
+            nextVisit: null,
+            // FIX: Changed string literal 'Due' to the enum member RecallStatus.DUE for type safety.
+            recallStatus: RecallStatus.DUE,
+        };
+
+        await handleSavePatient(provisionalPatient);
+
+        const createAppointment = (emergencyConsentData?: any) => {
+            const triageAppointment: Appointment = {
+                id: generateUid('apt'),
+                patientId: provisionalPatient.id!,
+                providerId: currentUser.id,
+                branch: currentBranch,
+                date: new Date().toLocaleDateString('en-CA'),
+                time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+                durationMinutes: 30,
+                type: complaint,
+                status: AppointmentStatus.ARRIVED,
+                triageLevel: isEmergency ? 'Level 1: Trauma/Bleeding' : 'Level 2: Acute Pain/Swelling',
+                entryMode: 'MANUAL',
+                emergencyConsent: emergencyConsentData,
+            };
+            handleSaveAppointment(triageAppointment);
+            resetState();
+            onClose();
+        };
+
+        if (isEmergency) {
+            showModal('emergencyConsent', {
+                patient: provisionalPatient,
+                currentUser,
+                onSave: (consentData: any) => {
+                    createAppointment(consentData);
+                }
+            });
+        } else {
+            createAppointment();
+        }
     };
 
     if (!isOpen) return null;

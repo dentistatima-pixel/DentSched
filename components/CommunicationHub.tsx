@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
-import { Patient, CommunicationTemplate } from '../types';
+import { Patient, CommunicationTemplate, CommunicationChannel } from '../types';
 import { Search, Printer, User, X, ArrowLeft } from 'lucide-react';
 import Fuse from 'fuse.js';
 import jsPDF from 'jspdf';
@@ -37,7 +37,6 @@ const CommunicationHub: React.FC = () => {
 
   const categories = useMemo(() => {
       const categoryOrder = ['Welcome Letters', 'Appointments', 'Financial Letters'];
-      // Fix: Explicitly cast to string[] to resolve type errors in the sort function.
       const allCategories = Array.from(new Set(templates.map(t => t.category))) as string[];
       return allCategories.sort((a, b) => {
           const indexA = categoryOrder.indexOf(a);

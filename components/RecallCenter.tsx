@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Patient, RecallStatus } from '../types';
 import { Phone, MessageSquare, History, UserCheck, UserX, ArrowLeft } from 'lucide-react';
@@ -11,9 +12,9 @@ interface RecallCenterProps {
 const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRecall, onBack }) => {
 
   const recallPatients = {
-    due: patients.filter(p => p.recallStatus === 'Due'),
-    contacted: patients.filter(p => p.recallStatus === 'Contacted'),
-    overdue: patients.filter(p => p.recallStatus === 'Overdue'),
+    due: patients.filter(p => p.recallStatus === RecallStatus.DUE),
+    contacted: patients.filter(p => p.recallStatus === RecallStatus.CONTACTED),
+    overdue: patients.filter(p => p.recallStatus === RecallStatus.OVERDUE),
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, patientId: string) => {
@@ -76,9 +77,9 @@ const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRe
             </div>
         </div>
         <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-            <Column title="Due for Recall" patients={recallPatients.due} status="Due" icon={UserCheck} color="border-teal-500" />
-            <Column title="Contacted" patients={recallPatients.contacted} status="Contacted" icon={Phone} color="border-blue-500" />
-            <Column title="Overdue" patients={recallPatients.overdue} status="Overdue" icon={UserX} color="border-red-500" />
+            <Column title="Due for Recall" patients={recallPatients.due} status={RecallStatus.DUE} icon={UserCheck} color="border-teal-500" />
+            <Column title="Contacted" patients={recallPatients.contacted} status={RecallStatus.CONTACTED} icon={Phone} color="border-blue-500" />
+            <Column title="Overdue" patients={recallPatients.overdue} status={RecallStatus.OVERDUE} icon={UserX} color="border-red-500" />
         </div>
     </div>
   );

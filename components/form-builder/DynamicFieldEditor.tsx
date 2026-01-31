@@ -6,11 +6,9 @@ import { Edit, ShieldAlert } from 'lucide-react';
 interface DynamicFieldEditorProps {
   field: RegistrationField;
   onUpdateField: (updates: Partial<RegistrationField>) => void;
-  isCritical: boolean;
-  onToggleCritical: () => void;
 }
 
-const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdateField, isCritical, onToggleCritical }) => {
+const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdateField }) => {
   const showRegistryKey = field.type === 'dropdown' || field.type === 'checklist';
   
   return (
@@ -64,9 +62,15 @@ const DynamicFieldEditor: React.FC<DynamicFieldEditorProps> = ({ field, onUpdate
            <p className="text-[10px] text-slate-400 mt-1 ml-1">The key for the options list in FieldSettings (e.g., 'religions').</p>
         </div>
       )}
-       <button onClick={onToggleCritical} className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 text-xs font-black uppercase transition-all ${isCritical ? 'bg-red-50 border-red-500 text-red-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-        <ShieldAlert size={16} /> Mark as Critical Risk
+       <button 
+        onClick={() => onUpdateField({ isCritical: !field.isCritical })} 
+        className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 text-xs font-black uppercase transition-all ${field.isCritical ? 'bg-red-50 border-red-500 text-red-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+      >
+        <ShieldAlert size={16} /> 
+        Mark as Critical Field
+        <span className="ml-auto text-[9px] font-mono p-1 rounded-md bg-white">{field.isCritical ? 'ON' : 'OFF'}</span>
       </button>
+      <p className="text-[10px] text-slate-400 -mt-2 ml-1">Critical fields are mandatory for patient safety and cannot be bypassed during intake.</p>
     </div>
   );
 };

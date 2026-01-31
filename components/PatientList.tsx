@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
@@ -6,7 +7,7 @@ import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
-import { formatDate } from '../constants';
+import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
 import DocentSparkle from './DocentSparkle';
 
@@ -111,7 +112,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
             {filteredPatients.map(p => {
               const flags = getCriticalFlags(p);
               const hasFlags = flags.length > 0;
-              const isMinor = p.age !== undefined && p.age < 18;
+              const isMinor = (calculateAge(p.dob) || 99) < 18;
               const isPwdOrMinor = p.isPwd || isMinor;
               const isSelected = p.id === selectedPatientId;
               const isProvisional = p.registrationStatus === 'Provisional';
@@ -150,11 +151,11 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                     </td>
                     <td className="p-4">
                         <div className="flex items-center gap-2.5">
-                            {isPendingSync && <CloudOff size={16} className="text-lilac-600 dark:text-lilac-400 animate-pulse" title="Pending Sync"/>}
-                            {hasFlags && <ShieldAlert size={16} className="text-red-600 dark:text-red-400" title="Critical Medical Alert"/>}
-                            {isMinor && <Baby size={16} className="text-amber-600 dark:text-amber-400" title="Minor Patient"/>}
-                            {p.isPwd && <UserCircle size={16} className="text-amber-600 dark:text-amber-400" title="PWD"/>}
-                            {isProvisional && <FileBadge2 size={16} className="text-blue-600 dark:text-blue-400" title="Provisional Registration"/>}
+                            {isPendingSync && <span title="Pending Sync"><CloudOff size={16} className="text-lilac-600 dark:text-lilac-400 animate-pulse"/></span>}
+                            {hasFlags && <span title={`Critical Medical Alert: ${flags.map(f=>f.value).join(', ')}`}><ShieldAlert size={16} className="text-red-600 dark:text-red-400"/></span>}
+                            {isMinor && <span title="Minor Patient"><Baby size={16} className="text-amber-600 dark:text-amber-400"/></span>}
+                            {p.isPwd && <span title="PWD"><UserCircle size={16} className="text-amber-600 dark:text-amber-400"/></span>}
+                            {isProvisional && <span title="Provisional Registration"><FileBadge2 size={16} className="text-blue-600 dark:text-blue-400"/></span>}
                         </div>
                     </td>
                     <td className="p-4 text-left font-mono text-xs font-bold">{formatDate(p.nextVisit)}</td>

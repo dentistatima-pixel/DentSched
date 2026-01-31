@@ -134,7 +134,8 @@ interface FinancialsProps {
   onResolveCommissionDispute: (id: string) => void;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
-  onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => PayrollPeriod | undefined;
+  // FIX: Changed return type to Promise to match implementation in context.
+  onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => Promise<PayrollPeriod | undefined>;
   onBack?: () => void;
   onStartCashSession: (openingBalance: number) => void;
   onCloseCashSession: (sessionId: string) => void;

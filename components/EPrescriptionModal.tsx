@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
 import { useSettings } from '../contexts/SettingsContext';
-import { calculateAge } from '../constants';
+import { calculateAge, isExpired } from '../constants';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -41,13 +41,9 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
     const isPediatric = (calculateAge(patient.dob) || 0) < 12;
     
-    // --- PRC AUTHORITY HARD LOCK ---
-    const isPrcExpired = useMemo(() => {
-        if (!currentUser.prcExpiry) return false;
-        return new Date(currentUser.prcExpiry) < new Date();
-    }, [currentUser.prcExpiry]);
-
-    const isAuthorityLocked = isPrcExpired; 
+    const isPrcExpired = useMemo(() => isExpired(currentUser.prcExpiry), [currentUser.prcExpiry]);
+    const isMalpracticeExpired = useMemo(() => isExpired(currentUser.malpracticeExpiry), [currentUser.malpracticeExpiry]);
+    const isAuthorityLocked = isPrcExpired || isMalpracticeExpired; 
 
     // DIAGNOSIS ANCHOR LOGIC
     const linkedDiagnosis = useMemo(() => {
@@ -120,8 +116,12 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     };
 
     const handlePrint = () => {
-        if (isAuthorityLocked) {
+        if (isPrcExpired) {
             toast.error("CLINICAL AUTHORITY LOCK: Prescription issuance is suspended due to an expired PRC License.");
+            return;
+        }
+        if (isMalpracticeExpired) {
+            toast.error("INDEMNITY LOCK: Prescription issuance is suspended due to expired Malpractice Insurance.");
             return;
         }
 
@@ -136,6 +136,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         }
 
         if (!selectedMed || s2Status.violation || isSafetyBlocked) {
+            if (s2Status.violation) toast.error(`S2 VIOLATION: Cannot prescribe controlled substance. Reason: ${s2Status.reason}.`);
             if (isPediatric && !patientWeight) toast.error("SAFETY BLOCK: Pediatric weight is mandatory for minor patients.");
             return;
         }
@@ -224,7 +225,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                             <Lock size={32} className="shrink-0" aria-hidden="true" />
                             <div>
                                 <h3 className="text-lg font-black uppercase tracking-tighter">Clinical Authority Locked</h3>
-                                <p className="text-xs font-bold opacity-90 leading-relaxed mt-1">Prescription functions are suspended for legal compliance due to an expired practitioner license.</p>
+                                <p className="text-xs font-bold opacity-90 leading-relaxed mt-1">Prescription functions are suspended due to an expired practitioner license.</p>
                             </div>
                         </div>
                     )}
@@ -287,6 +288,15 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 <BookOpen size={32} aria-hidden="true" />
                                 <h3 className="font-black uppercase tracking-tight text-sm">PDEA S2 Statutory Logbook</h3>
                             </div>
+                            {s2Status.violation && (
+                                <div className="p-4 bg-red-600 text-white rounded-2xl flex items-start gap-3 animate-pulse border-2 border-white/20" role="alert">
+                                    <ShieldAlert size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
+                                    <div>
+                                        <div className="font-black text-xs uppercase tracking-widest">S2 PRESCRIPTION BLOCKED</div>
+                                        <p className="text-xs font-bold leading-tight mt-1">Reason: {s2Status.reason}. Update your profile.</p>
+                                    </div>
+                                </div>
+                            )}
                             <p className="text-xs text-amber-900 font-bold leading-relaxed uppercase tracking-wide">
                                 Controlled substances require a <strong>Physical Yellow Prescription</strong>. Record the serial number here to generate the mandatory digital audit trail.
                             </p>
@@ -298,11 +308,12 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                     onChange={e => setYellowRxSerial(e.target.value)}
                                     placeholder="SN-XXXXXXX"
                                     className="w-full p-4 bg-white border-2 border-amber-300 rounded-2xl font-black text-xl text-amber-900 outline-none focus:border-amber-600"
+                                    disabled={s2Status.violation}
                                 />
                             </div>
                             <button 
                                 onClick={handleLogS2}
-                                disabled={!yellowRxSerial.trim() || !consentAcknowledged}
+                                disabled={!yellowRxSerial.trim() || !consentAcknowledged || s2Status.violation}
                                 className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-50"
                             >
                                 Commit to Statutory Logbook
@@ -375,11 +386,11 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {!selectedMed?.isS2Controlled && (
                         <button 
                           onClick={handlePrint} 
-                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked || !consentAcknowledged} 
-                          className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
+                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked || !consentAcknowledged || s2Status.violation} 
+                          className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked || s2Status.violation ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
                         >
                             {isAuthorityLocked ? <Lock size={16} aria-hidden="true"/> : <Printer size={16} aria-hidden="true"/>} 
-                            {isAuthorityLocked ? 'License Locked' : 'Print Prominent generic Rx'}
+                            {isAuthorityLocked ? 'License Locked' : (s2Status.violation ? `S2 ${s2Status.reason}` : 'Print Prominent generic Rx')}
                         </button>
                     )}
                 </div>
