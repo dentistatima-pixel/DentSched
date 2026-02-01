@@ -62,9 +62,7 @@ const CommunicationLog: React.FC<CommunicationLogProps> = ({ patient, onUpdatePa
       {isAdding && (
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in slide-in-from-top-4 duration-300">
               <div className="flex gap-2">
-                  {/* FIX: Use enum member for comparison instead of string literal. */}
                   <button onClick={() => setNewLogChannel(CommunicationChannel.CALL)} className={`flex-1 p-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 ${newLogChannel === CommunicationChannel.CALL ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}><Phone size={14}/> Log Call</button>
-                  {/* FIX: Use enum member for comparison instead of string literal. */}
                   <button onClick={() => setNewLogChannel(CommunicationChannel.SYSTEM)} className={`flex-1 p-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 ${newLogChannel === CommunicationChannel.SYSTEM ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}><StickyNote size={14}/> Log Note</button>
               </div>
               <textarea 

@@ -298,15 +298,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       handleNext, handleBack, handleSignatureCaptured, setStep
   } = workflow;
   
-  const [signatureData, setSignatureData] = useState<string | null>(null);
-
   if (!isOpen || !fieldSettings) return null;
-  
-  const handleFinalSubmit = () => {
-      if(signatureData) {
-          workflow.handleSignatureCaptured(signatureData, 'dummy-hash'); // Replace with real witness hash
-      }
-  };
 
   return (
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4"}>

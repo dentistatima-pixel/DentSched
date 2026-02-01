@@ -10,7 +10,6 @@ interface ConsentTimelineProps {
 }
 
 const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
-    // FIX: Fetch appointments directly from the context instead of passing as a prop, improving component encapsulation.
     const { appointments } = useAppointments();
     const patientAppointments = appointments.filter(a => a.patientId === patient.id);
 

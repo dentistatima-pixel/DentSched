@@ -293,24 +293,20 @@ export interface ClinicalIncident {
     };
     isDataBreach?: boolean;
     breachDetails?: {
-        affectedPatientIds: string[];
-        dataTypesCompromised?: Array<'Medical History' | 'Contact Info' | 'Financial' | 'Images' | 'Insurance'>;
-        
+        summary: string;
         discoveryTimestamp: string;
         npcDeadline: string;
+        breachSeverityLevel: 'Minor' | 'Moderate' | 'Severe';
+        affectedPatientIds: string[];
+        dataTypesCompromised?: Array<'Medical History' | 'Contact Info' | 'Financial' | 'Images' | 'Insurance'>;
         npcNotifiedAt?: string;
         npcRefNumber?: string;
         npcNotificationStatus?: 'Pending' | 'Filed' | 'Late Filing' | 'Exemption Claimed';
         exemptionReason?: string;
-        
         patientsNotifiedAt?: string;
         notificationMethod?: 'SMS' | 'Email' | 'Registered Mail' | 'Personal Contact';
         notificationTemplateId?: string;
-        
-        breachSeverityLevel: 'Minor' | 'Moderate' | 'Severe';
         breachCause?: 'Hacking' | 'Theft' | 'Loss' | 'Unauthorized Access' | 'Accidental Disclosure' | 'Other';
-        summary: string;
-        
         remediationActions?: Array<{
           action: string;
           responsible: string; // user id
@@ -319,8 +315,6 @@ export interface ClinicalIncident {
         }>;
         rootCauseAnalysis?: string;
         preventiveMeasures?: string;
-        
-        // Kept from old for compatibility
         remediationSteps?: string[]; 
         dpoApproval?: {
             dpoName: string;
@@ -697,6 +691,13 @@ export interface User {
   status?: 'Active' | 'Inactive';
   payoutHandle?: string;
   showDigitalDocent?: boolean;
+  temporaryAuthDelegate?: {
+    delegateUserId: string;
+    validFrom: string;
+    validUntil: string;
+    reason: string;
+    approvedByDentistSignature: string;
+  };
 }
 
 export type SignatureType = 'patient' | 'guardian' | 'dentist' | 'witness' | 'child';
@@ -874,10 +875,17 @@ export interface ClinicalMediaConsent {
     purpose: 'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing';
   }>;
   
-  consentRevoked?: boolean;
-  revokedAt?: string;
-  revocationScope?: 'All Media' | 'Marketing Only' | 'Future Only';
-  revocationEvidence?: string;
+  consentRevocation?: {
+    revokedAt: string;
+    revokedByPatientId: string;
+    processedByStaffId: string;
+    reason: string;
+    scope: 'All Media' | 'Marketing Only' | 'Future Only';
+    patientSignature: string;
+    signatureTimestamp: string;
+    witnessId?: string;
+    deletionCompleteAt?: string;
+  };
 }
 
 export interface DataDeletionRequest {
@@ -1018,6 +1026,7 @@ export interface Patient {
   informedRefusals?: InformedRefusal[];
   prescriptions?: EPrescription[];
   dataDeletionRequests?: DataDeletionRequest[];
+  preferredLanguage?: 'en' | 'tl';
 }
 
 export enum TreatmentPlanStatus {
@@ -1407,7 +1416,6 @@ export interface SavedView {
 export interface CommandBarAction {
     id: string;
     name: string;
-// FIX: Changed React.ElementType to a more specific ComponentType for better type safety with lucide-react icons.
     icon: React.ComponentType<{ size?: number }>;
     section: 'Actions';
     perform: () => void;

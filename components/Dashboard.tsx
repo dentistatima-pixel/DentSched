@@ -4,8 +4,10 @@ import {
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageCircle, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
-  Sparkles, Loader, ClipboardCheck
+  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
+  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, 
+// FIX: Added 'UserX' to lucide-react imports to resolve 'Cannot find name' error.
+  UserX
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, UserRole, Patient, 
@@ -88,7 +90,6 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
   return <span ref={ref}>{formatValue(displayValue)}</span>;
 };
 
-
 const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {
     const navigate = useNavigate();
     const { showModal } = useModal();
@@ -110,7 +111,7 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                                 <div className="w-16 shrink-0 font-black text-text-secondary text-sm">{apt.time}</div>
                                 <div className="flex-1 min-w-0 truncate">
                                     <span className="font-black text-blue-700 dark:text-blue-400 text-base uppercase truncate">{apt.title}</span>
-                                    <span className="text-blue-500 dark:text-blue-500 text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                                    <span className="text-blue-500 dark:text-blue-500 text-xs font-bold uppercase truncate ml-2">({apt.type})</span>
                                 </div>
                             </div>
                         );
@@ -128,20 +129,20 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                             onClick={() => navigate(`patients/${apt.patientId}`)}
                             className={`relative p-4 rounded-2xl flex flex-col gap-3 transition-all group cursor-pointer bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary ${apt.isLate ? 'border-red-300 bg-red-50/50 dark:bg-red-900/20 dark:border-red-700' : ''}`}
                         >
-                            {apt.isLate && <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse"><Clock size={10}/> Late</div>}
+                            {apt.isLate && <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest animate-pulse"><Clock size={10}/> Late</div>}
                             <div className="flex items-center gap-4">
                                 <div className="w-16 shrink-0 font-black text-text-primary text-sm">{apt.time}</div>
                                 <div className="flex-1 min-w-0 truncate">
                                     <span className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200">{patient.name}</span>
-                                    <span className="text-text-secondary text-[10px] font-bold uppercase truncate ml-2">({apt.type})</span>
+                                    <span className="text-text-secondary text-xs font-bold uppercase truncate ml-2">({apt.type})</span>
                                 </div>
-                                <div className={`w-24 shrink-0 text-right text-xs font-black uppercase ${config.color}`}>{config.label}</div>
+                                <div className={`w-24 shrink-0 text-right text-sm font-black uppercase ${config.color}`}>{config.label}</div>
                             </div>
                             <div className="flex items-center gap-2 pl-20">
-                                {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[9px] font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
-                                {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[9px] font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
-                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
-                                {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-[9px] font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
+                                {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
+                                {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
+                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
+                                {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-xs font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
                             </div>
                         </div>
                     )
@@ -151,121 +152,112 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
     )
 }
 
-const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staff: any[], patients: Patient[], onUpdateStatus: any, settings: FieldSettings, stock: StockItem[] }> = ({ triageQueue, patientFlow, staff, patients, onUpdateStatus, settings, stock }) => {
+// Kanban-style Patient Flow
+const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staff: any[], patients: Patient[], onUpdateStatus: any }> = ({ triageQueue, patientFlow, staff, patients, onUpdateStatus }) => {
     const navigate = useNavigate();
-    const { showModal } = useModal();
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-    const handleShowPrepList = (apt: Appointment) => {
-        const procedure = settings.procedures.find(p => p.name === apt.type);
-        if (!procedure || (!procedure.billOfMaterials && !procedure.traySetup)) {
-            showModal('infoDisplay', { 
-                title: 'Preparation Info', 
-                content: `### No Specific Preparation Information\n\nNo specific preparation information found for the procedure: **${apt.type}**.` 
-            });
-            return;
-        }
-
-        const consumables = (procedure.billOfMaterials || []).map(bomItem => {
-            const stockItem = stock.find(s => s.id === bomItem.stockItemId);
-            return {
-                name: stockItem?.name || `Unknown Item (ID: ${bomItem.stockItemId})`,
-                quantity: bomItem.quantity,
-                unit: stockItem?.dispensingUnit || 'unit(s)'
-            };
-        });
-
-        showModal('preparationChecklist', {
-            consumables,
-            traySetup: procedure.traySetup,
-            procedureName: procedure.name
-        });
-    };
+    const PatientCard: React.FC<{ apt: Appointment, patient: Patient }> = ({ apt, patient }) => (
+        <div 
+            draggable 
+            onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
+            className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-orange-400 cursor-grab active:cursor-grabbing"
+            onClick={() => navigate(`patients/${patient.id}`)}
+        >
+            <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
+        </div>
+    );
+    
+    const FlowColumn: React.FC<{ title: string, count: number, status: AppointmentStatus, appointments: Appointment[], children: React.ReactNode, icon: React.ElementType, color: string }> = ({ title, count, status, appointments, children, icon: Icon, color }) => (
+        <div 
+            onDragOver={(e) => { e.preventDefault(); setDragOverColumn(title); }}
+            onDragLeave={() => setDragOverColumn(null)}
+            onDrop={(e) => {
+                e.preventDefault();
+                setDragOverColumn(null);
+                const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                if(data.appointmentId) {
+                    onUpdateStatus(data.appointmentId, status);
+                }
+            }}
+            className={`flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-4 transition-all ${dragOverColumn === title ? 'bg-teal-50 dark:bg-teal-900/50 ring-2 ring-teal-500' : ''}`}
+        >
+            <div className="flex items-center gap-2 mb-4 p-2">
+                <Icon size={18} className={color}/>
+                <h4 className="font-black text-sm text-slate-600 dark:text-slate-300 uppercase tracking-widest">{title}</h4>
+                <span className="ml-auto bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{count}</span>
+            </div>
+            <div className="space-y-3 overflow-y-auto no-scrollbar flex-1">
+                {children}
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-3 px-2">
                 <Users size={20} className="text-lilac-700 dark:text-lilac-400"/>
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Patient Flow Monitor</h3>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Patient Flow</h3>
             </div>
-            <div className="space-y-6">
-                 {/* Triage Queue */}
-                <div className="bg-bg-secondary rounded-[2.5rem] border-2 border-red-200 dark:border-red-700 shadow-lg p-6">
-                    <h4 className="text-[10px] font-black text-red-800 dark:text-red-300 uppercase tracking-[0.3em] mb-4">Triage & Walk-in Queue ({triageQueue.length})</h4>
-                    <div className="space-y-3">
-                         {triageQueue.map(apt => {
-                            const patient = patients.find(p => p.id === apt.patientId);
-                            const isEmergency = apt.triageLevel === 'Level 1: Trauma/Bleeding' || apt.triageLevel === 'Level 2: Acute Pain/Swelling';
-                            return (
-                                <div key={apt.id} onClick={() => navigate(`patients/${apt.patientId}`)} className={`p-4 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all ${isEmergency ? 'bg-red-100 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-700 animate-pulse' : 'bg-orange-50 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-700'}`}>
-                                    <div>
-                                        <div className={`font-black uppercase text-sm ${isEmergency ? 'text-red-900 dark:text-red-200' : 'text-orange-900 dark:text-orange-200'}`}>{patient?.name}</div>
-                                        <div className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${isEmergency ? 'text-red-700 dark:text-red-400' : 'text-orange-700 dark:text-orange-400'}`}>{apt.type}</div>
-                                    </div>
-                                    <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white dark:bg-slate-700 text-orange-800 dark:text-orange-300 text-[9px] font-black uppercase rounded-lg border border-orange-200 dark:border-orange-700">Seat Patient</button>
-                                </div>
-                            )
-                        })}
-                        {triageQueue.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">Triage queue is empty.</p>}
-                    </div>
-                </div>
-                {/* Waiting Room */}
-                <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
-                    <h4 className="text-[10px] font-black text-text-secondary uppercase tracking-[0.3em] mb-4">Waiting Room ({patientFlow.arrived.length})</h4>
-                    <div className="space-y-3">
-                        {patientFlow.arrived.map(apt => {
-                            const patient = patients.find(p => p.id === apt.patientId);
-                            return (
-                                <div key={apt.id} onClick={() => navigate(`patients/${apt.patientId}`)} className="p-4 bg-orange-50 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-700 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg transition-all">
-                                    <div>
-                                        <div className="font-black text-orange-900 dark:text-orange-200 uppercase text-sm">{patient?.name}</div>
-                                        <div className="text-[9px] font-bold text-orange-700 dark:text-orange-400 uppercase tracking-widest mt-1">{apt.type}</div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); handleShowPrepList(apt); }} className="p-2 bg-white/50 rounded-lg text-teal-700 hover:bg-white" title="Show Preparation Checklist"><ClipboardCheck size={18}/></button>
-                                        <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, AppointmentStatus.SEATED); }} className="px-3 py-1 bg-white dark:bg-slate-700 text-orange-800 dark:text-orange-300 text-[9px] font-black uppercase rounded-lg border border-orange-200 dark:border-orange-700">Seat Patient</button>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                        {patientFlow.arrived.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">Waiting room is empty.</p>}
-                    </div>
-                </div>
-                 {/* In Clinic */}
-                <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
-                    <h4 className="text-[10px] font-black text-text-secondary uppercase tracking-[0.3em] mb-4">In Clinic ({patientFlow.inClinic.length})</h4>
-                    <div className="space-y-3">
-                        {patientFlow.inClinic.map(apt => {
-                            const patient = patients.find(p => p.id === apt.patientId);
-                            const provider = staff.find(s => s.id === apt.providerId);
-                            return (
-                                <div key={apt.id} className="p-4 bg-lilac-50 dark:bg-lilac-900/30 border-2 border-lilac-200 dark:border-lilac-700 rounded-2xl">
-                                    <div className="flex justify-between items-start">
-                                        <div onClick={() => navigate(`patients/${apt.patientId}`)} className="cursor-pointer">
-                                            <div className="font-black text-lilac-900 dark:text-lilac-200 uppercase text-sm">{patient?.name}</div>
-                                            <div className="text-[9px] font-bold text-lilac-700 dark:text-lilac-400 uppercase tracking-widest mt-1">{apt.status}</div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={(e) => { e.stopPropagation(); handleShowPrepList(apt); }} className="p-2 bg-white/50 rounded-lg text-teal-700 hover:bg-white" title="Show Preparation Checklist"><ClipboardCheck size={18}/></button>
-                                            {provider && (
-                                                <div title={provider.name} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-600 shadow-sm bg-lilac-200 dark:bg-lilac-800 flex items-center justify-center">
-                                                    <UserIcon size={16} className="text-lilac-600 dark:text-lilac-300"/>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <button onClick={() => onUpdateStatus(apt.id, AppointmentStatus.COMPLETED)} className="w-full mt-3 py-2 bg-lilac-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-lilac-700 transition-all">Mark as Completed</button>
-                                </div>
-                            )
-                        })}
-                        {patientFlow.inClinic.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">No patients currently in treatment.</p>}
-                    </div>
-                </div>
+            <div className="flex flex-col md:flex-row gap-6 h-[70vh]">
+                <FlowColumn title="Waiting Room" count={patientFlow.arrived.length} status={AppointmentStatus.SEATED} appointments={patientFlow.arrived} icon={Armchair} color="text-orange-500">
+                    {patientFlow.arrived.map((apt: Appointment) => {
+                        const patient = patients.find(p => p.id === apt.patientId);
+                        return patient ? <PatientCard key={apt.id} apt={apt} patient={patient}/> : null;
+                    })}
+                </FlowColumn>
+                <FlowColumn title="In Clinic" count={patientFlow.inClinic.length} status={AppointmentStatus.COMPLETED} appointments={patientFlow.inClinic} icon={Activity} color="text-lilac-500">
+                     {patientFlow.inClinic.map((apt: Appointment) => {
+                        const patient = patients.find(p => p.id === apt.patientId);
+                        return patient ? (
+                            <div key={apt.id} className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-lilac-400">
+                                <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
+                                <p className="text-xs font-bold text-lilac-600 dark:text-lilac-400 mt-2">{apt.status}</p>
+                            </div>
+                        ) : null;
+                    })}
+                </FlowColumn>
             </div>
         </div>
     )
 }
 
-const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[], onToggleTask: any }> = ({ dailyKPIs, actionItems, myTasks, onToggleTask }) => {
+const StatCard: React.FC<{title: string, value: string | React.ReactNode, icon: React.ElementType, color: string, onClick?: () => void}> = ({ title, value, icon: Icon, color, onClick }) => (
+    <button onClick={onClick} disabled={!onClick} className={`p-6 rounded-[2rem] text-white shadow-xl hover:-translate-y-1 transition-transform w-full text-left ${color} ${!onClick ? 'cursor-default' : ''}`}>
+        <div className="flex justify-between items-start">
+            <div className="bg-white/20 p-3 rounded-xl"><Icon size={24}/></div>
+        </div>
+        <div className="mt-4">
+            <p className="text-4xl font-black tracking-tighter">{value}</p>
+            <p className="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">{title}</p>
+        </div>
+    </button>
+)
+
+const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, actionItems, myTasks, onToggleTask, appointments, patients }) => {
+    const { showModal } = useModal();
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const completedToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.COMPLETED);
+    const noShowsToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.NO_SHOW);
+    
+    const showCompletedList = () => {
+        const patientList = completedToday.map(apt => {
+            const p = patients.find(p => p.id === apt.patientId);
+            return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
+        }).join('\n');
+        showModal('infoDisplay', { title: "Today's Completed Appointments", content: patientList || 'No completed appointments yet.' });
+    };
+
+    const showNoShowList = () => {
+        const patientList = noShowsToday.map(apt => {
+            const p = patients.find(p => p.id === apt.patientId);
+            return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
+        }).join('\n');
+        showModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No-shows today. Great!' });
+    };
+
     return (
         <div className="space-y-6">
              <div className="flex items-center gap-3 px-2">
@@ -273,43 +265,25 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
                 <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Action Center</h3>
             </div>
             <div className="space-y-6">
-                <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
-                    <h4 className="text-[10px] font-black text-text-secondary uppercase tracking-[0.3em] mb-4">Huddle Board</h4>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center bg-bg-tertiary p-3 rounded-lg"><span className="text-xs font-bold uppercase text-text-secondary">Today's Production</span><span className="font-black text-teal-700 dark:text-teal-400"><AnimatedCounter value={dailyKPIs.production} isCurrency={true} /></span></div>
-                        <div className="flex justify-between items-center bg-bg-tertiary p-3 rounded-lg"><span className="text-xs font-bold uppercase text-text-secondary">Patients Seen</span><span className="font-black text-text-primary"><AnimatedCounter value={dailyKPIs.patientsSeen} /></span></div>
-                        <div className="flex justify-between items-center bg-bg-tertiary p-3 rounded-lg"><span className="text-xs font-bold uppercase text-text-secondary">No-Shows</span><span className={`font-black ${dailyKPIs.noShows > 0 ? 'text-red-600 dark:text-red-400' : 'text-text-primary'}`}><AnimatedCounter value={dailyKPIs.noShows} /></span></div>
-                    </div>
+                <div className="grid grid-cols-1 gap-4">
+                    <StatCard title="Today's Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
+                    <StatCard title="Patients Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
+                    <StatCard title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
                 </div>
-                {actionItems.length > 0 && (
-                    <div className="bg-bg-secondary rounded-[2.5rem] border-2 border-orange-200 dark:border-orange-700 shadow-lg p-6">
-                        <h4 className="text-[10px] font-black text-orange-800 dark:text-orange-300 uppercase tracking-[0.3em] mb-4">Alerts & Verifications</h4>
-                        <div className="space-y-2">
-                            {actionItems.map(item => (
-                                <button key={item.type} onClick={item.action} className="w-full p-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800 rounded-lg flex justify-between items-center text-left hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <item.icon size={14} className="text-orange-600 dark:text-orange-400" />
-                                        <span className="text-xs font-black text-orange-900 dark:text-orange-200 uppercase">{item.type}</span>
-                                    </div>
-                                    <span className="font-black text-orange-700 dark:text-orange-300">{item.count}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                
                  <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
-                    <h4 className="text-[10px] font-black text-text-secondary uppercase tracking-[0.3em] mb-4">My Tasks ({myTasks.length})</h4>
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-4">My Tasks ({myTasks.length})</h4>
                      <div className="space-y-2">
                         {myTasks.map(task => (
                             <div key={task.id} className="flex items-start gap-3 p-3 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg group">
                                 <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 text-text-secondary hover:text-teal-700 dark:hover:text-teal-400"><CheckCircle size={16} /></button>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-bold text-text-primary leading-tight">{task.text}</div>
-                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
+                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[11px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
                                 </div>
                             </div>
                         ))}
-                        {myTasks.length === 0 && <p className="text-xs text-text-secondary italic text-center py-4">No pending tasks.</p>}
+                        {myTasks.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">No pending tasks.</p>}
                     </div>
                 </div>
             </div>
@@ -366,31 +340,31 @@ const AIMorningHuddle: React.FC<{ appointments: Appointment[], patients: Patient
 export const Dashboard: React.FC<DashboardProps> = () => {
   const { showModal } = useModal();
   const navigate = useNavigate();
-  const { appointments, handleUpdateAppointmentStatus: onUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
+  const { appointments, handleUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
   const { staff } = useStaff();
   const { currentUser, currentBranch } = useAppContext();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
   const { stock } = useInventory();
-  const { tasks, handleToggleTask: onToggleTask, incidents, handleAddToWaitlist } = useClinicalOps();
+  const { tasks, handleToggleTask, incidents, handleAddToWaitlist } = useClinicalOps();
   
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+      const timer = setInterval(() => setTime(new Date()), 1000 * 60); // Update every minute
+      return () => clearInterval(timer);
+  }, []);
   
   const syncConflicts: SyncConflict[] = [];
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
+  const getGreeting = () => {
+      const hour = time.getHours();
+      if (hour < 12) return "Good Morning";
+      if (hour < 18) return "Good Afternoon";
+      return "Good Evening";
+  };
+  
   const getPatient = (id: string) => patients.find(pt => pt.id === id);
 
   const todaysFullSchedule = useMemo(() => {
@@ -441,22 +415,11 @@ export const Dashboard: React.FC<DashboardProps> = () => {
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
 
-  const handleSearchNavigation = (type: 'patient' | 'action', payload?: any) => {
-    setIsSearchOpen(false); // Close modal first
-    if (type === 'patient') {
-      navigate(`patients/${payload}`);
-    } else if (type === 'action' && payload === 'newPatient') {
-      showModal('patientRegistration', { currentBranch });
-    } else if (type === 'action' && payload === 'newAppointment') {
-      showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch });
-    }
-  }
-
   const roleBasedLayout = useMemo(() => {
     const components = {
         schedule: <DailySchedule appointments={todaysFullSchedule} patients={patients} settings={fieldSettings} />,
-        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateAppointmentStatus} settings={fieldSettings!} stock={stock} />,
-        actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={onToggleTask} />,
+        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={handleUpdateAppointmentStatus} />,
+        actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysFullSchedule} patients={patients} />,
     };
 
     switch (currentUser.role) {
@@ -469,19 +432,29 @@ export const Dashboard: React.FC<DashboardProps> = () => {
         default:
             return [components.schedule, components.flow, components.actions];
     }
-  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, onUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, onToggleTask, stock]);
+  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, handleUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, handleToggleTask]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       <div className="flex items-center justify-between gap-6">
-        <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">Home</h1>
+        <div>
+            <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{getGreeting()}, {currentUser.name.split(' ')[0]}!</h1>
+            <div className="flex items-center gap-2 mt-2">
+                <Clock size={14} className="text-slate-400"/>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+        </div>
         <div className="flex items-center gap-3">
-            <button onClick={() => setIsSearchOpen(true)} className="flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40 btn-tactile" aria-label="Open global search"><Search size={16}/> Search</button>
-            <button onClick={() => showModal('patientRegistration', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-teal-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile"><UserPlus size={16}/> New</button>
-            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-lilac-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile"><CalendarPlus size={16}/> Appt</button>
-            <button onClick={() => showModal('quickAddPatient')} className="flex items-center justify-center gap-3 px-6 py-3 bg-amber-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-900/40 btn-tactile"><Plus size={16}/> Quick Add</button>
-            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-3 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile"><Zap size={16}/> Walk-In</button>
+            <button onClick={() => showModal('patientRegistration', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile">
+                <UserPlus size={16}/> New Patient
+            </button>
+            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-lilac-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile">
+                <CalendarPlus size={16}/> New Appt
+            </button>
+            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-red-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile">
+                <Zap size={16}/> Walk-In
+            </button>
         </div>
       </div>
 
@@ -494,14 +467,6 @@ export const Dashboard: React.FC<DashboardProps> = () => {
         <div className="dashboard-col-2">{roleBasedLayout[1]}</div>
         <div className="dashboard-col-3">{roleBasedLayout[2]}</div>
       </div>
-      
-      <GlobalSearchModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        patients={patients}
-        todaysAppointments={todaysFullSchedule}
-        onNavigate={handleSearchNavigation}
-      />
     </div>
   );
 };

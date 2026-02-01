@@ -58,6 +58,7 @@ const PageLoader: React.FC = () => (
 const AnalyticsHub = React.lazy(() => import('./components/Analytics'));
 const GovernanceHub = React.lazy(() => import('./components/GovernanceHub'));
 const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
+const FamilyGroupManager = React.lazy(() => import('./components/FamilyGroupManager'));
 
 function CommunicationHubContainer() {
     return <Suspense fallback={<PageLoader />}><CommunicationHub /></Suspense>;
@@ -86,6 +87,8 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
                 return <RosterViewContainer />;
             case 'leave':
                 return <LeaveAndShiftManagerContainer />;
+            case 'familygroups':
+                return <Suspense fallback={<PageLoader />}><FamilyGroupManagerContainer onBack={() => navigate('admin')} /></Suspense>;
             default:
                 // If no param, show the main Admin Hub dashboard
                 return <AdminHub onNavigate={navigate} />;
@@ -111,7 +114,7 @@ function AnalyticsHubContainer() {
 }
 
 function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
-    const { patients, handleAnonymizePatient: onPurgePatient } = usePatient();
+    const { patients, handleAnonymizePatient: onPurgePatient, handleRequestDataDeletion, handleManageDataDeletionRequest } = usePatient();
     const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
@@ -127,6 +130,8 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
         onAnonymizePatient={onPurgePatient}
         onBack={() => onNavigate('admin')}
         incidents={incidents}
+        handleRequestDataDeletion={handleRequestDataDeletion}
+        handleManageDataDeletionRequest={handleManageDataDeletionRequest}
     />;
 }
 
@@ -274,6 +279,18 @@ function LeaveAndShiftManagerContainer() {
     />;
 }
 
+function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
+    const { fieldSettings, handleUpdateSettings } = useSettings();
+    const { patients } = usePatient();
+
+    return <FamilyGroupManager
+        settings={fieldSettings}
+        onUpdateSettings={handleUpdateSettings}
+        patients={patients}
+        onBack={onBack}
+    />;
+}
+
 export const routes: RouteConfig[] = [
   { path: 'dashboard', component: Dashboard },
   { path: 'schedule', component: CalendarView },
@@ -324,7 +341,7 @@ const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailVi
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
-  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation } = usePatient();
+  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleRequestDataDeletion } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
@@ -399,6 +416,7 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
         auditLog={auditLog}
+        handleRequestDataDeletion={handleRequestDataDeletion}
       />
     </Suspense>
   );

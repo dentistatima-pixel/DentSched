@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature } from 'lucide-react';
@@ -47,9 +46,39 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
         return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
     };
 
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
+        if (e.pointerType === 'touch' && e.width > 10) return;
+        e.preventDefault(); 
+        setIsSigning(true); 
+        const { x, y } = getCoords(e); 
+        const ctx = e.currentTarget.getContext('2d'); 
+        ctx?.beginPath(); 
+        ctx?.moveTo(x, y); 
+    };
     const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const { x, y, pressure } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(1, Math.min(5, (pressure || 0.5) * 5)); ctx.lineTo(x, y); ctx.stroke(); } };
+    
+    const lastDrawTime = useRef(0);
+    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { 
+        if (!isSigning) return; 
+        e.preventDefault(); 
+        
+        const now = Date.now();
+        if (now - lastDrawTime.current < 16) { // ~60fps throttle
+            return;
+        }
+        lastDrawTime.current = now;
+
+        const { x, y, pressure } = getCoords(e); 
+        const ctx = e.currentTarget.getContext('2d'); 
+        if(ctx){ 
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2.5;
+            ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
+            ctx.lineTo(x, y); 
+            ctx.stroke(); 
+        } 
+    };
     const clearCanvas = () => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
     
     const handleSave = () => {
@@ -86,7 +115,7 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
                             <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                         </div>
                         <canvas ref={canvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} onPointerUp={stopSign} onPointerLeave={stopSign} onPointerMove={draw}/>
-                        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">This signature applies ONLY to the information shown.</p>
+                        <p className="text-[11px] text-slate-400 mt-2 font-bold uppercase">This signature applies ONLY to the information shown.</p>
                     </div>
                 </div>
                 <div className="p-4 border-t bg-white flex justify-end gap-3">

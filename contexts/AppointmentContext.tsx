@@ -10,6 +10,7 @@ import { useSettings } from './SettingsContext';
 import { DataService } from '../services/dataService';
 import { checkClinicalProtocols } from '../services/protocolEnforcement';
 import { useStaff } from './StaffContext';
+import { canStartTreatment } from '../services/medicolegalGuard';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -188,108 +189,46 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             return;
         }
         
-        // --- PRC & SCOPE VALIDATION GATE ---
-        if (status === AppointmentStatus.TREATING && !bypassProtocol) {
-            const provider = staff.find(s => s.id === aptToUpdate.providerId);
-            const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
-            if (provider) {
-                if (isExpired(provider.prcExpiry)) {
-                    toast.error(`CLINICAL AUTHORITY LOCK: Practitioner ${provider.name}'s PRC license has expired. Cannot start treatment.`);
-                    return;
-                }
-                
-                const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
-                const isHighRisk = highRiskCats.includes(procedure?.category || '');
-                if (isHighRisk && isExpired(provider.malpracticeExpiry)) {
-                    toast.error(`INDEMNITY LOCK: ${provider.name}'s Malpractice Insurance has expired. High-risk procedure '${procedure?.name}' cannot be started.`);
-                    return;
-                }
-
-                if (procedure && procedure.allowedLicenseCategories && !procedure.allowedLicenseCategories.includes(provider.licenseCategory!)) {
-                     toast.error(`Scope of Practice Violation: ${procedure.name} requires a ${procedure.allowedLicenseCategories.join('/')} license. ${provider.name} is a ${provider.licenseCategory}.`);
-                     return;
-                }
-            }
-        }
-        
         const patient = patients.find(p => p.id === aptToUpdate.patientId);
-
-        // --- NEW STERILIZATION VERIFICATION GATE ---
-        if (status === AppointmentStatus.TREATING && !bypassProtocol && fieldSettings.features.enableMaterialTraceability) {
-            const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
-            
-            const reVerify = () => {
-                showModal('sterilizationVerification', {
-                    appointment: aptToUpdate,
-                    requiredSets: procedure?.traySetup || [],
-                    instrumentSets: fieldSettings.instrumentSets || [],
-                    sterilizationCycles: fieldSettings.sterilizationCycles || [],
-                    onConfirm: (instrumentSetIds: string[]) => {
-                        handleUpdateAppointmentStatus(appointmentId, status, { 
-                            ...additionalData, 
-                            sterilizationVerified: true,
-                            linkedInstrumentSetIds: instrumentSetIds
-                        }, true);
+        const provider = staff.find(s => s.id === aptToUpdate.providerId);
+    
+        if (status === AppointmentStatus.TREATING && !bypassProtocol && patient && provider && fieldSettings) {
+            const block = canStartTreatment(aptToUpdate, patient, provider, fieldSettings);
+            if (block.isBlocked) {
+                toast.error(block.reason, { duration: 8000 });
+                if (block.modal) {
+                    const props: any = {
+                        ...block.modal.props,
+                        onConfirm: (data: any) => {
+                            let updatedData = {};
+                            if (block.modal.type === 'medicalHistoryAffirmation') {
+                                updatedData = { medHistoryAffirmation: data };
+                            } else if (block.modal.type === 'sterilizationVerification') {
+                                updatedData = { sterilizationVerified: true, linkedInstrumentSetIds: data };
+                            }
+                            handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, ...updatedData }, true);
+                        }
+                    };
+                    
+                    if (block.modal.type === 'protocolOverride' && block.modal.props.rule) {
+                        props.onConfirm = (reason: string) => {
+                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${block.modal.props.rule.name}. Reason: ${reason}`);
+                            handleUpdateAppointmentStatus(appointmentId, status, additionalData, true);
+                        }
                     }
-                });
-            };
-
-            if (aptToUpdate.linkedInstrumentSetIds && aptToUpdate.linkedInstrumentSetIds.length > 0 && !aptToUpdate.sterilizationVerified) {
-                toast.error("Infection Control Block: Linked instruments require re-verification for this session.");
-                reVerify();
+    
+                    if (block.modal.type === 'consentCapture') {
+                        props.onSave = (chain: SignatureChainEntry[]) => {
+                            handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, consentSignatureChain: chain }, true);
+                        }
+                    }
+                    
+                    showModal(block.modal.type, props);
+                }
                 return;
             }
-            
-            if (procedure?.traySetup && procedure.traySetup.length > 0) {
-                reVerify();
-                return; // Stop execution
-            }
         }
         
-        // --- NEW STATUS UPDATE LOGIC for COMPLETED ---
-        if (status === AppointmentStatus.COMPLETED && aptToUpdate.linkedInstrumentSetIds && fieldSettings.features.enableMaterialTraceability) {
-            const updatedSets = fieldSettings.instrumentSets?.map(set => {
-                if (aptToUpdate.linkedInstrumentSetIds?.includes(set.id)) {
-                    return { ...set, status: 'Used' as const };
-                }
-                return set;
-            });
-            await handleUpdateSettings({ ...fieldSettings, instrumentSets: updatedSets });
-            toast.info(`${aptToUpdate.linkedInstrumentSetIds.length} instrument set(s) marked as used.`);
-        }
-
-        // MEDICAL HISTORY AFFIRMATION GATE
-        if (patient && status === AppointmentStatus.ARRIVED && !aptToUpdate.medHistoryAffirmation && !additionalData.medHistoryAffirmation && !bypassProtocol) {
-            showModal('medicalHistoryAffirmation', {
-                patient,
-                appointment: aptToUpdate,
-                onConfirm: (affirmationData: any) => {
-                    handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, medHistoryAffirmation: affirmationData }, true);
-                }
-            });
-            return; // Stop execution, it will be re-triggered by the modal's confirmation
-        }
-
-        // PROTOCOL ENFORCEMENT GATE
-        if (status === AppointmentStatus.TREATING && !bypassProtocol && fieldSettings.features.enableClinicalProtocolAlerts) {
-            const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
-    
-            if (patient && procedure) {
-                const { violations, rule } = checkClinicalProtocols(patient, procedure, fieldSettings.clinicalProtocolRules || []);
-                
-                if (violations.length > 0 && rule) {
-                    showModal('protocolOverride', {
-                        rule: rule,
-                        onConfirm: (reason: string) => {
-                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${rule.name}. Reason: ${reason}`);
-                            handleUpdateAppointmentStatus(appointmentId, status, additionalData, true); // Re-call with bypass
-                        }
-                    });
-                    return; // Stop execution until override is confirmed
-                }
-            }
-        }
-    
         // POST-OP HANDOVER & SOAP NOTE GATE
         if (status === AppointmentStatus.COMPLETED && !bypassProtocol) {
             if (patient) {
@@ -310,7 +249,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             showModal('postOpHandover', {
                 appointment: aptToUpdate,
                 onConfirm: async (handoverData: { instructions: string, followUpDays: number }) => {
-                    handleUpdateAppointmentStatus(appointmentId, status, { 
+                    await handleUpdateAppointmentStatus(appointmentId, status, { 
                         postOpVerified: true, 
                         postOpVerifiedAt: new Date().toISOString()
                     }, true);

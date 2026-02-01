@@ -4,7 +4,6 @@ import { Patient, PatientFile } from '../types';
 import { Camera, Search, FileEdit, X, ImageIcon } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { DataService } from '../services/dataService';
-// FIX: Imported formatDate to resolve reference error.
 import { formatDate } from '../constants';
 
 interface DiagnosticGalleryProps {

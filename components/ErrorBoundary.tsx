@@ -10,9 +10,9 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Reverted to a standard constructor for state initialization. 
-  // The class property syntax, while modern, can cause issues with some TypeScript or build configurations,
-  // leading to incorrect type inference for inherited properties like `this.props`. The constructor ensures proper initialization.
+  // FIX: Replaced class property state initialization with a constructor.
+  // This resolves transpilation issues that were causing `this.state` and `this.props`
+  // to be unrecognized, leading to runtime errors.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -36,6 +36,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    return this.props.children;
+    return this.props.children || null;
   }
 }

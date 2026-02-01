@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
-// FIX: Added RecallStatus to the import from ../types to make the enum available.
 import { Appointment, AppointmentStatus, Patient, RegistrationStatus, TriageLevel, RecallStatus } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import { useAppointments } from '../contexts/AppointmentContext';
@@ -42,7 +41,6 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
             registrationStatus: RegistrationStatus.PROVISIONAL,
             lastVisit: new Date().toISOString(),
             nextVisit: null,
-            // FIX: Changed string literal 'Due' to the enum member RecallStatus.DUE for type safety.
             recallStatus: RecallStatus.DUE,
         };
 
@@ -94,7 +92,7 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
                             <p className="text-xs text-blue-600 font-bold uppercase tracking-widest">Walk-In Intake</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-blue-100 rounded-full transition-colors"><X size={24} className="text-blue-400" /></button>
+                    <button onClick={onClose} className="p-2.5 hover:bg-blue-100 rounded-full transition-colors"><X size={24} className="text-blue-400" /></button>
                 </div>
 
                 <div className="p-8 space-y-6">

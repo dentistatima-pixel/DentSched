@@ -1,5 +1,5 @@
 
-import { Patient, User, FieldSettings, Appointment, AppointmentStatus } from '../types';
+import { Patient, User, FieldSettings, Appointment, AppointmentStatus, TreatmentPlan } from '../types';
 import { formatDate, calculateAge } from '../constants';
 
 export const generatePatientDocument = (templateContent: string, patient: Patient, practitioner: User, settings: FieldSettings, appointments: Appointment[]): string => {
@@ -22,7 +22,6 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
 
     // Basic replacements
     content = content.replace(/{patientName}/g, patient.name || '');
-    // FIX: Corrected an error where the code was attempting to access `patient.age`, which is not a valid property. It now correctly calculates the age using `calculateAge(patient.dob)`.
     content = content.replace(/{patientAge}/g, calculateAge(patient.dob)?.toString() || '');
     content = content.replace(/{patientSex}/g, patient.sex || '');
     content = content.replace(/{patientAddress}/g, patient.homeAddress || '');
@@ -65,10 +64,25 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
         content = content.replace('{ledgerRows}', rows);
     }
     
+    // Treatment Plan placeholders
+    if (content.includes('{planItems}') || content.includes('{planName}') || content.includes('{planTotal}')) {
+        // Assume the most recent plan if not specified otherwise
+        const latestPlan = patient.treatmentPlans?.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        
+        if (latestPlan) {
+            content = content.replace(/{planName}/g, latestPlan.name);
+            const planItems = patient.dentalChart?.filter(item => item.planId === latestPlan.id);
+            const rows = (planItems || []).map(item => 
+                `| ${item.toothNumber || 'N/A'} | ${item.procedure} | ${(item.price || 0).toFixed(2)} |`
+            ).join('\n');
+            content = content.replace('{planItems}', rows);
+            const total = (planItems || []).reduce((sum, item) => sum + (item.price || 0), 0);
+            content = content.replace('{planTotal}', total.toLocaleString());
+        }
+    }
+    
     // Placeholder for other complex fields
-    // e.g., for treatment plan items, appointment details, etc.
 
-    // FIX: Added missing return statement.
     return content;
 };
 
@@ -88,6 +102,5 @@ export const generateAdminReport = (templateContent: string, params: any, data: 
     if (content.includes('{totalProduction}')) {
         // This logic is incomplete in the original file, but we close the block to make it valid.
     }
-    // FIX: Added missing return statement.
     return content;
 };

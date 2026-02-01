@@ -17,7 +17,7 @@ const IncompleteRegistrationModal: React.FC<IncompleteRegistrationModalProps> = 
         Medium: { color: 'orange', icon: AlertTriangle, headerBg: 'bg-orange-50', headerBorder: 'border-orange-100', headerText: 'text-orange-900', subText: 'text-orange-700', button: 'bg-orange-600' },
         High: { color: 'red', icon: ShieldAlert, headerBg: 'bg-red-50', headerBorder: 'border-red-100', headerText: 'text-red-900', subText: 'text-red-700', button: 'bg-red-600' },
     };
-    const config = riskConfig[riskLevel];
+    const config = riskConfig[riskLevel] || riskConfig.Low;
     const Icon = config.icon;
 
     return (
@@ -26,7 +26,6 @@ const IncompleteRegistrationModal: React.FC<IncompleteRegistrationModalProps> = 
                 <div className={`p-6 border-b ${config.headerBorder} ${config.headerBg} flex items-center gap-4`}>
                     <Icon size={28} className={`text-${config.color}-600`} />
                     <div>
-                        {/* Fix: Dynamically display the risk level in the modal's title to provide immediate context on the severity of the incomplete registration. */}
                         <h2 className={`text-xl font-black ${config.headerText} uppercase tracking-tight`}>Incomplete Record ({riskLevel} Risk)</h2>
                         <p className={`text-xs ${config.subText} font-bold uppercase`}>Treatment Cannot Proceed</p>
                     </div>

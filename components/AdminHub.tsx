@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX } from 'lucide-react';
+import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX, Users2 } from 'lucide-react';
 
 interface AdminHubProps {
   onNavigate: (path: string) => void;
@@ -12,6 +13,7 @@ export const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
     { id: 'financials', title: 'Financials', description: 'Handle claims, expenses, and reconciliation.', icon: DollarSign, color: 'bg-emerald-600' },
     { id: 'inventory', title: 'Inventory', description: 'Manage stock levels and sterilization cycles.', icon: Package, color: 'bg-blue-600' },
     { id: 'roster', title: 'Staff Roster', description: 'View and manage weekly staff assignments.', icon: Users, color: 'bg-sky-600' },
+    { id: 'familygroups', title: 'Family Groups', description: 'Manage family units and shared accounts.', icon: Users2, color: 'bg-pink-600' },
     { id: 'recall', title: 'Recall Center', description: 'Manage patient recall and retention workflows.', icon: History, color: 'bg-rose-600' },
     { id: 'referrals', title: 'Referral Hub', description: 'Track incoming and outgoing patient referrals.', icon: Send, color: 'bg-amber-600' },
     { id: 'leave', title: 'Leave Requests', description: 'Approve or reject staff leave applications.', icon: UserX, color: 'bg-violet-600' },

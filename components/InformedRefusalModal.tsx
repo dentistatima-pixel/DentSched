@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, InformedRefusal, User } from '../types';
 import { XCircle, FileSignature, AlertTriangle, ShieldCheck, Square, CheckSquare, Eraser, CheckCircle } from 'lucide-react';
@@ -75,6 +74,7 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
     };
 
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'dentist') => {
+        if (e.pointerType === 'touch' && e.width > 10) return;
         e.preventDefault();
         if ((signer === 'patient' && !canPatientSign) || (signer === 'dentist' && !canDentistSign)) return;
         setSigningFor(signer);
@@ -83,14 +83,25 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
         e.currentTarget.getContext('2d')?.moveTo(x, y);
     };
 
+    const lastDrawTime = useRef(0);
     const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
         if (!signingFor) return;
         if ((signingFor === 'patient' && !canPatientSign) || (signingFor === 'dentist' && !canDentistSign)) return;
         e.preventDefault();
+        
+        const now = Date.now();
+        if (now - lastDrawTime.current < 16) { // ~60fps throttle
+            return;
+        }
+        lastDrawTime.current = now;
+
         const { x, y, pressure } = getCoords(e);
         const ctx = e.currentTarget.getContext('2d');
         if(ctx) {
-            ctx.lineWidth = Math.max(1, Math.min(4, (pressure || 0.5) * 4));
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2;
+            ctx.lineWidth = Math.max(1, Math.min(4, effectivePressure * baseWidth * 2));
             ctx.lineTo(x, y);
             ctx.stroke();
         }
@@ -149,13 +160,13 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 text-xs font-bold leading-relaxed">
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 text-sm font-bold leading-relaxed">
                         <AlertTriangle className="inline-block mr-2"/>
                         This form documents that the patient has been informed of, understands, and accepts the risks of refusing the recommended dental treatment.
                     </div>
                     
                     <div>
-                        <label className="label text-xs">Patient's Stated Reason for Refusal</label>
+                        <label className="label">Patient's Stated Reason for Refusal</label>
                         <textarea value={refusalReason} onChange={e => setRefusalReason(e.target.value)} className="input h-20" disabled={!!patientSignatureData} />
                     </div>
 

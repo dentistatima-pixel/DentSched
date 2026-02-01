@@ -1,7 +1,6 @@
 
 import { useMemo } from 'react';
 import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
-// Fix: Import `calculateAge` to derive patient's age from date of birth.
 import { calculateAge } from '../constants';
 
 export const useClinicalNotePermissions = (

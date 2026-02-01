@@ -13,15 +13,12 @@ import {
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
     CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
-    // Fix: Import ClinicalIncident type.
     ClinicalIncident 
 } from '../types';
-// Fix: Use default import for Analytics as it's a default export.
 import Analytics from './Analytics';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
-// Fix: Add missing imports for jsPDF to resolve 'Cannot find name' error.
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
@@ -134,7 +131,6 @@ interface FinancialsProps {
   onResolveCommissionDispute: (id: string) => void;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
-  // FIX: Changed return type to Promise to match implementation in context.
   onAddPayrollPeriod?: (period: Omit<PayrollPeriod, 'id'>) => Promise<PayrollPeriod | undefined>;
   onBack?: () => void;
   onStartCashSession: (openingBalance: number) => void;
@@ -286,7 +282,6 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
     );
 };
 
-// Fix: Add export to Financials component
 export const Financials: React.FC<FinancialsProps> = (props) => {
     const { onBack, activeSubTab } = props;
     const { fieldSettings } = useSettings();

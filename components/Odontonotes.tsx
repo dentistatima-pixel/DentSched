@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 // FIX: Added 'Patient' to the import from '../types' to resolve type errors.
 import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
@@ -7,7 +6,7 @@ import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
-import { useModal } from './ModalContext';
+import { useModal } from '../contexts/ModalContext';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -97,7 +96,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 text-center rounded-[2rem]">
                 <Lock size={32} className="text-teal-600 mb-4" />
                 <h4 className="font-black text-teal-800 uppercase tracking-tight">Note Sealed & Finalized</h4>
-                <p className="text-xs text-slate-500 font-bold mt-2">This clinical record is cryptographically sealed and cannot be edited for medico-legal integrity.</p>
+                <p className="text-sm text-slate-500 font-bold mt-2">This clinical record is cryptographically sealed and cannot be edited for medico-legal integrity.</p>
             </div>
         )}
         
@@ -105,7 +104,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 space-y-3">
                 <div className="flex justify-between items-center">
                     <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">Professionalism Audit</h4>
-                    <button onClick={handleGetAiReview} disabled={isReviewLoading} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2">
+                    <button onClick={handleGetAiReview} disabled={isReviewLoading} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-black uppercase flex items-center gap-2">
                         <Sparkles size={14}/> {isReviewLoading ? 'Analyzing...' : 'Get AI Review'}
                     </button>
                 </div>
@@ -119,15 +118,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             <div className="md:col-span-3">
-                <label className="label text-xs">Date</label>
+                <label className="label">Date</label>
                 <input type="date" name="date" value={formData.date} onChange={handleChange} className="input" disabled={isSealed}/>
             </div>
             <div className="md:col-span-2">
-                <label className="label text-xs">Tooth #</label>
+                <label className="label">Tooth #</label>
                 <input type="number" name="toothNumber" value={formData.toothNumber || ''} onChange={handleNumericChange} className="input" placeholder="e.g., 16" disabled={isSealed}/>
             </div>
             <div className="md:col-span-7">
-                <label className="label text-xs">Procedure *</label>
+                <label className="label">Procedure *</label>
                 <select name="procedure" value={formData.procedure} onChange={handleChange} className="input font-bold" disabled={isSealed} required>
                     <option value="">Select Procedure...</option>
                     {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
@@ -136,16 +135,16 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label className="label text-xs">Status</label>
+                <label className="label">Status</label>
                 <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
                     {(['Planned', 'Completed', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
-                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow' : 'opacity-60'}`}>{status}</button>
+                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-sm font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow' : 'opacity-60'}`}>{status}</button>
                     ))}
                 </div>
             </div>
              <div>
-                <label className="label text-xs">Treatment Phase</label>
-                <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input text-xs font-black uppercase" disabled={isSealed}>
+                <label className="label">Treatment Phase</label>
+                <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input text-sm font-black uppercase" disabled={isSealed}>
                     <option value="">- Unassigned -</option>
                     {treatmentPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -158,37 +157,37 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                     type="button" 
                     onClick={handleGenerateAiSoap}
                     disabled={isSoapLoading || isSealed || !formData.procedure}
-                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
+                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
                 >
                     {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
                     {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
                 </button>
             </div>
             <div>
-                <label className="label text-xs">S (Subjective)</label>
+                <label className="label">S (Subjective)</label>
                 <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Patient's chief complaint and history..."/>
             </div>
             <div>
-                <label className="label text-xs">O (Objective)</label>
+                <label className="label">O (Objective)</label>
                 <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-28" disabled={isSealed} placeholder="Clinical findings and observations..."/>
             </div>
             <div>
-                <label className="label text-xs">A (Assessment)</label>
+                <label className="label">A (Assessment)</label>
                 <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Diagnosis and clinical judgment..."/>
             </div>
              <div>
-                <label className="label text-xs">P (Plan)</label>
+                <label className="label">P (Plan)</label>
                 <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
             </div>
         </div>
         <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-xs tracking-widest">Cancel</button>
+            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
             {formData.status === 'Planned' && (
-                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
+                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
                     Save & Assign <ArrowRight size={14}/>
                 </button>
             )}
-            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
+            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
                 {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
             </button>
         </div>
@@ -215,16 +214,16 @@ const ConsentVerificationGate: React.FC<ConsentVerificationGateProps> = ({ appoi
                 Before proceeding with documentation for <strong>{appointment.type}</strong>, please verify the patient's consent for today's session.
             </p>
             <div className="my-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Last Consent Captured</p>
-                <p className="text-sm font-bold text-slate-700 mt-1">
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Last Consent Captured</p>
+                <p className="text-base font-bold text-slate-700 mt-1">
                     {lastConsentDate ? new Date(lastConsentDate).toLocaleString() : 'No prior consent found for this session.'}
                 </p>
             </div>
             <div className="flex gap-4">
-                <button onClick={onReconsent} className="px-8 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-amber-900/30 flex items-center gap-2">
+                <button onClick={onReconsent} className="px-8 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg shadow-amber-900/30 flex items-center gap-2">
                     <AlertTriangle size={16}/> Require Re-Consent
                 </button>
-                <button onClick={onAffirm} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-2">
+                <button onClick={onAffirm} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-2">
                     <ShieldCheck size={16}/> Affirm Consent is Valid
                 </button>
             </div>
@@ -367,7 +366,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
         <div className="w-full md:w-1/3 border-r border-slate-200 flex flex-col bg-slate-50/50">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-10">
                 <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Narrative</h3>
-                <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={16}/> New</button>
+                <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={16}/> New</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {sortedEntries.map(entry => {
@@ -375,13 +374,13 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                     return (
                         <div key={entry.id} onClick={() => setEditingNote(entry)} className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : entry.needsProfessionalismReview ? 'bg-amber-50 border-amber-200 hover:border-amber-400' : 'bg-white border-slate-100 hover:border-teal-200'}`}>
                             <div className="flex justify-between items-start">
-                                <span className="font-black text-sm text-slate-800 uppercase tracking-tight">{entry.procedure || 'Untitled Note'}</span>
+                                <span className="font-black text-base text-slate-800 uppercase tracking-tight">{entry.procedure || 'Untitled Note'}</span>
                                 {entry.sealedHash && <Lock size={14} className="text-teal-600 shrink-0"/>}
                             </div>
-                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">{formatDate(entry.date)} &bull; {entry.toothNumber ? `Tooth #${entry.toothNumber}` : 'General Note'}</div>
+                            <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">{formatDate(entry.date)} &bull; {entry.toothNumber ? `Tooth #${entry.toothNumber}` : 'General Note'}</div>
                             <div className={`mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 ${isSelected ? 'border-teal-100' : ''}`}>
-                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${statusColors[entry.status]}`}>{entry.status}</span>
-                                <span className="text-[9px] text-slate-400 font-bold">by {entry.author}</span>
+                                <span className={`text-sm font-black uppercase px-2 py-0.5 rounded-full border ${statusColors[entry.status]}`}>{entry.status}</span>
+                                <span className="text-sm text-slate-400 font-bold">by {entry.author}</span>
                             </div>
                         </div>
                     );

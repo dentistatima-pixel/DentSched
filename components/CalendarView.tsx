@@ -1,4 +1,3 @@
-
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -151,16 +150,27 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
     return staff.filter(s => s.role === UserRole.ADMIN || s.role === UserRole.DENTIST);
   }, [staff]);
 
+  const appointmentsByDate = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    appointments.forEach(apt => {
+        const list = map.get(apt.date) || [];
+        list.push(apt);
+        map.set(apt.date, list);
+    });
+    return map;
+  }, [appointments]);
+
   const filteredAppointments = useMemo(() => {
       if (viewMode === 'week') {
-          const weekIsos = weekDates.map(d => d.iso);
-          return appointments.filter(a => weekIsos.includes(a.date) && (a.providerId === activeProviderId || a.isBlock));
+          const weekApts = weekDates.flatMap(d => appointmentsByDate.get(d.iso) || []);
+          return weekApts.filter(a => a.providerId === activeProviderId || a.isBlock);
       } else {
+          const dayApts = appointmentsByDate.get(formattedDate) || [];
           const visibleIds = visibleProviders.map(p => p.id);
           const visibleResIds = visibleResources.map(r => r.id);
-          return appointments.filter(a => a.date === formattedDate && (a.isBlock || visibleIds.includes(a.providerId) || (a.resourceId && visibleResIds.includes(a.resourceId))));
+          return dayApts.filter(a => a.isBlock || visibleIds.includes(a.providerId) || (a.resourceId && visibleResIds.includes(a.resourceId)));
       }
-  }, [appointments, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders, visibleResources]);
+  }, [appointmentsByDate, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders, visibleResources]);
 
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);

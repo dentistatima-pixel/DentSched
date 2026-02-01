@@ -64,9 +64,39 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
         return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
     };
     
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(true); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        if (e.pointerType === 'touch' && e.width > 10) return;
+        e.preventDefault(); 
+        setIsSigning(true); 
+        const { x, y } = getCoords(e); 
+        const ctx = e.currentTarget.getContext('2d'); 
+        ctx?.beginPath(); 
+        ctx?.moveTo(x, y); 
+    };
     const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const { x, y, pressure } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(1, Math.min(5, (pressure || 0.5) * 5)); ctx.lineTo(x, y); ctx.stroke(); } };
+    
+    const lastDrawTime = useRef(0);
+    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { 
+        if (!isSigning) return; 
+        e.preventDefault(); 
+        
+        const now = Date.now();
+        if (now - lastDrawTime.current < 16) { // ~60fps throttle
+            return;
+        }
+        lastDrawTime.current = now;
+
+        const { x, y, pressure } = getCoords(e); 
+        const ctx = e.currentTarget.getContext('2d'); 
+        if(ctx){ 
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2.5;
+            ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
+            ctx.lineTo(x, y); 
+            ctx.stroke(); 
+        } 
+    };
     const clearCanvas = () => { const canvas = signatureCanvasRef.current; const ctx = canvas?.getContext('2d'); if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); }};
 
     const handleSave = async () => {
@@ -102,7 +132,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                             <p className="text-sm text-slate-500">Plan: {plan.name}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <button onClick={onClose} className="p-2.5 hover:bg-slate-100 rounded-full transition-colors">
                         <X size={24} className="text-slate-500" />
                     </button>
                 </div>
@@ -138,15 +168,15 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                     <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3 transition-all ${allAffirmed ? 'opacity-70 grayscale' : ''}`}>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
                             <input type="checkbox" checked={affirmations.understood} onChange={e => setAffirmations(p => ({...p, understood: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
-                            <span className="text-xs font-medium text-slate-700">I understand the provided quote is an estimate and may change based on clinical findings.</span>
+                            <span className="text-sm font-medium text-slate-700">I understand the provided quote is an estimate and may change based on clinical findings.</span>
                         </label>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
                             <input type="checkbox" checked={affirmations.responsible} onChange={e => setAffirmations(p => ({...p, responsible: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
-                            <span className="text-xs font-medium text-slate-700">I accept full financial responsibility for the total payment of all procedures performed.</span>
+                            <span className="text-sm font-medium text-slate-700">I accept full financial responsibility for the total payment of all procedures performed.</span>
                         </label>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
                             <input type="checkbox" checked={affirmations.discussed} onChange={e => setAffirmations(p => ({...p, discussed: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
-                            <span className="text-xs font-medium text-slate-700">I have had the opportunity to discuss payment options with the clinic staff.</span>
+                            <span className="text-sm font-medium text-slate-700">I have had the opportunity to discuss payment options with the clinic staff.</span>
                         </label>
                     </div>
                     <div className={`bg-white p-4 rounded-xl border shadow-sm transition-all ${!allAffirmed ? 'opacity-50 grayscale' : 'border-teal-500'}`}>
@@ -155,13 +185,13 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                              <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                          </div>
                          <canvas ref={signatureCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!allAffirmed ? 'cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={allAffirmed ? startSign : undefined} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
-                         <p className="text-xs text-slate-500 mt-2">By signing, I confirm I have reviewed this treatment plan quote and agree to be financially responsible for the estimated total cost.</p>
+                         <p className="text-sm text-slate-500 mt-2">By signing, I confirm I have reviewed this treatment plan quote and agree to be financially responsible for the estimated total cost.</p>
                     </div>
                 </div>
 
                 {/* Footer Actions */}
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">Cancel</button>
+                    <button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
                     <button onClick={handleSave} disabled={!allAffirmed} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:grayscale">
                         <CheckCircle size={20} /> I Agree & Save
                     </button>

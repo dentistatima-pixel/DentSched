@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus } from '../types';
 import { formatDate } from '../constants';
@@ -164,7 +163,7 @@ const GeometricTooth: React.FC<{
             style={{ width: isZoomed ? (isDeciduous ? '72px' : '96px') : (isDeciduous ? '48px' : '64px'), height: isZoomed ? (isDeciduous ? '90px' : '120px') : (isDeciduous ? '60px' : '80px'), minWidth: isDeciduous ? '48px' : '64px' }}
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
-            <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? (isZoomed ? '-top-6' : '-top-3') : (isZoomed ? '-bottom-6' : '-bottom-3')} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} ${isZoomed ? 'text-lg' : 'text-[10px]'}`} aria-hidden="true">
+            <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? (isZoomed ? '-top-6' : '-top-3') : (isZoomed ? '-bottom-6' : '-bottom-3')} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} ${isZoomed ? 'text-lg' : 'text-sm'}`} aria-hidden="true">
                 {number}
             </span>
             <div className={`w-full h-full relative transition-all duration-500 ${isSelected ? 'drop-shadow-[0_0_15px_rgba(20,184,166,0.3)]' : ''}`}>
@@ -295,7 +294,7 @@ export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onTooth
                             aria-label={`Charting tool: ${tool.label}`}
                         >
                             <tool.icon size={22} className={activeToolId === tool.id ? 'text-teal-400' : 'transition-colors'} />
-                            <span className="text-[10px] font-black uppercase tracking-widest mt-2 leading-none">{tool.label}</span>
+                            <span className="text-xs font-black uppercase tracking-widest mt-2 leading-none">{tool.label}</span>
                         </button>
                     ))}
                 </div>
@@ -304,20 +303,20 @@ export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onTooth
              <div className="flex gap-3 ml-auto items-center">
                  <button 
                     onClick={() => setIsPatientPerspective(!isPatientPerspective)}
-                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${isPatientPerspective ? 'bg-lilac-50 border-lilac-200 text-lilac-700 ring-4 ring-lilac-500/5' : 'bg-white border-slate-100 text-slate-500 hover:border-lilac-200'}`}
+                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-xs font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${isPatientPerspective ? 'bg-lilac-50 border-lilac-200 text-lilac-700 ring-4 ring-lilac-500/5' : 'bg-white border-slate-100 text-slate-500 hover:border-lilac-200'}`}
                     aria-label={`Perspective toggle`}
                  >
                      <FlipHorizontal size={14}/> {isPatientPerspective ? 'PATIENT' : 'DENTIST'}
                  </button>
 
                  <div className="bg-slate-50 rounded-2xl p-1.5 border-2 border-slate-100 flex shadow-inner gap-1" role="group" aria-label="Arch dentition mode">
-                    <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
-                    <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>
+                    <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
+                    <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>
                  </div>
                  
                  <button 
                     onClick={() => setShowBaseline(!showBaseline)}
-                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${showBaseline ? 'bg-amber-50 border-amber-300 text-amber-900 ring-4 ring-amber-500/5' : 'bg-white border-slate-100 text-slate-500'}`}
+                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-xs font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${showBaseline ? 'bg-amber-50 border-amber-300 text-amber-900 ring-4 ring-amber-500/5' : 'bg-white border-slate-100 text-slate-500'}`}
                  >
                      <Clock size={14}/> {showBaseline ? 'BASELINE' : 'ACTIVE'}
                  </button>
@@ -372,25 +371,25 @@ export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onTooth
                 >
                     <div className="bg-teal-950 text-white px-8 py-6 flex justify-between items-center relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
-                        <h4 className="font-black uppercase tracking-[0.2em] text-[10px] flex items-center gap-3 relative z-10">
+                        <h4 className="font-black uppercase tracking-[0.2em] text-xs flex items-center gap-3 relative z-10">
                             <Sparkles size={14} className="text-teal-400"/> Identity Bound: #{selectedTooth}
                         </h4>
-                        <button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-2 rounded-xl transition-all relative z-10 active:scale-90" aria-label="Close details"><X size={18}/></button>
+                        <button onClick={() => setSelectedTooth(null)} className="hover:bg-white/20 p-2.5 rounded-xl transition-all relative z-10 active:scale-90" aria-label="Close details"><X size={18}/></button>
                     </div>
                     <div className={`max-h-64 overflow-y-auto p-6 space-y-4 no-scrollbar ${isPatientPerspective ? 'text-right' : 'text-left'}`}>
                         {getToothData(selectedTooth).length > 0 ? getToothData(selectedTooth).slice(0, 5).map((entry, i) => (
                             <div key={i} className="p-5 bg-slate-50/50 border border-slate-100 rounded-3xl group transition-all duration-500 hover:bg-white hover:border-teal-300 hover:shadow-xl hover:shadow-teal-900/5">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{formatDate(entry.date)}</div>
+                                <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{formatDate(entry.date)}</div>
                                 <div className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">{entry.procedure}</div>
                                 <div className={`flex items-center gap-3 mt-4 ${isPatientPerspective ? 'justify-end' : ''}`}>
                                     <span className={`w-2.5 h-2.5 rounded-full ${entry.status === 'Completed' ? 'bg-teal-500' : entry.status === 'Planned' ? 'bg-lilac-500' : 'bg-red-500'} shadow-[0_0_8px_rgba(0,0,0,0.1)]`} aria-hidden="true" />
-                                    <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{entry.status}</span>
+                                    <span className="text-xs text-slate-500 uppercase font-black tracking-widest">{entry.status}</span>
                                 </div>
                             </div>
-                        )) : <div className="py-16 flex flex-col items-center justify-center opacity-20 gap-4"><Ghost size={48} aria-hidden="true"/><p className="text-[10px] font-black uppercase tracking-widest">Virgin Enamel Archive</p></div>}
+                        )) : <div className="py-16 flex flex-col items-center justify-center opacity-20 gap-4"><Ghost size={48} aria-hidden="true"/><p className="text-xs font-black uppercase tracking-widest">Virgin Enamel Archive</p></div>}
                     </div>
                     <div className="bg-slate-50 p-6 border-t border-slate-100">
-                        <button onClick={() => { onToothClick(selectedTooth!); setSelectedTooth(null); }} className="w-full py-4 bg-white border-2 border-teal-50 rounded-2xl text-[10px] font-black text-teal-800 uppercase tracking-[0.2em] hover:bg-teal-900 hover:text-white hover:shadow-2xl hover:shadow-teal-900/30 transition-all flex items-center justify-center gap-3">
+                        <button onClick={() => { onToothClick(selectedTooth!); setSelectedTooth(null); }} className="w-full py-4 bg-white border-2 border-teal-50 rounded-2xl text-xs font-black text-teal-800 uppercase tracking-[0.2em] hover:bg-teal-900 hover:text-white hover:shadow-2xl hover:shadow-teal-900/30 transition-all flex items-center justify-center gap-3">
                             <FileText size={18} /> Chronic Narrative
                         </button>
                     </div>
@@ -406,7 +405,7 @@ export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onTooth
                     <button 
                         aria-label="Exit zoom mode"
                         onClick={(e) => { e.stopPropagation(); setActiveQuadrant(null); }}
-                        className="absolute -top-6 -right-6 bg-red-600 text-white p-3 rounded-full shadow-2xl z-50 hover:bg-red-700 transition-all hover:rotate-90 active:scale-90"
+                        className="absolute -top-6 -right-6 bg-red-600 text-white p-4 rounded-full shadow-2xl z-50 hover:bg-red-700 transition-all hover:rotate-90 active:scale-90"
                     >
                         <Minimize2 size={28}/>
                     </button>
@@ -417,7 +416,7 @@ export const Odontogram: React.FC<OdontogramProps> = ({ chart, readOnly, onTooth
 
         {!activeQuadrant && !readOnly && (
             <div className="text-center py-4">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em] animate-pulse">
+                <span className="text-xs font-black text-slate-300 uppercase tracking-[0.5em] animate-pulse">
                     Select Quadrant to initiate Mapping
                 </span>
             </div>

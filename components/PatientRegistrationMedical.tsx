@@ -1,9 +1,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-/* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
+/**
+ * REFACTORED: This is now a standard controlled textarea component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
+ */
 const ControlledTextarea: React.FC<{
   name: string;
   value: string;
@@ -24,6 +28,11 @@ const ControlledTextarea: React.FC<{
   );
 };
 
+/**
+ * REFACTORED: This is now a standard controlled input component.
+ * It directly uses the `value` and `onChange` props from its parent.
+ * The internal state and useEffect have been removed to prevent re-render loops.
+ */
 const ControlledInput: React.FC<{
   name: string;
   value: string;

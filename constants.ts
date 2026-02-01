@@ -1259,13 +1259,13 @@ export const APPOINTMENTS: Appointment[] = [
 
 
 export const DEFAULT_PROCEDURES: ProcedureItem[] = [
-  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30 },
+  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30, isPhilHealthCovered: true },
   { id: 'proc_prophy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Preventive', defaultDurationMinutes: 60 },
   { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Preventive', defaultDurationMinutes: 15 },
   { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45 },
   { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60 },
-  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30 },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, requiresWitness: true, defaultDurationMinutes: 90 },
+  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30, isPhilHealthCovered: true },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, requiresWitness: true, defaultDurationMinutes: 90, isPhilHealthCovered: true },
   { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60 },
   { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10 },
 ];

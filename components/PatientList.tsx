@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
@@ -10,6 +9,7 @@ import { useNavigate } from '../contexts/RouterContext';
 import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
 import DocentSparkle from './DocentSparkle';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface PatientListProps {
   selectedPatientId: string | null;
@@ -17,6 +17,7 @@ interface PatientListProps {
 
 export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const { showModal } = useModal();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
@@ -29,11 +30,11 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   }), [patients]);
 
   const filteredPatients = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return patients;
+    if (!debouncedSearchTerm.trim()) {
+      return patients.slice(0, 100);
     }
-    return fuse.search(searchTerm).map(result => result.item);
-  }, [patients, searchTerm, fuse]);
+    return fuse.search(debouncedSearchTerm).map(result => result.item).slice(0, 100);
+  }, [patients, debouncedSearchTerm, fuse]);
 
   const onSelectPatient = (id: string | null) => {
     if (id) {

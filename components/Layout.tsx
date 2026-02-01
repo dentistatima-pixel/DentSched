@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
@@ -168,22 +169,22 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
       {impersonatingUser && (
-        <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
+        <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
           <ShieldAlert size={18} className="animate-pulse"/>
           <span>Warning: Impersonating <strong>{currentUser.name}</strong>.</span>
-          <button onClick={handleStopImpersonating} className="ml-4 bg-black/80 text-white px-4 py-1.5 rounded-lg text-[10px] hover:bg-black transition-colors">Stop Impersonating</button>
+          <button onClick={handleStopImpersonating} className="ml-4 bg-black/80 text-white px-4 py-1.5 rounded-lg text-xs hover:bg-black transition-colors">Stop Impersonating</button>
         </div>
       )}
       
       {!isOnline && (
-        <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="status">
-            <CloudOff size={18} className="animate-pulse"/>
-            <span>OFFLINE MODE: Changes are being saved locally and will sync when you're back online.</span>
+        <div className="bg-red-600 text-white p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="status">
+            <AlertTriangle size={18} className="animate-pulse"/>
+            <span>⚠️ No Internet Connection - Data will sync when online</span>
         </div>
       )}
 
       {currentUser.status === 'Inactive' && (
-        <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-xs z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
+        <div className="bg-slate-800 text-amber-300 p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
           <ShieldAlert size={18} />
           <span>ACCOUNT DEACTIVATED. This session is in read-only mode.</span>
         </div>
@@ -197,7 +198,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="flex flex-col">
                      <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
+                        <span className={`text-sm font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
                      </div>
                 </div>
              </div>
@@ -221,7 +222,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     aria-label={`Switch to ${item.label} view`}
                 >
                     <div className="shrink-0"><item.icon size={22} strokeWidth={activeTab === item.id ? 3 : 2} className="transition-transform group-hover:scale-110" /></div>
-                    <span className={`text-xs font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
+                    <span className={`text-sm font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'opacity-100 ml-3 w-auto' : 'opacity-0 w-0 overflow-hidden ml-0'}`}>{item.label}</span>
                 </button>
                 ))}
             </nav>
@@ -229,7 +230,7 @@ export const Layout: React.FC<LayoutProps> = ({
              <div className="flex items-center gap-4">
                  <button
                     onClick={() => setIsCommandBarOpen(true)}
-                    className={`p-3.5 rounded-2xl transition-all focus:ring-offset-2 ${
+                    className={`p-4 rounded-2xl transition-all focus:ring-offset-2 ${
                         isDowntime
                             ? 'bg-black/50 text-white hover:bg-black/70'
                             : 'bg-white/10 hover:bg-white/20'
@@ -241,7 +242,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
                  {/* Sync Status Indicator */}
                 <div 
-                    className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${
                         isSyncing ? 'bg-blue-100 text-blue-700' :
                         syncQueueCount > 0 ? 'bg-lilac-100 text-lilac-700' :
                         'bg-teal-50 text-teal-700'
@@ -268,7 +269,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="relative">
                     <button
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                        className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
                             isUserMenuOpen
                                 ? 'bg-black/40 shadow-inner'
                                 : isDowntime
@@ -287,7 +288,7 @@ export const Layout: React.FC<LayoutProps> = ({
                             <div className="absolute right-0 top-full mt-4 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
                                 <div className="p-4 border-b border-border-primary bg-bg-tertiary">
                                     <p className="font-black text-sm text-text-primary truncate">{currentUser.name}</p>
-                                    <p className="text-xs text-text-secondary font-bold">{currentUser.role}</p>
+                                    <p className="text-sm text-text-secondary font-bold">{currentUser.role}</p>
                                 </div>
                                 <div className="p-2 space-y-1">
                                     <button onClick={openProfile} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
@@ -319,7 +320,7 @@ export const Layout: React.FC<LayoutProps> = ({
                  <div className="relative">
                     <button
                         onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)}
-                        className={`p-3.5 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                        className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
                             isTaskPopoverOpen 
                                 ? 'bg-black/40 shadow-inner' 
                                 : isDowntime
@@ -330,7 +331,7 @@ export const Layout: React.FC<LayoutProps> = ({
                         aria-expanded={isTaskPopoverOpen}
                     >
                         <StickyNote size={22} />
-                        {myActiveTasks.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs font-black flex items-center justify-center rounded-full border-2" style={{borderColor: branchColor}}>{myActiveTasks.length}</span>}
+                        {myActiveTasks.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-sm font-black flex items-center justify-center rounded-full border-2" style={{borderColor: branchColor}}>{myActiveTasks.length}</span>}
                     </button>
                      {isTaskPopoverOpen && (
                         <>
@@ -338,10 +339,10 @@ export const Layout: React.FC<LayoutProps> = ({
                             <div className="absolute right-0 top-full mt-4 w-[28rem] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
                                 <div className="bg-bg-tertiary border-b border-border-primary p-3 flex justify-between items-center">
                                     <div className="flex items-center p-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-2xl">
-                                        <button onClick={() => setPinboardTab('inbox')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 ${pinboardTab === 'inbox' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Inbox size={14}/> Inbox</button>
-                                        <button onClick={() => setPinboardTab('sent')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 ${pinboardTab === 'sent' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Send size={14}/> Sent</button>
+                                        <button onClick={() => setPinboardTab('inbox')} className={`px-4 py-2 rounded-xl text-sm font-black uppercase flex items-center gap-2 ${pinboardTab === 'inbox' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Inbox size={14}/> Inbox</button>
+                                        <button onClick={() => setPinboardTab('sent')} className={`px-4 py-2 rounded-xl text-sm font-black uppercase flex items-center gap-2 ${pinboardTab === 'sent' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Send size={14}/> Sent</button>
                                     </div>
-                                    {pinboardTab === 'inbox' && <button onClick={() => handleClearCompletedTasks(currentUser.id)} className="text-xs font-black text-slate-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12}/> Clear Completed</button>}
+                                    {pinboardTab === 'inbox' && <button onClick={() => handleClearCompletedTasks(currentUser.id)} className="text-sm font-black text-slate-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12}/> Clear Completed</button>}
                                 </div>
                                 <div className="max-h-96 overflow-y-auto p-3 no-scrollbar">
                                     <div className="space-y-2 p-2">
@@ -358,10 +359,10 @@ export const Layout: React.FC<LayoutProps> = ({
                                                     <div className="flex-1 min-w-0">
                                                         <p className={`font-bold text-sm leading-tight ${task.isCompleted ? 'line-through text-text-secondary' : 'text-text-primary'}`}>{task.text}</p>
                                                         <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                                            {task.isUrgent && <div className="flex items-center gap-1 text-[9px] text-red-700 bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><Flag size={10}/> Urgent</div>}
-                                                            {patient && <button onClick={() => navigate(`patients/${patient.id}`)} className="flex items-center gap-1 text-[9px] text-teal-700 bg-teal-50 dark:bg-teal-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><UserIcon size={10}/> {patient.name}</button>}
-                                                            {pinboardTab === 'inbox' && creator && creator.id !== currentUser.id && <div className="text-[9px] text-slate-500 font-bold">from: {creator.name}</div>}
-                                                            {pinboardTab === 'sent' && assignee && <div className="text-[9px] text-slate-500 font-bold">to: {assignee.name}</div>}
+                                                            {task.isUrgent && <div className="flex items-center gap-1 text-[11px] text-red-700 bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><Flag size={10}/> Urgent</div>}
+                                                            {patient && <button onClick={() => navigate(`patients/${patient.id}`)} className="flex items-center gap-1 text-[11px] text-teal-700 bg-teal-50 dark:bg-teal-900/50 px-1.5 py-0.5 rounded-full font-black uppercase"><UserIcon size={10}/> {patient.name}</button>}
+                                                            {pinboardTab === 'inbox' && creator && creator.id !== currentUser.id && <div className="text-[11px] text-slate-500 font-bold">from: {creator.name}</div>}
+                                                            {pinboardTab === 'sent' && assignee && <div className="text-[11px] text-slate-500 font-bold">to: {assignee.name}</div>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -373,27 +374,27 @@ export const Layout: React.FC<LayoutProps> = ({
                                 <div className="p-4 border-t bg-bg-tertiary space-y-3">
                                     <div className="relative">
                                         <input ref={taskInputRef} type="text" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddNewTask()} placeholder="Add new task..." className="input w-full"/>
-                                        <button onClick={handleAddNewTask} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
+                                        <button onClick={handleAddNewTask} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 relative">
                                         <div>
-                                            <select value={newTaskAssignee} onChange={e => setNewTaskAssignee(e.target.value)} className="w-full text-xs font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700">
+                                            <select value={newTaskAssignee} onChange={e => setNewTaskAssignee(e.target.value)} className="w-full text-sm font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700">
                                                 <option value={currentUser.id}>Assign to: Me</option>
                                                 {staff.filter(s => s.id !== currentUser.id).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                             </select>
                                         </div>
                                         <div className="relative">
-                                            <input type="text" placeholder="Link Patient..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="w-full text-xs font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700"/>
+                                            <input type="text" placeholder="Link Patient..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="w-full text-sm font-black uppercase p-2 border border-border-primary rounded-lg bg-white dark:bg-slate-700"/>
                                             {patientSearchResults.length > 0 && (
                                                 <div className="absolute bottom-full mb-1 w-full bg-white dark:bg-slate-600 border border-border-primary rounded-lg shadow-lg z-30">
-                                                    {patientSearchResults.map(p => <button key={p.id} onClick={() => { setNewTaskPatientId(p.id); setPatientSearch(p.name); }} className="block w-full text-left p-2 text-xs hover:bg-teal-50 dark:hover:bg-teal-900/50">{p.name}</button>)}
+                                                    {patientSearchResults.map(p => <button key={p.id} onClick={() => { setNewTaskPatientId(p.id); setPatientSearch(p.name); }} className="block w-full text-left p-2 text-sm hover:bg-teal-50 dark:hover:bg-teal-900/50">{p.name}</button>)}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                         <button onClick={() => setNewTaskUrgent(!newTaskUrgent)} className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 border-2 ${newTaskUrgent ? 'bg-red-500 text-white border-red-500' : 'bg-white dark:bg-slate-700 border-transparent'}`}><Flag size={12}/> Urgent</button>
-                                         {newTaskPatientId && <div className="text-xs font-bold text-teal-700 flex items-center gap-1"><LinkIcon size={12}/> Linked: {patientSearch}</div>}
+                                         <button onClick={() => setNewTaskUrgent(!newTaskUrgent)} className={`px-3 py-1.5 rounded-lg text-sm font-black flex items-center gap-1 border-2 ${newTaskUrgent ? 'bg-red-500 text-white border-red-500' : 'bg-white dark:bg-slate-700 border-transparent'}`}><Flag size={12}/> Urgent</button>
+                                         {newTaskPatientId && <div className="text-sm font-bold text-teal-700 flex items-center gap-1"><LinkIcon size={12}/> Linked: {patientSearch}</div>}
                                     </div>
                                 </div>
                             </div>
@@ -404,7 +405,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 {isDowntime ? (
                     <button
                         onClick={() => setSystemStatus(SystemStatus.OPERATIONAL)}
-                        className="p-3.5 rounded-2xl bg-red-600 text-white shadow-xl animate-pulse-red ring-4 ring-red-500/50 transition-all focus:ring-offset-2"
+                        className="p-4 rounded-2xl bg-red-600 text-white shadow-xl animate-pulse-red ring-4 ring-red-500/50 transition-all focus:ring-offset-2"
                         title="System Status: Emergency Mode Active. Click to return to Operational."
                         aria-label="System Status: Emergency Mode Active. Click to return to Operational."
                     >
@@ -413,7 +414,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 ) : (
                     <button
                         onClick={() => setShowDowntimeConfirm(true)}
-                        className="p-3.5 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-900/30 transition-all focus:ring-offset-2 btn-tactile"
+                        className="p-4 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-900/30 transition-all focus:ring-offset-2 btn-tactile"
                         title="System Status: Operational. Click to activate Emergency Protocol."
                         aria-label="System Status: Operational. Click to activate Emergency Protocol."
                     >
@@ -423,7 +424,7 @@ export const Layout: React.FC<LayoutProps> = ({
                  
                  <button
                     onClick={() => setIsInKioskMode(true)}
-                    className="p-3.5 rounded-2xl bg-lilac-600 text-white shadow-lg shadow-lilac-900/30 transition-all focus:ring-offset-2 btn-tactile"
+                    className="p-4 rounded-2xl bg-lilac-600 text-white shadow-lg shadow-lilac-900/30 transition-all focus:ring-offset-2 btn-tactile"
                     title="Client Intake Terminal"
                     aria-label="Client Intake Terminal"
                 >
@@ -436,7 +437,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="bg-red-600 text-white p-4 text-center font-black uppercase tracking-widest text-sm z-[60] flex justify-center items-center gap-4 shadow-2xl animate-pulse-red" role="alert">
           <ShieldAlert size={20}/>
           <span>CLINICAL AUTHORITY LOCKED: Your credentials have expired.</span>
-          <button onClick={openProfile} className="ml-4 bg-white/90 text-red-700 px-6 py-2 rounded-lg text-xs hover:bg-white transition-colors">Update Profile</button>
+          <button onClick={openProfile} className="ml-4 bg-white/90 text-red-700 px-6 py-2 rounded-lg text-sm hover:bg-white transition-colors">Update Profile</button>
         </div>
       )}
 
@@ -451,7 +452,7 @@ export const Layout: React.FC<LayoutProps> = ({
       {/* PDA COMPLIANCE FOOTER */}
       <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-border-primary px-8 py-2 z-40 flex items-center justify-center gap-4 shrink-0" role="contentinfo">
           <Shield size={14} className="text-teal-700 dark:text-teal-400" aria-hidden="true"/>
-          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">
+          <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">
             PDA ETHICS RULE 19 VERIFIED: Practitioner retains sole clinical liability for decision support output.
           </p>
       </div>
@@ -486,8 +487,8 @@ export const Layout: React.FC<LayoutProps> = ({
                     </p>
                 </div>
                 <div className="flex gap-4 mt-8">
-                    <button onClick={() => setShowDowntimeConfirm(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
-                    <button onClick={confirmDowntime} className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-red-600/30">Confirm & Activate</button>
+                    <button onClick={() => setShowDowntimeConfirm(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl font-black uppercase text-sm tracking-widest">Cancel</button>
+                    <button onClick={confirmDowntime} className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-red-600/30">Confirm & Activate</button>
                 </div>
             </div>
         </div>

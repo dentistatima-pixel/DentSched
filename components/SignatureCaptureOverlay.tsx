@@ -1,5 +1,5 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-/* Fix: Added missing 'Fingerprint' to lucide-react imports */
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
@@ -13,6 +13,8 @@ interface SignatureCaptureOverlayProps {
   themeColor: 'teal' | 'lilac';
   contextSummary?: React.ReactNode;
 }
+
+const SIGNATURE_TIMEOUT_SECONDS = 120; // 2 minutes
 
 const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   isOpen, onClose, onSave, title, instruction, themeColor, contextSummary
@@ -108,26 +110,34 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
       if (canvas) {
         canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
       }
+
+      const timer = setTimeout(() => {
+        toast.error('Signature session expired for security reasons.', { duration: 5000 });
+        onClose();
+        console.warn('SECURITY_ALERT: Signature capture timed out.');
+      }, SIGNATURE_TIMEOUT_SECONDS * 1000);
+
+      return () => {
+        clearTimeout(timer);
+        stopCamera();
+        if (canvas) {
+          canvas.removeEventListener('touchstart', touchStartHandler);
+        }
+      };
     } else {
       stopCamera();
     }
-    
-    return () => {
-      stopCamera();
-      if (canvas) {
-        canvas.removeEventListener('touchstart', touchStartHandler);
-      }
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose, toast]);
 
   const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
     const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
   };
 
   const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch' && e.width > 10) return; // Palm rejection
     if (!allAffirmed && contextSummary) return;
     e.preventDefault();
     setIsSigning(true);
@@ -137,14 +147,24 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     ctx?.moveTo(x, y);
   };
 
+  const lastDrawTime = useRef(0);
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isSigning || (!allAffirmed && contextSummary)) return;
     e.preventDefault();
-    const { x, y } = getCoords(e);
+    
+    const now = Date.now();
+    if (now - lastDrawTime.current < 16) { // ~60fps throttle
+        return;
+    }
+    lastDrawTime.current = now;
+
+    const { x, y, pressure } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
-      const pressure = e.pressure || 0.5;
-      ctx.lineWidth = Math.max(2, Math.min(8, pressure * 10));
+      const isPen = e.pointerType === 'pen';
+      const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+      const baseWidth = isPen ? 3 : 5;
+      ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
       ctx.lineTo(x, y);
       ctx.stroke();
       setHasInk(true);
@@ -162,14 +182,14 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     setHasInk(false);
   };
 
-  const handleAuthorize = () => {
-    if (!hasInk || (!allAffirmed && contextSummary)) {
+  const handleAuthorize = async () => {
+    if (!hasInk || (!!contextSummary && !allAffirmed)) {
       if (!allAffirmed) toast.error("Please acknowledge all statements before signing.");
       return;
     }
     const sigData = canvasRef.current!.toDataURL();
     
-    let witnessHash = CryptoJS.SHA256(sigData + Date.now()).toString(); // Fallback hash
+    let witnessHash: string;
     
     const video = videoRef.current;
     const witnessCanvas = witnessCanvasRef.current;
@@ -181,8 +201,16 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
         witnessCanvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, witnessCanvas.width, witnessCanvas.height);
         const witnessImageData = witnessCanvas.toDataURL('image/jpeg', 0.8);
-        witnessHash = CryptoJS.SHA256(witnessImageData).toString();
+        witnessHash = CryptoJS.SHA256(witnessImageData + Date.now()).toString();
+      } else {
+        // Fallback if context is lost
+        witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
+        console.warn("Witness canvas context lost, using fallback hash.");
       }
+    } else {
+        // Fallback if camera isn't ready or available
+        witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
+        console.warn("Witness camera not available, using fallback hash.");
     }
     
     onSave(sigData, witnessHash);
@@ -198,7 +226,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <div className="bg-white/20 p-2 rounded-xl"><ShieldCheck size={24} /></div>
             <div>
               <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
-              <p className={`text-[10px] font-black uppercase tracking-widest ${colors.sub}`}>Verified Forensic Identity</p>
+              <p className={`text-xs font-black uppercase tracking-widest ${colors.sub}`}>Verified Forensic Identity</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
@@ -214,7 +242,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
           {!contextSummary && (
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <p className="text-xs text-slate-600 font-bold leading-relaxed">{instruction}</p>
+                <p className="text-sm text-slate-600 font-bold leading-relaxed">{instruction}</p>
               </div>
               <div className={`w-20 h-20 rounded-full border-4 overflow-hidden bg-slate-200 relative ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
                 {isCameraActive ? <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <Camera className="w-8 h-8 text-slate-400 m-6" />}
@@ -227,21 +255,21 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <div className="space-y-3">
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isTrue} onChange={e => setAffirmations(p => ({ ...p, isTrue: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-xs font-medium text-slate-700">I certify that the information I have provided is true and correct to the best of my knowledge.</span>
+                  <span className="text-sm font-medium text-slate-700">I certify that the information I have provided is true and correct to the best of my knowledge.</span>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isPrivacyRead} onChange={e => setAffirmations(p => ({ ...p, isPrivacyRead: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-xs font-medium text-slate-700">I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information.</span>
+                  <span className="text-sm font-medium text-slate-700">I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information.</span>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isFeesAcknowledged} onChange={e => setAffirmations(p => ({ ...p, isFeesAcknowledged: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-xs font-medium text-slate-700">I acknowledge that I am responsible for all fees associated with my treatment.</span>
+                  <span className="text-sm font-medium text-slate-700">I acknowledge that I am responsible for all fees associated with my treatment.</span>
               </label>
             </div>
           )}
 
           <div className={`relative bg-white rounded-3xl border-2 p-2 group transition-all ${allAffirmed || !contextSummary ? 'border-dashed border-slate-300 hover:border-slate-400' : 'border-solid border-slate-200 opacity-50 grayscale'}`}>
-            <div className="absolute top-4 left-4 flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+            <div className="absolute top-4 left-4 flex items-center gap-2 text-xs font-black text-slate-300 uppercase tracking-widest">
               <Fingerprint size={12} /> Digital Ink Pad
             </div>
             <button onClick={handleClear} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><Eraser size={16} /></button>
@@ -254,7 +282,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
               onPointerLeave={endDraw}
             />
             <div className="absolute bottom-10 left-8 right-8 h-px bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none" />
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-300 uppercase">Signature Baseline</div>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-black text-slate-300 uppercase">Signature Baseline</div>
           </div>
 
           <div className="flex gap-4">

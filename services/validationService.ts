@@ -1,4 +1,20 @@
-import { Patient, Appointment, User, FieldSettings } from '../types';
+
+import { Patient, Appointment, User, FieldSettings, UserRole } from '../types';
+
+// Valid 3-digit prefixes (after the initial '0')
+const PH_MOBILE_PREFIXES = new Set([
+    // Globe/TM
+    '817', '904', '905', '906', '915', '916', '917', '926', '927', '935', 
+    '936', '937', '945', '953', '954', '955', '956', '957', '958', '959', 
+    '975', '976', '977', '978', '979', '994', '995', '996', '997',
+    // Smart/TNT/Sun
+    '813', '907', '908', '909', '910', '912', '918', '919', '920', '921', 
+    '922', '923', '924', '925', '928', '929', '930', '931', '932', '933', 
+    '934', '938', '939', '940', '941', '942', '943', '944', '946', '947', 
+    '948', '949', '950', '951', '961', '963', '964', '965', '966', '967', 
+    '968', '969', '970', '971', '980', '981', '989', '992', '998', '999'
+]);
+
 
 // Schema-based validation for Patient
 const patientSchema = {
@@ -9,11 +25,16 @@ const patientSchema = {
         return null;
     },
     phone: (patient: Partial<Patient>) => {
-        if (!patient.phone?.trim()) {
+        const phone = patient.phone?.trim();
+        if (!phone) {
             return "Mobile Number is required.";
         }
-        if (!/^(09)\d{9}$/.test(patient.phone.trim())) {
-            return "Please enter a valid 11-digit mobile number (e.g., 09171234567).";
+        if (!/^09\d{9}$/.test(phone)) {
+            return "Please enter a valid 11-digit mobile number starting with 09.";
+        }
+        const prefix = phone.substring(1, 4);
+        if (!PH_MOBILE_PREFIXES.has(prefix)) {
+            return `The prefix ${prefix} is not a valid Philippine mobile number prefix.`;
         }
         return null;
     },
@@ -52,6 +73,7 @@ export const validateAppointment = (
     allAppointments: Appointment[],
     patients: Patient[],
     staff: User[],
+    fieldSettings: FieldSettings,
     existingAppointmentId?: string
 ): Record<string, string> | null => {
     const errors: Record<string, string> = {};
@@ -66,6 +88,17 @@ export const validateAppointment = (
     if (isBlock && !title?.trim()) errors.title = "A title is required for a block appointment.";
     if (!isBlock && !type?.trim()) errors.type = "A procedure type is required.";
     
+    // Scope of Practice Validation
+    if (providerId) {
+        const provider = staff.find(s => s.id === providerId);
+        if (!isBlock && type && provider?.role === UserRole.DENTAL_ASSISTANT) {
+            const procedure = fieldSettings?.procedures.find(p => p.name === type);
+            if (procedure?.allowedLicenseCategories && !procedure.allowedLicenseCategories.includes('HYGIENIST')) {
+                errors.scope = `Scope Violation: Dental Assistants cannot be assigned to perform '${type}'.`;
+            }
+        }
+    }
+
     // Conflict validation
     if (date && time && durationMinutes) {
         const proposedStart = new Date(`${date}T${time}`);

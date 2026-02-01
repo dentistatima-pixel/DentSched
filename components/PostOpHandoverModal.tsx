@@ -29,7 +29,10 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
     const allChecked = checks.oral && checks.written && checks.emergency && checks.medication;
 
     const handleConfirm = async () => {
-        if (!allChecked) return;
+        if (!allChecked) {
+            toast.error("Please confirm all handover checklist items.");
+            return;
+        }
         setIsSaving(true);
         try {
             await onConfirm({ instructions, followUpDays });

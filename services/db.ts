@@ -5,7 +5,6 @@ const DB_NAME = 'dentsched-db';
 const DB_VERSION = 1;
 const STORES = ['actionQueue', 'syncConflicts', 'patients', 'appointments', 'settings'];
 
-// Fix: Renamed variable to avoid conflict with exported 'db' object.
 let dbConnection: IDBDatabase;
 
 const openDB = (): Promise<IDBDatabase> => {
@@ -30,7 +29,6 @@ const openDB = (): Promise<IDBDatabase> => {
     });
 };
 
-// Fix: The 'db' export is now unambiguous.
 export const db = {
     get: async <T>(storeName: string, key: string): Promise<T | undefined> => {
         const db = await openDB();

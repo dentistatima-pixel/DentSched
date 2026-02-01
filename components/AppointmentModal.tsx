@@ -4,7 +4,7 @@ import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, Field
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from './ModalContext';
+import { useModal } from '../contexts/ModalContext';
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
 import { generateUid, formatDate } from '../constants';

@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
-// Fix: Use default import for ModalManager as it's a default export.
 import ModalManager from './components/ModalManager';
 import { KioskView } from './components/KioskView';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -17,7 +16,6 @@ import { DentalChartEntry, User, UserRole } from './types';
 import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
-// Fix: Correctly import the default export from FormBuilder module.
 const FormBuilder = React.lazy(() => import('./components/FormBuilder'));
 
 
@@ -129,7 +127,7 @@ export const App: React.FC = () => {
   }, [isPrcExpired, isMalpracticeExpired, setIsAuthorityLocked]);
   
   const WARNING_BEFORE_LOCK_MINUTES = 1;
-  const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 2 : (fieldSettings?.sessionTimeoutMinutes || 5);
+  const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 15 : (fieldSettings?.sessionTimeoutMinutes || 10);
   
   const lockSession = useCallback(() => {
     setIsSessionLocked(true);

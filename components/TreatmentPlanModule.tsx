@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory, InformedRefusal } from '../types';
 import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch, Lock, Sparkles, LayoutGrid } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, isExpired } from '../constants';
-import { useModal } from './ModalContext';
+import { useModal } from '../contexts/ModalContext';
 
 // Component for a single plan card
 const PlanCard: React.FC<{
