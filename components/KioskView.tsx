@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
-// Fix: Use default import for PatientRegistrationModal.
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -32,6 +31,30 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [capturedThumb, setCapturedThumb] = useState<string | null>(null);
   const [capturedHash, setCapturedHash] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timeout: number;
+    
+    const resetTimeout = () => {
+        clearTimeout(timeout);
+        if (step !== 'welcome' && step !== 'thankyou') {
+            timeout = window.setTimeout(() => {
+                toast.warning('Session timed out for your privacy.');
+                setStep('welcome');
+            }, 3 * 60 * 1000); // 3 minutes
+        }
+    };
+    
+    const events: (keyof WindowEventMap)[] = ['mousedown', 'touchstart', 'keydown'];
+    events.forEach(e => window.addEventListener(e, resetTimeout));
+    
+    resetTimeout();
+    
+    return () => {
+        clearTimeout(timeout);
+        events.forEach(e => window.removeEventListener(e, resetTimeout));
+    };
+}, [step, toast]);
 
   useEffect(() => {
     if (step === 'welcome') {
@@ -116,7 +139,6 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
           finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
       }
       
-      // FIX: The onSave prop expects a Promise. The function is now async and awaits the update operation.
       await onUpdatePatient(finalPatient);
       setStep('thankyou');
   };

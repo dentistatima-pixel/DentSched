@@ -11,6 +11,7 @@ import { DataService } from '../services/dataService';
 import { checkClinicalProtocols } from '../services/protocolEnforcement';
 import { useStaff } from './StaffContext';
 import { canStartTreatment } from '../services/medicolegalGuard';
+import { validateSignatureChain } from '../services/signatureVerification';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -58,7 +59,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                 const offlineApt = { ...appointmentData, isPendingSync: true };
                 setAppointments(prev => isNew ? [...prev, offlineApt] : prev.map(a => a.id === offlineApt.id ? offlineApt : a));
                 await enqueueAction(isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', offlineApt);
-                toast.info('Offline: Appointment saved locally.');
+                toast.info('Offline: Appointment with signature saved locally.');
                 return;
             }
             
@@ -85,7 +86,6 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         const isNew = !appointments.some(a => a.id === appointmentData.id);
 
         if (procedure?.requiresConsent && isNew && patient) {
-            // --- PRE-FLIGHT FINANCIAL CONSENT CHECK ---
             if (appointmentData.planId) {
                 const plan = patient.treatmentPlans?.find(tp => tp.id === appointmentData.planId);
 
@@ -106,7 +106,6 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     return;
                 }
             }
-            // --- END PRE-FLIGHT CHECK ---
             
             let consentTemplateId = 'GENERAL_AUTHORIZATION'; // Default
             const procedureNameLower = procedure.name.toLowerCase();
@@ -135,7 +134,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     const finalAppointment = { 
                         ...appointmentData, 
                         consentSignatureChain: chain,
-                        pediatricConsent: pediatricConsent,
+                        ...(pediatricConsent && { pediatricConsent: pediatricConsent }),
                     };
                     _finishSavingAppointment(finalAppointment as Appointment);
                 }
@@ -191,6 +190,51 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         const patient = patients.find(p => p.id === aptToUpdate.patientId);
         const provider = staff.find(s => s.id === aptToUpdate.providerId);
+        
+        if (status === AppointmentStatus.ARRIVED && patient) {
+            const lastConsentTimestamp = patient.registrationSignatureTimestamp; 
+            if (lastConsentTimestamp) {
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                if (new Date(lastConsentTimestamp) < oneYearAgo) {
+                    toast.warning(`Patient consent is over 1 year old. Please initiate consent renewal.`, { duration: 10000 });
+                }
+            }
+        }
+
+        if (provider && (status === AppointmentStatus.TREATING || status === AppointmentStatus.SEATED)) {
+            const todayStr = new Date(aptToUpdate.date).toLocaleDateString('en-CA');
+            const providerAppointmentsToday = appointments
+                .filter(a => a.providerId === provider.id && a.date === todayStr && !a.isBlock)
+                .sort((a, b) => a.time.localeCompare(b.time));
+
+            let continuousWorkMinutes = 0;
+            let lastAppointmentEndTime: Date | null = null;
+            let crossedThreshold = false;
+
+            for (const apt of providerAppointmentsToday) {
+                const aptStart = new Date(`${apt.date}T${apt.time}`);
+                
+                if (lastAppointmentEndTime && (aptStart.getTime() - lastAppointmentEndTime.getTime()) >= 30 * 60 * 1000) {
+                    continuousWorkMinutes = 0;
+                }
+
+                const previousTotal = continuousWorkMinutes;
+                continuousWorkMinutes += apt.durationMinutes;
+                lastAppointmentEndTime = new Date(aptStart.getTime() + apt.durationMinutes * 60 * 1000);
+                
+                if (apt.id === appointmentId && previousTotal < 240 && continuousWorkMinutes >= 240) {
+                    crossedThreshold = true;
+                }
+            }
+
+            if(crossedThreshold) {
+                toast.warning(
+                    `Fatigue Alert for ${provider.name}: This session marks over 4 hours of continuous treatment. A short break is recommended for safety.`, 
+                    { duration: 15000 }
+                );
+            }
+        }
     
         if (status === AppointmentStatus.TREATING && !bypassProtocol && patient && provider && fieldSettings) {
             const block = canStartTreatment(aptToUpdate, patient, provider, fieldSettings);
@@ -211,9 +255,11 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     };
                     
                     if (block.modal.type === 'protocolOverride' && block.modal.props.rule) {
-                        props.onConfirm = (reason: string) => {
+                        props.onConfirm = (reason: string, signatureChain: SignatureChainEntry[]) => {
                             logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${block.modal.props.rule.name}. Reason: ${reason}`);
-                            handleUpdateAppointmentStatus(appointmentId, status, additionalData, true);
+                            const newOverride = { ruleId: block.modal.props.rule.id, reason, signatureChain };
+                            const existingOverrides = aptToUpdate.protocolOverrides || [];
+                            handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, protocolOverrides: [...existingOverrides, newOverride] }, true);
                         }
                     }
     
@@ -229,7 +275,6 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             }
         }
         
-        // POST-OP HANDOVER & SOAP NOTE GATE
         if (status === AppointmentStatus.COMPLETED && !bypassProtocol) {
             if (patient) {
                 const noteForAppointment = patient.dentalChart?.find(note => note.appointmentId === appointmentId);
@@ -242,16 +287,39 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
 
                 if (!hasSoapNotes) {
                     toast.error("Cannot complete appointment: A clinical note with SOAP details is required.");
-                    return; // Abort.
+                    return; 
+                }
+            }
+
+            if (aptToUpdate.consentSignatureChain && aptToUpdate.consentSignatureChain.length > 0) {
+                const validation = validateSignatureChain(aptToUpdate.consentSignatureChain);
+                if (!validation.valid) {
+                    toast.error(`Signature integrity compromised: ${validation.errors.join(', ')}`, { duration: 10000 });
+                    logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Signature chain validation failed: ${validation.errors.join(', ')}`);
+                    return;
                 }
             }
             
-            showModal('postOpHandover', {
+            const procedure = fieldSettings?.procedures.find(p => p.name === aptToUpdate.type);
+            
+            // FIX: Added medico-legal gates before allowing appointment completion.
+            if (!aptToUpdate.medHistoryVerified) {
+                toast.error("Cannot complete: Patient's medical history for this session has not been affirmed.");
+                return;
+            }
+
+            if (procedure?.traySetup && procedure.traySetup.length > 0 && !aptToUpdate.sterilizationVerified) {
+                toast.error("Cannot complete: Sterilization for required instrument sets has not been verified.");
+                return;
+            }
+            
+            showModal('postOpHandover', { 
                 appointment: aptToUpdate,
-                onConfirm: async (handoverData: { instructions: string, followUpDays: number }) => {
+                onConfirm: async (handoverData: { handoverChain: SignatureChainEntry[] }) => {
                     await handleUpdateAppointmentStatus(appointmentId, status, { 
                         postOpVerified: true, 
-                        postOpVerifiedAt: new Date().toISOString()
+                        postOpVerifiedAt: new Date().toISOString(),
+                        postOpHandoverChain: handoverData.handoverChain
                     }, true);
                 }
             });

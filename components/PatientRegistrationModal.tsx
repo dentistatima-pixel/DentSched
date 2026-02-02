@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch, Eraser } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus } from '../types';
@@ -8,7 +9,6 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
 import { generateUid, calculateAge, formatDate } from '../constants';
-import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useFormPersistence } from '../hooks/useFormPersistence';
@@ -16,6 +16,7 @@ import { ActionButton } from './ActionButton';
 import { FormStatusIndicator, FormStatus } from './FormStatusIndicator';
 import { useModal } from '../contexts/ModalContext';
 import { Odontogram } from './Odontogram';
+import CryptoJS from 'crypto-js';
 
 
 interface PatientRegistrationModalProps {
@@ -245,7 +246,9 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 
   const handleSignatureCaptured = async (sig: string, hash: string) => {
     const timestamp = new Date().toISOString();
-    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: hash };
+    const photoHash = hash;
+    const finalHash = CryptoJS.SHA256(photoHash + sig).toString();
+    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: finalHash };
     setFormData(updatedData);
     toast.success("Identity Anchor Linked. Record Verified.");
     await savePatientRecord(updatedData);
@@ -253,13 +256,49 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 
   const validateStep = (currentStep: number) => {
     if (currentStep === 1) {
-        const errors = validatePatient(formData);
-        if (errors) {
-            Object.values(errors).forEach(e => toast.error(e));
+        const errors: string[] = [];
+
+        // Core fields from original `validatePatient`
+        if (!formData.firstName?.trim() || !formData.surname?.trim()) errors.push("First Name and Surname are required.");
+        if (!formData.dpaConsent) errors.push("Compliance Error: Data Privacy Consent must be accepted.");
+        if (!formData.clinicalMediaConsent) errors.push("Compliance Error: General Treatment Authorization must be acknowledged.");
+        
+        // #40: Phone validation
+        if (!formData.phone?.trim()) {
+            errors.push("Mobile Number is required.");
+        } else if (!/^(09|\+639)\d{9}$/.test(formData.phone.trim().replace(/\s/g, ''))) {
+            errors.push("Please enter a valid 11-digit PH mobile number (e.g., 09xxxxxxxxx).");
+        }
+
+        // #42: DOB validation
+        if (formData.dob) {
+            const dobDate = new Date(formData.dob);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            if (dobDate > today) {
+                errors.push("Date of Birth cannot be in the future.");
+            }
+            const age = calculateAge(formData.dob);
+            if (age === undefined || age < 0 || age >= 120) {
+                errors.push("Invalid age (must be between 0 and 120). Please check Date of Birth.");
+            }
+        } else {
+            errors.push("Date of Birth is required.");
+        }
+
+        if (errors.length > 0) {
+            errors.forEach(e => toast.error(e));
             return false;
         }
+
+        // #44: Duplicate email warning (non-blocking)
+        if (formData.email) {
+            const isDuplicate = patients.some(p => p.email === formData.email && p.id !== formData.id);
+            if (isDuplicate) {
+                toast.warning("This email address is already in use by another patient. Please ensure this is correct.");
+            }
+        }
     }
-    // Add validation for other steps if needed
     return true;
   };
 

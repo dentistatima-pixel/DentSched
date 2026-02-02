@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -288,6 +289,56 @@
       }
       .btn-tactile:active {
         transform: translateY(0px) scale(0.98);
+      }
+
+      /* Clinical Action Bar for Tablet UX */
+      .clinical-action-bar {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background-color: rgba(255,255,255,0.8);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--border-primary);
+        z-index: 50;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 1rem;
+      }
+      .dark .clinical-action-bar {
+        background-color: rgba(30, 41, 59, 0.8);
+      }
+      .clinical-action-button {
+        min-height: 56px;
+        min-width: 56px;
+        padding: 0 1.5rem;
+        border-radius: 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.2s ease;
+      }
+      .clinical-action-button:hover {
+         transform: translateY(-2px);
+         box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+      }
+      .clinical-action-button:active {
+        transform: translateY(0) scale(0.98);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      }
+      .clinical-action-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
       }
 
       /* --- Orientation Specific Layouts --- */

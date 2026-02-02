@@ -1,12 +1,16 @@
 
 import React from 'react';
-import { Patient, Appointment, TreatmentPlan } from '../types';
+import { Patient, Appointment, TreatmentPlan, SignatureChainEntry } from '../types';
 import { formatDate } from '../constants';
-import { FileSignature, ShieldCheck, DollarSign, Stethoscope, ClipboardCheck } from 'lucide-react';
+import { FileSignature, ShieldCheck, DollarSign, Stethoscope, ClipboardCheck, Lock, Hash, Check, Clock, AlertTriangle } from 'lucide-react';
 import { useAppointments } from '../contexts/AppointmentContext';
 
 interface ConsentTimelineProps {
     patient: Patient;
+}
+
+const isSignatureExpired = (entry: SignatureChainEntry) => {
+    return entry.expiresAt && new Date(entry.expiresAt) < new Date();
 }
 
 const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
@@ -14,27 +18,26 @@ const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
     const patientAppointments = appointments.filter(a => a.patientId === patient.id);
 
     const timelineEvents = [
-        // Registration
-        ...(patient.registrationSignatureTimestamp ? [{
-            id: 'reg',
-            title: 'Patient Registration Signed',
-            timestamp: patient.registrationSignatureTimestamp,
+        ...(patient.privacyConsentChain || []).map(entry => ({
+            id: `privacy-${entry.id}`,
+            title: 'Privacy Consent Signed',
+            timestamp: entry.timestamp,
             icon: FileSignature,
-            details: 'Initial record and identity verification.'
-        }] : []),
+            details: `Signed by ${entry.signerName} (${entry.signerRole})`,
+            chain: patient.privacyConsentChain
+        })).slice(0, 1), // Only show the first (genesis) privacy consent event
 
-        // Financial Consents from Plans
         ...(patient.treatmentPlans || [])
-            .filter(plan => plan.financialConsentTimestamp)
+            .filter(plan => plan.financialConsentSignatureChain && plan.financialConsentSignatureChain.length > 0)
             .map(plan => ({
                 id: `fin-${plan.id}`,
                 title: `Financial Consent Approved`,
-                timestamp: plan.financialConsentTimestamp!,
+                timestamp: plan.financialConsentSignatureChain![0].timestamp,
                 icon: DollarSign,
-                details: `For Treatment Plan: ${plan.name}`
+                details: `For Treatment Plan: ${plan.name}`,
+                chain: plan.financialConsentSignatureChain,
             })),
 
-        // Procedural Consents from Appointments
         ...(patientAppointments)
             .filter(apt => apt.consentSignatureChain && apt.consentSignatureChain.length > 0)
             .map(apt => ({
@@ -42,18 +45,19 @@ const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
                 title: 'Procedure Consent Given',
                 timestamp: apt.consentSignatureChain![0].timestamp,
                 icon: Stethoscope,
-                details: `For: ${apt.type}`
+                details: `For: ${apt.type}`,
+                chain: apt.consentSignatureChain,
             })),
         
-        // Post-Op Handovers
         ...(patientAppointments)
-            .filter(apt => apt.postOpVerifiedAt)
+            .filter(apt => apt.postOpHandoverChain && apt.postOpHandoverChain.length > 0)
             .map(apt => ({
                 id: `postop-${apt.id}`,
                 title: 'Post-Op Handover Verified',
-                timestamp: apt.postOpVerifiedAt!,
+                timestamp: apt.postOpHandoverChain![0].timestamp,
                 icon: ClipboardCheck,
-                details: `After: ${apt.type}`
+                details: `After: ${apt.type}`,
+                chain: apt.postOpHandoverChain,
             }))
     ].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -74,6 +78,23 @@ const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
                                 <p className="text-xs font-bold text-slate-400">{new Date(event.timestamp).toLocaleString()}</p>
                                 <p className="font-bold text-slate-800">{event.title}</p>
                                 <p className="text-sm text-slate-600">{event.details}</p>
+
+                                {event.chain && event.chain.length > 0 && (
+                                    <div className="mt-3 space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        {event.chain.map((entry, idx) => (
+                                            <div key={entry.id} className="text-xs relative pl-6">
+                                                <div className="absolute top-1 left-0 w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center"><Check size={10} className="text-teal-600"/></div>
+                                                <p className="font-black text-slate-800">{entry.signerName} <span className="text-slate-500 font-bold">({entry.signerRole || entry.signatureType})</span></p>
+                                                <div className="font-mono text-[10px] text-slate-500 mt-1 space-y-1">
+                                                    <p className="flex items-center gap-1"><Clock size={10}/> {new Date(entry.timestamp).toLocaleString()}</p>
+                                                    <p className="flex items-center gap-1" title={entry.previousHash}><Hash size={10}/> Prev: {entry.previousHash.substring(0, 10)}...</p>
+                                                    <p className="flex items-center gap-1 text-teal-700 font-bold" title={entry.hash}><Lock size={10}/> Hash: {entry.hash.substring(0, 10)}...</p>
+                                                    {isSignatureExpired(entry) && <p className="flex items-center gap-1 text-red-600 font-bold"><AlertTriangle size={10}/> EXPIRED on {formatDate(entry.expiresAt)}</p>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );

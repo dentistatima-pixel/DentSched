@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature } from 'lucide-react';

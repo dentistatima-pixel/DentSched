@@ -1,4 +1,3 @@
-
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
 // FIX: CalendarView is a default export, not a named export.
@@ -19,7 +18,8 @@ import ReferralManager from './components/ReferralManager';
 import RosterView from './components/RosterView';
 // FIX: LeaveAndShiftManager is a default export, not a named export.
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
-import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus } from './types';
+// FIX: Add SignatureChainEntry to imports to resolve 'Cannot find name' error
+import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus, SignatureChainEntry } from './types';
 
 // Import all necessary hooks for the new container components
 import { usePatient } from './contexts/PatientContext';
@@ -114,7 +114,7 @@ function AnalyticsHubContainer() {
 }
 
 function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
-    const { patients, handleAnonymizePatient: onPurgePatient, handleRequestDataDeletion, handleManageDataDeletionRequest } = usePatient();
+    const { patients, handleAnonymizePatient: onPurgePatient, handleConfirmRevocation: handleRequestDataDeletion } = usePatient();
     const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
@@ -131,7 +131,6 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
         onBack={() => onNavigate('admin')}
         incidents={incidents}
         handleRequestDataDeletion={handleRequestDataDeletion}
-        handleManageDataDeletionRequest={handleManageDataDeletionRequest}
     />;
 }
 
@@ -341,7 +340,7 @@ const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailVi
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
-  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleRequestDataDeletion } = usePatient();
+  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
@@ -378,9 +377,13 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   const onOpenPostOpHandover = (apt: Appointment) => {
     showModal('postOpHandover', { 
         appointment: apt,
-        onConfirm: async () => {
+        onConfirm: async (data: { handoverChain: SignatureChainEntry[] }) => {
             // FIX: Use correct enum member 'COMPLETED'.
-            await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { postOpVerified: true });
+            await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { 
+                postOpVerified: true, 
+                postOpVerifiedAt: new Date().toISOString(),
+                postOpHandoverChain: data.handoverChain
+            });
         }
     });
   };
@@ -416,7 +419,6 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
         auditLog={auditLog}
-        handleRequestDataDeletion={handleRequestDataDeletion}
       />
     </Suspense>
   );

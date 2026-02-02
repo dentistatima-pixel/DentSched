@@ -27,7 +27,7 @@ interface AppContextType {
   setSystemStatus: (status: SystemStatus) => void;
   isOnline: boolean;
   auditLog: AuditLogEntry[];
-  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => Promise<void>;
+  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, justification?: string) => Promise<void>;
   isAuditLogVerified: boolean | null;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
@@ -164,7 +164,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isReadOnly = useMemo(() => currentUser?.status === 'Inactive' || isAuthorityLocked, [currentUser, isAuthorityLocked]);
 
-    const logAction = useCallback(async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
+    const logAction = useCallback(async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, justification?: string) => {
       if (!currentUser) return; // Don't log actions if no user is logged in
       
       const { timestamp, isVerified } = await getTrustedTime();
@@ -180,6 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             entity,
             entityId,
             details,
+            justification,
             previousHash
           });
           const hash = CryptoJS.SHA256(dataToHash).toString();
@@ -194,6 +195,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               entity,
               entityId,
               details,
+              justification,
               hash,
               previousHash,
               impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined,

@@ -5,7 +5,7 @@ import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncid
 // Fix: Add missing 'Droplet' icon import from lucide-react.
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
 // FIX: Added 'calculateAge' to the import from '../constants' to resolve an undefined function error.
-import { formatDate, generateUid, calculateAge } from '../constants';
+import { formatDate, generateUid, calculateAge, isExpired } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
 import PhilHealthCF4Generator from './PhilHealthCF4Generator';
@@ -430,6 +430,28 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     return flags;
   };
   
+  const consentAlerts = useMemo(() => {
+    if (!patient) return [];
+    const alerts: { message: string, icon: React.ElementType }[] = [];
+    const consentHistory = patient.consentHistory || [];
+    
+    const checkConsent = (type: string, name: string) => {
+        const latestConsent = consentHistory
+            .filter(c => c.consentType === type && c.granted)
+            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        
+        if (latestConsent && isExpired(latestConsent.expiryDate)) {
+            alerts.push({ message: `${name} Consent Expired`, icon: ShieldAlert });
+        }
+    };
+    
+    checkConsent('Clinical', 'Clinical');
+    checkConsent('Marketing', 'Marketing');
+    checkConsent('ThirdParty', 'Third-Party');
+
+    return alerts;
+  }, [patient]);
+  
   const headerStyle = useMemo(() => {
     const flags = getCriticalFlags(patient);
     if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
@@ -522,6 +544,11 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                             {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
                                 <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
                             ))}
+                            {consentAlerts.map((alert, i) => (
+                                <div key={`consent-alert-${i}`} className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase border-2 border-amber-200 shadow-sm animate-pulse">
+                                    <alert.icon size={14}/> {alert.message}
+                                </div>
+                            ))}
                         </div>
                     </div>
                     <InfoItem label="Mobile" value={patient.phone} icon={Phone} />
@@ -557,6 +584,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 currentUser={currentUser} 
                 logAction={logAction} 
                 featureFlags={fieldSettings.features} 
+                fieldSettings={fieldSettings} 
                 onInitiateFinancialConsent={onInitiateFinancialConsent} 
                 onOpenRevocationModal={onOpenRevocationModal}
             /></Suspense>}

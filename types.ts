@@ -465,6 +465,7 @@ export interface AuditLogEntry {
   entity: string;
   entityId: string;
   details: string;
+  justification?: string;
   hash?: string;          
   previousHash?: string;
   impersonatingUser?: { id: string, name: string };
@@ -713,8 +714,14 @@ export interface SignatureChainEntry {
   previousHash: string;
   metadata: {
     deviceInfo: string;
+    consentLanguage?: 'en' | 'tl';
+    contextHash?: string;
     [key: string]: any; // To embed childAssent data
   };
+  guardianIdPhoto?: string;
+  guardianIdHash?: string;
+  guardianVerificationMethod?: 'ID_PHOTO' | 'BIOMETRIC' | 'WITNESS';
+  expiresAt?: string;
 }
 
 export interface EmergencyTreatmentConsent {
@@ -731,6 +738,9 @@ export interface EmergencyTreatmentConsent {
   authorizingDentistId: string;
   authorizingDentistSignature: string;
   authorizationTimestamp: string;
+  emergencyJustification?: string;
+  emergencyAuthorizedBy?: string;
+  twoWitnessClinicians?: string[];
 }
 
 export interface Appointment {
@@ -757,6 +767,7 @@ export interface Appointment {
   };
   sterilizationCycleId?: string;
   sterilizationVerified?: boolean;
+  sterilizationVerifiedAt?: string;
   linkedInstrumentSetIds?: string[];
   isWaitlistOverride?: boolean;
   authorizedManagerId?: string;
@@ -777,6 +788,7 @@ export interface Appointment {
   queuedAt?: string;
   isStale?: boolean;
   consentSignatureChain?: SignatureChainEntry[];
+  medHistoryAffirmationChain?: SignatureChainEntry[];
   triageLevel?: TriageLevel;
   postOpVerified?: boolean;
   postOpVerifiedAt?: string;
@@ -793,6 +805,14 @@ export interface Appointment {
   }[];
   cancellationReason?: string;
   emergencyConsent?: EmergencyTreatmentConsent;
+  postOpSignOffChain?: SignatureChainEntry[];
+  protocolOverrides?: {
+    ruleId: string;
+    reason: string;
+    signatureChain: SignatureChainEntry[];
+  }[];
+  safetyChecklistChain?: SignatureChainEntry[];
+  postOpHandoverChain?: SignatureChainEntry[];
 }
 
 export enum RegistrationStatus {
@@ -816,11 +836,9 @@ export interface InformedRefusal {
   alternativesOffered: string[];
   dentistRecommendation: string;
   patientUnderstandsConsequences: boolean;
-  patientSignature: string;
-  patientSignatureTimestamp: string;
-  dentistSignature: string;
-  dentistSignatureTimestamp: string;
-  witnessSignature?: string;
+  patientSignatureChain: SignatureChainEntry[];
+  dentistSignatureChain: SignatureChainEntry[];
+  witnessSignatureChain?: SignatureChainEntry[];
   witnessName?: string;
   formVersion: string;
   printedAt?: string;
@@ -885,6 +903,8 @@ export interface ClinicalMediaConsent {
     signatureTimestamp: string;
     witnessId?: string;
     deletionCompleteAt?: string;
+    staffAcknowledgmentSignature?: string;
+    staffAcknowledgmentTimestamp?: string;
   };
 }
 
@@ -900,6 +920,7 @@ export interface DataDeletionRequest {
   approvedBy?: string; // Lead dentist ID
   anonymizedAt?: string;
   retentionPeriod: number; // Years
+  requestSignatureChain?: SignatureChainEntry[];
 }
 
 export interface Patient {
@@ -1027,6 +1048,12 @@ export interface Patient {
   prescriptions?: EPrescription[];
   dataDeletionRequests?: DataDeletionRequest[];
   preferredLanguage?: 'en' | 'tl';
+  visualAnchorThumb?: string;
+  visualAnchorHash?: string;
+  visualAnchorCapturedAt?: string;
+  privacyConsentChain?: SignatureChainEntry[];
+  privacyConsentDate?: string;
+  privacyConsentVersion?: string;
 }
 
 export enum TreatmentPlanStatus {
@@ -1051,13 +1078,12 @@ export interface TreatmentPlan {
   reviewedAt?: string;
   approvalReason?: string;
   approvalJustification?: string;
-  approvalSignature?: string;
+  approvalSignatureChain?: SignatureChainEntry[];
   clinicalRationale?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
   color?: string;
-  financialConsentSignature?: string;
-  financialConsentTimestamp?: string;
+  financialConsentSignatureChain?: SignatureChainEntry[];
   discountAmount?: number;
   discountReason?: string;
   consultations?: {
@@ -1068,6 +1094,8 @@ export interface TreatmentPlan {
       recommendation: string;
       signature: string;
       prcLicense: string;
+      hash?: string;
+      previousHash?: string;
   }[];
   isMultiDisciplinary?: boolean;
   primaryDentistId?: string; // Lead dentist (final authority)
@@ -1162,6 +1190,7 @@ export interface DentalChartEntry {
     userId: string;
     userName: string;
     timestamp: string;
+    amendmentNoteId?: string;
   };
 }
 

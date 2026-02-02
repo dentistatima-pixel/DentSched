@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight, Key } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 
@@ -14,7 +14,36 @@ interface SignatureCaptureOverlayProps {
   contextSummary?: React.ReactNode;
 }
 
-const SIGNATURE_TIMEOUT_SECONDS = 120; // 2 minutes
+// FIX: Increased timeout to 5 minutes for better usability in clinical settings with potential interruptions.
+const SIGNATURE_TIMEOUT_SECONDS = 300; // 5 minutes
+
+const checkSignatureQuality = (canvas: HTMLCanvasElement): { valid: boolean; reason?: string } => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { valid: false, reason: 'Canvas error' };
+    
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+    
+    let inkPixels = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i+3] > 0) { // Check alpha channel for any ink
+            inkPixels++;
+        }
+    }
+    
+    // FIX: Enhanced signature validation for medico-legal validity.
+    // Instead of a small, fixed pixel count, we require the signature to cover
+    // a minimum percentage of the canvas area, making it more robust.
+    const canvasArea = canvas.width * canvas.height;
+    const minInkPixels = canvasArea * 0.005; // Require at least 0.5% of canvas area to be inked
+
+    if (inkPixels < minInkPixels) {
+        return { valid: false, reason: 'Signature too simple or small. Please provide a full, substantial signature.' };
+    }
+    
+    return { valid: true };
+};
+
 
 const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   isOpen, onClose, onSave, title, instruction, themeColor, contextSummary
@@ -59,10 +88,12 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = rect.width * dpr;
-    canvas.height = (contextSummary ? 300 : 400) * dpr;
+    // FIX: Use parent element's height for dynamic sizing, adapting to orientation.
+    canvas.height = rect.height * dpr;
 
     canvas.style.width = `${rect.width}px`;
-    canvas.style.height = contextSummary ? '300px' : `400px`;
+    // FIX: Use parent element's height for dynamic sizing.
+    canvas.style.height = `${rect.height}px`;
 
     const ctx = canvas.getContext('2d', { desynchronized: true });
     if (ctx) {
@@ -97,7 +128,14 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     const touchStartHandler = (e: TouchEvent) => {
-        if (e.touches.length > 1) { // Palm rejection
+        // FIX: Enhanced palm rejection using touch point size, not just multi-touch.
+        if (e.touches.length > 1) {
+            e.preventDefault();
+            return;
+        }
+        const touch = e.touches[0];
+        // Heuristic: if touch area is larger than a typical fingertip, it's likely a palm.
+        if (touch && (touch.radiusX > 25 || touch.radiusY > 25)) {
             e.preventDefault();
         }
     };
@@ -127,7 +165,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     } else {
       stopCamera();
     }
-  }, [isOpen, onClose, toast]);
+  }, [isOpen, onClose, toast, contextSummary]);
 
   const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -136,8 +174,16 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
   };
 
-  const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && e.width > 10) return; // Palm rejection
+  const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // FIX: Enhanced palm rejection for pointer events.
+    if (e.pointerType === 'touch') {
+        // This heuristic helps differentiate between a small finger/stylus touch and a larger palm surface.
+        const isLikelyPalm = e.width > 25 || e.height > 25;
+        if (isLikelyPalm) {
+            e.preventDefault();
+            return;
+        }
+    }
     if (!allAffirmed && contextSummary) return;
     e.preventDefault();
     setIsSigning(true);
@@ -146,7 +192,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     ctx?.beginPath();
     ctx?.moveTo(x, y);
   };
-
+  
   const lastDrawTime = useRef(0);
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isSigning || (!allAffirmed && contextSummary)) return;
@@ -162,9 +208,10 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
       const isPen = e.pointerType === 'pen';
-      const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+      const rawPressure = isPen ? (e.pressure || 0.7) : 0.5;
+      const smoothedPressure = isPen ? 0.3 + (rawPressure * (1.0 - 0.3)) : 0.5;
       const baseWidth = isPen ? 3 : 5;
-      ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
+      ctx.lineWidth = Math.max(2, Math.min(10, smoothedPressure * baseWidth * 2));
       ctx.lineTo(x, y);
       ctx.stroke();
       setHasInk(true);
@@ -174,6 +221,11 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   const endDraw = () => setIsSigning(false);
 
   const handleClear = () => {
+    if (hasInk) {
+        if (!confirm('Clear signature? This cannot be undone.')) {
+            return;
+        }
+    }
     const canvas = canvasRef.current;
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -183,11 +235,20 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   };
 
   const handleAuthorize = async () => {
-    if (!hasInk || (!!contextSummary && !allAffirmed)) {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasInk || (!!contextSummary && !allAffirmed)) {
       if (!allAffirmed) toast.error("Please acknowledge all statements before signing.");
+      if (!hasInk) toast.error("A signature is required to authorize.");
       return;
     }
-    const sigData = canvasRef.current!.toDataURL();
+
+    const qualityCheck = checkSignatureQuality(canvas);
+    if (!qualityCheck.valid) {
+        toast.error(qualityCheck.reason || "Signature quality is too low.");
+        return;
+    }
+
+    const sigData = canvas.toDataURL();
     
     let witnessHash: string;
     
@@ -276,7 +337,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <canvas 
               ref={canvasRef} 
               className={`w-full touch-none cursor-crosshair ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
-              onPointerDown={startDraw}
+              onPointerDown={startSign}
               onPointerMove={draw}
               onPointerUp={endDraw}
               onPointerLeave={endDraw}

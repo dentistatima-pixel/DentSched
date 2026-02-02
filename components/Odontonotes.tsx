@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-// FIX: Added 'Patient' to the import from '../types' to resolve type errors.
 import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
 import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
 import { formatDate, isExpired } from '../constants';
@@ -7,6 +6,7 @@ import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useModal } from '../contexts/ModalContext';
+import { usePatient } from '../contexts/PatientContext';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -24,9 +24,10 @@ interface EntryFormProps {
     onCancel: () => void;
     currentUser: User;
     onAssign: (note: DentalChartEntry) => void;
+    onPatientSignOff: (note: DentalChartEntry) => void;
 }
 
-const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign }) => {
+const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign, onPatientSignOff }) => {
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
@@ -180,16 +181,23 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                 <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
             </div>
         </div>
-        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
-            {formData.status === 'Planned' && (
-                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
-                    Save & Assign <ArrowRight size={14}/>
+        <div className="flex justify-between items-center gap-3 pt-6 border-t border-slate-100">
+            {formData.status === 'Completed' && (
+                <button type="button" onClick={() => onPatientSignOff(formData)} className="px-6 py-3 bg-blue-100 text-blue-700 rounded-xl font-black uppercase text-sm tracking-widest flex items-center gap-2">
+                    <FileSignature size={16}/> Patient Sign-Off
                 </button>
             )}
-            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
-                {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
-            </button>
+            <div className="flex-1 flex justify-end gap-3">
+                <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
+                {formData.status === 'Planned' && (
+                    <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
+                        Save & Assign <ArrowRight size={14}/>
+                    </button>
+                )}
+                <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
+                    {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
+                </button>
+            </div>
         </div>
       </div>
     );
@@ -257,6 +265,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   procedures, treatmentPlans = [], prefill, onClearPrefill, onSwitchToPlanTab, showModal, logAction
 }) => {
   const toast = useToast();
+  const { handlePatientSignOffOnNote } = usePatient();
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
   const [verifiedConsentMap, setVerifiedConsentMap] = useState<Record<string, boolean>>({});
 
@@ -323,6 +332,15 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
         onSwitchToPlanTab();
     }
   };
+
+  const handlePatientSignOff = (note: DentalChartEntry) => {
+      showModal('patientSignOff', {
+          note,
+          onSave: (signature: string) => {
+              handlePatientSignOffOnNote(patient.id, note.id, signature);
+          }
+      });
+  };
   
   const appointmentForEditingNote = useMemo(() => {
       if (!editingNote || !editingNote.appointmentId) return null;
@@ -332,7 +350,6 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   const needsConsentVerification = useMemo(() => {
       if (!editingNote || !appointmentForEditingNote) return false;
       const today = new Date().toISOString().split('T')[0];
-      // Only trigger for today's appointments and if not yet verified in this session
       return appointmentForEditingNote.date === today && !verifiedConsentMap[editingNote.id];
   }, [editingNote, appointmentForEditingNote, verifiedConsentMap]);
 
@@ -354,7 +371,6 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
       procedure: procedureDef,
       onSave: (newChain: any) => {
           const updatedAppointment = { ...appointmentForEditingNote, consentSignatureChain: newChain };
-          // FIX: The component now calls the onUpdateAppointment prop to correctly save the appointment.
           onUpdateAppointment(updatedAppointment as Appointment);
           handleAffirmConsent();
       }
@@ -404,6 +420,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                         onCancel={() => setEditingNote(null)}
                         currentUser={currentUser}
                         onAssign={handleAssignToPlan}
+                        onPatientSignOff={handlePatientSignOff}
                     />
                 )
             ) : (

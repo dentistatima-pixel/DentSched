@@ -1,7 +1,7 @@
-
 import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem } from '../types';
 import { isExpired } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';
+import { validateSignatureChain } from './signatureVerification';
 
 export interface MedicolegalBlock {
     isBlocked: boolean;
@@ -23,6 +23,12 @@ export const canStartTreatment = (
         return { isBlocked: true, reason: `CLINICAL AUTHORITY LOCK: Practitioner ${provider.name}'s PRC license has expired. Cannot start treatment.` };
     }
     const procedure = fieldSettings.procedures.find(p => p.name === appointment.type);
+    
+    // FIX: Add check for procedure existence to prevent bypassing consent due to typos.
+    if (!procedure && !appointment.isBlock) {
+        return { isBlocked: true, reason: `Data Integrity Error: The procedure "${appointment.type}" does not exist in the clinical catalog. Cannot proceed.` };
+    }
+    
     if (procedure) {
         const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
         const isHighRisk = highRiskCats.includes(procedure.category || '');
@@ -53,9 +59,21 @@ export const canStartTreatment = (
     }
 
     // 5. Consent
-    if (procedure?.requiresConsent && (!appointment.consentSignatureChain || appointment.consentSignatureChain.length === 0)) {
+    if (procedure?.requiresConsent) {
         const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'); // Simplified
-        return { isBlocked: true, reason: 'Procedure requires signed consent.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } } };
+        if (!appointment.consentSignatureChain || appointment.consentSignatureChain.length === 0) {
+            return { isBlocked: true, reason: 'Procedure requires signed consent.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } } };
+        }
+        
+        // NEW: Validate chain integrity
+        const chainValidation = validateSignatureChain(appointment.consentSignatureChain);
+        if (!chainValidation.valid) {
+            return { 
+                isBlocked: true, 
+                reason: `CONSENT CHAIN COMPROMISED: ${chainValidation.errors.join(', ')}. Cannot proceed.`,
+                modal: { type: 'safetyAlert', props: { title: 'Consent Chain Compromised', message: 'The consent signature chain has been tampered with.', errors: chainValidation.errors } }
+            };
+        }
     }
     
     // 6. Sterilization

@@ -337,7 +337,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
   return (
     <div className="space-y-12">
-        <div className="orientation-grid gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             <div className="col-span-1 md:col-span-3">
                 <label className="label flex items-center gap-2 text-slate-400 font-bold"><Hash size={14} /> System ID</label>
                 <div className="input bg-slate-50 text-slate-400 font-mono text-sm border-slate-200">{formData.id || 'AUTO_GEN'}</div>
@@ -376,7 +376,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 </div>
             </div>
             <div className="col-span-1 md:col-span-5">
-                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Family Group</label>
+                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
                 <select 
                     name="familyGroupId" 
                     value={formData.familyGroupId || ''} 
@@ -384,11 +384,8 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                     disabled={readOnly}
                     className="input bg-white"
                 >
-                    <option value="">- None / Individual -</option>
-                    {fieldSettings.familyGroups?.map(g => {
-                        const head = patients.find(p => p.id === g.headOfFamilyId);
-                        return <option key={g.id} value={g.id}>{g.familyName} (Head: {head?.name})</option>
-                    })}
+                    <option value="">- None / Set as Head -</option>
+                    {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
             </div>
         </div>
@@ -399,7 +396,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl"><User size={24}/></div>
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">PATIENT INFORMATION RECORD</h4>
             </div>
-            <div className="orientation-grid gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 {fieldsPart1.map(id => renderFieldById(id))}
 
                 {showFemaleQuestions && (
@@ -409,7 +406,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                                 <h4 className="text-lg font-black uppercase text-lilac-800 tracking-tight flex items-center gap-3"><Baby size={24}/> OB-GYN Clinical Markers</h4>
                                 {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase">Visible in Design Mode</span>}
                             </div>
-                            <div className="orientation-grid gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                                 {fieldSettings.femaleQuestionRegistry.map(q => {
                                     const fieldName = femaleFieldMap[q];
                                     const isYes = (formData as any)[fieldName] === true;
@@ -454,7 +451,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                                 <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight flex items-center gap-3"><Users size={24} className="text-lilac-600"/> Legal Guardian Profile (For Minors/PWD)</h4>
                                 {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
                             </div>
-                            <div className="orientation-grid gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                                 <div className="col-span-1 md:col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
                                 <div className="col-span-1 md:col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
                                 <div className="col-span-1 md:col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
@@ -470,5 +467,4 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
   );
 };
 
-// FIX: Change to a default export to resolve module import ambiguity.
 export default React.memo(RegistrationBasicInfoInternal);

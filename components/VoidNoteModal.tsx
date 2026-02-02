@@ -20,7 +20,6 @@ const VoidNoteModal: React.FC<VoidNoteModalProps> = ({ isOpen, onClose, onConfir
             return;
         }
         onConfirm(reason);
-        onClose();
     };
 
     return (

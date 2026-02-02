@@ -35,6 +35,18 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
     setFormData(user);
     setIsEditing(false);
   };
+  
+  useEffect(() => {
+    if (isEditing && formData.prcLicense !== user.prcLicense) {
+        setFormData(prev => ({
+            ...prev,
+            prcLicenseStatus: 'Unverified',
+            prcVerificationDate: undefined,
+        }));
+        toast.info("PRC License changed. Status reset to 'Unverified'. Please re-validate.");
+    }
+  }, [formData.prcLicense, user.prcLicense, isEditing, toast]);
+
 
   const handleValidationSave = () => {
       // --- PDA RULE 1: TITLE ENFORCEMENT ---
@@ -48,6 +60,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
       if (formData.role !== UserRole.ADMIN && !formData.licenseCategory) {
           toast.error("STATUTORY REQUIREMENT: Licensed clinical staff must select their precise statutory category (Article III, Section 25).");
           return;
+      }
+      
+      // #41: PRC License validation
+      if (formData.prcLicense && !/^\d{7}$/.test(formData.prcLicense)) {
+        toast.error("Invalid PRC License format. It must be 7 digits.");
+        return;
       }
 
       if (onSave) onSave(formData);
@@ -160,6 +178,35 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                 </div>
                             </div>
 
+                             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border-secondary">
+                                <div>
+                                    <label htmlFor="prc-status" className="label text-xs">PRC Verification Status</label>
+                                    <select 
+                                        id="prc-status"
+                                        value={formData.prcLicenseStatus || 'Unverified'} 
+                                        onChange={e => setFormData({...formData, prcLicenseStatus: e.target.value as any})}
+                                        disabled={!isEditing}
+                                        className="input"
+                                    >
+                                        <option>Unverified</option>
+                                        <option>Verified</option>
+                                        <option>Invalid</option>
+                                    </select>
+                                </div>
+                                 <div>
+                                    <label htmlFor="prc-verification-date" className="label text-xs">Verification Date</label>
+                                    <input 
+                                        id="prc-verification-date"
+                                        type="date" 
+                                        value={formData.prcVerificationDate || ''} 
+                                        onChange={e => setFormData({...formData, prcVerificationDate: e.target.value})}
+                                        disabled={!isEditing}
+                                        className="input"
+                                    />
+                                </div>
+                            </div>
+
+
                             {formData.role === UserRole.DENTIST && (
                                 <div className="pt-4 border-t border-border-secondary">
                                     <label htmlFor="commission-rate" className="label text-xs flex items-center gap-1"><Percent size={10}/> Contracted Fee Split Rate</label>
@@ -220,7 +267,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                         className="sr-only peer"
                                         disabled={!isEditing}
                                     />
-                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                                    <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                                     <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6 peer-disabled:cursor-not-allowed"></div>
                                 </div>
                             </div>

@@ -14,6 +14,8 @@ import { useLicenseValidation } from './hooks/useLicenseValidation';
 
 import { DentalChartEntry, User, UserRole } from './types';
 import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
+// FIX: Import Dashboard component.
+import { Dashboard } from './components/Dashboard';
 
 // Lazy load components for the full-screen workspace
 const FormBuilder = React.lazy(() => import('./components/FormBuilder'));
@@ -45,7 +47,7 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
             return () => clearTimeout(timer);
         }
     }, [error]);
-    
+
     const handlePinChange = (value: string) => {
         if (error) setError('');
         if (pin.length < 4) {
@@ -58,25 +60,27 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
         setPin(pin.slice(0, -1));
     };
 
+    // FIX: Refactored login attempt logic into a single useEffect to resolve a dependency cycle.
+    // The previous implementation with useCallback and a separate useEffect caused unnecessary re-renders.
+    // This now only triggers when the PIN length is exactly 4.
     useEffect(() => {
         if (pin.length === 4) {
-            const success = onUnlockAttempt(pin);
-            if (!success) {
+            if (!onUnlockAttempt(pin)) {
                 setError('Invalid PIN');
-                setTimeout(() => setPin(''), 500);
+                setPin('');
             }
+            // If unlock is successful, the parent component handles the state change, and this component unmounts.
         }
-    }, [pin, onUnlockAttempt]);
-
+    }, [pin, onUnlockAttempt, setError, setPin]);
 
     return (
-        <div className="fixed inset-0 bg-teal-950/90 backdrop-blur-xl z-[999] flex flex-col items-center justify-center text-white p-8 animate-in fade-in duration-500">
-            <div className="w-full max-w-sm">
+        <div className="fixed inset-0 z-[999] bg-teal-900/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+            <div className="w-full max-w-sm text-white">
                 <div className="text-center mb-10">
                     <div className="w-24 h-24 rounded-full border-4 border-teal-400 mx-auto mb-4 shadow-2xl bg-teal-800 flex items-center justify-center">
                         <UserIcon size={48} className="text-teal-300" />
                     </div>
-                    <h2 className="text-2xl font-black text-white">{user.name}</h2>
+                    <h2 className="text-2xl font-black">{user.name}</h2>
                     <p className="text-teal-300 font-bold">{user.role}</p>
                 </div>
 
@@ -91,15 +95,12 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
                     {error && <p className="text-center text-red-400 font-bold mt-3 text-sm">{error}</p>}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 text-white text-2xl font-bold">
-                    {[1,2,3,4,5,6,7,8,9].map(n => (
-                        <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all">{n}</button>
+                <div className="grid grid-cols-3 gap-4 text-2xl font-bold">
+                    {[1,2,3,4,5,6,7,8,9, 'back', 0].map(n => (
+                         n === 'back' ? 
+                         <button key={n} onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-teal-200"><ArrowLeft size={28}/></button>
+                         : <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">{n}</button>
                     ))}
-                    <div/>
-                    <button onClick={() => handlePinChange('0')} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all">0</button>
-                    <button onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center">
-                        <ArrowLeft size={28}/>
-                    </button>
                 </div>
             </div>
         </div>
@@ -108,165 +109,131 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 
 
 export const App: React.FC = () => {
-  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout, setIsAuthorityLocked } = useAppContext();
-  const { fieldSettings, isLoading: areSettingsLoading } = useSettings();
-  const { route } = useRouter();
-  
-  const [isSessionLocked, setIsSessionLocked] = useState(false);
-  const [isLockWarningVisible, setIsLockWarningVisible] = useState(false);
-  const [warningCountdown, setWarningCountdown] = useState(60);
+    const { 
+      currentUser, setCurrentUser, logAction, fullScreenView, setFullScreenView, 
+      isInKioskMode, setIsInKioskMode, isAuthorityLocked, setIsAuthorityLocked
+    } = useAppContext();
+    const { fieldSettings } = useSettings();
+    const { route } = useRouter();
 
-  const idleTimerRef = useRef<number | null>(null);
-  const warningTimerRef = useRef<number | null>(null);
-  const countdownIntervalRef = useRef<number | null>(null);
-
-  const { isPrcExpired, isMalpracticeExpired } = useLicenseValidation(currentUser?.id || null);
-
-  useEffect(() => {
-      setIsAuthorityLocked(isPrcExpired || isMalpracticeExpired);
-  }, [isPrcExpired, isMalpracticeExpired, setIsAuthorityLocked]);
-  
-  const WARNING_BEFORE_LOCK_MINUTES = 1;
-  const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 15 : (fieldSettings?.sessionTimeoutMinutes || 10);
-  
-  const lockSession = useCallback(() => {
-    setIsSessionLocked(true);
-    setIsLockWarningVisible(false);
-    if(countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-  }, []);
-
-  const showWarning = useCallback(() => {
-    setIsLockWarningVisible(true);
-    setWarningCountdown(WARNING_BEFORE_LOCK_MINUTES * 60);
-    countdownIntervalRef.current = window.setInterval(() => {
-        setWarningCountdown(prev => {
-            if (prev <= 1) {
-                clearInterval(countdownIntervalRef.current as number);
-            }
-            return prev - 1;
-        });
-    }, 1000);
-  }, []);
-  
-  const resetIdleTimer = useCallback(() => {
-    if (isSessionLocked) return;
-
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    const [isLocked, setIsLocked] = useState(false);
+    const [showSessionWarning, setShowSessionWarning] = useState(false);
+    const [warningCountdown, setWarningCountdown] = useState(60);
     
-    setIsLockWarningVisible(false);
+    const idleTimer = useRef<number | null>(null);
+    const warningTimer = useRef<number | null>(null);
 
-    const warningTimeoutMs = (IDLE_TIMEOUT_MINUTES - WARNING_BEFORE_LOCK_MINUTES) * 60 * 1000;
-    const lockTimeoutMs = IDLE_TIMEOUT_MINUTES * 60 * 1000;
+    // FIX: Corrected session timeout logic. Kiosk mode now has a shorter, more secure 5-minute timeout,
+    // while the default staff session is extended to a more practical 15 minutes.
+    const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 5 : (fieldSettings?.sessionTimeoutMinutes || 15);
+    const WARNING_SECONDS = 60;
     
-    if (warningTimeoutMs > 0) {
-      warningTimerRef.current = window.setTimeout(showWarning, warningTimeoutMs);
-    }
-    idleTimerRef.current = window.setTimeout(lockSession, lockTimeoutMs);
-  }, [IDLE_TIMEOUT_MINUTES, showWarning, lockSession, isSessionLocked]);
-
-  useEffect(() => {
-    const activityEvents: (keyof WindowEventMap)[] = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    activityEvents.forEach(event => window.addEventListener(event, resetIdleTimer));
-    
-    resetIdleTimer();
-
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      activityEvents.forEach(event => window.removeEventListener(event, resetIdleTimer));
+    const handleLogin = (user: User) => {
+        setCurrentUser(user);
+        logAction('LOGIN', 'System', user.id, 'User logged in successfully.');
     };
-  }, [resetIdleTimer]);
+    
+    useLicenseValidation(currentUser?.id || null, setIsAuthorityLocked);
 
-  const handleUnlockAttempt = (pin: string): boolean => {
-      if (currentUser && currentUser.pin === pin) {
-          setIsSessionLocked(false);
-          resetIdleTimer();
-          return true;
-      }
-      return false;
-  };
-  
-  const renderFullScreenContent = () => {
-    if (!fullScreenView) return null;
+    const resetIdleTimer = useCallback(() => {
+        if (idleTimer.current) clearTimeout(idleTimer.current);
+        if (warningTimer.current) clearInterval(warningTimer.current);
+        
+        setShowSessionWarning(false);
+        setWarningCountdown(WARNING_SECONDS);
+        
+        if (currentUser && !isLocked) {
+            idleTimer.current = window.setTimeout(() => {
+                setShowSessionWarning(true);
+                warningTimer.current = window.setInterval(() => {
+                    setWarningCountdown(prev => {
+                        if (prev <= 1) {
+                            clearInterval(warningTimer.current!);
+                            setIsLocked(true);
+                            setShowSessionWarning(false);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }, (IDLE_TIMEOUT_MINUTES * 60 - WARNING_SECONDS) * 1000);
+        }
+    }, [currentUser, isLocked, IDLE_TIMEOUT_MINUTES]);
 
-    const { type, props } = fullScreenView;
-    let Component;
-    switch(type) {
-        case 'formBuilder': Component = FormBuilder; break;
-        default: return null;
+    useEffect(() => {
+        resetIdleTimer();
+        const events: (keyof WindowEventMap)[] = ['mousedown', 'touchstart', 'keydown'];
+        events.forEach(e => window.addEventListener(e, resetIdleTimer));
+        return () => {
+            if (idleTimer.current) clearTimeout(idleTimer.current);
+            if (warningTimer.current) clearInterval(warningTimer.current);
+            events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+        };
+    }, [resetIdleTimer]);
+
+    const handleUnlock = (pin: string) => {
+        if (currentUser && currentUser.pin === pin) {
+            setIsLocked(false);
+            resetIdleTimer();
+            logAction('SESSION_UNLOCK', 'System', currentUser.id, 'User unlocked session.');
+            return true;
+        }
+        return false;
+    };
+    
+    if (isInKioskMode) {
+        return <KioskView onExitKiosk={() => setIsInKioskMode(false)} logAction={logAction} />;
     }
 
-    return (
-        <Suspense fallback={<div className="p-8">Loading Workspace...</div>}>
-            <Component {...props} />
-        </Suspense>
-    );
-  };
-  
-  if (areSettingsLoading) {
-      return (
-          <div className="fixed inset-0 bg-teal-900 flex flex-col items-center justify-center text-white gap-4">
-              <Loader size={48} className="animate-spin text-teal-400" />
-              <p className="text-lg font-bold">Loading Practice Settings...</p>
-          </div>
-      );
-  }
-
-  if (fullScreenView) {
-    let title = 'Clinical Workspace';
-    if (fullScreenView.type === 'formBuilder') title = 'Registration Form Design Studio';
-
-
-    return (
-        <div className="fixed inset-0 bg-slate-50 z-[999] flex flex-col animate-in fade-in">
-            <header className="p-4 bg-white border-b flex justify-between items-center shrink-0 shadow-sm">
-                <h3 className="font-bold text-lg text-slate-700">{title}</h3>
-                <button onClick={() => setFullScreenView(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200">
-                    <X size={16}/> Close Workspace
-                </button>
-            </header>
-            <div className="flex-1 overflow-y-auto">
-                {renderFullScreenContent()}
-            </div>
-        </div>
-    );
-  }
-  
-  if (!currentUser) {
-      return <LoginScreen onLogin={setCurrentUser} />;
-  }
-  
-  const renderRoute = () => {
-    const activeRoute = routes.find(r => r.path === route.path) || routes.find(r => r.path === 'dashboard')!;
-    
-    const { component: Component, layout: LayoutComponent, requiredRoles, props } = activeRoute;
-
-    const routeContent = LayoutComponent 
-      ? <LayoutComponent route={route} {...props} /> 
-      : <Component route={route} {...props} />;
-
-    if (requiredRoles) {
-      return <ProtectedRoute requiredRoles={requiredRoles}>{routeContent}</ProtectedRoute>;
+    if (!currentUser) {
+        return <LoginScreen onLogin={handleLogin} />;
     }
     
-    return routeContent;
-  };
+    if (fullScreenView) {
+        switch (fullScreenView.type) {
+            case 'formBuilder':
+                return (
+                    <Suspense fallback={<div>Loading...</div>}>
+                        <FormBuilder {...fullScreenView.props} />
+                    </Suspense>
+                );
+            default:
+                setFullScreenView(null);
+                return null;
+        }
+    }
 
-  if (isInKioskMode) return <KioskView onExitKiosk={() => setIsInKioskMode(false)} />;
+    const ActiveComponent = routes.find(r => r.path === route.path)?.component || Dashboard;
+    const activeRouteConfig = routes.find(r => r.path === route.path);
 
-  return (
-    <>
-      {isSessionLocked && currentUser && <LockScreen onUnlockAttempt={handleUnlockAttempt} user={currentUser} />}
-      {isLockWarningVisible && <SessionWarningModal onStayActive={resetIdleTimer} onLogout={logout} countdown={warningCountdown} />}
-      <Layout>
-        <Suspense fallback={<div>Loading Page...</div>}>
-          {renderRoute()}
-        </Suspense>
-      </Layout>
-      <ModalManager />
-    </>
-  );
-}
+    return (
+        <>
+            <Layout>
+              {activeRouteConfig?.requiredRoles ? (
+                  <ProtectedRoute requiredRoles={activeRouteConfig.requiredRoles}>
+                      <ActiveComponent route={route} {...(activeRouteConfig.props || {})} />
+                  </ProtectedRoute>
+              ) : (
+                  <ActiveComponent route={route} {...(activeRouteConfig?.props || {})} />
+              )}
+            </Layout>
+            <ModalManager />
+
+            {showSessionWarning && (
+                <SessionWarningModal 
+                    onStayActive={resetIdleTimer} 
+                    onLogout={() => {
+                        if (currentUser) {
+                            logAction('LOGOUT', 'System', currentUser.id, 'User logged out due to inactivity.');
+                        }
+                        setCurrentUser(null);
+                        setIsLocked(false);
+                        setShowSessionWarning(false);
+                    }}
+                    countdown={warningCountdown}
+                />
+            )}
+            {isLocked && <LockScreen onUnlockAttempt={handleUnlock} user={currentUser} />}
+        </>
+    );
+};

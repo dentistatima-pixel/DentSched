@@ -1,6 +1,5 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
-/* Added missing types Patient and FieldSettings from ../types */
+// FIX: Added missing types Patient, FieldSettings, and RegistrationField from ../types
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
@@ -186,7 +185,7 @@ interface RegistrationMedicalProps {
   selectedFieldId?: string;
 }
 
-const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
+const RegistrationMedicalInternal: React.FC<RegistrationMedicalProps> = ({ 
     formData,
     onCustomChange,
     registryAnswers,
@@ -346,4 +345,4 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
         </div>
     );
 };
-export default RegistrationMedical;
+export default RegistrationMedicalInternal;
