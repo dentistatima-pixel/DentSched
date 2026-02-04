@@ -10,7 +10,10 @@ export const useOrientation = () => {
         const handleOrientationChange = () => setOrientation(getOrientation());
 
         mediaQuery.addEventListener('change', handleOrientationChange);
-        return () => mediaQuery.removeEventListener('change', handleOrientationChange);
+
+        return () => {
+            mediaQuery.removeEventListener('change', handleOrientationChange);
+        };
     }, []);
 
     return { isLandscape: orientation === 'landscape', isPortrait: orientation === 'portrait' };

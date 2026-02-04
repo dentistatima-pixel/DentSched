@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Patient, DentalChartEntry, ClinicalIncident, Appointment, User, UserRole } from '../types';
 import { calculateAge } from '../constants';

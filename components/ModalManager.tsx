@@ -1,5 +1,5 @@
-
-import React from 'react';
+import React, { Suspense, useContext, useEffect } from 'react';
+import { ModalContext } from '../contexts/ModalContext';
 
 // Lazy load modals to improve initial load time
 const AppointmentModal = React.lazy(() => import('./AppointmentModal'));
@@ -35,9 +35,8 @@ const SterilizationVerificationModal = React.lazy(() => import('./SterilizationV
 const DataSubjectRightsModal = React.lazy(() => import('./DataSubjectRightsModal'));
 const ShortcutHelpModal = React.lazy(() => import('./ShortcutHelpModal'));
 const IncompleteRegistrationModal = React.lazy(() => import('./IncompleteRegistrationModal'));
+const PayrollAdjustmentModal = React.lazy(() => import('./PayrollAdjustmentModal'));
 
-
-import { useModal } from '../contexts/ModalContext';
 
 const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<any>> } = {
     appointment: AppointmentModal,
@@ -73,32 +72,76 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     dataSubjectRights: DataSubjectRightsModal,
     shortcutHelp: ShortcutHelpModal,
     incompleteRegistration: IncompleteRegistrationModal,
+    payrollAdjustment: PayrollAdjustmentModal,
 };
 
 const ModalManager: React.FC = () => {
-    const { modalState, hideModal } = useModal();
+    const context = useContext(ModalContext);
+    if (!context) return null;
+    const { modalStack, closeModal } = context;
 
-    if (!modalState.type) {
+    useEffect(() => {
+        const handleFocusIn = (e: FocusEvent) => {
+            // FIX: Assign e.target to a variable to preserve its narrowed type within the setTimeout callback.
+            const targetElement = e.target;
+            if (modalStack.length > 0 && (targetElement instanceof HTMLInputElement || targetElement instanceof HTMLTextAreaElement)) {
+                setTimeout(() => {
+                    targetElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300); // Delay to allow virtual keyboard to animate in
+            }
+        };
+
+        // Use capture phase to catch the event early
+        window.addEventListener('focusin', handleFocusIn, true);
+        return () => {
+            window.removeEventListener('focusin', handleFocusIn, true);
+        };
+    }, [modalStack.length]);
+
+    if (modalStack.length === 0) {
         return null;
     }
-
-    const ModalComponent = modalMap[modalState.type];
-
-    if (!ModalComponent) {
-        console.warn(`Modal type "${modalState.type}" not found.`);
-        return null;
-    }
-    
-    const props = {
-        ...modalState.props,
-        isOpen: true,
-        onClose: hideModal,
-    };
 
     return (
-        <React.Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 z-[100]" />}>
-            <ModalComponent {...props} />
-        </React.Suspense>
+        <>
+            {modalStack.map((modalState, index) => {
+                const ModalComponent = modalMap[modalState.type];
+                if (!ModalComponent) {
+                    console.warn(`Modal type "${modalState.type}" not found.`);
+                    return null;
+                }
+
+                const isTopModal = index === modalStack.length - 1;
+                const stackDepth = modalStack.length - 1 - index;
+
+                const props = {
+                    ...modalState.props,
+                    isOpen: true,
+                    onClose: isTopModal ? closeModal : () => {}, // Only top modal can be closed directly
+                };
+                
+                const wrapperStyle: React.CSSProperties = {
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 100 + index,
+                    transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 300ms ease-out',
+                    pointerEvents: isTopModal ? 'auto' : 'none',
+                };
+
+                if (!isTopModal) {
+                    wrapperStyle.transform = `scale(${1 - stackDepth * 0.04}) translateY(${stackDepth * -20}px)`;
+                    wrapperStyle.filter = `blur(${stackDepth * 2}px) brightness(0.95)`;
+                }
+
+                return (
+                    <div key={`${modalState.type}-${index}`} style={wrapperStyle}>
+                        <Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 z-[100]" />}>
+                            <ModalComponent {...props} />
+                        </Suspense>
+                    </div>
+                );
+            })}
+        </>
     );
 };
 

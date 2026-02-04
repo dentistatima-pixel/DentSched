@@ -310,7 +310,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
       generalConsent, fieldSettings, patients,
       handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handleChartUpdate,
       handleNext, handleBack, handleSignatureCaptured, handleFinalSave,
-      setStep,
+      setStep, setFormData, initialFormState
   };
 };
 
@@ -323,11 +323,30 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients,
       handleChange, handleCustomChange, handleRegistryChange, handleArrayChange, handleChartUpdate,
-      handleNext, handleBack, handleSignatureCaptured, handleFinalSave, setStep
+      handleNext, handleBack, handleSignatureCaptured, handleFinalSave, setStep, setFormData, initialFormState
   } = workflow;
   
   const [showSignatureCapture, setShowSignatureCapture] = useState(false);
+  const [lastClearedData, setLastClearedData] = useState<Partial<Patient> | null>(null);
   const toast = useToast();
+  
+  const handleClearForm = () => {
+      setLastClearedData(formData);
+      setFormData(initialFormState);
+      toast.info("Form data has been cleared.", {
+          duration: 10000,
+          actionLabel: "Undo",
+          onAction: handleUndoClear,
+      });
+  };
+
+  const handleUndoClear = () => {
+      if (lastClearedData) {
+          setFormData(lastClearedData);
+          setLastClearedData(null);
+          toast.success("Undo successful. Form restored.");
+      }
+  };
   
   if (!isOpen || !fieldSettings) return null;
 
@@ -355,7 +374,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 no-scrollbar modal-content-scrollable">
             <div className="max-w-4xl mx-auto space-y-12 pb-12">
                 {step === 1 && (
                      <div key={1} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
@@ -420,6 +439,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className="p-6 border-t border-slate-200 bg-white/80 backdrop-blur-md shrink-0 flex justify-between items-center z-10">
             <div className="flex items-center gap-4">
                 <button type="button" onClick={handleBack} disabled={step === 1} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50 flex items-center gap-2"><ArrowLeft size={16}/> Back</button>
+                <button type="button" onClick={handleClearForm} className="px-6 py-4 bg-red-50 text-red-700 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2"><Eraser size={16}/> Clear</button>
                 <FormStatusIndicator status={formStatus} />
             </div>
             

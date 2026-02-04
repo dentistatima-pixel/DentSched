@@ -10,11 +10,13 @@ import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
 import { routes, RouteConfig } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
+import CryptoJS from 'crypto-js';
 
 import { DentalChartEntry, User, UserRole } from './types';
 import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader, CloudOff } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { GlobalShortcuts } from './hooks/useKeyboardShortcuts';
+import { OrientationWarning } from './components/OrientationWarning';
 
 
 // Lazy load components for the full-screen workspace
@@ -114,13 +116,13 @@ export const App: React.FC = () => {
 
     const [isLocked, setIsLocked] = useState(false);
     const [showSessionWarning, setShowSessionWarning] = useState(false);
-    const [warningCountdown, setWarningCountdown] = useState(60);
+    const [warningCountdown, setWarningCountdown] = useState(180);
     
     const idleTimer = useRef<number | null>(null);
     const warningTimer = useRef<number | null>(null);
 
     const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 2 : (fieldSettings?.sessionTimeoutMinutes || 15);
-    const WARNING_SECONDS = 60;
+    const WARNING_SECONDS = 180; // Increased to 3 minutes
     
     const handleLogin = (user: User) => {
         setCurrentUser(user);
@@ -172,7 +174,7 @@ export const App: React.FC = () => {
     }, [resetIdleTimer]);
 
     const handleUnlock = (pin: string) => {
-        if (currentUser && currentUser.pin === pin) {
+        if (currentUser && currentUser.pin === CryptoJS.SHA256(pin).toString()) {
             setIsLocked(false);
             resetIdleTimer();
             logAction('SESSION_UNLOCK', 'System', currentUser.id, 'User unlocked session.');
@@ -209,6 +211,7 @@ export const App: React.FC = () => {
     return (
         <>
             <GlobalShortcuts />
+            <OrientationWarning />
             <Layout>
               {!isOnline && (
                   <div className="bg-amber-100 border-l-4 border-amber-500 p-4 m-4 rounded-r-lg shadow-lg">

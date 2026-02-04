@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { RegistrationField } from '../../types';
 import { Edit, ShieldAlert } from 'lucide-react';

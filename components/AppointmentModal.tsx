@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
 import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem, OperationalHours } from '../types';
@@ -34,7 +35,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isDowntime, overrideInfo, isReconciliationMode, currentBranch, readOnly = false
 }) => {
     const toast = useToast();
-    const { showModal } = useModal();
+    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+    const { openModal: showModal } = useModal();
     const { patients } = usePatient();
     const { staff } = useStaff();
     const { fieldSettings } = useSettings();

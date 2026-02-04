@@ -1,4 +1,3 @@
-
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -25,37 +24,78 @@ import { generateSafetyBriefing } from '../services/geminiService';
 
 interface CalendarViewProps {}
 
-const RELIABILITY_THRESHOLD = 70;
-
-const PatientCard: React.FC<{ apt: Appointment, patient: Patient, navigate: (path: string) => void }> = React.memo(({ apt, patient, navigate }) => (
-    <div 
-        draggable 
-        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
-        className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-orange-400 cursor-grab active:cursor-grabbing"
-        onClick={() => navigate(`patients/${patient.id}`)}
-    >
-        <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
-    </div>
-));
-
-const FlowColumn: React.FC<{ title: string, count: number, status: AppointmentStatus, children: React.ReactNode, icon: React.ElementType, color: string, onDrop: (e: React.DragEvent) => void }> = React.memo(({ title, count, status, children, icon: Icon, color, onDrop }) => {
-    const [isDragOver, setIsDragOver] = useState(false);
+const CalendarAppointment = React.memo(({ apt, patient, provider, styles, onMouseDown, onMouseUp, onDoubleClick, viewDimension }: any) => {
+    if (!patient && !apt.isBlock) return null;
+    if(apt.isBlock) {
+      return (
+          <div className="rounded-xl p-3 bg-slate-100 border-2 border-slate-200 text-slate-500 cursor-not-allowed">
+              <div className="font-black text-sm uppercase tracking-tight truncate">{apt.title}</div>
+              <div className="text-xs uppercase font-bold text-slate-400 mt-1 truncate">{apt.type}</div>
+          </div>
+      )
+    }
     return (
         <div 
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); onDrop(e); }}
-            className={`flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-4 transition-all ${isDragOver ? 'bg-teal-50 dark:bg-teal-900/50 ring-2 ring-teal-500' : ''}`}
+            draggable
+            onDragStart={(e) => { 
+                e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
+            }}
+            onMouseDown={(e) => onMouseDown(e, apt, patient)} 
+            onMouseUp={(e) => onMouseUp(e, apt, patient)}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(apt); }}
+            className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
+            <div className="flex justify-between items-center mb-2">
+                <span className="font-black text-slate-600">{apt.time}</span>
+                <div className="flex items-center gap-1">
+                    {apt.isWaitlistOverride && <span title="Booked from Waitlist (Manager Override)"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
+                    {apt.entryMode === 'MANUAL' && <span title="Manual Downtime Entry"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
+                    {apt.isPendingSync && <span title="Pending Offline Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
+                    {viewDimension === 'chair' && provider && 
+                        <div className="w-5 h-5 rounded-full border border-white bg-teal-100 text-teal-700 flex items-center justify-center text-[8px] font-black" title={provider.name}>
+                            {provider.name.replace('Dr. ', '').split(' ').map((n: string) => n[0]).join('').substring(0,2)}
+                        </div>
+                    }
+                </div>
+            </div>
+            <div className="font-black text-sm uppercase tracking-tight truncate">{patient?.name || 'Clinical Block'}</div>
+            <div className="text-xs uppercase font-black text-slate-500 mt-1 truncate">{apt.type}</div>
+        </div>
+    );
+});
+
+const CalendarSlot = React.memo(({ colId, hour, dateIso, appointmentsForSlot, onSlotClick, onDrop, onDragEnter, onDragLeave, isDragOver, patientGetter, staffGetter, onAptMouseDown, onAptMouseUp, onAptDoubleClick, viewDimension, getAppointmentBaseStyle }: any) => {
+    return (
+        <div 
+            role="gridcell" 
+            aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
+            className={`h-[120px] flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
+            onDoubleClick={() => onSlotClick(colId, hour, dateIso)}
+            onDragOver={e => e.preventDefault()}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
         >
-            <div className="flex items-center gap-2 mb-4 p-2">
-                <Icon size={18} className={color}/>
-                <h4 className="font-black text-sm text-slate-600 dark:text-slate-300 uppercase tracking-widest">{title}</h4>
-                <span className="ml-auto bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{count}</span>
-            </div>
-            <div className="space-y-3 overflow-y-auto no-scrollbar flex-1">
-                {children}
-            </div>
+            {appointmentsForSlot.map((apt: Appointment) => {
+                const patient = patientGetter(apt.patientId);
+                const provider = staffGetter(apt.providerId);
+                const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
+                return <CalendarAppointment key={apt.id} apt={apt} patient={patient} provider={provider} styles={styles} onMouseDown={onAptMouseDown} onMouseUp={onAptMouseUp} onDoubleClick={onAptDoubleClick} viewDimension={viewDimension} />;
+            })}
+        </div>
+    );
+});
+
+
+const CalendarColumn = React.memo(({ col, appointmentsForCol, timeSlots, viewDimension, dateIso, onSlotClick, onDrop, onDragEnter, onDragLeave, dragOverInfo, patientGetter, staffGetter, onAptMouseDown, onAptMouseUp, onAptDoubleClick, getAppointmentBaseStyle, viewMode }: any) => {
+    const colId = viewMode === 'week' ? col.providerId : col.id;
+    return (
+        <div className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100`}>
+            {timeSlots.map((hour: number) => {
+                const appointmentsForSlot = appointmentsForCol.filter((a: Appointment) => parseInt(a.time.split(':')[0]) === hour);
+                const isDragOver = dragOverInfo?.colId === colId && dragOverInfo?.hour === hour && dragOverInfo?.dateIso === dateIso;
+                return <CalendarSlot key={hour} colId={colId} hour={hour} dateIso={dateIso} appointmentsForSlot={appointmentsForSlot} onSlotClick={onSlotClick} onDrop={(e: any) => onDrop(e, colId, hour, dateIso)} onDragEnter={() => onDragEnter({colId, hour, dateIso})} onDragLeave={onDragLeave} isDragOver={isDragOver} patientGetter={patientGetter} staffGetter={staffGetter} onAptMouseDown={onAptMouseDown} onAptMouseUp={onAptMouseUp} onAptDoubleClick={onAptDoubleClick} viewDimension={viewDimension} getAppointmentBaseStyle={getAppointmentBaseStyle} />;
+            })}
         </div>
     );
 });
@@ -63,7 +103,7 @@ const FlowColumn: React.FC<{ title: string, count: number, status: AppointmentSt
 
 const CalendarView: React.FC<CalendarViewProps> = () => {
   const toast = useToast();
-  const { showModal } = useModal();
+  const { openModal: showModal } = useModal();
   const navigate = useNavigate();
 
   const { currentUser, currentBranch } = useAppContext();
@@ -157,17 +197,14 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const visibleProviders = useMemo(() => {
     if (!currentUser) return [];
 
-    // Logic for a logged-in DENTIST viewing their own schedule
     if (currentUser.role === UserRole.DENTIST && viewMode !== 'week') {
         const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
-        // Only show the current dentist if they are rostered for this day/branch
         if (currentUser.roster?.[dayOfWeek] === currentBranch) {
             return [currentUser];
         }
-        return []; // Not rostered, show empty
+        return [];
     }
 
-    // Logic for ADMIN/ARCHITECT to see all relevant dentists for the branch
     const branchStaff = staff.filter(u => 
         u.role === UserRole.DENTIST &&
         u.allowedBranches.includes(currentBranch)
@@ -258,7 +295,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const handleMouseUp = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
       if(longPressTimer.current) {
           clearTimeout(longPressTimer.current);
-          longPressTimer.current = null; // Clear timer ref after use
+          longPressTimer.current = null;
           if (!inspected) {
               setPeeked({ apt, patient, target: e.currentTarget as HTMLElement });
           }
@@ -271,7 +308,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
 
   const handleWaitlistAssign = (entry: WaitlistEntry) => {
       const patient = getPatient(entry.patientId);
-      const isReliable = (patient?.reliabilityScore ?? 100) >= RELIABILITY_THRESHOLD;
+      const isReliable = (patient?.reliabilityScore ?? 100) >= 70;
       const hasBalance = (patient?.currentBalance ?? 0) > 0;
 
       if (!isReliable || hasBalance) {
@@ -332,7 +369,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
         } else if (viewDimension === 'provider') {
             newProviderId = colId;
             newResourceId = originalApt.resourceId;
-        } else { // chair view
+        } else {
             newProviderId = originalApt.providerId;
             newResourceId = colId;
         }
@@ -349,22 +386,13 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
 
         const isConflict = appointments.some(apt => {
             if (apt.id === appointmentId) return false;
-
             const existingStart = new Date(`${apt.date}T${apt.time}`);
             const existingEnd = new Date(existingStart.getTime() + apt.durationMinutes * 60000);
-
             const overlap = (proposedStart < existingEnd) && (proposedEnd > existingStart);
             if (!overlap) return false;
-
-            // Provider conflict
             if (!apt.isBlock && apt.providerId === newProviderId) return true;
-
-            // Resource conflict
             if (newResourceId && apt.resourceId === newResourceId) return true;
-
-            // Patient conflict
             if (!originalApt.isBlock && !apt.isBlock && apt.patientId === originalApt.patientId) return true;
-
             return false;
         });
 
@@ -425,117 +453,31 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
             </div>
         </div>
 
-        <div className="flex-1 overflow-x-auto overflow-y-auto bg-white relative">
+        <div className="flex-1 overflow-y-auto bg-white relative no-scrollbar">
             <div className="min-w-max md:min-w-full h-full flex flex-col">
                 <div className="flex border-b border-slate-200 sticky top-0 z-30 bg-white" role="row">
-                    <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-200 sticky left-0 z-40 shadow-sm"></div> 
-                    {viewMode === 'week' ? weekDates.map(d => (
-                            <div key={d.iso} role="columnheader" className={`w-[200px] flex-shrink-0 p-4 border-r border-slate-200 text-center ${d.isToday ? 'bg-teal-50/50' : 'bg-slate-50'}`}>
-                                <div className={`text-sm font-black uppercase tracking-widest ${d.isToday ? 'text-teal-700' : 'text-slate-800'}`}>{d.label}</div>
-                            </div>
-                        )) : viewDimension === 'provider' ? visibleProviders.map(p => (
-                            <div key={p.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
-                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{p.name}</span>
-                            </div>
-                        )) : visibleResources.map(r => (
-                            <div key={r.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
-                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{r.name}</span>
-                            </div>
-                        ))
-                    }
-                </div>
-
-                <div className="flex flex-col flex-1">
-                    {timeSlots.map(hour => (
-                        <div key={hour} className="flex min-h-[80px] border-b border-slate-100" role="row">
-                            <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-200 bg-slate-50/90 backdrop-blur-sm text-xs font-black text-slate-500 sticky left-0 z-20">
+                    <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-200 sticky left-0 z-40 shadow-sm flex flex-col">
+                        {timeSlots.map(hour => (
+                             <div key={hour} className="h-[120px] flex justify-center pt-3 text-xs font-black text-slate-500 border-b border-slate-100">
                                 {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
                             </div>
-
-                            {(viewMode === 'week' ? weekDates : (viewDimension === 'provider' ? visibleProviders : visibleResources)).map((col: any) => {
-                                const colId = viewMode === 'week' ? activeProviderId : col.id;
-                                const dateIso = viewMode === 'week' ? col.iso : formattedDate;
-                                const slotAppointments = filteredAppointments.filter(a => {
-                                    const matchesDate = a.date === dateIso;
-                                    const matchesHour = parseInt(a.time.split(':')[0]) === hour;
-                                    const matchesCol = viewMode === 'week' ? a.providerId === activeProviderId : (viewDimension === 'provider' ? a.providerId === colId : a.resourceId === colId);
-                                    return matchesDate && matchesHour && matchesCol;
-                                });
-                                const isDragOver = dragOverInfo?.colId === colId && dragOverInfo?.hour === hour && dragOverInfo?.dateIso === dateIso;
-                            
-                                return (
-                                    <div 
-                                        key={`${col.id || col.iso}-${hour}`} 
-                                        role="gridcell" 
-                                        aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
-                                        className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
-                                        onDoubleClick={() => handleSlotClick(colId, hour, dateIso)}
-                                        onDragOver={e => e.preventDefault()}
-                                        onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
-                                        onDragLeave={() => setDragOverInfo(null)}
-                                        onDrop={(e) => handleDrop(e, colId, hour, dateIso)}
-                                    >
-                                        {slotAppointments.map(apt => {
-                                            const patient = getPatient(apt.patientId);
-                                            const provider = staff.find(s => s.id === apt.providerId);
-                                            const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
-                                            
-                                            if (!patient && !apt.isBlock) return null;
-                                            
-                                            if(apt.isBlock) {
-                                              return (
-                                                  <div key={apt.id} className="rounded-xl p-3 bg-slate-100 border-2 border-slate-200 text-slate-500 cursor-not-allowed">
-                                                      <div className="font-black text-sm uppercase tracking-tight truncate">{apt.title}</div>
-                                                      <div className="text-xs uppercase font-bold text-slate-400 mt-1 truncate">{apt.type}</div>
-                                                  </div>
-                                              )
-                                            }
-
-                                            return (
-                                                <div 
-                                                    key={apt.id} 
-                                                    draggable
-                                                    onDragStart={(e) => { 
-                                                        if (longPressTimer.current) {
-                                                            clearTimeout(longPressTimer.current);
-                                                            longPressTimer.current = null;
-                                                        }
-                                                        e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
-                                                    }}
-                                                    onMouseDown={(e) => handleMouseDown(e, apt, patient!)} 
-                                                    onMouseUp={(e) => handleMouseUp(e, apt, patient!)}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    onDoubleClick={(e) => { e.stopPropagation(); openAppointmentModal(undefined, undefined, undefined, apt); }}
-                                                    className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="font-black text-slate-600">{apt.time}</span>
-                                                        <div className="flex items-center gap-1">
-                                                            {apt.isWaitlistOverride && <span title="Booked from Waitlist (Manager Override)"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
-                                                            {apt.entryMode === 'MANUAL' && <span title="Manual Downtime Entry"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
-                                                            {apt.isPendingSync && <span title="Pending Offline Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
-                                                            {viewDimension === 'chair' && provider && 
-                                                                <div className="w-5 h-5 rounded-full border border-white bg-teal-100 text-teal-700 flex items-center justify-center text-[8px] font-black" title={provider.name}>
-                                                                    {provider.name.replace('Dr. ', '').split(' ').map(n => n[0]).join('').substring(0,2)}
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                    <div className="font-black text-sm uppercase tracking-tight truncate">{patient?.name || 'Clinical Block'}</div>
-                                                    <div className="text-xs uppercase font-black text-slate-500 mt-1 truncate">{apt.type}</div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ))}
+                        ))}
+                    </div> 
+                    {(viewMode === 'week' ? weekDates.map(d => ({...d, providerId: activeProviderId })) : (viewDimension === 'provider' ? visibleProviders : visibleResources)).map((col: any) => {
+                        const colId = viewMode === 'week' ? activeProviderId : col.id;
+                        const dateIso = viewMode === 'week' ? col.iso : formattedDate;
+                        const appointmentsForCol = filteredAppointments.filter(a => {
+                            const matchesDate = a.date === dateIso;
+                            const matchesCol = viewMode === 'week' ? a.providerId === activeProviderId : (viewDimension === 'provider' ? a.providerId === colId : a.resourceId === colId);
+                            return matchesDate && matchesCol;
+                        });
+                        return <CalendarColumn key={col.id || col.iso} col={col} appointmentsForCol={appointmentsForCol} timeSlots={timeSlots} viewDimension={viewDimension} dateIso={dateIso} onSlotClick={handleSlotClick} onDrop={handleDrop} onDragEnter={setDragOverInfo} onDragLeave={() => setDragOverInfo(null)} dragOverInfo={dragOverInfo} patientGetter={getPatient} staffGetter={(id: string) => staff.find(s => s.id === id)} onAptMouseDown={handleMouseDown} onAptMouseUp={handleMouseUp} onAptDoubleClick={(apt: Appointment) => openAppointmentModal(undefined, undefined, undefined, apt)} getAppointmentBaseStyle={getAppointmentBaseStyle} viewMode={viewMode}/>
+                    })}
                 </div>
             </div>
         </div>
       </div>
 
-      {/* --- PEEK POPOVER --- */}
       {peeked && (
           <div 
             onClick={e => e.stopPropagation()}
@@ -564,7 +506,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
           </div>
       )}
 
-      {/* --- INSPECTOR PANEL --- */}
       <div className={`inspector-panel ${inspected ? 'open' : ''}`}>
           {inspected && (
               <div className="h-full flex flex-col p-6 animate-in fade-in">
@@ -605,7 +546,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
           )}
       </div>
 
-      {/* --- WAITLIST SIDE PANEL --- */}
       <div className={`fixed top-24 bottom-8 right-0 w-96 bg-white border-l border-slate-300 shadow-2xl z-40 transition-transform duration-500 ease-in-out ${showWaitlist ? 'translate-x-0' : 'translate-x-full'}`} role="complementary" aria-label="Waitlist Management">
           <div className="h-full flex flex-col">
               <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
@@ -619,7 +559,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
               <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
                   {(waitlist || []).map(entry => {
                       const patient = getPatient(entry.patientId);
-                      const isUnreliable = (patient?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD;
+                      const isUnreliable = (patient?.reliabilityScore ?? 100) < 70;
                       const hasBalance = (patient?.currentBalance ?? 0) > 0;
                       const isClear = !isUnreliable && !hasBalance;
 
@@ -629,21 +569,9 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                   <div>
                                       <h4 className="font-black text-slate-800 uppercase text-sm leading-tight">{entry.patientName}</h4>
                                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                          {isUnreliable && (
-                                              <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-red-200">
-                                                  {patient?.reliabilityScore}% Reliability
-                                              </span>
-                                          )}
-                                          {hasBalance && (
-                                              <div className="flex items-center gap-1 text-red-800 bg-red-100/50 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-red-200">
-                                                  <FinanceIcon size={10}/> ₱{patient?.currentBalance?.toLocaleString()}
-                                              </div>
-                                          )}
-                                          {isClear && (
-                                              <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-teal-200 flex items-center gap-1">
-                                                  <ShieldCheck size={12}/> Verified Clear
-                                              </span>
-                                          )}
+                                          {isUnreliable && ( <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-red-200">{patient?.reliabilityScore}% Reliability</span>)}
+                                          {hasBalance && (<div className="flex items-center gap-1 text-red-800 bg-red-100/50 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-red-200"><FinanceIcon size={10}/> ₱{patient?.currentBalance?.toLocaleString()}</div>)}
+                                          {isClear && (<span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full text-xs font-black uppercase border border-teal-200 flex items-center gap-1"><ShieldCheck size={12}/> Verified Clear</span>)}
                                       </div>
                                   </div>
                                   <span className={`text-xs font-black uppercase px-2 py-1 rounded ${entry.priority === 'High' ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700'}`}>{entry.priority}</span>
@@ -654,104 +582,23 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                   <div className="text-xs font-bold text-slate-600 flex justify-between uppercase tracking-tighter"><span>Duration</span><span className="text-slate-900">{entry.durationMinutes}m</span></div>
                               </div>
 
-                              <button 
-                                onClick={() => handleWaitlistAssign(entry)}
-                                className={`w-full mt-4 py-3 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 ${
-                                    isClear ? 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700' : 'bg-white text-red-700 border-2 border-red-200 shadow-red-600/5 hover:bg-red-50'
-                                }`}
-                                aria-label={isClear ? `Assign slot to ${entry.patientName}` : `Request override for ${entry.patientName}`}
-                              >
-                                  {isClear ? 'Assign Slot' : 'Request Override'}
-                              </button>
+                              <button onClick={() => handleWaitlistAssign(entry)} className={`w-full mt-4 py-3 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 ${isClear ? 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700' : 'bg-white text-red-700 border-2 border-red-200 shadow-red-600/5 hover:bg-red-50'}`} aria-label={isClear ? `Assign slot to ${entry.patientName}` : `Request override for ${entry.patientName}`}>{isClear ? 'Assign Slot' : 'Request Override'}</button>
                           </div>
                       );
                   })}
               </div>
-
-              <div className="p-6 border-t border-slate-200 bg-slate-50">
-                  <p className="text-xs font-bold text-slate-500 uppercase text-center leading-relaxed tracking-wide">
-                      Integrity signals derived from real-time ledger and attendance analytics.
-                  </p>
-              </div>
           </div>
       </div>
 
-      {/* --- OVERRIDE POPOVER --- */}
       {overrideTarget && (
           <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
               <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 animate-in zoom-in-95 border-4 border-red-100" role="dialog" aria-labelledby="override-title">
-                  <div className="flex items-center gap-4 text-red-600 mb-8">
-                      <div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div>
-                      <div>
-                          <h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Guardrail Triggered</h3>
-                          <p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Front-Desk Integrity Block</p>
-                      </div>
+                  <div className="flex items-center gap-4 text-red-600 mb-8"><div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div><div><h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Guardrail Triggered</h3><p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Front-Desk Integrity Block</p></div></div>
+                  <div className="bg-red-50 p-6 rounded-3xl mb-8 space-y-4 border border-red-100"><p className="text-sm font-bold text-red-900 leading-relaxed uppercase tracking-tighter">Attention: <strong>{overrideTarget.patientName}</strong> is currently flagged for:</p><ul className="space-y-3">{(getPatient(overrideTarget.patientId)?.reliabilityScore ?? 100) < 70 && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight"><AlertCircle size={18}/> Low Appointment Reliability</li>)}{(getPatient(overrideTarget.patientId)?.currentBalance ?? 0) > 0 && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight"><FinanceIcon size={18}/> Unresolved Practice Debt</li>)}</ul></div>
+                  <div className="space-y-6 mb-10"><div><label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Select Authorizing Manager *</label><select aria-label="Authorizing Manager" value={selectedManagerId} onChange={e => setSelectedManagerId(e.target.value)} className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-800 outline-none focus:border-red-600 mb-4 transition-all"><option value="">- Choose Authorized Personnel -</option>{authorizedManagers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}</select><label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-2"><Key size={14}/> Verifying Staff PIN *</label><input aria-label="Verification PIN" type="password" maxLength={4} value={managerPin} onChange={e => setManagerPin(e.target.value)} placeholder="••••" className="w-full p-5 text-center text-3xl tracking-[1em] border-2 border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-black bg-slate-50"/></div>
+                    <label className="flex items-start gap-4 p-5 rounded-3xl border-2 border-slate-200 hover:border-teal-600 transition-all cursor-pointer bg-white"><input type="checkbox" checked={overrideConfirmed} onChange={e => setOverrideConfirmed(e.target.checked)} className="w-8 h-8 mt-0.5 accent-teal-700 rounded shadow-sm" /><div className="text-xs font-black uppercase text-slate-800 leading-snug">I certify that verbal approval has been received from the selected manager for this booking.</div></label>
                   </div>
-
-                  <div className="bg-red-50 p-6 rounded-3xl mb-8 space-y-4 border border-red-100">
-                      <p className="text-sm font-bold text-red-900 leading-relaxed uppercase tracking-tighter">
-                          Attention: <strong>{overrideTarget.patientName}</strong> is currently flagged for:
-                      </p>
-                      <ul className="space-y-3">
-                          {(getPatient(overrideTarget.patientId)?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD && (
-                              <li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight"><AlertCircle size={18}/> Low Appointment Reliability</li>
-                          )}
-                          {(getPatient(overrideTarget.patientId)?.currentBalance ?? 0) > 0 && (
-                              <li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight"><FinanceIcon size={18}/> Unresolved Practice Debt</li>
-                          )}
-                      </ul>
-                  </div>
-
-                  <div className="space-y-6 mb-10">
-                    <div>
-                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Select Authorizing Manager *</label>
-                        <select 
-                            aria-label="Authorizing Manager"
-                            value={selectedManagerId} 
-                            onChange={e => setSelectedManagerId(e.target.value)}
-                            className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-800 outline-none focus:border-red-600 mb-4 transition-all"
-                        >
-                            <option value="">- Choose Authorized Personnel -</option>
-                            {authorizedManagers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
-                        </select>
-                        
-                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-2"><Key size={14}/> Verifying Staff PIN *</label>
-                        <input 
-                            aria-label="Verification PIN"
-                            type="password"
-                            maxLength={4}
-                            value={managerPin}
-                            onChange={e => setManagerPin(e.target.value)}
-                            placeholder="••••"
-                            className="w-full p-5 text-center text-3xl tracking-[1em] border-2 border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-black bg-slate-50"
-                        />
-                    </div>
-
-                    <label className="flex items-start gap-4 p-5 rounded-3xl border-2 border-slate-200 hover:border-teal-600 transition-all cursor-pointer bg-white">
-                        <input 
-                            type="checkbox" 
-                            checked={overrideConfirmed}
-                            onChange={e => setOverrideConfirmed(e.target.checked)}
-                            className="w-8 h-8 mt-0.5 accent-teal-700 rounded shadow-sm" 
-                        />
-                        <div className="text-xs font-black uppercase text-slate-800 leading-snug">
-                            I certify that verbal approval has been received from the selected manager for this booking.
-                        </div>
-                    </label>
-                  </div>
-
-                  <div className="flex gap-4">
-                      <button onClick={() => setOverrideTarget(null)} className="flex-1 py-5 bg-slate-100 text-slate-600 font-black rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
-                      <button 
-                        onClick={executeOverride}
-                        disabled={!overrideConfirmed || !selectedManagerId || managerPin.length < 4}
-                        className={`flex-[2] py-5 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl transition-all ${
-                            overrideConfirmed && selectedManagerId && managerPin.length === 4 ? 'bg-red-600 shadow-red-600/30 hover:bg-red-700' : 'bg-slate-300 shadow-none grayscale opacity-50'
-                        }`}
-                      >
-                          Confirm & Book
-                      </button>
-                  </div>
+                  <div className="flex gap-4"><button onClick={() => setOverrideTarget(null)} className="flex-1 py-5 bg-slate-100 text-slate-600 font-black rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancel</button><button onClick={executeOverride} disabled={!overrideConfirmed || !selectedManagerId || managerPin.length < 4} className={`flex-[2] py-5 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl transition-all ${overrideConfirmed && selectedManagerId && managerPin.length === 4 ? 'bg-red-600 shadow-red-600/30 hover:bg-red-700' : 'bg-slate-300 shadow-none grayscale opacity-50'}`}>Confirm & Book</button></div>
               </div>
           </div>
       )}

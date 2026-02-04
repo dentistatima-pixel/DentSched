@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { STAFF } from '../constants';
 import { ShieldCheck, Key, ArrowLeft, User as UserIcon } from 'lucide-react';
+import CryptoJS from 'crypto-js';
 
 /**
  * @interface LoginScreenProps
@@ -70,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   };
 
   const handleLoginAttempt = () => {
-    if (selectedUser && selectedUser.pin === pin) {
+    if (selectedUser && selectedUser.pin === CryptoJS.SHA256(pin).toString()) {
         onLogin(selectedUser);
     } else {
         setError('Invalid PIN');
@@ -132,7 +133,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
       <div className="w-full max-w-md bg-white/10 p-8 rounded-3xl border border-white/20 backdrop-blur-lg">
         <h2 className="text-white font-bold text-center mb-6">Select Your Profile to Login</h2>
-        <div className="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar">
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto">
           {STAFF.map(user => (
             <button 
               key={user.id}

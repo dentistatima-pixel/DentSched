@@ -1,3 +1,4 @@
+
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
 import CalendarView from './components/CalendarView';
@@ -105,7 +106,8 @@ function AnalyticsHubContainer() {
 
 function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
     const { patients, handleAnonymizePatient: onPurgePatient, handleConfirmRevocation: handleRequestDataDeletion } = usePatient();
-    const { showModal } = useModal();
+    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+    const { openModal: showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { incidents } = useClinicalOps();
@@ -197,7 +199,8 @@ function FieldManagementContainer() {
     const { auditLog, isAuditLogVerified, currentUser, handleStartImpersonating } = useAppContext();
     const { patients, handleAnonymizePatient: handlePurgePatient } = usePatient();
     const { appointments } = useAppointments();
-    const { showModal } = useModal();
+    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+    const { openModal: showModal } = useModal();
 
     return <FieldManagement
         settings={fieldSettings} onUpdateSettings={handleUpdateSettings}
@@ -337,7 +340,8 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
   const { fieldSettings, handleUpdateSettings } = useSettings();
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
-  const { showModal } = useModal();
+  // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+  const { openModal: showModal } = useModal();
   
   const patient = useMemo(() => patients.find(p => p.id === patientId) || null, [patients, patientId]);
 

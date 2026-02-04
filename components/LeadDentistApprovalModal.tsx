@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, TreatmentPlan, SignatureChainEntry, User } from '../types';
-import { X, CheckCircle, ShieldAlert, FileText, Eraser } from 'lucide-react';
+import { X, CheckCircle, ShieldAlert, FileText, Eraser, Users } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { createSignatureEntry } from '../services/signatureVerification';
 import { useStaff } from '../contexts/StaffContext';
+import { formatDate } from '../constants';
 
 interface LeadDentistApprovalModalProps {
   isOpen: boolean;
@@ -89,12 +90,29 @@ const LeadDentistApprovalModal: React.FC<LeadDentistApprovalModalProps> = ({
             <h2 className="text-xl font-black text-amber-900 uppercase tracking-tight">Lead Dentist Approval Required</h2>
           </div>
         </div>
-        <div className="p-8 space-y-4">
+        <div className="p-8 space-y-4 overflow-y-auto">
           <p className="text-sm text-slate-600">You are providing the final clinical seal of approval for <strong>{plan.name}</strong> for patient <strong>{patient.name}</strong>.</p>
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <p className="text-xs font-bold text-slate-400 uppercase">Clinical Rationale:</p>
             <p className="text-sm italic text-slate-700 mt-1">"{plan.clinicalRationale || 'No rationale provided.'}"</p>
           </div>
+
+          {plan.consultations && plan.consultations.length > 0 && (
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <h4 className="font-bold text-sm text-blue-800 flex items-center gap-2 mb-3"><Users size={16}/> Multi-Disciplinary Consultations</h4>
+                <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+                    {plan.consultations.map((consult, index) => (
+                        <div key={index} className="p-3 bg-white rounded-lg border border-blue-100">
+                            <p className="text-xs font-bold text-slate-500">
+                                {formatDate(consult.consultDate)} - Dr. {consult.dentistName} ({consult.specialty})
+                            </p>
+                            <p className="text-sm text-slate-700 mt-1 italic">"{consult.recommendation}"</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+          
           <div>
             <div className="flex justify-between items-center mb-2"><label className="label text-xs">Lead Dentist Signature *</label><button onClick={clear} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button></div>
             <canvas ref={canvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} onPointerMove={draw} onPointerUp={endSign} onPointerLeave={endSign} />

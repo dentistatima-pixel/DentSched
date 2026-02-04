@@ -1,29 +1,48 @@
-export const checkSignatureQuality = (canvas: HTMLCanvasElement): { 
+export const getSignatureBounds = (canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return { minX: 0, maxX: 0, minY: 0, maxY: 0, inkPixels: 0 };
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
+    let inkPixels = 0;
+
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const alpha = data[(y * canvas.width + x) * 4 + 3];
+            if (alpha > 0) {
+                inkPixels++;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    return { minX, maxX, minY, maxY, inkPixels };
+};
+
+export const checkSignatureQuality = (canvas: HTMLCanvasElement, strokes: number, timeToSign: number): { 
   valid: boolean; 
   reason?: string 
 } => {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return { valid: false, reason: 'Canvas error' };
-  
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const pixels = imageData.data;
-  
-  let inkPixels = 0;
-  for (let i = 0; i < pixels.length; i += 4) {
-    if (pixels[i+3] > 0) { // Check alpha channel
-      inkPixels++;
-    }
-  }
-  
-  const canvasArea = canvas.width * canvas.height;
-  const minInkPixels = canvasArea * 0.005; // 0.5% coverage required
+    const { minX, maxX, minY, maxY, inkPixels } = getSignatureBounds(canvas);
+    const canvasArea = canvas.width * canvas.height;
+    const minInkCoverage = 0.015; // 1.5%
 
-  if (inkPixels < minInkPixels) {
-    return { 
-      valid: false, 
-      reason: 'Signature too small or simple. Please provide a full, clear signature.' 
-    };
-  }
-  
-  return { valid: true };
+    if (inkPixels / canvasArea < minInkCoverage) {
+        return { valid: false, reason: `Signature too small. Please provide a full, substantial signature.` };
+    }
+    if (strokes < 3) {
+        return { valid: false, reason: 'Signature must have at least 3 distinct strokes.' };
+    }
+    if (timeToSign < 1000) {
+        return { valid: false, reason: 'Please sign more carefully.' };
+    }
+    const spanX = maxX - minX;
+    const spanY = maxY - minY;
+    if (spanX < canvas.width * 0.2 || spanY < canvas.height * 0.1) {
+        return { valid: false, reason: 'Signature span is too small. Please use more of the signature area.' };
+    }
+
+    return { valid: true };
 };

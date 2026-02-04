@@ -1,4 +1,5 @@
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus } from './types';
+
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, SmsTemplateConfig } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
@@ -81,7 +82,7 @@ export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
     AppointmentStatus.COMPLETED,
 ];
 
-// CRITICAL FIX #3: Added VALID_TRANSITIONS to enforce workflow logic.
+// CRITICAL FIX #9: Added VALID_TRANSITIONS to enforce workflow logic.
 export const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   [AppointmentStatus.SCHEDULED]: [AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED, AppointmentStatus.CANCELLED],
   [AppointmentStatus.CONFIRMED]: [AppointmentStatus.ARRIVED, AppointmentStatus.CANCELLED],
@@ -150,12 +151,22 @@ export const getAppointmentStatusConfig = (status: AppointmentStatus): Appointme
 export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
 export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
 
-// FIX: Define and export STAFF mock data
+// For reference. Do NOT use these in the app.
+export const STAFF_PINS = new Map([
+    ['doc1', '1234'],
+    ['doc2', '1111'],
+    ['assist1', '2222'],
+    ['admin1', '9999'],
+    ['arch1', '0000']
+]);
+
+// FIX: Define and export STAFF mock data with hashed PINs
 export const STAFF: User[] = [
-    { id: 'doc1', name: 'Dr. Alexander Crentist', role: UserRole.LEAD_DENTIST, pin: '1234', defaultBranch: 'Makati Main', allowedBranches: ['Makati Main', 'Quezon City Satellite'], colorPreference: '#1abc9c', prcLicense: '1234567', malpracticeExpiry: getFutureDateStr(365), prcExpiry: getFutureDateStr(180), licenseCategory: 'DENTIST', status: 'Active' },
-    { id: 'doc2', name: 'Dr. Maria Santos', role: UserRole.DENTIST, pin: '1111', defaultBranch: 'Makati Main', allowedBranches: ['Makati Main'], colorPreference: '#3498db', prcLicense: '2345678', prcExpiry: getFutureDateStr(200), licenseCategory: 'DENTIST', status: 'Active' },
-    { id: 'assist1', name: 'John Doe', role: UserRole.DENTAL_ASSISTANT, pin: '0000', defaultBranch: 'Makati Main', allowedBranches: ['Makati Main'], colorPreference: '#9b59b6', licenseCategory: 'HYGIENIST', status: 'Active' },
-    { id: 'admin1', name: 'Sarah Connor', role: UserRole.ADMIN, pin: '9999', defaultBranch: 'Makati Main', allowedBranches: ['Makati Main', 'Quezon City Satellite'], colorPreference: '#e74c3c', status: 'Active' }
+    { id: 'doc1', name: 'Dr. Alexander Crentist', role: UserRole.LEAD_DENTIST, pin: CryptoJS.SHA256(STAFF_PINS.get('doc1')!).toString(), defaultBranch: 'Makati Main', allowedBranches: ['Makati Main', 'Quezon City Satellite'], colorPreference: '#1abc9c', prcLicense: '1234567', malpracticeExpiry: getFutureDateStr(365), prcExpiry: getFutureDateStr(180), licenseCategory: 'DENTIST', status: 'Active' },
+    { id: 'doc2', name: 'Dr. Maria Santos', role: UserRole.DENTIST, pin: CryptoJS.SHA256(STAFF_PINS.get('doc2')!).toString(), defaultBranch: 'Makati Main', allowedBranches: ['Makati Main'], colorPreference: '#3498db', prcLicense: '2345678', prcExpiry: getFutureDateStr(200), licenseCategory: 'DENTIST', status: 'Active' },
+    { id: 'assist1', name: 'John Doe', role: UserRole.DENTAL_ASSISTANT, pin: CryptoJS.SHA256(STAFF_PINS.get('assist1')!).toString(), defaultBranch: 'Makati Main', allowedBranches: ['Makati Main'], colorPreference: '#9b59b6', licenseCategory: 'HYGIENIST', status: 'Active' },
+    { id: 'admin1', name: 'Sarah Connor', role: UserRole.ADMIN, pin: CryptoJS.SHA256(STAFF_PINS.get('admin1')!).toString(), defaultBranch: 'Makati Main', allowedBranches: ['Makati Main', 'Quezon City Satellite'], colorPreference: '#e74c3c', status: 'Active' },
+    { id: 'arch1', name: 'Dr. Adam Architect', role: UserRole.SYSTEM_ARCHITECT, pin: CryptoJS.SHA256(STAFF_PINS.get('arch1')!).toString(), defaultBranch: 'Makati Main', allowedBranches: ['Makati Main', 'Quezon City Satellite'], colorPreference: '#f1c40f', status: 'Active' }
 ];
 
 // FIX: Define and export PATIENTS mock data
@@ -241,7 +252,7 @@ My signature below confirms that I have read, understood, and agree to these ter
 4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman hindi nito maaapektuhan ang Media na nakuha na.
 
 Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ayon ako sa mga tuntuning ito.` },
-    { id: 'FINANCIAL_CONSENT', name: 'Financial Consent', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
+    { id: 'FINANCIAL_AGREEMENT', name: 'Financial Agreement', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
 
 1.  **Estimate vs. Actual Cost**: The provided quote is an estimate. Unforeseen clinical findings during treatment may require changes to the plan and associated costs. I will be informed of any significant changes.
 2.  **Financial Responsibility**: I am fully responsible for the total payment of all procedures performed. I agree to pay for services at the time they are rendered unless other arrangements have been made in advance.
@@ -793,6 +804,36 @@ export const DEFAULT_COMMUNICATION_TEMPLATES: CommunicationTemplate[] = [
   { id: 'post_op_check', category: 'Follow-up', title: 'Post-Op Check-in', content: 'Hi {patientName}, this is {clinicName} checking in after your procedure on {appointmentDate}. We hope you are recovering well. Please do not hesitate to contact us if you have any concerns.' },
 ];
 
+export const DEFAULT_SMS_TEMPLATES: Record<string, SmsTemplateConfig> = {
+    'clearance_approved': {
+        id: 'clearance_approved',
+        label: 'Medical Clearance Approved',
+        text: 'Hi {PatientName}, good news! Your medical clearance from {DoctorName} has been approved. You may now proceed with your scheduled treatment. - {ClinicName}',
+        enabled: true,
+        category: 'Safety',
+        triggerDescription: 'Sent when a pending medical clearance is marked as approved.',
+        isPdaCompliant: true,
+    },
+    'clearance_rejected': {
+        id: 'clearance_rejected',
+        label: 'Medical Clearance Rejected',
+        text: 'Hi {PatientName}, please contact us at {ClinicContactNumber}. There is an update regarding your medical clearance from {DoctorName} that requires discussion. - {ClinicName}',
+        enabled: true,
+        category: 'Safety',
+        triggerDescription: 'Sent when a pending medical clearance is rejected.',
+        isPdaCompliant: true,
+    },
+    'appt_booking_confirmation': {
+        id: 'appt_booking_confirmation',
+        label: 'Appointment Booking Confirmation',
+        text: 'Your appointment at {ClinicName} for {Procedure} with {ProviderName} on {Date} at {Time} is booked. Reply YES to confirm or call {ClinicContactNumber} to reschedule.',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent when a new appointment is created in the system.',
+        isPdaCompliant: true,
+    }
+};
+
 // FIX: Define and export DEFAULT_SETTINGS
 export const DEFAULT_SETTINGS: FieldSettings = {
     clinicName: 'dentsched',
@@ -825,8 +866,8 @@ export const DEFAULT_SETTINGS: FieldSettings = {
         { id: 'proc_1', name: 'Consultation', category: 'General', defaultDurationMinutes: 30 },
         { id: 'proc_2', name: 'Oral Prophylaxis', category: 'Preventive', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
         { id: 'proc_3', name: 'Composite Restoration', category: 'Restorative', defaultDurationMinutes: 60, requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-        { id: 'proc_4', name: 'Simple Extraction', category: 'Surgery', defaultDurationMinutes: 45, requiresConsent: true, requiresSurgicalConsent: true, requiresXray: true, allowedLicenseCategories: ['DENTIST'] },
-        { id: 'proc_5', name: 'Zirconia Crown', category: 'Prosthodontics', defaultDurationMinutes: 90, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] }
+        { id: 'proc_4', name: 'Simple Extraction', category: 'Surgery', defaultDurationMinutes: 45, requiresConsent: true, requiresSurgicalConsent: true, requiresXray: true, allowedLicenseCategories: ['DENTIST'], requiresWitness: true },
+        { id: 'proc_5', name: 'Zirconia Crown', category: 'Prosthodontics', defaultDurationMinutes: 90, requiresConsent: true, allowedLicenseCategories: ['DENTIST'], requiresWitness: true }
     ],
     medications: [],
     shadeGuides: ['Vita Classical', 'Vita 3D-Master'],
@@ -844,7 +885,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
     assets: [],
     vendors: [],
     hospitalAffiliations: [],
-    smsTemplates: {} as SmsTemplates,
+    smsTemplates: DEFAULT_SMS_TEMPLATES as SmsTemplates,
     smsConfig: {} as SmsConfig,
     consentFormTemplates: DEFAULT_CONSENT_FORM_TEMPLATES,
     smartPhrases: [],

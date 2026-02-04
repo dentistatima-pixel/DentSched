@@ -12,8 +12,9 @@ import {
     HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
-    ClinicalIncident 
+    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
+    ClinicalIncident,
+    HMOClaimStatus
 } from '../types';
 import Analytics from './Analytics';
 import { formatDate, generateUid } from '../constants';
@@ -21,6 +22,7 @@ import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import Payroll from './Payroll';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -198,7 +200,7 @@ const HMOClaimsTab: React.FC<{
                             <td className="p-3 text-right font-mono text-text-primary">₱{claim.amountClaimed.toLocaleString()}</td>
                             <td className="p-3 text-center"><span className="text-xs font-bold px-2 py-1 rounded bg-bg-tertiary text-text-primary">{claim.status}</span></td>
                             <td className="p-3 text-center">
-                                {claim.status === 'Submitted' && 
+                                {claim.status === HMOClaimStatus.SUBMITTED && 
                                     <div className="flex gap-2 justify-center">
                                         <button onClick={() => { const amt = prompt("Enter amount received:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.PAID, { amountReceived: parseFloat(amt || '0') })}} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</button>
                                         <button onClick={() => { const reason = prompt("Reason for rejection:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.REJECTED, { rejectionReason: reason || 'No reason provided' })}} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Reject</button>
@@ -295,6 +297,33 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
         { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
     ];
     
+    const renderContent = () => {
+        switch(activeTab) {
+            case 'hmo':
+                return <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />;
+            case 'expenses':
+                return <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />;
+            case 'payroll':
+                return <Payroll
+                    payrollPeriods={props.payrollPeriods}
+                    payrollAdjustments={props.payrollAdjustments}
+                    commissionDisputes={props.commissionDisputes}
+                    onUpdatePayrollPeriod={props.onUpdatePayrollPeriod}
+                    onAddPayrollAdjustment={props.onAddPayrollAdjustment}
+                    onApproveAdjustment={props.onApproveAdjustment}
+                    onAddCommissionDispute={props.onAddCommissionDispute}
+                    onResolveCommissionDispute={props.onResolveCommissionDispute}
+                    staff={props.staff || []}
+                    currentUser={props.currentUser}
+                    onAddPayrollPeriod={props.onAddPayrollPeriod}
+                />;
+            case 'reconciliation':
+                 return <div className="p-8"><h3 className="text-lg font-bold">Reconciliation</h3><p>Coming soon...</p></div>;
+            default:
+                return null;
+        }
+    };
+    
     return (
       <div className="p-8 space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
@@ -307,8 +336,7 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
              <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg"><History size={16}/> EOD Report</button>
         </div>
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-            {activeTab === 'hmo' && <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />}
-            {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
+            {renderContent()}
         </div>
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
       </div>

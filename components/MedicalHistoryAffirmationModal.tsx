@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment } from '../types';
 import { X, HeartPulse, CheckCircle, Eraser, AlertTriangle } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { checkSignatureQuality } from '../utils/signatureValidation';
 
 interface MedicalHistoryAffirmationModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
   const [isSigning, setIsSigning] = useState(false);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const toast = useToast();
+  const [strokeCount, setStrokeCount] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   const daysSinceUpdate = patient.lastDigitalUpdate ? Math.floor(
     (Date.now() - new Date(patient.lastDigitalUpdate).getTime()) / (1000 * 60 * 60 * 24)
@@ -51,6 +54,8 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
       if(isOpen) {
         setStep('question');
         setNotes('');
+        setStrokeCount(0);
+        setStartTime(null);
       }
       if(isOpen && step === 'details') {
           setTimeout(setupCanvas, 50);
@@ -66,6 +71,10 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
   const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
     if (e.pointerType === 'touch' && e.width > 10) return;
     e.preventDefault(); 
+    if (!isSigning) {
+        setStrokeCount(prev => prev + 1);
+        if (startTime === null) setStartTime(Date.now());
+    }
     setIsSigning(true); 
     const { x, y } = getCoords(e); 
     const ctx = e.currentTarget.getContext('2d'); 
@@ -87,7 +96,15 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
         ctx.stroke(); 
     } 
   };
-  const clearCanvas = () => { const canvas = signatureCanvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
+  const clearCanvas = () => { 
+      const canvas = signatureCanvasRef.current; 
+      if(canvas){
+          const ctx = canvas.getContext('2d'); 
+          if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      setStrokeCount(0);
+      setStartTime(null);
+  };
 
   const handleNoChanges = () => {
     onConfirm({
@@ -106,11 +123,14 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
           toast.error("Please provide notes on the changes and sign to confirm.");
           return;
       }
-      const isCanvasBlank = !canvas.getContext('2d')?.getImageData(0,0,canvas.width, canvas.height).data.some(channel => channel !== 0);
-      if(isCanvasBlank) {
-        toast.error("A signature is required to confirm changes.");
-        return;
+      
+      const timeToSign = startTime ? Date.now() - startTime : 0;
+      const qualityCheck = checkSignatureQuality(canvas, strokeCount, timeToSign);
+      if (!qualityCheck.valid) {
+          toast.error(qualityCheck.reason || "Signature quality is too low.");
+          return;
       }
+
       const signature = canvas.toDataURL('image/png');
       
       onConfirm({

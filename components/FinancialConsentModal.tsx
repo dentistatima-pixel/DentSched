@@ -3,6 +3,7 @@ import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '.
 import { X, CheckCircle, Eraser, FileSignature, DollarSign } from 'lucide-react';
 import { usePatient } from '../contexts/PatientContext';
 import { useToast } from './ToastSystem';
+import { checkSignatureQuality } from '../utils/signatureValidation';
 
 interface FinancialConsentModalProps {
     isOpen: boolean;
@@ -23,6 +24,8 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
         responsible: false,
         discussed: false,
     });
+    const [strokeCount, setStrokeCount] = useState(0);
+    const [startTime, setStartTime] = useState<number | null>(null);
 
     const allAffirmed = affirmations.understood && affirmations.responsible && affirmations.discussed;
     
@@ -50,6 +53,8 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
         if (isOpen) {
            setTimeout(setupCanvas, 50);
            setAffirmations({ understood: false, responsible: false, discussed: false });
+           setStrokeCount(0);
+           setStartTime(null);
            canvas?.addEventListener('touchstart', touchHandler, { passive: false });
         }
         
@@ -67,6 +72,10 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
         if (e.pointerType === 'touch' && e.width > 10) return;
         e.preventDefault(); 
+        if (!isSigning) {
+            setStrokeCount(prev => prev + 1);
+            if (startTime === null) setStartTime(Date.now());
+        }
         setIsSigning(true); 
         const { x, y } = getCoords(e); 
         const ctx = e.currentTarget.getContext('2d'); 
@@ -97,7 +106,13 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
             ctx.stroke(); 
         } 
     };
-    const clearCanvas = () => { const canvas = signatureCanvasRef.current; const ctx = canvas?.getContext('2d'); if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); }};
+    const clearCanvas = () => { 
+        const canvas = signatureCanvasRef.current; 
+        const ctx = canvas?.getContext('2d'); 
+        if (canvas && ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        setStrokeCount(0);
+        setStartTime(null);
+    };
 
     const handleSave = async () => {
         const signatureCanvas = signatureCanvasRef.current;
@@ -105,6 +120,13 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
             toast.error("Please acknowledge all affirmations and provide a signature before saving.");
             return;
         };
+
+        const timeToSign = startTime ? Date.now() - startTime : 0;
+        const qualityCheck = checkSignatureQuality(signatureCanvas, strokeCount, timeToSign);
+        if (!qualityCheck.valid) {
+            toast.error(qualityCheck.reason || "Signature quality is too low.");
+            return;
+        }
 
         const signatureDataUrl = signatureCanvas.toDataURL('image/png');
 

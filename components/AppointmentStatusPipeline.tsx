@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Appointment, AppointmentStatus } from '../types';
 import { Check } from 'lucide-react';

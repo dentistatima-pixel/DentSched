@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
-import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, SignatureChainEntry } from '../types';
+import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, SignatureChainEntry, ConsentRecord } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
@@ -43,6 +43,8 @@ interface PatientContextType {
     handleSaveInformedRefusal: (patientId: string, refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => Promise<void>;
     handleVoidNote: (patientId: string, noteId: string, reason: string) => Promise<string | null>;
     handlePatientSignOffOnNote: (patientId: string, noteId: string, signature: string) => Promise<void>;
+    addConsentRecord: (patientId: string, consent: Omit<ConsentRecord, 'id'>) => Promise<void>;
+    revokeConsent: (patientId: string, consentId: string) => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -177,13 +179,15 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             items: planItems.map(i => ({ p: i.procedure, t: i.toothNumber, c: i.price }))
         })).toString();
         
+        const previousHash = plan.approvalSignatureChain?.slice(-1)[0]?.hash || '0';
+
         const signatureEntry = createSignatureEntry(
             signatureDataUrl,
             {
                 signerName: patient.name,
                 signerRole: 'Patient',
                 signatureType: 'patient',
-                previousHash: '0',
+                previousHash,
                 metadata: {
                     deviceInfo: navigator.userAgent,
                     consentType: 'Financial Consent',
@@ -194,7 +198,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         const updatedPlans = patient.treatmentPlans?.map(p => 
             p.id === plan.id 
-            ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignatureChain: [signatureEntry] } 
+            ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignatureChain: [...(p.financialConsentSignatureChain || []), signatureEntry] } 
             : p
         );
         await handleSavePatient({ ...patient, treatmentPlans: updatedPlans });
@@ -356,6 +360,21 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         toast.success("Patient sign-off recorded.");
     };
 
+    const addConsentRecord = async (patientId: string, consent: Omit<ConsentRecord, 'id'>) => {
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) return;
+        const newRecord: ConsentRecord = { ...consent, id: generateUid('con') };
+        const updatedPatient = {
+            ...patient,
+            consentHistory: [...(patient.consentHistory || []), newRecord]
+        };
+        await handleSavePatient(updatedPatient);
+    };
+    
+    const revokeConsent = async (patientId: string, consentId: string) => {
+        // More complex logic for revocation would go here
+    };
+
     
     const value = {
         patients: scopedPatients,
@@ -371,6 +390,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         handleSaveInformedRefusal,
         handleVoidNote,
         handlePatientSignOffOnNote,
+        addConsentRecord,
+        revokeConsent,
     };
     
     return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;

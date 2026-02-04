@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { X, Command } from 'lucide-react';
+import { X, Command, CornerDownLeft } from 'lucide-react';
 
 interface ShortcutHelpModalProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface ShortcutHelpModalProps {
 const shortcuts = [
   { keys: ['⌘', 'K'], description: 'Open Command Bar for global search' },
   { keys: ['⌘', '/'], description: 'Show this keyboard shortcuts menu' },
+  { keys: ['Alt', 'N'], description: 'Book a New Appointment' },
+  { keys: ['Alt', 'P'], description: 'Start New Patient Registration' },
   { keys: ['ESC'], description: 'Close any open modal or pop-up' },
 ];
 
@@ -34,13 +37,16 @@ const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, onClose }
               <div className="flex items-center gap-1">
                 {shortcut.keys.map(key => (
                   <kbd key={key} className="px-2 py-1 bg-slate-200 text-slate-600 rounded-md text-xs font-mono font-bold">
-                    {key}
+                    {key === '⌘' ? <Command size={10} /> : key}
                   </kbd>
                 ))}
               </div>
             </div>
           ))}
         </div>
+        <div className="p-2 border-t border-slate-100 bg-slate-50/50 flex justify-center items-center text-xs text-slate-400 font-bold">
+            <div className="flex items-center gap-2 px-2"><span>Select in Command Bar</span><CornerDownLeft size={12}/></div>
+         </div>
       </div>
     </div>
   );

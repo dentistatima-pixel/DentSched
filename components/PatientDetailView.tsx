@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
@@ -23,9 +24,8 @@ import { useAppointments } from '../contexts/AppointmentContext';
 
 
 // Lazy load heavy components
-const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
+const Odontonotes = React.lazy(() => import('./Odontonotes'));
 const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
-// FIX: Corrected lazy import to properly handle the named export 'PerioChart'. The previous syntax was causing type resolution issues.
 const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
@@ -108,6 +108,68 @@ const DiagnosticGallery: React.FC<{
     const [primaryImageId, setPrimaryImageId] = useState<string | null>(null);
     const toast = useToast();
 
+    const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+    const imageRef = useRef<HTMLImageElement>(null);
+    const touchStartRef = useRef<{ distance: number; lastPan: { x: number; y: number } | null }>({ distance: 0, lastPan: null });
+
+    useEffect(() => {
+        if (!lightboxImage) {
+            setTransform({ scale: 1, x: 0, y: 0 });
+        }
+    }, [lightboxImage]);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 2) { // Pinch
+            e.preventDefault();
+            const [t1, t2] = e.touches;
+            touchStartRef.current = {
+                distance: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
+                lastPan: null,
+            };
+        } else if (e.touches.length === 1 && transform.scale > 1) { // Pan
+            e.preventDefault();
+            touchStartRef.current.lastPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (e.touches.length === 2) { // Zooming
+            e.preventDefault();
+            const [t1, t2] = e.touches;
+            const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+            const scale = Math.max(1, Math.min(5, transform.scale * (currentDistance / touchStartRef.current.distance)));
+            setTransform(t => ({ ...t, scale }));
+            touchStartRef.current.distance = currentDistance;
+        } else if (e.touches.length === 1 && transform.scale > 1 && touchStartRef.current.lastPan) { // Panning
+            e.preventDefault();
+            const [touch] = e.touches;
+            const dx = touch.clientX - touchStartRef.current.lastPan.x;
+            const dy = touch.clientY - touchStartRef.current.lastPan.y;
+
+            setTransform(t => {
+                const img = imageRef.current;
+                if (!img) return t;
+                const rect = img.getBoundingClientRect();
+                const maxX = Math.max(0, (rect.width - window.innerWidth) / 2);
+                const maxY = Math.max(0, (rect.height - window.innerHeight) / 2);
+
+                return {
+                    ...t,
+                    x: Math.max(-maxX, Math.min(maxX, t.x + dx)),
+                    y: Math.max(-maxY, Math.min(maxY, t.y + dy)),
+                };
+            });
+            touchStartRef.current.lastPan = { x: touch.clientX, y: touch.clientY };
+        }
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (e.touches.length < 2) touchStartRef.current.lastPan = null;
+        if (e.touches.length === 0 && transform.scale <= 1) {
+            setTransform({ scale: 1, x: 0, y: 0 });
+        }
+    };
+
     const images = useMemo(() => 
         (patient.files?.filter(f => f.category === 'X-Ray') || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [patient.files]);
@@ -116,7 +178,6 @@ const DiagnosticGallery: React.FC<{
         if (images.length > 0 && !primaryImageId) {
             setPrimaryImageId(images[0].id);
         } else if (images.length > 0 && primaryImageId && !images.find(img => img.id === primaryImageId)) {
-            // If the selected image was deleted, select the new first one
             setPrimaryImageId(images[0].id);
         } else if (images.length === 0) {
             setPrimaryImageId(null);
@@ -212,8 +273,8 @@ const DiagnosticGallery: React.FC<{
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
 
             {lightboxImage && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
-                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4" onClick={() => setLightboxImage(null)} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+                    <img ref={imageRef} src={lightboxImage} alt="Radiograph" className="max-w-[95vw] max-h-[95vh] rounded-lg shadow-2xl transition-transform duration-200" onClick={(e) => e.stopPropagation()} style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, touchAction: 'none' }}/>
                     <button onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
                 </div>
             )}
@@ -394,7 +455,8 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const navigate = useNavigate();
   const { patients } = usePatient();
   const { setFullScreenView } = useAppContext();
-  const { showModal } = useModal();
+  // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+  const { openModal: showModal } = useModal();
   const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
 
   if (!patient || !fieldSettings) {

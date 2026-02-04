@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 
 export interface Branch {
@@ -190,6 +192,7 @@ export enum PayrollStatus {
 export interface PayrollAdjustment {
     id: string;
     periodId: string;
+    staffId: string;
     amount: number;
     reason: string;
     requestedBy: string;
@@ -483,6 +486,8 @@ export interface OrthoAdjustment {
     dentist: string;
 }
 
+export type ConsentTier = 'ROUTINE' | 'STANDARD' | 'HIGH_RISK';
+
 export interface ProcedureItem {
   id: string;
   name: string;
@@ -499,6 +504,9 @@ export interface ProcedureItem {
   defaultDurationMinutes?: number;
   isMinorProcedure?: boolean;
   requiresSurgicalConsent?: boolean;
+  postOpInstructions?: string[];
+  safetyChecklist?: string[];
+  consentTier?: ConsentTier;
 }
 
 export interface RolePermissions {
@@ -601,7 +609,7 @@ export interface ClinicalProtocolRule {
 export interface Vendor {
     id: string;
     name: string;
-    type: 'Lab' | 'HMO' | 'Supplier' | 'Other';
+    type: 'Lab' | 'HMO' | 'Supplier' | 'Pharmacy' | 'Other';
     contactPerson: string;
     contactNumber: string;
     email: string;
@@ -818,6 +826,7 @@ export interface Appointment {
   postOpHandoverChain?: SignatureChainEntry[];
   patientSignOffSignature?: string;
   patientSignOffTimestamp?: string;
+  reminderSentAt?: string;
 }
 
 export enum RegistrationStatus {
@@ -894,7 +903,7 @@ export interface ClinicalMediaConsent {
     imageHashes: string[];
     procedure: string;
     device: string;
-    consentReconfirmed: boolean;
+    consentVerified: boolean;
     purpose: 'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing';
   }>;
   
@@ -1054,6 +1063,7 @@ export interface Patient {
   lastGeneralConsentDate?: string;
   lastGeneralConsentExpiryDate?: string;
   consentHistory?: ConsentRecord[];
+  birthdayGreetingSentYear?: number;
 }
 
 export enum TreatmentPlanStatus {
@@ -1399,7 +1409,6 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
-  priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];
@@ -1485,16 +1494,24 @@ export interface ConsentRecord {
   id: string;
   templateId: string;
   templateName: string;
-  // FIX: Renamed 'capturedDate' to 'timestamp' to match usage.
-  timestamp: string; // Changed from capturedDate
+  timestamp: string;
   expiryDate: string;
   signatureHash: string;
   isExpired: boolean;
   procedureId?: string; // If procedure-specific
-  // FIX: Added missing properties to support detailed logging.
   consentType: ConsentCategory;
   granted: boolean;
   userAgent?: string;
   ipAddress?: string;
   witnessHash?: string;
+}
+
+// --- NEW TYPE for MedicoLegalGuard ---
+export interface MedicolegalBlock {
+    isBlocked: boolean;
+    reason: string;
+    modal?: {
+        type: string;
+        props: any;
+    };
 }

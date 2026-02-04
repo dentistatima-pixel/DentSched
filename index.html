@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -112,6 +113,8 @@
         color: var(--text-primary);
         transition: background-color 0.3s ease, color 0.3s ease;
         font-size: 16px; /* Set base font size for tablet readability */
+        -webkit-overflow-scrolling: touch; /* Add momentum scrolling for tablets */
+        overscroll-behavior: contain; /* Prevent pull-to-refresh on body */
       }
       
       /* Global Form Styling - Tablet Optimized */
@@ -140,6 +143,43 @@
         background-size: 1.2em;
         padding-right: 3rem;
       }
+      
+      /* Style native date pickers to be more touch-friendly and consistent */
+      input[type="date"].input {
+        position: relative;
+        padding-right: 3rem; /* Make space for icon */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+      input[type="date"].input::-webkit-calendar-picker-indicator {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      input[type="date"].input::before {
+        content: '';
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.5em;
+        height: 1.5em;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        pointer-events: none;
+      }
+
 
       textarea.input {
         height: auto;
@@ -237,8 +277,10 @@
 
       /* Utilities */
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overscroll-behavior: contain; }
       .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+      .capitalize { text-transform: capitalize; }
+      .momentum-scroll { -webkit-overflow-scrolling: touch; }
 
       /* Custom scrollbar for webkit */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -368,6 +410,7 @@
       .main-header-container {
         flex-direction: column;
       }
+      .reg-form-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
 
       /* Landscape */
       @media (orientation: landscape) {
@@ -395,6 +438,16 @@
         .main-header-container {
             flex-direction: row;
         }
+
+        .reg-form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; }
+        .reg-span-12 { grid-column: span 12 / span 12; }
+        .reg-span-9 { grid-column: span 9 / span 9; }
+        .reg-span-8 { grid-column: span 8 / span 8; }
+        .reg-span-6 { grid-column: span 6 / span 6; }
+        .reg-span-4 { grid-column: span 4 / span 4; }
+        .reg-span-3 { grid-column: span 3 / span 3; }
+        .reg-span-2 { grid-column: span 2 / span 2; }
+
       }
 
       /* Inspector Panel for Calendar */
@@ -417,8 +470,8 @@
           transform: translateX(0);
       }
       
-      .modal-keyboard-open {
-        padding-bottom: 350px; /* Adjust this value based on typical keyboard height */
+      .modal-content-scrollable.keyboard-visible {
+        padding-bottom: 300px; /* Adjust based on typical keyboard height */
         scroll-behavior: smooth;
       }
 

@@ -1,5 +1,6 @@
-import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem, AppointmentStatus } from '../types';
-import { isExpired } from '../constants';
+
+import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem, AppointmentStatus, AuthorityLevel } from '../types';
+import { isExpired, calculateAge } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';
 import { validateSignatureChain } from './signatureVerification';
 
@@ -17,6 +18,7 @@ export const canStartTreatment = (
     patient: Patient,
     provider: User,
     fieldSettings: FieldSettings,
+    staff: User[],
 ): MedicolegalBlock => {
     // 1. Practitioner License & Authority
     if (isExpired(provider.prcExpiry)) {
@@ -44,8 +46,28 @@ export const canStartTreatment = (
         return { isBlocked: true, reason: 'Patient registration is incomplete.', modal: { type: 'incompleteRegistration', props: { patient, missingItems: ['Signature', 'Medical History Section'], riskLevel: 'High' } } };
     }
 
+    // NEW #11: Pediatric Guardian Verification
+    const age = calculateAge(patient.dob);
+    if (age !== undefined && age < 18) {
+        if (!patient.guardianProfile || patient.guardianProfile.authorityLevel !== AuthorityLevel.FULL) {
+            return {
+                isBlocked: true,
+                reason: 'A guardian with Full Authority must be registered for minor patients.',
+                modal: { type: 'safetyAlert', props: { title: 'Guardian Required', message: `Patient ${patient.name} is a minor. Please update their profile to include a guardian with Full Medical and Financial Authority before proceeding.` }}
+            };
+        }
+        const hasGuardianConsent = appointment.consentSignatureChain?.some(s => s.signatureType === 'guardian');
+        if (!hasGuardianConsent) {
+             const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'PEDIATRIC_CONSENT');
+             if (consentTemplate) {
+                return { isBlocked: true, reason: 'Guardian consent required for today\'s session.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure }}};
+             }
+        }
+    }
+
     // 3. Medical History Affirmation for today's session
-    if (!appointment.medHistoryAffirmation) {
+    const affirmation = appointment.medHistoryAffirmation;
+    if (!affirmation || new Date(affirmation.affirmedAt).toLocaleDateString('en-CA') !== new Date(appointment.date).toLocaleDateString('en-CA')) {
          return { isBlocked: true, reason: 'Patient medical history must be affirmed for today\'s session.', modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } };
     }
 
@@ -53,7 +75,15 @@ export const canStartTreatment = (
     if (fieldSettings.features.enableClinicalProtocolAlerts && procedure) {
         const { violations, rule } = checkClinicalProtocols(patient, procedure, fieldSettings.clinicalProtocolRules || []);
         if (violations.length > 0 && rule) {
-            return { isBlocked: true, reason: violations[0], modal: { type: 'protocolOverride', props: { rule, appointment } } };
+            const override = appointment.protocolOverrides?.find(o => o.ruleId === rule.id);
+            const isApproved = override && override.signatureChain.some(sig => {
+                const signer = staff.find(s => s.name === sig.signerName);
+                return signer?.role === UserRole.LEAD_DENTIST;
+            });
+
+            if (!isApproved) {
+                return { isBlocked: true, reason: violations[0], modal: { type: 'protocolOverride', props: { rule, appointment } } };
+            }
         }
     }
 
@@ -79,12 +109,11 @@ export const canStartTreatment = (
 
     // 6. Standard Consent
     if (procedure?.requiresConsent) {
-        // FIX #4: Consent Form Template Validation
         const consentTemplate = fieldSettings.consentFormTemplates.find(
           t => t.id === 'GENERAL_AUTHORIZATION'
         );
 
-        if (!consentTemplate || !consentTemplate.content_en || !consentTemplate.content_tl) {
+        if (!consentTemplate || !consentTemplate.content_en || consentTemplate.content_en.length < 500) {
           return { 
             isBlocked: true, 
             reason: 'SYSTEM ERROR: Consent template is missing or invalid. Cannot proceed.',
@@ -92,7 +121,7 @@ export const canStartTreatment = (
               type: 'safetyAlert', 
               props: { 
                 title: 'Configuration Error', 
-                message: 'Required consent templates are not properly configured.' 
+                message: 'Required consent templates are not properly configured or content is inadequate.' 
               } 
             }
           };
@@ -105,10 +134,22 @@ export const canStartTreatment = (
         }
         
         if (latestConsent.expiresAt && new Date(latestConsent.expiresAt) < new Date()) {
+            const consentAge = Date.now() - new Date(latestConsent.timestamp).getTime();
+            const isRecentlyExpired = consentAge < (365 + 90) * 24 * 60 * 60 * 1000; // Expired within the year + 90 days grace
             return { 
                 isBlocked: true, 
-                reason: 'Consent has expired. New consent required.',
-                modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } }
+                reason: 'Consent has expired. Renewal required.',
+                modal: { 
+                    type: 'consentCapture', 
+                    props: { 
+                        patient, 
+                        appointment, 
+                        template: consentTemplate, 
+                        procedure,
+                        isRenewal: isRecentlyExpired,
+                        previousConsent: latestConsent
+                    } 
+                }
             };
         }
         
@@ -155,11 +196,43 @@ export const canCompleteAppointment = (
     procedure: ProcedureItem | undefined
 ): MedicolegalBlock => {
     // If a procedure was performed, require post-op handover
-    if (appointment.status === AppointmentStatus.TREATING && !appointment.isBlock) {
-        if (!appointment.postOpHandoverChain || appointment.postOpHandoverChain.length === 0) {
+    if (([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(appointment.status)) && !appointment.isBlock) {
+        const handoverChain = appointment.postOpHandoverChain;
+        if (!handoverChain || handoverChain.length === 0) {
             return {
                 isBlocked: true,
                 reason: 'Post-operative handover and patient instructions must be documented.',
+                modal: { type: 'postOpHandover', props: { appointment, patient, procedure } }
+            };
+        }
+        
+        // ADDED VALIDATION CHECKS
+        const chainValidation = validateSignatureChain(handoverChain);
+        if (!chainValidation.valid) {
+            return {
+                isBlocked: true,
+                reason: `Post-op handover chain compromised: ${chainValidation.errors.join(', ')}`,
+                modal: { type: 'safetyAlert', props: { title: 'Record Integrity Error', message: 'The post-op signature chain has been tampered with or is invalid.' } }
+            };
+        }
+        
+        const patientSignature = handoverChain.find(s => s.signatureType === 'patient' || s.signatureType === 'guardian');
+        if (!patientSignature) {
+            return {
+                isBlocked: true,
+                reason: 'Patient/Guardian signature missing from post-op handover.',
+                modal: { type: 'postOpHandover', props: { appointment, patient, procedure } }
+            };
+        }
+        
+        const handoverTime = new Date(patientSignature.timestamp).getTime();
+        const treatmentTime = new Date(appointment.date + 'T' + appointment.time).getTime();
+        const fourHours = 4 * 60 * 60 * 1000;
+        
+        if (Math.abs(handoverTime - treatmentTime) > fourHours) {
+             return {
+                isBlocked: true,
+                reason: 'Post-op handover signature timestamp is suspicious (more than 4 hours from appointment time). Re-affirmation needed.',
                 modal: { type: 'postOpHandover', props: { appointment, patient, procedure } }
             };
         }

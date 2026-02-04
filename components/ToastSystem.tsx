@@ -7,10 +7,14 @@ interface Toast {
     id: string;
     type: ToastType;
     message: string;
+    onAction?: () => void;
+    actionLabel?: string;
 }
 
 interface ToastOptions {
     duration?: number;
+    onAction?: () => void;
+    actionLabel?: string;
 }
 
 interface ToastContextType {
@@ -38,13 +42,15 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const addToast = (message: string, type: ToastType, options: ToastOptions = {}) => {
         const id = Math.random().toString(36).substr(2, 9);
-        setToasts(prev => [...prev, { id, message, type }]);
+        setToasts(prev => [...prev, { id, message, type, onAction: options.onAction, actionLabel: options.actionLabel }]);
         
         const duration = options.duration || 4000;
         
-        setTimeout(() => {
-            removeToast(id);
-        }, duration);
+        if (!options.onAction) { // Don't auto-dismiss toasts with actions
+            setTimeout(() => {
+                removeToast(id);
+            }, duration);
+        }
     };
 
     const removeToast = (id: string) => {
@@ -76,13 +82,24 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                             key={toast.id}
                             className={`
                                 pointer-events-auto min-w-[300px] max-w-[400px] p-4 rounded-xl shadow-2xl text-white
-                                flex items-start gap-3 border-b-4
+                                flex items-center gap-3 border-b-4
                                 ${colors[toast.type]}
                                 animate-in slide-in-from-top-4 fade-in duration-300
                             `}
                         >
                             <Icon size={20} className="mt-0.5 shrink-0" />
                             <p className="flex-1 text-sm font-bold leading-snug">{toast.message}</p>
+                            {toast.onAction && toast.actionLabel && (
+                                <button
+                                    onClick={() => {
+                                        toast.onAction?.();
+                                        removeToast(toast.id);
+                                    }}
+                                    className="ml-2 font-black uppercase text-xs bg-white/20 px-3 py-1.5 rounded-lg hover:bg-white/30 transition-colors"
+                                >
+                                    {toast.actionLabel}
+                                </button>
+                            )}
                             <button onClick={() => removeToast(toast.id)} className="p-1 -mr-1 -mt-1 rounded-full hover:bg-white/20 transition-colors">
                                 <X size={16} />
                             </button>

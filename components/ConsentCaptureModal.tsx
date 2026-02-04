@@ -5,6 +5,7 @@ import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 import { generateUid, calculateAge, formatDate } from '../constants';
 import { useStaff } from '../contexts/StaffContext';
+import { checkSignatureQuality } from '../utils/signatureValidation';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -15,10 +16,12 @@ interface ConsentCaptureModalProps {
     provider?: User;
     template: ConsentFormTemplate;
     procedure?: ProcedureItem;
+    isRenewal?: boolean;
+    previousConsent?: SignatureChainEntry;
 }
 
 const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
-    isOpen, onClose, onSave, patient, appointment, provider, template, procedure
+    isOpen, onClose, onSave, patient, appointment, provider, template, procedure, isRenewal
 }) => {
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
     const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,12 +49,37 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const [guardianIdHash, setGuardianIdHash] = useState<string | null>(null);
     const [isCameraLoading, setIsCameraLoading] = useState(false);
 
-    const riskDisclosures = procedure?.riskDisclosures || [];
+    const [patientStrokeCount, setPatientStrokeCount] = useState(0);
+    const [patientStartTime, setPatientStartTime] = useState<number | null>(null);
+    const [witnessStrokeCount, setWitnessStrokeCount] = useState(0);
+    const [witnessStartTime, setWitnessStartTime] = useState<number | null>(null);
+    
+    const [signatureQuality, setSignatureQuality] = useState<'none' | 'weak' | 'good'>('none');
+
+    const isRoutineConsent = procedure?.consentTier === 'ROUTINE' || isRenewal;
+
+    const riskDisclosures = isRoutineConsent ? [] : (procedure?.riskDisclosures || []);
     const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
     const allAffirmationsChecked = allRisksAcknowledged && isDuressAffirmed && isOpportunityAffirmed && isVoluntaryAffirmed;
     
     const canProceedToSign = allAffirmationsChecked && 
         (!needsGuardianVerification || (guardianIdPhoto && guardianIdHash));
+    
+    useEffect(() => {
+        const canvas = signatureCanvasRef.current;
+        if (!canvas || patientStrokeCount === 0) {
+            setSignatureQuality('none');
+            return;
+        }
+
+        const check = () => {
+            const timeToSign = patientStartTime ? Date.now() - patientStartTime : 0;
+            const validation = checkSignatureQuality(canvas, patientStrokeCount, timeToSign);
+            setSignatureQuality(validation.valid ? 'good' : 'weak');
+        };
+        const debounceTimer = setTimeout(check, 300);
+        return () => clearTimeout(debounceTimer);
+    }, [patientStrokeCount, patientStartTime]);
 
     const startCamera = async () => {
         setIsCameraLoading(true);
@@ -74,8 +102,44 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         if (video && canvas && video.readyState >= 3) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(video, 0, 0);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return;
+            
+            ctx.drawImage(video, 0, 0);
+
+            const validateImageContent = (canvasEl: HTMLCanvasElement): { isValid: boolean, message: string } => {
+                const context = canvasEl.getContext('2d', { willReadFrequently: true });
+                if (!context) return { isValid: false, message: "Could not get canvas context." };
+
+                const imageData = context.getImageData(0, 0, canvasEl.width, canvasEl.height);
+                const data = imageData.data;
+                const pixelCount = data.length / 4;
+                let darkPixels = 0;
+                let lightPixels = 0;
+                const blankThreshold = 0.95; 
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    if (brightness < 25) darkPixels++; 
+                    if (brightness > 230) lightPixels++; 
+                }
+
+                if ((darkPixels / pixelCount) > blankThreshold) {
+                    return { isValid: false, message: "Image is too dark. Please ensure the ID is well-lit and not covered." };
+                }
+                if ((lightPixels / pixelCount) > blankThreshold) {
+                    return { isValid: false, message: "Image is too bright or washed out. Please avoid glare on the ID." };
+                }
+                
+                return { isValid: true, message: "Content detected." };
+            };
+            
+            const validation = validateImageContent(canvas);
+            if (!validation.isValid) {
+                toast.error(validation.message);
+                return;
+            }
+
             const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
             setGuardianIdPhoto(dataUrl);
             setGuardianIdHash(CryptoJS.SHA256(dataUrl).toString());
@@ -114,10 +178,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     useEffect(() => {
         if (isOpen) {
            setLanguage('en');
-           setAcknowledgedRisks([]);
-           setIsDuressAffirmed(false);
-           setIsOpportunityAffirmed(false);
-           setIsVoluntaryAffirmed(false);
            const witnessNeeded = !!procedure?.requiresWitness;
            setIsWitnessRequired(witnessNeeded);
            setWitnessId('');
@@ -125,6 +185,22 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
            setIsWitnessPinVerified(false);
            setGuardianIdPhoto(null);
            setGuardianIdHash(null);
+           setPatientStrokeCount(0);
+           setPatientStartTime(null);
+           setWitnessStrokeCount(0);
+           setWitnessStartTime(null);
+           setSignatureQuality('none');
+           if (isRoutineConsent) {
+               setAcknowledgedRisks([]);
+               setIsDuressAffirmed(true);
+               setIsOpportunityAffirmed(true);
+               setIsVoluntaryAffirmed(true);
+           } else {
+               setAcknowledgedRisks([]);
+               setIsDuressAffirmed(false);
+               setIsOpportunityAffirmed(false);
+               setIsVoluntaryAffirmed(false);
+           }
            if (needsGuardianVerification) {
                setStep('id_capture');
                startCamera();
@@ -137,7 +213,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 stream.getTracks().forEach(t => t.stop());
             }
         }
-    }, [isOpen, procedure, needsGuardianVerification]);
+    }, [isOpen, procedure, needsGuardianVerification, isRoutineConsent]);
     
     useEffect(() => {
         const patientCanvas = signatureCanvasRef.current;
@@ -168,10 +244,38 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
     };
 
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => { e.preventDefault(); setIsSigning(signer); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => {
+        e.preventDefault();
+        setIsSigning(signer);
+        const { x, y } = getCoords(e);
+        const ctx = e.currentTarget.getContext('2d');
+        ctx?.beginPath();
+        ctx?.moveTo(x, y);
+        if (signer === 'patient') {
+            setPatientStrokeCount(prev => prev + 1);
+            if (patientStartTime === null) setPatientStartTime(Date.now());
+        } else if (signer === 'witness') {
+            setWitnessStrokeCount(prev => prev + 1);
+            if (witnessStartTime === null) setWitnessStartTime(Date.now());
+        }
+    };
     const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
     const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const canvas = e.currentTarget; const { x, y, pressure } = getCoords(e); const ctx = canvas.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(2, Math.min(8, (pressure || 0.5) * 10)); ctx.lineTo(x, y); ctx.stroke(); } };
-    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
+    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        }
+        if (canvasRef === signatureCanvasRef) {
+            setPatientStrokeCount(0);
+            setPatientStartTime(null);
+            setSignatureQuality('none');
+        } else if (canvasRef === witnessCanvasRef) {
+            setWitnessStrokeCount(0);
+            setWitnessStartTime(null);
+        }
+    };
     
     const handleVerifyWitnessPin = () => {
         const witness = staff.find(s => s.id === witnessId);
@@ -187,16 +291,11 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const handleSave = () => {
         const patientCanvas = signatureCanvasRef.current;
         if (!patientCanvas) { toast.error("Signature canvas not available."); return; }
-
-        const patientCtx = patientCanvas.getContext('2d');
-        if (!patientCtx) { toast.error("Canvas context not available."); return; }
-        const patientImageData = patientCtx.getImageData(0, 0, patientCanvas.width, patientCanvas.height).data;
-        let patientPixelCount = 0;
-        for (let i = 0; i < patientImageData.length; i += 4) {
-            if (patientImageData[i+3] > 0) patientPixelCount++;
-        }
-        if (patientPixelCount < 100) {
-            toast.error("Patient/Guardian signature is insufficient. Please provide a full signature.");
+        
+        const patientTimeToSign = patientStartTime ? Date.now() - patientStartTime : 0;
+        const validation = checkSignatureQuality(patientCanvas, patientStrokeCount, patientTimeToSign);
+        if (!validation.valid) {
+            toast.error(validation.reason || "Patient/Guardian signature is insufficient.");
             return;
         }
 
@@ -206,15 +305,11 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
             
             const witnessCanvas = witnessCanvasRef.current;
             if (!witnessCanvas) { toast.error("Witness signature canvas not available."); return; }
-            const witnessCtx = witnessCanvas.getContext('2d');
-            if (!witnessCtx) { toast.error("Witness canvas context not available."); return; }
-            const witnessImageData = witnessCtx.getImageData(0, 0, witnessCanvas.width, witnessCanvas.height).data;
-            let witnessPixelCount = 0;
-            for (let i = 0; i < witnessImageData.length; i += 4) {
-                if (witnessImageData[i+3] > 0) witnessPixelCount++;
-            }
-            if (witnessPixelCount < 100) {
-                toast.error("Witness signature is insufficient. Please provide a full signature.");
+            
+            const witnessTimeToSign = witnessStartTime ? Date.now() - witnessStartTime : 0;
+            const witnessValidation = checkSignatureQuality(witnessCanvas, witnessStrokeCount, witnessTimeToSign);
+            if (!witnessValidation.valid) {
+                toast.error(witnessValidation.reason || "Witness signature is insufficient.");
                 return;
             }
         }
@@ -282,6 +377,12 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
         onSave(newChain, undefined);
     };
+    
+    const signatureQualityClasses: Record<typeof signatureQuality, string> = {
+        none: 'border-slate-300',
+        weak: 'border-red-500 animate-pulse',
+        good: 'border-green-500'
+    };
 
     if (!isOpen) return null;
 
@@ -340,9 +441,19 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                             <h3 className="text-lg font-black text-slate-800">Summary of Attestation</h3>
                             <p className="text-xs text-slate-500">For Patient: <span className="font-bold">{patient.name}</span> | Procedure: <span className="font-bold">{appointment.type}</span> | Date: <span className="font-bold">{formatDate(appointment.date)}</span></p>
                         </div>
-                        <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all border-teal-500`}>
-                            <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">Patient/Guardian Signature (Required)</h4><button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button></div>
-                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                        <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all`}>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-slate-700">Patient/Guardian Signature (Required)</h4>
+                                <div className="flex items-center gap-4">
+                                    {signatureQuality !== 'none' && (
+                                        <span className={`text-xs font-bold uppercase ${signatureQuality === 'good' ? 'text-green-600' : 'text-red-600'}`}>
+                                            Quality: {signatureQuality}
+                                        </span>
+                                    )}
+                                    <button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
+                                </div>
+                            </div>
+                            <canvas ref={signatureCanvasRef} className={`bg-white rounded-lg border-2 border-dashed w-full touch-none cursor-crosshair transition-all ${signatureQualityClasses[signatureQuality]}`} onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
                         </div>
                         {isWitnessRequired && (
                             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 mt-6">

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, User } from '../types';
 import { X, Camera, CheckCircle, RefreshCw, Type, Maximize, Target, Link, Aperture, ShieldCheck } from 'lucide-react';
@@ -106,6 +107,11 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
     const handleSave = () => {
         if (!capturedImage) return;
 
+        if (purpose === 'Marketing' && !patient.clinicalMediaConsent?.permissions.marketingUse) {
+            toast.error("Patient has not consented to the use of images for marketing purposes. Cannot save.");
+            return;
+        }
+
         const hash = CryptoJS.SHA256(capturedImage).toString();
         const timestamp = new Date().toISOString();
 
@@ -128,7 +134,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             imageHashes: [hash],
             procedure: chartEntry.procedure,
             device: deviceInfo,
-            consentReconfirmed: true,
+            consentVerified: true,
             purpose: purpose,
         };
 

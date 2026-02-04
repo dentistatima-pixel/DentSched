@@ -1,6 +1,9 @@
+
 import React, { useEffect } from 'react';
 import { useModal } from '../contexts/ModalContext';
 import { useNavigate } from '../contexts/RouterContext';
+import { useAppointments } from '../contexts/AppointmentContext';
+import { useAppContext } from '../contexts/AppContext';
 
 
 interface Shortcut {
@@ -8,6 +11,7 @@ interface Shortcut {
   ctrlKey?: boolean;
   metaKey?: boolean;
   shiftKey?: boolean;
+  altKey?: boolean;
   action: () => void;
   description: string;
 }
@@ -17,10 +21,11 @@ export const useKeyboardShortcuts = (shortcuts: Shortcut[]) => {
     const handleKeyPress = (e: KeyboardEvent) => {
       const match = shortcuts.find(s => {
         const keyMatch = e.key.toLowerCase() === s.key.toLowerCase();
-        const ctrlMatch = s.ctrlKey === undefined || s.ctrlKey === e.ctrlKey;
+        const ctrlMatch = s.ctrlKey === undefined || s.ctrlKey === (e.ctrlKey || e.metaKey); // Treat Cmd as Ctrl
         const metaMatch = s.metaKey === undefined || s.metaKey === e.metaKey;
         const shiftMatch = s.shiftKey === undefined || s.shiftKey === e.shiftKey;
-        return keyMatch && ctrlMatch && shiftMatch && metaMatch;
+        const altMatch = s.altKey === undefined || s.altKey === e.altKey;
+        return keyMatch && ctrlMatch && metaMatch && shiftMatch && altMatch;
       });
 
       if (match) {
@@ -37,12 +42,16 @@ export const useKeyboardShortcuts = (shortcuts: Shortcut[]) => {
 // Global shortcuts component
 export const GlobalShortcuts: React.FC = () => {
   const navigate = useNavigate();
-  const { showModal, hideModal } = useModal();
+  const { openModal, closeModal } = useModal();
+  const { handleSaveAppointment } = useAppointments();
+  const { currentBranch } = useAppContext();
 
   useKeyboardShortcuts([
-    { key: 'n', ctrlKey: true, metaKey: true, action: () => showModal('patientRegistration', {}), description: 'New Patient' },
-    { key: 'f', ctrlKey: true, metaKey: true, action: () => showModal('globalSearch'), description: 'Find Patient' },
-    { key: 'Escape', action: () => hideModal(), description: 'Close Modal' },
+    { key: 'p', altKey: true, action: () => openModal('patientRegistration', { currentBranch }), description: 'New Patient Registration' },
+    { key: 'n', altKey: true, action: () => openModal('appointment', { onSave: handleSaveAppointment, currentBranch }), description: 'New Appointment' },
+    { key: 'k', metaKey: true, action: () => openModal('globalSearch'), description: 'Open Command Bar' },
+    { key: '/', metaKey: true, action: () => openModal('shortcutHelp'), description: 'Show Shortcut Help' },
+    { key: 'Escape', action: () => closeModal(), description: 'Close active modal' },
   ]);
 
   return null; // This component just listens for shortcuts

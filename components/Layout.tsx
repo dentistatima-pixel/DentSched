@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
@@ -33,7 +34,8 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ 
   children
 }) => {
-  const { showModal } = useModal();
+  // Fix: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
+  const { openModal: showModal } = useModal();
   const { route } = useRouter();
   const navigate = useNavigate();
   const activeTab = route.path;

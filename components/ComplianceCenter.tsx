@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { FieldSettings, Patient, PrivacyImpactAssessment, User } from '../types';
-import { Shield, Archive, Trash2, Search, AlertTriangle, User as UserIcon, FileText } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle, X, Save, Plus, Trash2, Archive, User as UserIcon, FileText, Search } from 'lucide-react';
+import AuditTrailViewer from './AuditTrailViewer';
+import LegalActionHub from './LegalActionHub';
+import ConsentFormManager from './ConsentFormManager';
+import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident, ConsentFormTemplate, PrivacyImpactAssessment } from '../types';
 import { useToast } from './ToastSystem';
-import { checkRetentionPolicy } from '../services/validationService';
-import { formatDate } from '../constants';
-import { useStaff } from '../contexts/StaffContext';
-// FIX: Changed from useAppContext to useModal to get showModal function
 import { useModal } from '../contexts/ModalContext';
+import { useStaff } from '../contexts/StaffContext';
+import { formatDate } from '../constants';
+import { checkRetentionPolicy } from '../services/validationService';
 
 interface ComplianceCenterProps {
   settings: FieldSettings;
@@ -19,8 +21,7 @@ interface ComplianceCenterProps {
 const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateSettings, patients, onAnonymizePatient, initialTab }) => {
     const toast = useToast();
     const { staff } = useStaff();
-    // FIX: Destructured showModal from useModal hook
-    const { showModal } = useModal();
+    const { openModal } = useModal();
     const [patientSearch, setPatientSearch] = useState('');
     const [showPiaForm, setShowPiaForm] = useState(false);
     const [newPia, setNewPia] = useState({ processName: '', description: '', risks: '', mitigation: '' });
@@ -153,7 +154,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
                             <div key={p.id} className="flex justify-between items-center p-2 bg-white rounded-lg">
                                 <span className="text-sm font-bold">{p.name}</span>
                                 <div className="flex gap-2">
-                                  <button onClick={() => showModal('dataDeletionRequest', { patient: p })} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 text-xs font-black">Request</button>
+                                  <button onClick={() => openModal('dataDeletionRequest', { patient: p })} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 text-xs font-black">Request</button>
                                   <button onClick={() => handleConfirmAnonymize(p) } className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 size={14}/></button>
                                 </div>
                             </div>

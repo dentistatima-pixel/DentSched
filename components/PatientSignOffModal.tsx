@@ -1,8 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature } from 'lucide-react';
 import { formatDate } from '../constants';
+import { useToast } from './ToastSystem';
+import { checkSignatureQuality } from '../utils/signatureValidation';
 
 interface PatientSignOffModalProps {
     isOpen: boolean;
@@ -14,6 +15,9 @@ interface PatientSignOffModalProps {
 const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClose, onSave, note }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isSigning, setIsSigning] = useState(false);
+    const [strokeCount, setStrokeCount] = useState(0);
+    const [startTime, setStartTime] = useState<number | null>(null);
+    const toast = useToast();
 
     const setupCanvas = () => {
         const canvas = canvasRef.current;
@@ -34,6 +38,8 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
         const touchHandler = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
         if (isOpen) {
             setTimeout(setupCanvas, 50);
+            setStrokeCount(0);
+            setStartTime(null);
             canvas?.addEventListener('touchstart', touchHandler, { passive: false });
         }
         return () => {
@@ -50,6 +56,10 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
         if (e.pointerType === 'touch' && e.width > 10) return;
         e.preventDefault(); 
+        if (!isSigning) {
+            setStrokeCount(prev => prev + 1);
+            if (startTime === null) setStartTime(Date.now());
+        }
         setIsSigning(true); 
         const { x, y } = getCoords(e); 
         const ctx = e.currentTarget.getContext('2d'); 
@@ -80,10 +90,24 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
             ctx.stroke(); 
         } 
     };
-    const clearCanvas = () => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
+    const clearCanvas = () => { 
+        const canvas = canvasRef.current; 
+        if(canvas){
+            const ctx = canvas.getContext('2d'); 
+            if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        setStrokeCount(0);
+        setStartTime(null);
+    };
     
     const handleSave = () => {
         if (canvasRef.current) {
+            const timeToSign = startTime ? Date.now() - startTime : 0;
+            const qualityCheck = checkSignatureQuality(canvasRef.current, strokeCount, timeToSign);
+            if (!qualityCheck.valid) {
+                toast.error(qualityCheck.reason || "Signature quality is too low.");
+                return;
+            }
             const signature = canvasRef.current.toDataURL('image/png');
             onSave(signature);
         }

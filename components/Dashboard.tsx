@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -27,6 +28,7 @@ import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { generateMorningHuddle } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
+import { RecentPatientsWidget } from './RecentPatientsWidget';
 
 
 interface DashboardProps {}
@@ -90,7 +92,7 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
 
 const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {
     const navigate = useNavigate();
-    const { showModal } = useModal();
+    const { openModal } = useModal();
     const { currentBranch } = useAppContext();
 
     return (
@@ -139,7 +141,7 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                             <div className="flex items-center gap-2 pl-20">
                                 {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
                                 {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
-                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
+                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); openModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
                                 {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-xs font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
                             </div>
                         </div>
@@ -235,7 +237,7 @@ const StatCard: React.FC<{title: string, value: string | React.ReactNode, icon: 
 )
 
 const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, actionItems, myTasks, onToggleTask, appointments, patients }) => {
-    const { showModal } = useModal();
+    const { openModal } = useModal();
     const todayStr = new Date().toLocaleDateString('en-CA');
     const completedToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.COMPLETED);
     const noShowsToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.NO_SHOW);
@@ -245,7 +247,7 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
             const p = patients.find(p => p.id === apt.patientId);
             return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
         }).join('\n');
-        showModal('infoDisplay', { title: "Today's Completed Appointments", content: patientList || 'No completed appointments yet.' });
+        openModal('infoDisplay', { title: "Today's Completed Appointments", content: patientList || 'No completed appointments yet.' });
     };
 
     const showNoShowList = () => {
@@ -253,7 +255,7 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
             const p = patients.find(p => p.id === apt.patientId);
             return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
         }).join('\n');
-        showModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No no-shows recorded yet.' });
+        openModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No no-shows recorded yet.' });
     };
 
     return (
@@ -285,7 +287,7 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
 
 
 export const Dashboard: React.FC<DashboardProps> = () => {
-  const { showModal } = useModal();
+  const { openModal } = useModal();
   const { appointments, handleUpdateAppointmentStatus: onUpdateStatus } = useAppointments();
   const { staff } = useStaff();
   const { patients } = usePatient();
@@ -352,6 +354,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
                     </div>
                 </div>
             )}
+            <RecentPatientsWidget />
         </div>
         <div className="dashboard-col-2">
             <DailySchedule appointments={todaysAppointments} patients={patients} settings={fieldSettings} />

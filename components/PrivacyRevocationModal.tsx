@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ShieldAlert, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { Patient, ConsentCategory, User } from '../types';
@@ -36,8 +37,7 @@ const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen,
                             <p className="text-xs text-red-700 font-bold uppercase">High-Consequence Action</p>
                         </div>
                     </div>
-                    {/* FIX #8: Use touch-safe helper class for larger touch target */}
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-red-200/50">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-red-200/50 touch-safe">
                         <X size={24} className="text-red-300 hover:text-red-500" />
                     </button>
                 </div>

@@ -23,7 +23,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<QuickFilterType>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const { showModal } = useModal();
+  const { openModal } = useModal();
   const { patients } = usePatient();
   const { appointments } = useAppointments();
   const { fieldSettings } = useSettings();
@@ -146,7 +146,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
             />
           </div>
           <button 
-            onClick={() => showModal('patientRegistration', { currentBranch })}
+            onClick={() => openModal('patientRegistration', { currentBranch })}
             className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
             aria-label="New Patient Registration"
           >
