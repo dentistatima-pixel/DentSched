@@ -1,4 +1,3 @@
-
 // Service to fetch time from a trusted 3rd party authority (Non-Repudiation)
 export const getTrustedTime = async (): Promise<{ timestamp: string, isVerified: boolean, source: string }> => {
     try {

@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
-import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
+import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle, Camera } from 'lucide-react';
 import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
@@ -25,9 +26,10 @@ interface EntryFormProps {
     currentUser: User;
     onAssign: (note: DentalChartEntry) => void;
     onPatientSignOff: (note: DentalChartEntry) => void;
+    onCapturePhoto: (note: DentalChartEntry) => void;
 }
 
-const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign, onPatientSignOff }) => {
+const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign, onPatientSignOff, onCapturePhoto }) => {
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
@@ -154,15 +156,25 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         <div className="space-y-4 pt-6 border-t border-slate-100">
             <div className="flex justify-between items-center">
                 <label className="label flex items-center gap-2"><Stethoscope size={14}/> SOAP Narrative</label>
-                <button 
-                    type="button" 
-                    onClick={handleGenerateAiSoap}
-                    disabled={isSoapLoading || isSealed || !formData.procedure}
-                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
-                >
-                    {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
-                    {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        type="button" 
+                        onClick={() => onCapturePhoto(formData)}
+                        disabled={isSealed}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-black uppercase tracking-widest disabled:opacity-50 disabled:grayscale"
+                    >
+                        <Camera size={14}/> Capture Image
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={handleGenerateAiSoap}
+                        disabled={isSoapLoading || isSealed || !formData.procedure}
+                        className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
+                    >
+                        {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
+                        {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
+                    </button>
+                </div>
             </div>
             <div>
                 <label className="label">S (Subjective)</label>
@@ -341,6 +353,36 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
           }
       });
   };
+
+  const handleCapturePhotoForNote = (note: DentalChartEntry) => {
+      showModal('photoCapture', {
+          patient,
+          chartEntry: note,
+          currentUser,
+          onSave: (metadata: DentalChartEntry['imageMetadata'][0], logEntry: Patient['clinicalMediaConsent']['mediaCapturedLogs'][0]) => {
+              const updatedNote: DentalChartEntry = {
+                  ...note,
+                  imageHashes: [...(note.imageHashes || []), metadata.hash],
+                  imageMetadata: [...(note.imageMetadata || []), metadata]
+              };
+              onUpdateEntry(updatedNote);
+
+              if (patient.clinicalMediaConsent) {
+                  const updatedPatient: Partial<Patient> = {
+                      id: patient.id,
+                      clinicalMediaConsent: {
+                          ...(patient.clinicalMediaConsent!),
+                          mediaCapturedLogs: [...(patient.clinicalMediaConsent.mediaCapturedLogs || []), logEntry]
+                      }
+                  };
+                  onQuickUpdatePatient(updatedPatient);
+              }
+
+              setEditingNote(updatedNote);
+              toast.success("Image attached to clinical note.");
+          }
+      });
+  };
   
   const appointmentForEditingNote = useMemo(() => {
       if (!editingNote || !editingNote.appointmentId) return null;
@@ -421,6 +463,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                         currentUser={currentUser}
                         onAssign={handleAssignToPlan}
                         onPatientSignOff={handlePatientSignOff}
+                        onCapturePhoto={handleCapturePhotoForNote}
                     />
                 )
             ) : (

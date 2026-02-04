@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Patient, Appointment, TreatmentPlan, SignatureChainEntry } from '../types';
 import { formatDate } from '../constants';

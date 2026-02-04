@@ -1,4 +1,3 @@
-
 import { SignatureChainEntry, Patient, Appointment } from '../types';
 import CryptoJS from 'crypto-js';
 import { generateUid } from '../constants';
@@ -59,11 +58,12 @@ export const createSignatureEntry = (
         expiresAt = expiryDate.toISOString();
     }
     
+    const nonce = generateUid('nonce');
     const payload = {
         signatureDataUrl,
         timestamp,
         signer: params.signerName,
-        metadata: params.metadata,
+        metadata: { ...params.metadata, nonce },
         expiresAt,
     };
     
@@ -80,7 +80,8 @@ export const createSignatureEntry = (
         previousHash: params.previousHash,
         metadata: {
             deviceInfo: navigator.userAgent,
-            ...params.metadata
+            ...params.metadata,
+            nonce,
         },
         expiresAt,
     };

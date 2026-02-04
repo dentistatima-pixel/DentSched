@@ -1,4 +1,3 @@
-
 import { Patient, ProcedureItem, ClinicalProtocolRule, ClearanceRequest } from '../types';
 
 export const checkClinicalProtocols = (

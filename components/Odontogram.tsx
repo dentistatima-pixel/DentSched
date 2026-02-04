@@ -127,7 +127,6 @@ const GeometricTooth: React.FC<{
 
     const hasRootCanal = toothEntries.some(e => e.procedure.toLowerCase().includes('root canal'));
 
-    // FIX: Variables must be declared with `let` before assignment.
     let pTop, pBottom, pLeft, pRight, sTop, sBottom, sLeft, sRight;
     
     if (isUpper) { pTop = cB; sTop = 'B'; pBottom = cL; sBottom = 'L'; } 
@@ -160,7 +159,7 @@ const GeometricTooth: React.FC<{
             role="button"
             aria-label={`Tooth #${number}, ${toothEntries.length} clinical records`}
             className={`flex flex-col items-center justify-center relative transition-all duration-500 touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
-            style={{ width: isZoomed ? (isDeciduous ? '72px' : '96px') : (isDeciduous ? '48px' : '64px'), height: isZoomed ? (isDeciduous ? '90px' : '120px') : (isDeciduous ? '60px' : '80px'), minWidth: isDeciduous ? '48px' : '64px' }}
+            style={{ width: isZoomed ? (isDeciduous ? '72px' : '96px') : (isDeciduous ? '56px' : '72px'), height: isZoomed ? (isDeciduous ? '90px' : '120px') : (isDeciduous ? '70px' : '90px'), minWidth: isDeciduous ? '56px' : '72px' }}
             onMouseDown={handleStart} onMouseUp={handleEnd} onMouseLeave={handleEnd} onTouchStart={handleStart} onTouchEnd={handleEnd}
         >
             <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? (isZoomed ? '-top-6' : '-top-3') : (isZoomed ? '-bottom-6' : '-bottom-3')} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} ${isZoomed ? 'text-lg' : 'text-sm'}`} aria-hidden="true">

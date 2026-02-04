@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { Patient, User, EmergencyTreatmentConsent } from '../types';
 import { X, Zap, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useStaff } from '../contexts/StaffContext';
+import { useAppContext } from '../contexts/AppContext';
 
 interface EmergencyConsentModalProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
 }) => {
     const { staff } = useStaff();
     const toast = useToast();
+    const { logAction } = useAppContext();
     const [narrative, setNarrative] = useState('');
     const [witnessId, setWitnessId] = useState('');
 
@@ -44,6 +45,7 @@ const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
             authorizationTimestamp: new Date().toISOString(),
         };
         
+        logAction('SECURITY_ALERT', 'Patient', patient.id, `Emergency consent documented. Witness: ${staff.find(s=>s.id === witnessId)?.name}. Justification: ${narrative}`);
         onSave(consentData);
     };
 

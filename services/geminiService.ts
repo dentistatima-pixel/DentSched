@@ -28,12 +28,11 @@ export const generateSoapNote = async (procedure: string, toothNumber?: number):
         },
     });
 
-    // FIX: Changed to use .text property instead of .text() method
-    const jsonText = response.text?.trim();
+    const jsonText = response.text;
     if (!jsonText) {
         throw new Error("AI returned an empty response.");
     }
-    return JSON.parse(jsonText);
+    return JSON.parse(jsonText.trim());
   } catch (error) {
     console.error("Gemini SOAP note generation failed:", error);
     throw new Error("Could not generate AI SOAP note.");
@@ -59,7 +58,6 @@ export const generateSafetyBriefing = async (patient: Patient, procedureType: st
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text ?? "Could not generate safety briefing.";
     } catch (error) {
         console.error("Gemini safety briefing generation failed:", error);
@@ -97,7 +95,6 @@ export const generateMorningHuddle = async (appointments: Appointment[], patient
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text ?? "Could not generate huddle.";
     } catch (error) {
         console.error("Gemini Morning Huddle generation failed:", error);
@@ -114,7 +111,6 @@ export const getDocentExplanation = async (elementId: string, context: string, u
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text ?? "No explanation available.";
     } catch (error) {
         console.error("Gemini Docent explanation failed:", error);
@@ -132,7 +128,6 @@ export const reviewClinicalNote = async (note: DentalChartEntry): Promise<string
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text ?? "Could not review note.";
     } catch (error) {
         console.error("Gemini clinical note review failed:", error);
@@ -161,7 +156,6 @@ export const summarizePatient = async (patient: Patient, appointments: Appointme
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text ?? "Could not generate summary.";
     } catch (error) {
         console.error("Gemini patient summary failed:", error);
@@ -178,7 +172,6 @@ export const translateText = async (text: string, targetLanguage: string): Promi
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-
         return response.text?.trim() ?? "Translation failed.";
     } catch (error) {
         console.error("Gemini translation failed:", error);

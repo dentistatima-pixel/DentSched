@@ -38,10 +38,11 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
     const resetTimeout = () => {
         clearTimeout(timeout);
         if (step !== 'welcome' && step !== 'thankyou') {
+            // FIX: Increased timeout to 10 minutes for better usability.
             timeout = window.setTimeout(() => {
                 toast.warning('Session timed out for your privacy.');
                 setStep('welcome');
-            }, 3 * 60 * 1000); // 3 minutes
+            }, 10 * 60 * 1000); // 10 minutes
         }
     };
     

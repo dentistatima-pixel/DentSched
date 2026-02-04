@@ -4,7 +4,7 @@ import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, Field
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from '../contexts/ModalContext';
+import { useModal } from './ModalContext';
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
@@ -220,7 +220,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 entryMode: isDowntime ? 'MANUAL' : 'AUTO',
             };
             
-            const errors = validateAppointment(appointmentData, appointments, patients, staff, existingAppointment?.id);
+            const errors = validateAppointment(appointmentData, appointments, patients, staff, fieldSettings, existingAppointment?.id);
             if (errors) {
                 Object.values(errors).forEach(errorMsg => toast.error(errorMsg, { duration: 6000 }));
                 setIsSaving(false);

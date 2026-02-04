@@ -1,4 +1,3 @@
-
 import { Patient, Appointment, User, FieldSettings, UserRole } from '../types';
 
 // Valid 3-digit prefixes (after the initial '0')

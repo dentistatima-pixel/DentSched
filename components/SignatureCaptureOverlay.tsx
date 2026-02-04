@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight, Key } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
+import { useOrientation } from '../hooks/useOrientation';
 
 interface SignatureCaptureOverlayProps {
   isOpen: boolean;
@@ -14,33 +14,51 @@ interface SignatureCaptureOverlayProps {
   contextSummary?: React.ReactNode;
 }
 
-// FIX: Increased timeout to 5 minutes for better usability in clinical settings with potential interruptions.
 const SIGNATURE_TIMEOUT_SECONDS = 300; // 5 minutes
 
-const checkSignatureQuality = (canvas: HTMLCanvasElement): { valid: boolean; reason?: string } => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return { valid: false, reason: 'Canvas error' };
-    
+const getSignatureBounds = (canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return { minX: 0, maxX: 0, minY: 0, maxY: 0, inkPixels: 0 };
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = imageData.data;
-    
+    const data = imageData.data;
+    let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
     let inkPixels = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-        if (pixels[i+3] > 0) { // Check alpha channel for any ink
-            inkPixels++;
+
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const alpha = data[(y * canvas.width + x) * 4 + 3];
+            if (alpha > 0) {
+                inkPixels++;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
         }
     }
-    
-    // FIX: Enhanced signature validation for medico-legal validity.
-    // Instead of a small, fixed pixel count, we require the signature to cover
-    // a minimum percentage of the canvas area, making it more robust.
-    const canvasArea = canvas.width * canvas.height;
-    const minInkPixels = canvasArea * 0.005; // Require at least 0.5% of canvas area to be inked
+    return { minX, maxX, minY, maxY, inkPixels };
+};
 
-    if (inkPixels < minInkPixels) {
-        return { valid: false, reason: 'Signature too simple or small. Please provide a full, substantial signature.' };
+const validateSignature = (canvas: HTMLCanvasElement, strokes: number, timeToSign: number): { valid: boolean; reason?: string } => {
+    const { minX, maxX, minY, maxY, inkPixels } = getSignatureBounds(canvas);
+    const canvasArea = canvas.width * canvas.height;
+    const minInkCoverage = 0.015; // 1.5%
+
+    if (inkPixels / canvasArea < minInkCoverage) {
+        return { valid: false, reason: `Signature too small. Please provide a full, substantial signature.` };
     }
-    
+    if (strokes < 3) {
+        return { valid: false, reason: 'Signature must have at least 3 distinct strokes.' };
+    }
+    if (timeToSign < 1000) {
+        return { valid: false, reason: 'Please sign more carefully.' };
+    }
+    const spanX = maxX - minX;
+    const spanY = maxY - minY;
+    if (spanX < canvas.width * 0.2 || spanY < canvas.height * 0.1) {
+        return { valid: false, reason: 'Signature span is too small. Please use more of the signature area.' };
+    }
+
     return { valid: true };
 };
 
@@ -52,6 +70,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
   const toast = useToast();
+  const { isLandscape } = useOrientation();
   const [isSigning, setIsSigning] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -61,6 +80,9 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     isPrivacyRead: false,
     isFeesAcknowledged: false,
   });
+  
+  const [strokeCount, setStrokeCount] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   const allAffirmed = affirmations.isTrue && affirmations.isPrivacyRead && affirmations.isFeesAcknowledged;
 
@@ -88,11 +110,9 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = rect.width * dpr;
-    // FIX: Use parent element's height for dynamic sizing, adapting to orientation.
     canvas.height = rect.height * dpr;
 
     canvas.style.width = `${rect.width}px`;
-    // FIX: Use parent element's height for dynamic sizing.
     canvas.style.height = `${rect.height}px`;
 
     const ctx = canvas.getContext('2d', { desynchronized: true });
@@ -128,13 +148,11 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     const touchStartHandler = (e: TouchEvent) => {
-        // FIX: Enhanced palm rejection using touch point size, not just multi-touch.
         if (e.touches.length > 1) {
             e.preventDefault();
             return;
         }
         const touch = e.touches[0];
-        // Heuristic: if touch area is larger than a typical fingertip, it's likely a palm.
         if (touch && (touch.radiusX > 25 || touch.radiusY > 25)) {
             e.preventDefault();
         }
@@ -144,7 +162,9 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
       setTimeout(setupCanvas, 100);
       startCamera();
       setHasInk(false);
-      setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true }); // Default to true for simpler flows unless context is provided
+      setStrokeCount(0);
+      setStartTime(null);
+      setAffirmations({ isTrue: !contextSummary, isPrivacyRead: !contextSummary, isFeesAcknowledged: !contextSummary }); 
       if (canvas) {
         canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
       }
@@ -165,7 +185,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     } else {
       stopCamera();
     }
-  }, [isOpen, onClose, toast, contextSummary]);
+  }, [isOpen, onClose, toast, contextSummary, isLandscape]);
 
   const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -175,9 +195,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   };
 
   const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    // FIX: Enhanced palm rejection for pointer events.
     if (e.pointerType === 'touch') {
-        // This heuristic helps differentiate between a small finger/stylus touch and a larger palm surface.
         const isLikelyPalm = e.width > 25 || e.height > 25;
         if (isLikelyPalm) {
             e.preventDefault();
@@ -186,6 +204,12 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     }
     if (!allAffirmed && contextSummary) return;
     e.preventDefault();
+    if (!isSigning) {
+        setStrokeCount(prev => prev + 1);
+        if (startTime === null) {
+            setStartTime(Date.now());
+        }
+    }
     setIsSigning(true);
     const { x, y } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
@@ -199,7 +223,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     e.preventDefault();
     
     const now = Date.now();
-    if (now - lastDrawTime.current < 16) { // ~60fps throttle
+    if (now - lastDrawTime.current < 16) { 
         return;
     }
     lastDrawTime.current = now;
@@ -232,6 +256,8 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
         if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
     setHasInk(false);
+    setStrokeCount(0);
+    setStartTime(null);
   };
 
   const handleAuthorize = async () => {
@@ -242,7 +268,8 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
       return;
     }
 
-    const qualityCheck = checkSignatureQuality(canvas);
+    const timeToSign = startTime ? Date.now() - startTime : 0;
+    const qualityCheck = validateSignature(canvas, strokeCount, timeToSign);
     if (!qualityCheck.valid) {
         toast.error(qualityCheck.reason || "Signature quality is too low.");
         return;
@@ -264,12 +291,10 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
         const witnessImageData = witnessCanvas.toDataURL('image/jpeg', 0.8);
         witnessHash = CryptoJS.SHA256(witnessImageData + Date.now()).toString();
       } else {
-        // Fallback if context is lost
         witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
         console.warn("Witness canvas context lost, using fallback hash.");
       }
     } else {
-        // Fallback if camera isn't ready or available
         witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
         console.warn("Witness camera not available, using fallback hash.");
     }
@@ -329,14 +354,14 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             </div>
           )}
 
-          <div className={`relative bg-white rounded-3xl border-2 p-2 group transition-all ${allAffirmed || !contextSummary ? 'border-dashed border-slate-300 hover:border-slate-400' : 'border-solid border-slate-200 opacity-50 grayscale'}`}>
+          <div className={`relative bg-white rounded-3xl border-2 p-2 group transition-all flex-1 ${allAffirmed || !contextSummary ? 'border-dashed border-slate-300 hover:border-slate-400' : 'border-solid border-slate-200 opacity-50 grayscale'}`}>
             <div className="absolute top-4 left-4 flex items-center gap-2 text-xs font-black text-slate-300 uppercase tracking-widest">
               <Fingerprint size={12} /> Digital Ink Pad
             </div>
             <button onClick={handleClear} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><Eraser size={16} /></button>
             <canvas 
               ref={canvasRef} 
-              className={`w-full touch-none cursor-crosshair ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
+              className="w-full h-full touch-none cursor-crosshair"
               onPointerDown={startSign}
               onPointerMove={draw}
               onPointerUp={endDraw}

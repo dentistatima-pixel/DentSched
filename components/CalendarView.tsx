@@ -1,3 +1,4 @@
+
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -25,6 +26,40 @@ import { generateSafetyBriefing } from '../services/geminiService';
 interface CalendarViewProps {}
 
 const RELIABILITY_THRESHOLD = 70;
+
+const PatientCard: React.FC<{ apt: Appointment, patient: Patient, navigate: (path: string) => void }> = React.memo(({ apt, patient, navigate }) => (
+    <div 
+        draggable 
+        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
+        className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-orange-400 cursor-grab active:cursor-grabbing"
+        onClick={() => navigate(`patients/${patient.id}`)}
+    >
+        <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
+    </div>
+));
+
+const FlowColumn: React.FC<{ title: string, count: number, status: AppointmentStatus, children: React.ReactNode, icon: React.ElementType, color: string, onDrop: (e: React.DragEvent) => void }> = React.memo(({ title, count, status, children, icon: Icon, color, onDrop }) => {
+    const [isDragOver, setIsDragOver] = useState(false);
+    return (
+        <div 
+            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); onDrop(e); }}
+            className={`flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-4 transition-all ${isDragOver ? 'bg-teal-50 dark:bg-teal-900/50 ring-2 ring-teal-500' : ''}`}
+        >
+            <div className="flex items-center gap-2 mb-4 p-2">
+                <Icon size={18} className={color}/>
+                <h4 className="font-black text-sm text-slate-600 dark:text-slate-300 uppercase tracking-widest">{title}</h4>
+                <span className="ml-auto bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{count}</span>
+            </div>
+            <div className="space-y-3 overflow-y-auto no-scrollbar flex-1">
+                {children}
+            </div>
+        </div>
+    );
+});
+
 
 const CalendarView: React.FC<CalendarViewProps> = () => {
   const toast = useToast();

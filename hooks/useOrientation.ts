@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 
 export const useOrientation = () => {
-    const getOrientation = () => window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-    
-    const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(getOrientation());
-    
+    const getOrientation = () => window.matchMedia("(orientation: landscape)").matches ? 'landscape' : 'portrait';
+
+    const [orientation, setOrientation] = useState(getOrientation());
+
     useEffect(() => {
-        const handleResize = () => {
-            setOrientation(getOrientation());
-        };
-        
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const mediaQuery = window.matchMedia("(orientation: landscape)");
+        const handleOrientationChange = () => setOrientation(getOrientation());
+
+        mediaQuery.addEventListener('change', handleOrientationChange);
+        return () => mediaQuery.removeEventListener('change', handleOrientationChange);
     }, []);
-    
-    return orientation;
+
+    return { isLandscape: orientation === 'landscape', isPortrait: orientation === 'portrait' };
 };

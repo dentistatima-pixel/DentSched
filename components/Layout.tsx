@@ -23,6 +23,7 @@ import { CommandBar } from './CommandBar';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { ErrorBoundary } from './ErrorBoundary';
+import { NetworkStatus } from './NetworkStatus';
 
 
 interface LayoutProps {
@@ -167,7 +168,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
-      
+      <NetworkStatus />
       {impersonatingUser && (
         <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
           <ShieldAlert size={18} className="animate-pulse"/>

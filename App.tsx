@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
@@ -13,9 +12,10 @@ import { routes, RouteConfig } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
 
 import { DentalChartEntry, User, UserRole } from './types';
-import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
-// FIX: Import Dashboard component.
+import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader, CloudOff } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
+import { GlobalShortcuts } from './hooks/useKeyboardShortcuts';
+
 
 // Lazy load components for the full-screen workspace
 const FormBuilder = React.lazy(() => import('./components/FormBuilder'));
@@ -60,18 +60,14 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
         setPin(pin.slice(0, -1));
     };
 
-    // FIX: Refactored login attempt logic into a single useEffect to resolve a dependency cycle.
-    // The previous implementation with useCallback and a separate useEffect caused unnecessary re-renders.
-    // This now only triggers when the PIN length is exactly 4.
     useEffect(() => {
         if (pin.length === 4) {
             if (!onUnlockAttempt(pin)) {
                 setError('Invalid PIN');
                 setPin('');
             }
-            // If unlock is successful, the parent component handles the state change, and this component unmounts.
         }
-    }, [pin, onUnlockAttempt, setError, setPin]);
+    }, [pin, onUnlockAttempt]);
 
     return (
         <div className="fixed inset-0 z-[999] bg-teal-900/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
@@ -96,11 +92,11 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 text-2xl font-bold">
-                    {[1,2,3,4,5,6,7,8,9, 'back', 0].map(n => (
-                         n === 'back' ? 
-                         <button key={n} onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-teal-200"><ArrowLeft size={28}/></button>
-                         : <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">{n}</button>
+                    {[1,2,3,4,5,6,7,8,9].map(n => (
+                         <button key={n} onClick={() => handlePinChange(n.toString())} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">{n}</button>
                     ))}
+                     <button key="back" onClick={handleBackspace} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-teal-200"><ArrowLeft size={28}/></button>
+                     <button key={0} onClick={() => handlePinChange('0')} className="h-20 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-95 transition-all text-teal-200">0</button>
                 </div>
             </div>
         </div>
@@ -111,7 +107,7 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 export const App: React.FC = () => {
     const { 
       currentUser, setCurrentUser, logAction, fullScreenView, setFullScreenView, 
-      isInKioskMode, setIsInKioskMode, isAuthorityLocked, setIsAuthorityLocked
+      isInKioskMode, setIsInKioskMode, isAuthorityLocked, setIsAuthorityLocked, isOnline
     } = useAppContext();
     const { fieldSettings } = useSettings();
     const { route } = useRouter();
@@ -123,9 +119,7 @@ export const App: React.FC = () => {
     const idleTimer = useRef<number | null>(null);
     const warningTimer = useRef<number | null>(null);
 
-    // FIX: Corrected session timeout logic. Kiosk mode now has a shorter, more secure 5-minute timeout,
-    // while the default staff session is extended to a more practical 15 minutes.
-    const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 5 : (fieldSettings?.sessionTimeoutMinutes || 15);
+    const IDLE_TIMEOUT_MINUTES = isInKioskMode ? 2 : (fieldSettings?.sessionTimeoutMinutes || 15);
     const WARNING_SECONDS = 60;
     
     const handleLogin = (user: User) => {
@@ -133,7 +127,13 @@ export const App: React.FC = () => {
         logAction('LOGIN', 'System', user.id, 'User logged in successfully.');
     };
     
-    useLicenseValidation(currentUser?.id || null, setIsAuthorityLocked);
+    const { isPrcExpired, isMalpracticeExpired } = useLicenseValidation(currentUser?.id || null);
+
+    useEffect(() => {
+        if (currentUser) {
+            setIsAuthorityLocked(isPrcExpired || isMalpracticeExpired);
+        }
+    }, [isPrcExpired, isMalpracticeExpired, currentUser, setIsAuthorityLocked]);
 
     const resetIdleTimer = useCallback(() => {
         if (idleTimer.current) clearTimeout(idleTimer.current);
@@ -193,7 +193,7 @@ export const App: React.FC = () => {
         switch (fullScreenView.type) {
             case 'formBuilder':
                 return (
-                    <Suspense fallback={<div>Loading...</div>}>
+                    <Suspense fallback={<div className="fixed inset-0 bg-white flex items-center justify-center"><Loader className="animate-spin text-teal-500" size={48} /></div>}>
                         <FormBuilder {...fullScreenView.props} />
                     </Suspense>
                 );
@@ -208,7 +208,24 @@ export const App: React.FC = () => {
 
     return (
         <>
+            <GlobalShortcuts />
             <Layout>
+              {!isOnline && (
+                  <div className="bg-amber-100 border-l-4 border-amber-500 p-4 m-4 rounded-r-lg shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <CloudOff size={24} className="text-amber-600" />
+                      <div>
+                        <span className="font-black text-amber-800">Offline Mode</span>
+                        <p className="text-sm mt-1 text-amber-700">
+                          You can still: View patients, Take notes, Capture signatures.
+                        </p>
+                        <p className="text-sm font-bold text-amber-900">
+                          Cannot: Send SMS, Generate reports, Access external data.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+              )}
               {activeRouteConfig?.requiredRoles ? (
                   <ProtectedRoute requiredRoles={activeRouteConfig.requiredRoles}>
                       <ActiveComponent route={route} {...(activeRouteConfig.props || {})} />

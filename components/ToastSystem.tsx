@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, InformedRefusal, User, SignatureChainEntry } from '../types';
 import { XCircle, FileSignature, AlertTriangle, ShieldCheck, Square, CheckSquare, Eraser, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
@@ -187,7 +186,6 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
 
     if (!isOpen) return null;
     
-    // FIX: Defined the missing 'canSave' variable to control the save button's disabled state.
     const canSave = allRisksAcknowledged && understandsConsequences && refusalReason.trim() !== '' && patientSignatureChain.length > 0 && dentistSignatureChain.length > 0 && (!showWitness || witnessSignatureChain.length > 0);
 
     return (

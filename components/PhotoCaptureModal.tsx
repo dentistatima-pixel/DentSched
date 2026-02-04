@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, User } from '../types';
 import { X, Camera, CheckCircle, RefreshCw, Type, Maximize, Target, Link, Aperture, ShieldCheck } from 'lucide-react';
@@ -62,7 +61,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             const consent = patient.clinicalMediaConsent;
             let canProceed = false;
 
-            if (consent && consent.generalConsent && !consent.consentRevoked) {
+            if (consent && consent.generalConsent && !consent.consentRevocation) {
                 if (consent.permissions.intraoralPhotos || consent.permissions.extraoralPhotos) {
                     canProceed = true;
                 } else {

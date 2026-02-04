@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, Patient, FamilyGroup } from '../types';
 import { Users2, Plus, ArrowLeft, Search, User, X } from 'lucide-react';

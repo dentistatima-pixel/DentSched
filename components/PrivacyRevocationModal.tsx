@@ -36,7 +36,10 @@ const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen,
                             <p className="text-xs text-red-700 font-bold uppercase">High-Consequence Action</p>
                         </div>
                     </div>
-                    <button onClick={onClose}><X size={24} className="text-red-300 hover:text-red-500" /></button>
+                    {/* FIX #8: Use touch-safe helper class for larger touch target */}
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-red-200/50">
+                        <X size={24} className="text-red-300 hover:text-red-500" />
+                    </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">

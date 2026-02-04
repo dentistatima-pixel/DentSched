@@ -1,4 +1,3 @@
-
 import React, { ReactNode, ErrorInfo } from 'react';
 
 interface ErrorBoundaryProps {
@@ -11,8 +10,6 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Use modern class property syntax for state initialization. This removes the constructor
-  // and correctly types the component's state, resolving all related errors.
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -23,7 +20,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif' }}>
@@ -33,6 +30,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    return this.props.children || null;
+    return this.props.children ?? null;
   }
 }

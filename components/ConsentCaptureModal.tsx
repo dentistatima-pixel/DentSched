@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel, SignatureChainEntry, SignatureType, TreatmentPlanStatus, PediatricConsent } from '../types';
 import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight, Key } from 'lucide-react';
@@ -51,7 +50,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
     const allAffirmationsChecked = allRisksAcknowledged && isDuressAffirmed && isOpportunityAffirmed && isVoluntaryAffirmed;
     
-    // FIX: Strengthened validation to ensure guardian ID is captured for minors/dependents before proceeding.
     const canProceedToSign = allAffirmationsChecked && 
         (!needsGuardianVerification || (guardianIdPhoto && guardianIdHash));
 
@@ -289,7 +287,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
 
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
-          <div className="bg-white w-full max-w-4xl h-[95vh] rounded-3xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
+          <div className="bg-white w-full max-w-5xl h-[95vh] rounded-3xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
               <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-3"><div className="bg-teal-100 p-3 rounded-xl text-teal-700"><FileSignature size={24} /></div><div><h2 className="text-xl font-bold text-slate-800">{template.name}</h2><p className="text-sm text-slate-500">for {patient.name}</p></div></div>
                   <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg"><button onClick={() => setLanguage('en')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow' : ''}`}>English</button><button onClick={() => setLanguage('tl')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'tl' ? 'bg-white shadow' : ''}`}>Tagalog</button></div>
@@ -378,7 +376,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
               )}
           </div>
       </div>
-    );
+    </>
+  );
 };
 
 export default ConsentCaptureModal;

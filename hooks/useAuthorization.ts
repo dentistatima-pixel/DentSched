@@ -10,11 +10,16 @@ const PERMISSION_MAP: Record<UserRole, string[]> = {
     'manage:setup',
     'manage:day-session'
   ],
+  [UserRole.LEAD_DENTIST]: [
+    'view:financials',
+    'use:ai-features'
+  ],
   [UserRole.DENTIST]: [
     'view:financials',
     'use:ai-features'
   ],
   [UserRole.DENTAL_ASSISTANT]: [],
+  [UserRole.RECEPTIONIST]: [],
   [UserRole.SYSTEM_ARCHITECT]: [
     'view:financials',
     'manage:admin',

@@ -1,24 +1,15 @@
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
-// FIX: CalendarView is a default export, not a named export.
 import CalendarView from './components/CalendarView';
 import { PatientList } from './components/PatientList';
-// FIX: FieldManagement is a default export, not a named export.
 import FieldManagement from './components/FieldManagement';
 import { AdminHub } from './components/AdminHub';
-// FIX: Financials is a named export, not a default export.
 import { Financials } from './components/Financials';
-// FIX: Inventory is a default export, not a named export.
 import Inventory from './components/Inventory';
-// FIX: RecallCenter is a default export, not a named export.
 import RecallCenter from './components/RecallCenter';
-// FIX: ReferralManager is a default export, not a named export.
 import ReferralManager from './components/ReferralManager';
-// FIX: RosterView is a default export, not a named export.
 import RosterView from './components/RosterView';
-// FIX: LeaveAndShiftManager is a default export, not a named export.
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
-// FIX: Add SignatureChainEntry to imports to resolve 'Cannot find name' error
 import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus, SignatureChainEntry } from './types';
 
 // Import all necessary hooks for the new container components
@@ -54,7 +45,6 @@ const PageLoader: React.FC = () => (
 
 // --- CONTAINER COMPONENTS ---
 
-// FIX: Correct lazy import syntax for default exports.
 const AnalyticsHub = React.lazy(() => import('./components/Analytics'));
 const GovernanceHub = React.lazy(() => import('./components/GovernanceHub'));
 const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
@@ -293,7 +283,7 @@ function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
 export const routes: RouteConfig[] = [
   { path: 'dashboard', component: Dashboard },
   { path: 'schedule', component: CalendarView },
-  { path: 'patients', component: PatientList, layout: PatientListLayout },
+  { path: 'patients', component: PatientListLayout },
   { 
     path: 'admin', 
     component: AdminHubContainer, 
@@ -336,8 +326,8 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
 }
 
 const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailView').then(module => ({ default: module.PatientPlaceholder })));
-// FIX: Correct lazy import syntax for default exports.
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
+const PerioChart = React.lazy(() => import('./components/PerioChart').then(module => ({ default: module.PerioChart })));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
   const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
@@ -378,7 +368,6 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
     showModal('postOpHandover', { 
         appointment: apt,
         onConfirm: async (data: { handoverChain: SignatureChainEntry[] }) => {
-            // FIX: Use correct enum member 'COMPLETED'.
             await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { 
                 postOpVerified: true, 
                 postOpVerifiedAt: new Date().toISOString(),

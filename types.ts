@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface Branch {
@@ -16,8 +15,10 @@ export interface Branch {
 
 export enum UserRole {
   ADMIN = 'Administrator',
+  LEAD_DENTIST = 'Lead Dentist',
   DENTIST = 'Dentist',
   DENTAL_ASSISTANT = 'Dental Assistant',
+  RECEPTIONIST = 'Receptionist',
   SYSTEM_ARCHITECT = 'System Architect'
 }
 
@@ -496,6 +497,8 @@ export interface ProcedureItem {
   riskAllergies?: string[]; 
   allowedLicenseCategories?: LicenseCategory[];
   defaultDurationMinutes?: number;
+  isMinorProcedure?: boolean;
+  requiresSurgicalConsent?: boolean;
 }
 
 export interface RolePermissions {
@@ -813,6 +816,8 @@ export interface Appointment {
   }[];
   safetyChecklistChain?: SignatureChainEntry[];
   postOpHandoverChain?: SignatureChainEntry[];
+  patientSignOffSignature?: string;
+  patientSignOffTimestamp?: string;
 }
 
 export enum RegistrationStatus {
@@ -1027,15 +1032,6 @@ export interface Patient {
   registrationStatus?: RegistrationStatus;
   isPendingSync?: boolean;
   registrationBranch?: string;
-  consentHistory?: {
-      timestamp: string;
-      consentType: string;
-      granted: boolean;
-      ipAddress: string;
-      userAgent: string;
-      witnessHash?: string;
-      expiryDate?: string;
-  }[];
   avatarUrl?: string;
   emergencyContact?: {
     name: string;
@@ -1054,6 +1050,10 @@ export interface Patient {
   privacyConsentChain?: SignatureChainEntry[];
   privacyConsentDate?: string;
   privacyConsentVersion?: string;
+  // NEW: Consent tracking
+  lastGeneralConsentDate?: string;
+  lastGeneralConsentExpiryDate?: string;
+  consentHistory?: ConsentRecord[];
 }
 
 export enum TreatmentPlanStatus {
@@ -1101,6 +1101,7 @@ export interface TreatmentPlan {
   primaryDentistId?: string; // Lead dentist (final authority)
   reconfirmedBy?: string;
   reconfirmedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface PinboardTask {
@@ -1254,10 +1255,13 @@ export enum RecallStatus {
 export interface ConsentFormTemplate {
   id: string;
   name: string;
+  description?: string;
+  category?: 'GENERAL' | 'SURGICAL' | 'PREVENTIVE' | string;
   content_en: string;
   content_tl: string;
   validityDays?: number;
   requiresRenewal?: boolean;
+  requiresWitness?: boolean;
 }
 
 export interface PurchaseOrder {
@@ -1467,4 +1471,30 @@ export interface PediatricConsent {
         dentistAttestation: string; // Dentist certifies child was consulted
         timestamp: string;
     };
+}
+export enum RequiresLeadDentistApproval {
+    PROTOCOL_OVERRIDE = 'Protocol Override',
+    HIGH_RISK_CONSENT = 'High Risk Procedure Consent',
+    EMERGENCY_TREATMENT = 'Emergency Treatment Without Full Consent',
+    INFORMED_REFUSAL = 'Patient Informed Refusal',
+    STERILIZATION_VARIANCE = 'Sterilization Protocol Variance',
+}
+
+// NEW: Consent tracking
+export interface ConsentRecord {
+  id: string;
+  templateId: string;
+  templateName: string;
+  // FIX: Renamed 'capturedDate' to 'timestamp' to match usage.
+  timestamp: string; // Changed from capturedDate
+  expiryDate: string;
+  signatureHash: string;
+  isExpired: boolean;
+  procedureId?: string; // If procedure-specific
+  // FIX: Added missing properties to support detailed logging.
+  consentType: ConsentCategory;
+  granted: boolean;
+  userAgent?: string;
+  ipAddress?: string;
+  witnessHash?: string;
 }
