@@ -1,12 +1,12 @@
-
+// Fix: Import useState from React.
 import React, { useState, useEffect } from 'react';
+// Fix: Import ShieldCheck icon from lucide-react.
 import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle } from 'lucide-react';
 import AuditTrailViewer from './AuditTrailViewer';
 import LegalActionHub from './LegalActionHub';
-import ConsentFormManager from './ConsentFormManager';
 import ComplianceCenter from './ComplianceCenter';
-import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident, ConsentFormTemplate } from '../types';
-import { useToast } from './ToastSystem';
+import ConsentFormManager from './ConsentFormManager';
+import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident } from '../types';
 
 interface BreachNotificationCountdownProps {
     incident: ClinicalIncident;
@@ -71,6 +71,7 @@ const BreachNotificationCountdown: React.FC<BreachNotificationCountdownProps> = 
     );
 };
 
+
 interface GovernanceHubProps {
   patients: Patient[];
   showModal: (type: string, props: any) => void;
@@ -81,7 +82,6 @@ interface GovernanceHubProps {
   onAnonymizePatient: (id: string) => void;
   onBack: () => void;
   incidents: ClinicalIncident[];
-  handleRequestDataDeletion: any;
 }
 
 const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {

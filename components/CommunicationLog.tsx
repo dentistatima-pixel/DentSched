@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Patient, CommunicationLogEntry, CommunicationChannel } from '../types';
 import { MessageSquare, Phone, StickyNote, Send, Plus } from 'lucide-react';

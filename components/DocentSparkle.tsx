@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Sparkles, Loader } from 'lucide-react';
 import { useDocent } from '../contexts/DocentContext';

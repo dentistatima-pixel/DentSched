@@ -15,7 +15,7 @@ interface QuickTriageModalProps {
 }
 
 const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, currentBranch }) => {
-    const { openModal } = useModal();
+    const { showModal } = useModal();
     const { handleSaveAppointment } = useAppointments();
     const { handleSavePatient } = usePatient();
     const { currentUser } = useAppContext();
@@ -67,7 +67,7 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
         };
 
         if (isEmergency) {
-            openModal('emergencyConsent', {
+            showModal('emergencyConsent', {
                 patient: provisionalPatient,
                 currentUser,
                 onSave: (consentData: any) => {

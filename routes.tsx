@@ -1,16 +1,25 @@
 
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
+// FIX: CalendarView is a default export, not a named export.
 import CalendarView from './components/CalendarView';
 import { PatientList } from './components/PatientList';
+// FIX: FieldManagement is a default export, not a named export.
 import FieldManagement from './components/FieldManagement';
 import { AdminHub } from './components/AdminHub';
+// FIX: Financials is a named export, not a default export.
 import { Financials } from './components/Financials';
+// FIX: Inventory is a default export, not a named export.
 import Inventory from './components/Inventory';
+// FIX: RecallCenter is a default export, not a named export.
 import RecallCenter from './components/RecallCenter';
+// FIX: ReferralManager is a default export, not a named export.
 import ReferralManager from './components/ReferralManager';
+// FIX: RosterView is a default export, not a named export.
+import RosterView from './components/RosterView';
+// FIX: LeaveAndShiftManager is a default export, not a named export.
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
-import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus, SignatureChainEntry } from './types';
+import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus } from './types';
 
 // Import all necessary hooks for the new container components
 import { usePatient } from './contexts/PatientContext';
@@ -45,6 +54,7 @@ const PageLoader: React.FC = () => (
 
 // --- CONTAINER COMPONENTS ---
 
+// FIX: Correct lazy import syntax for default exports.
 const AnalyticsHub = React.lazy(() => import('./components/Analytics'));
 const GovernanceHub = React.lazy(() => import('./components/GovernanceHub'));
 const CommunicationHub = React.lazy(() => import('./components/CommunicationHub'));
@@ -74,9 +84,9 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
             case 'referrals':
                 return <ReferralManagerContainer />;
             case 'roster':
-                return <LeaveAndShiftManagerContainer initialTab="roster" onBack={() => navigate('admin')} />;
+                return <RosterViewContainer />;
             case 'leave':
-                return <LeaveAndShiftManagerContainer initialTab="requests" onBack={() => navigate('admin')} />;
+                return <LeaveAndShiftManagerContainer />;
             case 'familygroups':
                 return <Suspense fallback={<PageLoader />}><FamilyGroupManagerContainer onBack={() => navigate('admin')} /></Suspense>;
             default:
@@ -104,9 +114,8 @@ function AnalyticsHubContainer() {
 }
 
 function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
-    const { patients, handleAnonymizePatient: onPurgePatient, handleConfirmRevocation: handleRequestDataDeletion } = usePatient();
-    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-    const { openModal: showModal } = useModal();
+    const { patients, handleAnonymizePatient: onPurgePatient, handleRequestDataDeletion, handleManageDataDeletionRequest } = usePatient();
+    const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { incidents } = useClinicalOps();
@@ -122,6 +131,7 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
         onBack={() => onNavigate('admin')}
         incidents={incidents}
         handleRequestDataDeletion={handleRequestDataDeletion}
+        handleManageDataDeletionRequest={handleManageDataDeletionRequest}
     />;
 }
 
@@ -198,8 +208,7 @@ function FieldManagementContainer() {
     const { auditLog, isAuditLogVerified, currentUser, handleStartImpersonating } = useAppContext();
     const { patients, handleAnonymizePatient: handlePurgePatient } = usePatient();
     const { appointments } = useAppointments();
-    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-    const { openModal: showModal } = useModal();
+    const { showModal } = useModal();
 
     return <FieldManagement
         settings={fieldSettings} onUpdateSettings={handleUpdateSettings}
@@ -239,24 +248,35 @@ function ReferralManagerContainer() {
     />;
 }
 
-function LeaveAndShiftManagerContainer({ initialTab, onBack }: { initialTab?: 'requests' | 'roster'; onBack: () => void; }) {
+function RosterViewContainer() {
+    const { staff, handleUpdateStaffRoster } = useStaff();
+    const { fieldSettings } = useSettings();
+    const { currentUser } = useAppContext();
+    const navigate = useNavigate();
+    return <RosterView 
+        staff={staff}
+        fieldSettings={fieldSettings}
+        currentUser={currentUser!}
+        onUpdateStaffRoster={handleUpdateStaffRoster}
+        onBack={() => navigate('admin')}
+    />;
+}
+
+function LeaveAndShiftManagerContainer() {
     const { staff, leaveRequests, handleAddLeaveRequest, handleApproveLeaveRequest, handleUpdateStaffRoster } = useStaff();
     const { currentUser } = useAppContext();
     const { fieldSettings } = useSettings();
-
-    return <Suspense fallback={<PageLoader />}>
-        <LeaveAndShiftManager
-            staff={staff}
-            currentUser={currentUser!}
-            leaveRequests={leaveRequests}
-            onAddLeaveRequest={handleAddLeaveRequest}
-            onApproveLeaveRequest={handleApproveLeaveRequest}
-            fieldSettings={fieldSettings}
-            onBack={onBack}
-            onUpdateStaffRoster={handleUpdateStaffRoster}
-            initialTab={initialTab}
-        />
-    </Suspense>;
+    const navigate = useNavigate();
+    return <LeaveAndShiftManager
+        staff={staff}
+        currentUser={currentUser!}
+        leaveRequests={leaveRequests}
+        onAddLeaveRequest={handleAddLeaveRequest}
+        onApproveLeaveRequest={handleApproveLeaveRequest}
+        fieldSettings={fieldSettings}
+        onBack={() => navigate('admin')}
+        onUpdateStaffRoster={handleUpdateStaffRoster}
+    />;
 }
 
 function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
@@ -274,7 +294,7 @@ function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
 export const routes: RouteConfig[] = [
   { path: 'dashboard', component: Dashboard },
   { path: 'schedule', component: CalendarView },
-  { path: 'patients', component: PatientListLayout },
+  { path: 'patients', component: PatientList, layout: PatientListLayout },
   { 
     path: 'admin', 
     component: AdminHubContainer, 
@@ -317,19 +337,18 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
 }
 
 const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailView').then(module => ({ default: module.PatientPlaceholder })));
+// FIX: Correct lazy import syntax for default exports.
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
-const PerioChart = React.lazy(() => import('./components/PerioChart').then(module => ({ default: module.PerioChart })));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
-  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
+  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleRequestDataDeletion } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
   const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
   const { fieldSettings, handleUpdateSettings } = useSettings();
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
-  // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-  const { openModal: showModal } = useModal();
+  const { showModal } = useModal();
   
   const patient = useMemo(() => patients.find(p => p.id === patientId) || null, [patients, patientId]);
 
@@ -359,12 +378,9 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   const onOpenPostOpHandover = (apt: Appointment) => {
     showModal('postOpHandover', { 
         appointment: apt,
-        onConfirm: async (data: { handoverChain: SignatureChainEntry[] }) => {
-            await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { 
-                postOpVerified: true, 
-                postOpVerifiedAt: new Date().toISOString(),
-                postOpHandoverChain: data.handoverChain
-            });
+        onConfirm: async () => {
+            // FIX: Use correct enum member 'COMPLETED'.
+            await handleUpdateAppointmentStatus(apt.id, AppointmentStatus.COMPLETED, { postOpVerified: true });
         }
     });
   };
@@ -400,6 +416,7 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
         auditLog={auditLog}
+        handleRequestDataDeletion={handleRequestDataDeletion}
       />
     </Suspense>
   );

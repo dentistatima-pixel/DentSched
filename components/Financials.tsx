@@ -12,9 +12,8 @@ import {
     HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
-    ClinicalIncident,
-    HMOClaimStatus
+    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
+    ClinicalIncident 
 } from '../types';
 import Analytics from './Analytics';
 import { formatDate, generateUid } from '../constants';
@@ -22,7 +21,6 @@ import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import Payroll from './Payroll';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -102,110 +100,6 @@ export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onCl
                 </div>
             </div>
         </div>
-    );
-};
-
-
-interface ReconciliationWizardProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
-  session: CashSession;
-  appointments: Appointment[];
-  patients: Patient[];
-  currentUser: StaffUser;
-}
-
-const ReconciliationWizard: React.FC<ReconciliationWizardProps> = ({ isOpen, onClose, onSave, session, appointments, patients, currentUser }) => {
-    const [step, setStep] = useState(1);
-    const [form, setForm] = useState({ actualCash: '', actualCard: '', actualEWallet: '', notes: '' });
-
-    const expectedTotal = useMemo(() => {
-        // A real implementation would filter ledger entries by this specific cash session
-        return 50000; // Placeholder
-    }, [session, appointments, patients]);
-    
-    const actualTotal = useMemo(() => {
-        return parseFloat(form.actualCash || '0') + parseFloat(form.actualCard || '0') + parseFloat(form.actualEWallet || '0');
-    }, [form]);
-    
-    const discrepancy = actualTotal - expectedTotal;
-
-    if (!isOpen) return null;
-
-    const renderStep = () => {
-        switch(step) {
-            case 1:
-                return (
-                    <div className="text-center">
-                        <h3 className="text-2xl font-black">Reconcile Session</h3>
-                        <p className="text-slate-500 mt-2">Opened by {session.openedByName} at {new Date(session.startTime).toLocaleTimeString()}</p>
-                        <div className="mt-6 bg-slate-100 p-4 rounded-xl">
-                            <p className="text-sm font-bold">Opening Balance: ₱{session.openingBalance.toLocaleString()}</p>
-                            <p className="text-sm font-bold">Expected Collections: ₱{expectedTotal.toLocaleString()}</p>
-                        </div>
-                    </div>
-                );
-            case 2:
-                return (
-                    <div>
-                        <h3 className="text-xl font-black mb-4">Enter Actual Collections</h3>
-                        <div className="space-y-4">
-                            <div><label className="label text-xs">Actual Cash</label><input type="number" value={form.actualCash} onChange={e => setForm({...form, actualCash: e.target.value})} className="input text-lg font-black" autoFocus/></div>
-                            <div><label className="label text-xs">Actual Card</label><input type="number" value={form.actualCard} onChange={e => setForm({...form, actualCard: e.target.value})} className="input text-lg font-black"/></div>
-                            <div><label className="label text-xs">Actual E-Wallet</label><input type="number" value={form.actualEWallet} onChange={e => setForm({...form, actualEWallet: e.target.value})} className="input text-lg font-black"/></div>
-                        </div>
-                    </div>
-                );
-            case 3:
-                 return (
-                    <div className="text-center">
-                        <h3 className="text-2xl font-black">Review Discrepancy</h3>
-                        <p className={`text-4xl font-black my-4 ${discrepancy === 0 ? 'text-teal-600' : 'text-red-600'}`}>
-                            {discrepancy > 0 ? '+' : ''}₱{discrepancy.toLocaleString()}
-                        </p>
-                        {discrepancy !== 0 && (
-                            <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="input h-24" placeholder="Explain the discrepancy..."/>
-                        )}
-                    </div>
-                 );
-            default: return null;
-        }
-    }
-    
-    const handleNext = () => {
-        if (step === 3) {
-            onSave({
-                date: new Date().toISOString().split('T')[0],
-                branch: session.branch,
-                expectedTotal,
-                actualCash: parseFloat(form.actualCash),
-                actualCard: parseFloat(form.actualCard),
-                actualEWallet: parseFloat(form.actualEWallet),
-                discrepancy,
-                notes: form.notes,
-                verifiedBy: currentUser.id,
-                sessionId: session.id,
-                resolutionStatus: discrepancy === 0 ? 'Resolved' : 'Pending Review'
-            });
-            onClose();
-        } else {
-            setStep(s => s + 1);
-        }
-    };
-
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 z-[110] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl w-full max-w-lg p-8">
-            <div className="mb-8">{renderStep()}</div>
-            <div className="flex justify-between items-center">
-                <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="text-sm font-bold disabled:opacity-50">Back</button>
-                <button onClick={handleNext} className="px-6 py-3 bg-teal-600 text-white rounded-lg text-sm font-bold">
-                    {step === 3 ? 'Submit Reconciliation' : 'Next'}
-                </button>
-            </div>
-        </div>
-      </div>
     );
 };
 
@@ -304,7 +198,7 @@ const HMOClaimsTab: React.FC<{
                             <td className="p-3 text-right font-mono text-text-primary">₱{claim.amountClaimed.toLocaleString()}</td>
                             <td className="p-3 text-center"><span className="text-xs font-bold px-2 py-1 rounded bg-bg-tertiary text-text-primary">{claim.status}</span></td>
                             <td className="p-3 text-center">
-                                {claim.status === HMOClaimStatus.SUBMITTED && 
+                                {claim.status === 'Submitted' && 
                                     <div className="flex gap-2 justify-center">
                                         <button onClick={() => { const amt = prompt("Enter amount received:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.PAID, { amountReceived: parseFloat(amt || '0') })}} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</button>
                                         <button onClick={() => { const reason = prompt("Reason for rejection:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.REJECTED, { rejectionReason: reason || 'No reason provided' })}} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Reject</button>
@@ -389,11 +283,10 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
 };
 
 export const Financials: React.FC<FinancialsProps> = (props) => {
-    const { onBack, activeSubTab, reconciliations = [] } = props;
+    const { onBack, activeSubTab } = props;
     const { fieldSettings } = useSettings();
     const [activeTab, setActiveTab] = useState(activeSubTab || 'hmo');
     const [showEODReport, setShowEODReport] = useState(false);
-    const [showReconWizard, setShowReconWizard] = useState(false);
 
     const tabs = [
         { id: 'hmo', label: 'HMO Claims', icon: Briefcase },
@@ -401,67 +294,6 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
         { id: 'payroll', label: 'Payroll', icon: Calculator },
         { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
     ];
-    
-    const activeCashSession = props.cashSessions?.find(cs => cs.branch === props.currentBranch && cs.status === 'Open');
-
-    const renderContent = () => {
-        switch(activeTab) {
-            case 'hmo':
-                return <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />;
-            case 'expenses':
-                return <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />;
-            case 'payroll':
-                return <Payroll
-                    payrollPeriods={props.payrollPeriods}
-                    payrollAdjustments={props.payrollAdjustments}
-                    commissionDisputes={props.commissionDisputes}
-                    onUpdatePayrollPeriod={props.onUpdatePayrollPeriod}
-                    onAddPayrollAdjustment={props.onAddPayrollAdjustment}
-                    onApproveAdjustment={props.onApproveAdjustment}
-                    onAddCommissionDispute={props.onAddCommissionDispute}
-                    onResolveCommissionDispute={props.onResolveCommissionDispute}
-                    staff={props.staff || []}
-                    currentUser={props.currentUser}
-                    onAddPayrollPeriod={props.onAddPayrollPeriod}
-                />;
-            case 'reconciliation':
-                 return (
-                    <div className="space-y-6">
-                        <div className="flex justify-end">
-                            <button onClick={() => activeCashSession && setShowReconWizard(true)} disabled={!activeCashSession} className="px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center gap-2">
-                                <Plus size={16}/> Start EOD Reconciliation
-                            </button>
-                        </div>
-                        {!activeCashSession && <p className="text-sm text-slate-500 text-center p-4 bg-slate-50 rounded-lg">No active cash session for this branch.</p>}
-                        
-                        <h4 className="font-black text-sm text-slate-500 uppercase tracking-[0.3em]">Reconciliation History</h4>
-                        <div className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead><tr className="bg-bg-tertiary text-xs uppercase"><th className="p-3 text-left text-text-secondary">Date</th><th className="p-3 text-right text-text-secondary">Expected</th><th className="p-3 text-right text-text-secondary">Actual</th><th className="p-3 text-right text-text-secondary">Discrepancy</th><th className="p-3 text-center text-text-secondary">Status</th><th className="p-3 text-left text-text-secondary">Verified By</th></tr></thead>
-                                <tbody>
-                                    {reconciliations.map(rec => {
-                                        const actual = rec.actualCash + rec.actualCard + rec.actualEWallet;
-                                        return (
-                                            <tr key={rec.id} className="border-t border-border-secondary">
-                                                <td className="p-3 font-mono text-xs">{formatDate(rec.date)}</td>
-                                                <td className="p-3 text-right font-mono">₱{rec.expectedTotal.toLocaleString()}</td>
-                                                <td className="p-3 text-right font-mono">₱{actual.toLocaleString()}</td>
-                                                <td className={`p-3 text-right font-mono font-bold ${rec.discrepancy !== 0 ? 'text-red-600' : 'text-green-600'}`}>₱{rec.discrepancy.toLocaleString()}</td>
-                                                <td className="p-3 text-center"><span className={`text-xs font-bold px-2 py-1 rounded ${rec.resolutionStatus === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{rec.resolutionStatus}</span></td>
-                                                <td className="p-3 text-xs font-bold">{rec.verifiedByName}</td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                             {reconciliations.length === 0 && <p className="text-center italic text-slate-400 p-8">No reconciliation records found.</p>}
-                        </div>
-                    </div>
-                 );
-            default:
-                return null;
-        }
-    };
     
     return (
       <div className="p-8 space-y-8 animate-in fade-in duration-500">
@@ -475,10 +307,10 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
              <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg"><History size={16}/> EOD Report</button>
         </div>
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-            {renderContent()}
+            {activeTab === 'hmo' && <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />}
+            {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
         </div>
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
-        {activeCashSession && <ReconciliationWizard isOpen={showReconWizard} onClose={() => setShowReconWizard(false)} onSave={props.onSaveReconciliation} session={activeCashSession} appointments={props.appointments || []} patients={props.patients || []} currentUser={props.currentUser} />}
       </div>
     );
 };

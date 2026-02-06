@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 
 export interface Branch {
@@ -17,10 +16,8 @@ export interface Branch {
 
 export enum UserRole {
   ADMIN = 'Administrator',
-  LEAD_DENTIST = 'Lead Dentist',
   DENTIST = 'Dentist',
   DENTAL_ASSISTANT = 'Dental Assistant',
-  RECEPTIONIST = 'Receptionist',
   SYSTEM_ARCHITECT = 'System Architect'
 }
 
@@ -192,7 +189,6 @@ export enum PayrollStatus {
 export interface PayrollAdjustment {
     id: string;
     periodId: string;
-    staffId: string;
     amount: number;
     reason: string;
     requestedBy: string;
@@ -469,7 +465,6 @@ export interface AuditLogEntry {
   entity: string;
   entityId: string;
   details: string;
-  justification?: string;
   hash?: string;          
   previousHash?: string;
   impersonatingUser?: { id: string, name: string };
@@ -486,8 +481,6 @@ export interface OrthoAdjustment {
     dentist: string;
 }
 
-export type ConsentTier = 'ROUTINE' | 'STANDARD' | 'HIGH_RISK';
-
 export interface ProcedureItem {
   id: string;
   name: string;
@@ -497,24 +490,11 @@ export interface ProcedureItem {
   requiresXray?: boolean;
   requiresWitness?: boolean;
   riskDisclosures?: string[];
-  alternatives?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
   riskAllergies?: string[]; 
   allowedLicenseCategories?: LicenseCategory[];
   defaultDurationMinutes?: number;
-  isMinorProcedure?: boolean;
-  requiresSurgicalConsent?: boolean;
-  postOpInstructions?: string[];
-  safetyChecklist?: string[];
-  consentTier?: ConsentTier;
-  whatToExpect?: string[];
-  afterCare?: string[];
-  comprehensionQuestions?: {
-      question: string;
-      options: string[];
-      correctAnswer: string;
-  }[];
 }
 
 export interface RolePermissions {
@@ -617,7 +597,7 @@ export interface ClinicalProtocolRule {
 export interface Vendor {
     id: string;
     name: string;
-    type: 'Lab' | 'HMO' | 'Supplier' | 'Pharmacy' | 'Other';
+    type: 'Lab' | 'HMO' | 'Supplier' | 'Other';
     contactPerson: string;
     contactNumber: string;
     email: string;
@@ -734,20 +714,8 @@ export interface SignatureChainEntry {
   metadata: {
     deviceInfo: string;
     consentLanguage?: 'en' | 'tl';
-    contextHash?: string;
-    templateId?: string;
-    templateVersion?: string;
-    witnessHash?: string;
-    interactionTelemetry?: {
-        timeToSignMs: number;
-        strokeCount: number;
-    };
     [key: string]: any; // To embed childAssent data
   };
-  guardianIdPhoto?: string;
-  guardianIdHash?: string;
-  guardianVerificationMethod?: 'ID_PHOTO' | 'BIOMETRIC' | 'WITNESS';
-  expiresAt?: string;
 }
 
 export interface EmergencyTreatmentConsent {
@@ -755,7 +723,7 @@ export interface EmergencyTreatmentConsent {
   emergencyType: 'Trauma' | 'Severe Pain' | 'Infection' | 'Bleeding';
   triageLevel: 'Level 1: Trauma/Bleeding';
   verbalConsentGiven: boolean;
-  verbalConsentWitnessIds: string[];
+  verbalConsentWitnessId: string;
   verbalConsentTimestamp: string;
   signatureObtainedPostTreatment: boolean;
   signatureTimestamp?: string;
@@ -764,14 +732,6 @@ export interface EmergencyTreatmentConsent {
   authorizingDentistId: string;
   authorizingDentistSignature: string;
   authorizationTimestamp: string;
-  emergencyJustification: string;
-  contactAttempts?: Array<{
-    phone: string;
-    time: string;
-    outcome: string;
-  }>;
-  emergencyAuthorizedBy?: string;
-  twoWitnessClinicians?: string[];
 }
 
 export interface Appointment {
@@ -798,7 +758,6 @@ export interface Appointment {
   };
   sterilizationCycleId?: string;
   sterilizationVerified?: boolean;
-  sterilizationVerifiedAt?: string;
   linkedInstrumentSetIds?: string[];
   isWaitlistOverride?: boolean;
   authorizedManagerId?: string;
@@ -819,7 +778,6 @@ export interface Appointment {
   queuedAt?: string;
   isStale?: boolean;
   consentSignatureChain?: SignatureChainEntry[];
-  medHistoryAffirmationChain?: SignatureChainEntry[];
   triageLevel?: TriageLevel;
   postOpVerified?: boolean;
   postOpVerifiedAt?: string;
@@ -836,18 +794,6 @@ export interface Appointment {
   }[];
   cancellationReason?: string;
   emergencyConsent?: EmergencyTreatmentConsent;
-  postOpSignOffChain?: SignatureChainEntry[];
-  protocolOverrides?: {
-    ruleId: string;
-    reason: string;
-    signatureChain: SignatureChainEntry[];
-  }[];
-  safetyChecklistChain?: SignatureChainEntry[];
-  postOpHandoverChain?: SignatureChainEntry[];
-  patientSignOffSignature?: string;
-  patientSignOffTimestamp?: string;
-  reminderSentAt?: string;
-  preTreatmentExpectationsReviewed?: boolean;
 }
 
 export enum RegistrationStatus {
@@ -868,15 +814,14 @@ export interface InformedRefusal {
     risk: string;
     acknowledged: boolean;
   }>;
-  alternativesDiscussed?: Array<{
-    alternative: string;
-    patientResponse?: string;
-  }>;
+  alternativesOffered: string[];
   dentistRecommendation: string;
   patientUnderstandsConsequences: boolean;
-  patientSignatureChain: SignatureChainEntry[];
-  dentistSignatureChain: SignatureChainEntry[];
-  witnessSignatureChain?: SignatureChainEntry[];
+  patientSignature: string;
+  patientSignatureTimestamp: string;
+  dentistSignature: string;
+  dentistSignatureTimestamp: string;
+  witnessSignature?: string;
   witnessName?: string;
   formVersion: string;
   printedAt?: string;
@@ -927,7 +872,7 @@ export interface ClinicalMediaConsent {
     imageHashes: string[];
     procedure: string;
     device: string;
-    consentVerified: boolean;
+    consentReconfirmed: boolean;
     purpose: 'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing';
   }>;
   
@@ -958,7 +903,6 @@ export interface DataDeletionRequest {
   approvedBy?: string; // Lead dentist ID
   anonymizedAt?: string;
   retentionPeriod: number; // Years
-  requestSignatureChain?: SignatureChainEntry[];
 }
 
 export interface Patient {
@@ -1028,13 +972,6 @@ export interface Patient {
   researchConsent?: boolean;
   dpaConsent?: boolean;
   lastDigitalUpdate?: string;
-  // FIX: Add 'medHistoryAffirmation' to the Patient type to resolve a type error in medicolegalGuard.ts.
-  medHistoryAffirmation?: {
-    affirmedAt: string;
-    noChanges: boolean;
-    notes?: string;
-    signature?: string;
-  };
   weightKg?: number;
   medicationDetails?: string;
   allergies?: string[];
@@ -1072,6 +1009,15 @@ export interface Patient {
   registrationStatus?: RegistrationStatus;
   isPendingSync?: boolean;
   registrationBranch?: string;
+  consentHistory?: {
+      timestamp: string;
+      consentType: string;
+      granted: boolean;
+      ipAddress: string;
+      userAgent: string;
+      witnessHash?: string;
+      expiryDate?: string;
+  }[];
   avatarUrl?: string;
   emergencyContact?: {
     name: string;
@@ -1084,17 +1030,6 @@ export interface Patient {
   prescriptions?: EPrescription[];
   dataDeletionRequests?: DataDeletionRequest[];
   preferredLanguage?: 'en' | 'tl';
-  visualAnchorThumb?: string;
-  visualAnchorHash?: string;
-  visualAnchorCapturedAt?: string;
-  privacyConsentChain?: SignatureChainEntry[];
-  privacyConsentDate?: string;
-  privacyConsentVersion?: string;
-  // NEW: Consent tracking
-  lastGeneralConsentDate?: string;
-  lastGeneralConsentExpiryDate?: string;
-  consentHistory?: ConsentRecord[];
-  birthdayGreetingSentYear?: number;
 }
 
 export enum TreatmentPlanStatus {
@@ -1119,12 +1054,13 @@ export interface TreatmentPlan {
   reviewedAt?: string;
   approvalReason?: string;
   approvalJustification?: string;
-  approvalSignatureChain?: SignatureChainEntry[];
+  approvalSignature?: string;
   clinicalRationale?: string;
   originalQuoteAmount?: number;
   isComplexityDisclosed?: boolean;
   color?: string;
-  financialConsentSignatureChain?: SignatureChainEntry[];
+  financialConsentSignature?: string;
+  financialConsentTimestamp?: string;
   discountAmount?: number;
   discountReason?: string;
   consultations?: {
@@ -1142,7 +1078,6 @@ export interface TreatmentPlan {
   primaryDentistId?: string; // Lead dentist (final authority)
   reconfirmedBy?: string;
   reconfirmedAt?: string;
-  rejectionReason?: string;
 }
 
 export interface PinboardTask {
@@ -1232,7 +1167,6 @@ export interface DentalChartEntry {
     userId: string;
     userName: string;
     timestamp: string;
-    amendmentNoteId?: string;
   };
 }
 
@@ -1296,14 +1230,10 @@ export enum RecallStatus {
 export interface ConsentFormTemplate {
   id: string;
   name: string;
-  description?: string;
-  category?: 'GENERAL' | 'SURGICAL' | 'PREVENTIVE' | string;
   content_en: string;
   content_tl: string;
-  version: string;
   validityDays?: number;
   requiresRenewal?: boolean;
-  requiresWitness?: boolean;
 }
 
 export interface PurchaseOrder {
@@ -1378,7 +1308,6 @@ export interface FieldSettings {
   strictMode: boolean;
   editBufferWindowMinutes: number;
   sessionTimeoutMinutes: number;
-  medHistoryReaffirmationDays?: number;
   suffixes: string[];
   civilStatus: string[];
   sex: string[];
@@ -1442,13 +1371,12 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
+  priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];
   dataProtectionOfficerId?: string;
   privacyImpactAssessments?: PrivacyImpactAssessment[];
-// FIX: Add 'priceBookEntries' to support pricing information throughout the application.
-  priceBookEntries?: PriceBookEntry[];
 }
 
 export interface Medication {
@@ -1514,39 +1442,5 @@ export interface PediatricConsent {
         childSignature?: string; // Optional for older children
         dentistAttestation: string; // Dentist certifies child was consulted
         timestamp: string;
-    };
-}
-export enum RequiresLeadDentistApproval {
-    PROTOCOL_OVERRIDE = 'Protocol Override',
-    HIGH_RISK_CONSENT = 'High Risk Procedure Consent',
-    EMERGENCY_TREATMENT = 'Emergency Treatment Without Full Consent',
-    INFORMED_REFUSAL = 'Patient Informed Refusal',
-    STERILIZATION_VARIANCE = 'Sterilization Protocol Variance',
-}
-
-// NEW: Consent tracking
-export interface ConsentRecord {
-  id: string;
-  templateId: string;
-  templateName: string;
-  timestamp: string;
-  expiryDate: string;
-  signatureHash: string;
-  isExpired: boolean;
-  procedureId?: string; // If procedure-specific
-  consentType: ConsentCategory;
-  granted: boolean;
-  userAgent?: string;
-  ipAddress?: string;
-  witnessHash?: string;
-}
-
-// --- NEW TYPE for MedicoLegalGuard ---
-export interface MedicolegalBlock {
-    isBlocked: boolean;
-    reason: string;
-    modal?: {
-        type: string;
-        props: any;
     };
 }

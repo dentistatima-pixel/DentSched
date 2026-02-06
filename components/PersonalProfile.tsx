@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, LicenseCategory } from '../types';
 import { Save, Edit, X, Shield, Percent, Sparkles, MapPin, Power, PowerOff } from 'lucide-react';

@@ -1,11 +1,9 @@
 
-
 import React, { useState } from 'react';
 import { Patient, User, EmergencyTreatmentConsent } from '../types';
 import { X, Zap, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useStaff } from '../contexts/StaffContext';
-import { useAppContext } from '../contexts/AppContext';
 
 interface EmergencyConsentModalProps {
   isOpen: boolean;
@@ -20,7 +18,6 @@ const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
 }) => {
     const { staff } = useStaff();
     const toast = useToast();
-    const { logAction } = useAppContext();
     const [narrative, setNarrative] = useState('');
     const [witnessId, setWitnessId] = useState('');
 
@@ -38,19 +35,15 @@ const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
             emergencyType: 'Trauma', // Simplified for now
             triageLevel: 'Level 1: Trauma/Bleeding',
             verbalConsentGiven: true,
-            // FIX: The property name is `verbalConsentWitnessIds` and it expects an array.
-            verbalConsentWitnessIds: [witnessId],
+            verbalConsentWitnessId: witnessId,
             verbalConsentTimestamp: new Date().toISOString(),
             signatureObtainedPostTreatment: false, // This would be updated later
             emergencyNarrative: narrative,
             authorizingDentistId: currentUser.id,
             authorizingDentistSignature: 'PENDING_SEAL', // System would seal this
             authorizationTimestamp: new Date().toISOString(),
-            // FIX: Add missing 'emergencyJustification' property to satisfy the type.
-            emergencyJustification: narrative,
         };
         
-        logAction('SECURITY_ALERT', 'Patient', patient.id, `Emergency consent documented. Witness: ${staff.find(s=>s.id === witnessId)?.name}. Justification: ${narrative}`);
         onSave(consentData);
     };
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
@@ -77,12 +76,6 @@ const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, 
             alert('Please fill all required fields.');
             return;
         }
-
-        if (formData.tinNumber && !/^\d{3}-\d{3}-\d{3}-\d{3}$/.test(formData.tinNumber)) {
-            toast.error("Invalid TIN format. Expected format: XXX-XXX-XXX-XXX.");
-            return;
-        }
-
         onSave({
             id: formData.id || `branch_${Date.now()}`,
             ...formData

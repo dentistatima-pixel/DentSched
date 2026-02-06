@@ -1,13 +1,12 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
+// FIX: Added 'Patient' to the import from '../types' to resolve type errors.
 import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
-import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle, Camera } from 'lucide-react';
+import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
 import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useModal } from '../contexts/ModalContext';
-import { usePatient } from '../contexts/PatientContext';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -25,11 +24,9 @@ interface EntryFormProps {
     onCancel: () => void;
     currentUser: User;
     onAssign: (note: DentalChartEntry) => void;
-    onPatientSignOff: (note: DentalChartEntry) => void;
-    onCapturePhoto: (note: DentalChartEntry) => void;
 }
 
-const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign, onPatientSignOff, onCapturePhoto }) => {
+const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign }) => {
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
@@ -156,25 +153,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         <div className="space-y-4 pt-6 border-t border-slate-100">
             <div className="flex justify-between items-center">
                 <label className="label flex items-center gap-2"><Stethoscope size={14}/> SOAP Narrative</label>
-                <div className="flex items-center gap-2">
-                    <button 
-                        type="button" 
-                        onClick={() => onCapturePhoto(formData)}
-                        disabled={isSealed}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-black uppercase tracking-widest disabled:opacity-50 disabled:grayscale"
-                    >
-                        <Camera size={14}/> Capture Image
-                    </button>
-                    <button 
-                        type="button" 
-                        onClick={handleGenerateAiSoap}
-                        disabled={isSoapLoading || isSealed || !formData.procedure}
-                        className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
-                    >
-                        {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
-                        {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
-                    </button>
-                </div>
+                <button 
+                    type="button" 
+                    onClick={handleGenerateAiSoap}
+                    disabled={isSoapLoading || isSealed || !formData.procedure}
+                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
+                >
+                    {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
+                    {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
+                </button>
             </div>
             <div>
                 <label className="label">S (Subjective)</label>
@@ -193,23 +180,16 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                 <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
             </div>
         </div>
-        <div className="flex justify-between items-center gap-3 pt-6 border-t border-slate-100">
-            {formData.status === 'Completed' && (
-                <button type="button" onClick={() => onPatientSignOff(formData)} className="px-6 py-3 bg-blue-100 text-blue-700 rounded-xl font-black uppercase text-sm tracking-widest flex items-center gap-2">
-                    <FileSignature size={16}/> Patient Sign-Off
+        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
+            {formData.status === 'Planned' && (
+                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
+                    Save & Assign <ArrowRight size={14}/>
                 </button>
             )}
-            <div className="flex-1 flex justify-end gap-3">
-                <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
-                {formData.status === 'Planned' && (
-                    <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
-                        Save & Assign <ArrowRight size={14}/>
-                    </button>
-                )}
-                <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
-                    {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
-                </button>
-            </div>
+            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
+                {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
+            </button>
         </div>
       </div>
     );
@@ -277,7 +257,6 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   procedures, treatmentPlans = [], prefill, onClearPrefill, onSwitchToPlanTab, showModal, logAction
 }) => {
   const toast = useToast();
-  const { handlePatientSignOffOnNote } = usePatient();
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
   const [verifiedConsentMap, setVerifiedConsentMap] = useState<Record<string, boolean>>({});
 
@@ -344,45 +323,6 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
         onSwitchToPlanTab();
     }
   };
-
-  const handlePatientSignOff = (note: DentalChartEntry) => {
-      showModal('patientSignOff', {
-          note,
-          onSave: (signature: string) => {
-              handlePatientSignOffOnNote(patient.id, note.id, signature);
-          }
-      });
-  };
-
-  const handleCapturePhotoForNote = (note: DentalChartEntry) => {
-      showModal('photoCapture', {
-          patient,
-          chartEntry: note,
-          currentUser,
-          onSave: (metadata: DentalChartEntry['imageMetadata'][0], logEntry: Patient['clinicalMediaConsent']['mediaCapturedLogs'][0]) => {
-              const updatedNote: DentalChartEntry = {
-                  ...note,
-                  imageHashes: [...(note.imageHashes || []), metadata.hash],
-                  imageMetadata: [...(note.imageMetadata || []), metadata]
-              };
-              onUpdateEntry(updatedNote);
-
-              if (patient.clinicalMediaConsent) {
-                  const updatedPatient: Partial<Patient> = {
-                      id: patient.id,
-                      clinicalMediaConsent: {
-                          ...(patient.clinicalMediaConsent!),
-                          mediaCapturedLogs: [...(patient.clinicalMediaConsent.mediaCapturedLogs || []), logEntry]
-                      }
-                  };
-                  onQuickUpdatePatient(updatedPatient);
-              }
-
-              setEditingNote(updatedNote);
-              toast.success("Image attached to clinical note.");
-          }
-      });
-  };
   
   const appointmentForEditingNote = useMemo(() => {
       if (!editingNote || !editingNote.appointmentId) return null;
@@ -392,6 +332,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   const needsConsentVerification = useMemo(() => {
       if (!editingNote || !appointmentForEditingNote) return false;
       const today = new Date().toISOString().split('T')[0];
+      // Only trigger for today's appointments and if not yet verified in this session
       return appointmentForEditingNote.date === today && !verifiedConsentMap[editingNote.id];
   }, [editingNote, appointmentForEditingNote, verifiedConsentMap]);
 
@@ -413,6 +354,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
       procedure: procedureDef,
       onSave: (newChain: any) => {
           const updatedAppointment = { ...appointmentForEditingNote, consentSignatureChain: newChain };
+          // FIX: The component now calls the onUpdateAppointment prop to correctly save the appointment.
           onUpdateAppointment(updatedAppointment as Appointment);
           handleAffirmConsent();
       }
@@ -462,8 +404,6 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                         onCancel={() => setEditingNote(null)}
                         currentUser={currentUser}
                         onAssign={handleAssignToPlan}
-                        onPatientSignOff={handlePatientSignOff}
-                        onCapturePhoto={handleCapturePhotoForNote}
                     />
                 )
             ) : (

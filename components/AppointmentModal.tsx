@@ -4,7 +4,7 @@ import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, Field
 import Fuse from 'fuse.js';
 import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from './ModalContext';
+import { useModal } from '../contexts/ModalContext';
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
@@ -20,9 +20,6 @@ interface AppointmentModalProps {
   initialDate?: string;
   initialTime?: string;
   initialPatientId?: string;
-  // FIX: Added providerId and resourceId to allow pre-filling from calendar view.
-  providerId?: string;
-  resourceId?: string;
   existingAppointment?: Appointment | null;
   overrideInfo?: { isWaitlistOverride: boolean; authorizedManagerId: string; } | null;
   isDowntime?: boolean;
@@ -34,14 +31,10 @@ interface AppointmentModalProps {
 const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isOpen, onClose, onSave, onAddToWaitlist,
     initialDate, initialTime, initialPatientId, existingAppointment, 
-    // FIX: Destructure new props with aliases to avoid state variable name collision.
-    providerId: initialProviderId,
-    resourceId: initialResourceId,
     isDowntime, overrideInfo, isReconciliationMode, currentBranch, readOnly = false
 }) => {
     const toast = useToast();
-    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-    const { openModal: showModal } = useModal();
+    const { showModal } = useModal();
     const { patients } = usePatient();
     const { staff } = useStaff();
     const { fieldSettings } = useSettings();
@@ -78,7 +71,6 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
     const patientFuse = useMemo(() => new Fuse(patients, { keys: ['name', 'id', 'phone'], threshold: 0.3 }), [patients]);
 
-    // FIX: Update useEffect to use initialProviderId and initialResourceId when creating a new appointment.
     useEffect(() => {
         if (isOpen) {
             if (existingAppointment) {
@@ -100,14 +92,12 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 setPatientSearch(p?.name || '');
                 setDate(initialDate || new Date().toLocaleDateString('en-CA'));
                 setTime(initialTime || '');
-                setProviderId(initialProviderId || '');
-                setResourceId(initialResourceId || '');
-                setDuration('30');
+                setProviderId(''); setResourceId(''); setDuration('30');
                 setProcedureType(fieldSettings?.procedures[0]?.name || '');
                 setNotes(''); setIsBlock(false); setBlockTitle('');
             }
         }
-    }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, initialProviderId, initialResourceId, patients, fieldSettings]);
+    }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, patients, fieldSettings]);
     
     const operationalHours = useMemo(() => {
         const branchProfile = fieldSettings.branchProfiles.find(b => b.name === currentBranch);
@@ -230,7 +220,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 entryMode: isDowntime ? 'MANUAL' : 'AUTO',
             };
             
-            const errors = validateAppointment(appointmentData, appointments, patients, staff, fieldSettings, existingAppointment?.id);
+            const errors = validateAppointment(appointmentData, appointments, patients, staff, existingAppointment?.id);
             if (errors) {
                 Object.values(errors).forEach(errorMsg => toast.error(errorMsg, { duration: 6000 }));
                 setIsSaving(false);

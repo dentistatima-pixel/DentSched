@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'dentsched-v2';
 const URLS_TO_CACHE = [
   '/',

@@ -1,3 +1,4 @@
+
 import { Patient, Appointment, FieldSettings, Branch } from '../types';
 import { 
     PATIENTS, APPOINTMENTS, 

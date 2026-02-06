@@ -10,11 +10,9 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Explicitly declare state and props. This can be necessary to work around
-  // toolchain issues where type inheritance from React.Component is not correctly resolved.
-  public state: ErrorBoundaryState;
-  public readonly props: Readonly<ErrorBoundaryProps>;
-
+  // FIX: Replaced class property state initialization with a constructor.
+  // This resolves transpilation issues that were causing `this.state` and `this.props`
+  // to be unrecognized, leading to runtime errors.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -28,7 +26,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render(): ReactNode {
+  render() {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif' }}>
@@ -38,6 +36,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    return this.props.children ?? null;
+    return this.props.children || null;
   }
 }

@@ -1,8 +1,7 @@
 
-import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem, AppointmentStatus, AuthorityLevel } from '../types';
-import { isExpired, calculateAge } from '../constants';
+import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem } from '../types';
+import { isExpired } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';
-import { validateSignatureChain } from './signatureVerification';
 
 export interface MedicolegalBlock {
     isBlocked: boolean;
@@ -18,32 +17,13 @@ export const canStartTreatment = (
     patient: Patient,
     provider: User,
     fieldSettings: FieldSettings,
-    staff: User[],
 ): MedicolegalBlock => {
     // 1. Practitioner License & Authority
     if (isExpired(provider.prcExpiry)) {
         return { isBlocked: true, reason: `CLINICAL AUTHORITY LOCK: Practitioner ${provider.name}'s PRC license has expired. Cannot start treatment.` };
     }
     const procedure = fieldSettings.procedures.find(p => p.name === appointment.type);
-    
-    if (!procedure && !appointment.isBlock) {
-        return { isBlocked: true, reason: `Data Integrity Error: The procedure "${appointment.type}" does not exist in the clinical catalog. Cannot proceed.` };
-    }
-    
     if (procedure) {
-        // Pre-Treatment Expectations Gate (Phase 2)
-        const hasExpectations = (procedure.whatToExpect && procedure.whatToExpect.length > 0) || (procedure.afterCare && procedure.afterCare.length > 0);
-        if (hasExpectations && !appointment.preTreatmentExpectationsReviewed) {
-            return {
-                isBlocked: true,
-                reason: 'Patient must review pre-treatment expectations.',
-                modal: {
-                    type: 'preTreatmentExpectation',
-                    props: { procedure }
-                }
-            };
-        }
-
         const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
         const isHighRisk = highRiskCats.includes(procedure.category || '');
         if (isHighRisk && isExpired(provider.malpracticeExpiry)) {
@@ -59,68 +39,37 @@ export const canStartTreatment = (
         return { isBlocked: true, reason: 'Patient registration is incomplete.', modal: { type: 'incompleteRegistration', props: { patient, missingItems: ['Signature', 'Medical History Section'], riskLevel: 'High' } } };
     }
 
-    // 3. Smart Medical History Affirmation (Phase 3)
-    const affirmation = appointment.medHistoryAffirmation;
-    const isHighRiskProcedure = procedure?.consentTier === 'HIGH_RISK' || procedure?.requiresSurgicalConsent;
-    const reaffirmationDays = fieldSettings.medHistoryReaffirmationDays || 90;
-    const lastAffirmationDate = patient.medHistoryAffirmation?.affirmedAt ? new Date(patient.medHistoryAffirmation.affirmedAt) : null;
-    let needsReaffirmation = true;
-    if(lastAffirmationDate) {
-        const daysSinceLast = (new Date().getTime() - lastAffirmationDate.getTime()) / (1000 * 3600 * 24);
-        if(daysSinceLast < reaffirmationDays && !isHighRiskProcedure) {
-            needsReaffirmation = false;
-        }
-    }
-    if (!affirmation && needsReaffirmation) {
-        const reason = isHighRiskProcedure ? 'High-risk procedure requires re-affirmation.' : `Medical history last affirmed over ${reaffirmationDays} days ago.`;
-        return { isBlocked: true, reason: `Patient medical history must be affirmed for today's session. ${reason}`, modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } };
+    // 3. Medical History Affirmation for today's session
+    if (!appointment.medHistoryAffirmation) {
+         return { isBlocked: true, reason: 'Patient medical history must be affirmed for today\'s session.', modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } };
     }
 
-
-    // 4. Pediatric Guardian Verification
-    const age = calculateAge(patient.dob);
-    if (age !== undefined && age < 18) {
-        if (!patient.guardianProfile || patient.guardianProfile.authorityLevel !== AuthorityLevel.FULL) {
-            return { isBlocked: true, reason: 'A guardian with Full Authority must be registered for minor patients.', modal: { type: 'safetyAlert', props: { title: 'Guardian Required', message: `Patient ${patient.name} is a minor. Please update their profile to include a guardian with Full Medical and Financial Authority before proceeding.` }}};
-        }
-        const hasGuardianConsent = appointment.consentSignatureChain?.some(s => s.signatureType === 'guardian');
-        if (!hasGuardianConsent) {
-             const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'PEDIATRIC_CONSENT');
-             if (consentTemplate) {
-                return { isBlocked: true, reason: 'Guardian consent required for today\'s session.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure }}};
-             }
-        }
-    }
-
-    // 5. Clinical Protocols & Standard Consent (existing logic...)
+    // 4. Clinical Protocols
     if (fieldSettings.features.enableClinicalProtocolAlerts && procedure) {
         const { violations, rule } = checkClinicalProtocols(patient, procedure, fieldSettings.clinicalProtocolRules || []);
         if (violations.length > 0 && rule) {
-            // ... (rest of protocol logic)
+            return { isBlocked: true, reason: violations[0], modal: { type: 'protocolOverride', props: { rule } } };
         }
     }
 
-    // ... (rest of the checks like Emergency, Standard Consent, WHO, Sterilization, Financial)
-
-    return { isBlocked: false, reason: '' };
-};
-
-export const canCompleteAppointment = (
-    appointment: Appointment,
-    patient: Patient,
-    procedure: ProcedureItem | undefined
-): MedicolegalBlock => {
-    // If a procedure was performed, require post-op handover
-    if (([AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(appointment.status)) && !appointment.isBlock) {
-        const handoverChain = appointment.postOpHandoverChain;
-        if (!handoverChain || handoverChain.length === 0) {
-            return {
-                isBlocked: true,
-                reason: 'Post-operative handover and patient instructions must be documented.',
-                modal: { type: 'postOpHandover', props: { appointment, patient, procedure } }
-            };
-        }
+    // 5. Consent
+    if (procedure?.requiresConsent && (!appointment.consentSignatureChain || appointment.consentSignatureChain.length === 0)) {
+        const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'); // Simplified
+        return { isBlocked: true, reason: 'Procedure requires signed consent.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } } };
     }
     
+    // 6. Sterilization
+    if (fieldSettings.features.enableMaterialTraceability && procedure?.traySetup && procedure.traySetup.length > 0 && !appointment.sterilizationVerified) {
+        return { isBlocked: true, reason: 'Procedure requires sterilization verification.', modal: { type: 'sterilizationVerification', props: { appointment, requiredSets: procedure.traySetup, instrumentSets: fieldSettings.instrumentSets || [], sterilizationCycles: fieldSettings.sterilizationCycles || [] } } };
+    }
+
+    // 7. Financial Consent for Plans
+    if (appointment.planId) {
+        const plan = patient.treatmentPlans?.find(p => p.id === appointment.planId);
+        if (plan && plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
+            return { isBlocked: true, reason: 'Financial consent for the treatment plan must be captured.', modal: { type: 'financialConsent', props: { patient, plan } } };
+        }
+    }
+
     return { isBlocked: false, reason: '' };
 };

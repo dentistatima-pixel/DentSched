@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Patient, AuditLogEntry, FieldSettings, AuthorityLevel } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
+// Fix: Use default import for PatientRegistrationModal.
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -31,56 +32,6 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [capturedThumb, setCapturedThumb] = useState<string | null>(null);
   const [capturedHash, setCapturedHash] = useState<string | null>(null);
-
-  const [showExitPinModal, setShowExitPinModal] = useState(false);
-  const [exitPin, setExitPin] = useState('');
-
-  const toastRef = useRef(toast);
-  useEffect(() => {
-    toastRef.current = toast;
-  }, [toast]);
-
-  const resetToWelcome = useCallback(() => {
-    // Stop camera completely
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(t => t.stop());
-      videoRef.current.srcObject = null;
-    }
-    
-    // Clear all state
-    setStep('welcome');
-    setIdentifier('');
-    setBirthDateInput('');
-    setFoundPatient(null);
-    setCapturedThumb(null);
-    setCapturedHash(null);
-    setIsCameraActive(false);
-  }, []);
-
-  useEffect(() => {
-    let timeout: number;
-    
-    const resetTimeout = () => {
-        clearTimeout(timeout);
-        if (step !== 'welcome' && step !== 'thankyou') {
-            timeout = window.setTimeout(() => {
-                toastRef.current.warning('Session timed out for your privacy.');
-                resetToWelcome();
-            }, 2 * 60 * 1000); // 2 minutes for kiosk
-        }
-    };
-    
-    const events: (keyof WindowEventMap)[] = ['mousedown', 'touchstart', 'keydown'];
-    events.forEach(e => window.addEventListener(e, resetTimeout));
-    
-    resetTimeout();
-    
-    return () => {
-        clearTimeout(timeout);
-        events.forEach(e => window.removeEventListener(e, resetTimeout));
-    };
-  }, [step, resetToWelcome]);
 
   useEffect(() => {
     if (step === 'welcome') {
@@ -133,50 +84,13 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (video && canvas && video.readyState >= 3) {
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const ctx = canvas.getContext('2d');
         if (ctx) {
             // Low-Footprint Image Optimization
             canvas.width = 96;
             canvas.height = 96;
             ctx.filter = 'grayscale(100%) brightness(1.2)';
             ctx.drawImage(video, 0, 0, 96, 96);
-            
-            // --- ADDED VALIDATION ---
-            const validateImageContent = (canvasEl: HTMLCanvasElement): { isValid: boolean, message: string } => {
-                const context = canvasEl.getContext('2d', { willReadFrequently: true });
-                if (!context) return { isValid: false, message: "Could not get canvas context." };
-
-                const imageData = context.getImageData(0, 0, canvasEl.width, canvasEl.height);
-                const data = imageData.data;
-                const pixelCount = data.length / 4;
-                let darkPixels = 0;
-                let lightPixels = 0;
-                const blankThreshold = 0.95;
-
-                for (let i = 0; i < data.length; i += 4) {
-                    // This is grayscale so R=G=B
-                    const brightness = data[i];
-                    if (brightness < 25) darkPixels++;
-                    if (brightness > 230) lightPixels++;
-                }
-
-                if ((darkPixels / pixelCount) > blankThreshold) {
-                    return { isValid: false, message: "Image is too dark. Please ensure you are in a well-lit area." };
-                }
-                if ((lightPixels / pixelCount) > blankThreshold) {
-                    return { isValid: false, message: "Image is too bright. Please avoid direct light sources." };
-                }
-                
-                return { isValid: true, message: "Content detected." };
-            };
-            
-            const validation = validateImageContent(canvas);
-            if (!validation.isValid) {
-                toast.error(validation.message);
-                return; // Stop processing, allow user to try again.
-            }
-            // --- END VALIDATION ---
-            
             const thumb = canvas.toDataURL('image/jpeg', 0.5); // JPEG compression
             const hash = CryptoJS.SHA256(thumb).toString();
             setCapturedThumb(thumb);
@@ -194,35 +108,27 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
   const handlePatientSave = async (updated: Partial<Patient>) => {
       const finalPatient = { ...updated };
 
-      if (capturedThumb && capturedHash) {
-          if (finalPatient.guardianProfile && finalPatient.guardianProfile.legalName) {
-              finalPatient.guardianProfile.visualAnchorThumb = capturedThumb;
-              finalPatient.guardianProfile.visualAnchorHash = capturedHash;
-          } else {
-              finalPatient.visualAnchorThumb = capturedThumb;
-              finalPatient.visualAnchorHash = capturedHash;
+      if (capturedThumb || capturedHash) {
+          if (!finalPatient.guardianProfile) {
+              finalPatient.guardianProfile = {} as any;
           }
-          finalPatient.visualAnchorCapturedAt = new Date().toISOString();
+          finalPatient.guardianProfile.visualAnchorThumb = capturedThumb || undefined;
+          finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
       }
       
+      // FIX: The onSave prop expects a Promise. The function is now async and awaits the update operation.
       await onUpdatePatient(finalPatient);
       setStep('thankyou');
   };
 
   const handleExitClick = () => {
-    setShowExitPinModal(true);
+      const pin = prompt("Staff PIN to Exit:");
+      if (pin && STAFF.some(s => s.pin === pin)) {
+          onExitKiosk();
+      } else {
+          toast.error("Incorrect PIN");
+      }
   };
-
-  const handlePinExit = () => {
-    const match = STAFF.some(s => s.pin === CryptoJS.SHA256(exitPin + s.id).toString());
-    if (match) {
-        onExitKiosk();
-    } else {
-        toast.error("Incorrect PIN");
-        setExitPin('');
-    }
-  };
-
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col overflow-hidden font-sans text-slate-900">
@@ -245,8 +151,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
             )}
 
             {step === 'welcome' && (
-                <button onClick={handleExitClick} className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-slate-200">
-                    <LogOut size={14} /> Staff Exit
+                <button onDoubleClick={handleExitClick} className="opacity-10 hover:opacity-100 transition-opacity p-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Staff Exit
                 </button>
             )}
         </div>
@@ -482,36 +388,6 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                 </div>
             )}
         </div>
-
-        {showExitPinModal && (
-            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center">
-                <div className="bg-white rounded-3xl p-8 w-96">
-                    <h3 className="text-2xl font-black mb-6">Staff PIN Required</h3>
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={4}
-                        value={exitPin}
-                        onChange={(e) => setExitPin(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handlePinExit()}
-                        className="w-full text-3xl text-center tracking-widest p-4 border-2 rounded-xl"
-                        autoFocus
-                    />
-                    <div className="flex gap-4 mt-6">
-                        <button onClick={() => {
-                            setShowExitPinModal(false);
-                            setExitPin('');
-                        }} className="flex-1 px-4 py-3 bg-slate-200 rounded-xl font-bold">
-                            Cancel
-                        </button>
-                        <button onClick={handlePinExit} className="flex-1 px-4 py-3 bg-teal-600 text-white rounded-xl font-bold">
-                            Exit Kiosk
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
 
         {step === 'update' && (
             <div className="absolute inset-0 z-[110] bg-white">

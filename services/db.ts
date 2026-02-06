@@ -1,3 +1,4 @@
+
 import { SyncIntent } from '../types';
 
 const DB_NAME = 'dentsched-db';

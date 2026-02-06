@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
@@ -7,7 +5,7 @@ import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncid
 // Fix: Add missing 'Droplet' icon import from lucide-react.
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
 // FIX: Added 'calculateAge' to the import from '../constants' to resolve an undefined function error.
-import { formatDate, generateUid, calculateAge, isExpired } from '../constants';
+import { formatDate, generateUid, calculateAge } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
 import PhilHealthCF4Generator from './PhilHealthCF4Generator';
@@ -22,13 +20,12 @@ import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
 // FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
 import { useAppointments } from '../contexts/AppointmentContext';
-// FIX: Import the new reactive usePatientAge hook.
-import { usePatientAge } from '../hooks/usePatientAge';
 
 
 // Lazy load heavy components
-const Odontonotes = React.lazy(() => import('./Odontonotes'));
+const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
 const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
+// FIX: Corrected lazy import to properly handle the named export 'PerioChart'. The previous syntax was causing type resolution issues.
 const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
@@ -111,71 +108,6 @@ const DiagnosticGallery: React.FC<{
     const [primaryImageId, setPrimaryImageId] = useState<string | null>(null);
     const toast = useToast();
 
-    const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
-    const imageRef = useRef<HTMLImageElement>(null);
-    const touchStartRef = useRef<{ distance: number; lastPan: { x: number; y: number } | null }>({ distance: 0, lastPan: null });
-
-    useEffect(() => {
-        if (!lightboxImage) {
-            setTransform({ scale: 1, x: 0, y: 0 });
-        }
-    }, [lightboxImage]);
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length === 2) { // Pinch
-            e.preventDefault();
-            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
-            const [t1, t2] = Array.from(e.touches);
-            touchStartRef.current = {
-                distance: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
-                lastPan: null,
-            };
-        } else if (e.touches.length === 1 && transform.scale > 1) { // Pan
-            e.preventDefault();
-            touchStartRef.current.lastPan = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (e.touches.length === 2) { // Zooming
-            e.preventDefault();
-            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
-            const [t1, t2] = Array.from(e.touches);
-            const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-            const scale = Math.max(1, Math.min(5, transform.scale * (currentDistance / touchStartRef.current.distance)));
-            setTransform(t => ({ ...t, scale }));
-            touchStartRef.current.distance = currentDistance;
-        } else if (e.touches.length === 1 && transform.scale > 1 && touchStartRef.current.lastPan) { // Panning
-            e.preventDefault();
-            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
-            const [touch] = Array.from(e.touches);
-            const dx = touch.clientX - touchStartRef.current.lastPan.x;
-            const dy = touch.clientY - touchStartRef.current.lastPan.y;
-
-            setTransform(t => {
-                const img = imageRef.current;
-                if (!img) return t;
-                const rect = img.getBoundingClientRect();
-                const maxX = Math.max(0, (rect.width - window.innerWidth) / 2);
-                const maxY = Math.max(0, (rect.height - window.innerHeight) / 2);
-
-                return {
-                    ...t,
-                    x: Math.max(-maxX, Math.min(maxX, t.x + dx)),
-                    y: Math.max(-maxY, Math.min(maxY, t.y + dy)),
-                };
-            });
-            touchStartRef.current.lastPan = { x: touch.clientX, y: touch.clientY };
-        }
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (e.touches.length < 2) touchStartRef.current.lastPan = null;
-        if (e.touches.length === 0 && transform.scale <= 1) {
-            setTransform({ scale: 1, x: 0, y: 0 });
-        }
-    };
-
     const images = useMemo(() => 
         (patient.files?.filter(f => f.category === 'X-Ray') || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [patient.files]);
@@ -184,6 +116,7 @@ const DiagnosticGallery: React.FC<{
         if (images.length > 0 && !primaryImageId) {
             setPrimaryImageId(images[0].id);
         } else if (images.length > 0 && primaryImageId && !images.find(img => img.id === primaryImageId)) {
+            // If the selected image was deleted, select the new first one
             setPrimaryImageId(images[0].id);
         } else if (images.length === 0) {
             setPrimaryImageId(null);
@@ -279,8 +212,8 @@ const DiagnosticGallery: React.FC<{
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
 
             {lightboxImage && (
-                <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4" onClick={() => setLightboxImage(null)} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-                    <img ref={imageRef} src={lightboxImage} alt="Radiograph" className="max-w-[95vw] max-h-[95vh] rounded-lg shadow-2xl transition-transform duration-200" onClick={(e) => e.stopPropagation()} style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, touchAction: 'none' }}/>
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
+                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
                     <button onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
                 </div>
             )}
@@ -459,13 +392,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const toast = useToast();
   const { can } = useAuthorization();
   const navigate = useNavigate();
-  const { patients, isLoading } = usePatient();
+  const { patients } = usePatient();
   const { setFullScreenView } = useAppContext();
-  // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-  const { openModal: showModal } = useModal();
+  const { showModal } = useModal();
   const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
-  
-  const patientAge = usePatientAge(patient?.dob);
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -500,36 +430,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     return flags;
   };
   
-  const consentAlerts = useMemo(() => {
-    if (!patient) return [];
-    const alerts: { message: string, icon: React.ElementType }[] = [];
-    const consentHistory = patient.consentHistory || [];
-    
-    const checkConsent = (type: string, name: string) => {
-        const latestConsent = consentHistory
-            .filter(c => c.consentType === type && c.granted)
-            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        
-        if (latestConsent && isExpired(latestConsent.expiryDate)) {
-            alerts.push({ message: `${name} Consent Expired`, icon: ShieldAlert });
-        }
-    };
-    
-    checkConsent('Clinical', 'Clinical');
-    checkConsent('Marketing', 'Marketing');
-    checkConsent('ThirdParty', 'Third-Party');
-
-    return alerts;
-  }, [patient]);
-  
   const headerStyle = useMemo(() => {
     const flags = getCriticalFlags(patient);
     if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
     if (patient.isPwd) return { bg: 'bg-amber-500', text: 'text-white', sub: 'text-amber-100' };
-    // FIX: Replaced static calculateAge with reactive patientAge hook.
-    if ((patientAge || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
+    if ((calculateAge(patient.dob) || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
     return { bg: 'bg-teal-700', text: 'text-white', sub: 'text-teal-200' };
-  }, [patient, patientAge]);
+  }, [patient]);
 
   const tabs = [
       { id: 'summary', label: 'Details', icon: UserIcon },
@@ -545,7 +452,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       { id: 'history', label: 'History', icon: History },
   ];
   
-  // FIX: Corrected handleChartUpdate to align with Odontogram's onChartUpdate prop, which passes a single entry. This fixes the previous inconsistency.
   const handleChartUpdate = (entry: DentalChartEntry) => {
       const isNew = !patient.dentalChart?.some(e => e.id === entry.id);
       const nextChart = isNew ? [...(patient.dentalChart || []), entry] : patient.dentalChart?.map(e => e.id === entry.id ? entry : e);
@@ -616,11 +522,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                             {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
                                 <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
                             ))}
-                            {consentAlerts.map((alert, i) => (
-                                <div key={`consent-alert-${i}`} className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase border-2 border-amber-200 shadow-sm animate-pulse">
-                                    <alert.icon size={14}/> {alert.message}
-                                </div>
-                            ))}
                         </div>
                     </div>
                     <InfoItem label="Mobile" value={patient.phone} icon={Phone} />
@@ -656,7 +557,6 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 currentUser={currentUser} 
                 logAction={logAction} 
                 featureFlags={fieldSettings.features} 
-                fieldSettings={fieldSettings} 
                 onInitiateFinancialConsent={onInitiateFinancialConsent} 
                 onOpenRevocationModal={onOpenRevocationModal}
             /></Suspense>}

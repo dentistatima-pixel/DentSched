@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
@@ -375,7 +376,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 </div>
             </div>
             <div className="col-span-1 md:col-span-5">
-                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
+                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Family Group</label>
                 <select 
                     name="familyGroupId" 
                     value={formData.familyGroupId || ''} 
@@ -383,8 +384,11 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                     disabled={readOnly}
                     className="input bg-white"
                 >
-                    <option value="">- None / Set as Head -</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    <option value="">- None / Individual -</option>
+                    {fieldSettings.familyGroups?.map(g => {
+                        const head = patients.find(p => p.id === g.headOfFamilyId);
+                        return <option key={g.id} value={g.id}>{g.familyName} (Head: {head?.name})</option>
+                    })}
                 </select>
             </div>
         </div>

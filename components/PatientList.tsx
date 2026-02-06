@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useContext } from 'react';
-import { Patient, AuthorityLevel, RecallStatus } from '../types';
-import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff, Calendar, DollarSign, FileWarning, Hospital } from 'lucide-react';
+import { Patient, AuthorityLevel } from '../types';
+import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -10,10 +10,6 @@ import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
 import DocentSparkle from './DocentSparkle';
 import { useDebounce } from '../hooks/useDebounce';
-import { useSwipeGesture } from '../hooks/useSwipeGesture';
-import { useAppointments } from '../contexts/AppointmentContext';
-
-type QuickFilterType = 'hasAppointmentToday' | 'overdueBalance' | 'incompleteConsent' | 'requiresClearance' | null;
 
 interface PatientListProps {
   selectedPatientId: string | null;
@@ -21,19 +17,12 @@ interface PatientListProps {
 
 export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<QuickFilterType>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const { openModal } = useModal();
+  const { showModal } = useModal();
   const { patients } = usePatient();
-  const { appointments } = useAppointments();
   const { fieldSettings } = useSettings();
   const navigate = useNavigate();
   const { currentBranch } = useAppContext();
-  
-  const swipeHandlers = useSwipeGesture(
-    () => navigate('schedule'), // Swipe left
-    () => navigate('dashboard')     // Swipe right
-  );
   
   const fuse = useMemo(() => new Fuse(patients, {
     keys: ['name', 'id', 'phone', 'nickname'],
@@ -41,39 +30,11 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   }), [patients]);
 
   const filteredPatients = useMemo(() => {
-    let patientPool = patients;
-
-    // Apply quick filter first
-    if (activeFilter) {
-      const todayStr = new Date().toLocaleDateString('en-CA');
-      switch (activeFilter) {
-        case 'hasAppointmentToday':
-          const patientIdsWithAppt = new Set(appointments.filter(a => a.date === todayStr).map(a => a.patientId));
-          patientPool = patientPool.filter(p => patientIdsWithAppt.has(p.id));
-          break;
-        case 'overdueBalance':
-          patientPool = patientPool.filter(p => (p.currentBalance || 0) > 0);
-          break;
-        case 'incompleteConsent':
-           patientPool = patientPool.filter(p => p.recallStatus === RecallStatus.DUE || p.recallStatus === RecallStatus.OVERDUE);
-          break;
-        case 'requiresClearance':
-          const criticalConditions = fieldSettings.criticalRiskRegistry || [];
-          patientPool = patientPool.filter(p => 
-            p.medicalConditions?.some(c => criticalConditions.includes(c)) &&
-            !(p.clearanceRequests?.some(r => r.status === 'Approved'))
-          );
-          break;
-      }
-    }
-
-    // Then apply search term
     if (!debouncedSearchTerm.trim()) {
-      return patientPool.slice(0, 100);
+      return patients.slice(0, 100);
     }
-    const searchFuse = new Fuse(patientPool, { keys: ['name', 'id', 'phone', 'nickname'], threshold: 0.3 });
-    return searchFuse.search(debouncedSearchTerm).map(result => result.item).slice(0, 100);
-  }, [patients, debouncedSearchTerm, fuse, activeFilter, appointments, fieldSettings]);
+    return fuse.search(debouncedSearchTerm).map(result => result.item).slice(0, 100);
+  }, [patients, debouncedSearchTerm, fuse]);
 
   const onSelectPatient = (id: string | null) => {
     if (id) {
@@ -111,54 +72,27 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
     return flags;
   };
 
-  const QuickFilterChip: React.FC<{
-    onClick: () => void;
-    label: string;
-    icon: React.ElementType;
-    isActive: boolean;
-  }> = ({ onClick, label, icon: Icon, isActive }) => (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase transition-all shadow-sm border-2 ${
-        isActive
-          ? 'bg-teal-600 text-white border-teal-700 shadow-lg'
-          : 'bg-white text-slate-500 border-slate-200 hover:bg-teal-50 hover:text-teal-700'
-      }`}
-    >
-      <Icon size={14} />
-      {label}
-    </button>
-  );
-
   return (
-    <div {...swipeHandlers} className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
-      <div className="p-6 shrink-0 border-b border-border-primary space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search registry..."
-              className="input w-full pl-12"
-              aria-label="Search patients"
-              value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setActiveFilter(null); }}
-            />
-          </div>
-          <button 
-            onClick={() => openModal('patientRegistration', { currentBranch })}
-            className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
-            aria-label="New Patient Registration"
-          >
-            New Registration
-          </button>
+    <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
+      <div className="p-6 flex items-center justify-between gap-4 shrink-0 border-b border-border-primary">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={20} />
+          <input 
+            type="text" 
+            placeholder="Search registry..."
+            className="input w-full pl-12"
+            aria-label="Search patients"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
         </div>
-        <div className="flex items-center gap-2">
-            <QuickFilterChip onClick={() => setActiveFilter(f => f === 'hasAppointmentToday' ? null : 'hasAppointmentToday')} label="Today's Patients" icon={Calendar} isActive={activeFilter === 'hasAppointmentToday'} />
-            <QuickFilterChip onClick={() => setActiveFilter(f => f === 'overdueBalance' ? null : 'overdueBalance')} label="Outstanding Balance" icon={DollarSign} isActive={activeFilter === 'overdueBalance'} />
-            <QuickFilterChip onClick={() => setActiveFilter(f => f === 'incompleteConsent' ? null : 'incompleteConsent')} label="Missing Consent" icon={FileWarning} isActive={activeFilter === 'incompleteConsent'} />
-            <QuickFilterChip onClick={() => setActiveFilter(f => f === 'requiresClearance' ? null : 'requiresClearance')} label="Needs Clearance" icon={Hospital} isActive={activeFilter === 'requiresClearance'} />
-        </div>
+        <button 
+          onClick={() => showModal('patientRegistration', { currentBranch })}
+          className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
+          aria-label="New Patient Registration"
+        >
+          New Registration
+        </button>
       </div>
       
       <div className="flex-1 overflow-auto no-scrollbar">

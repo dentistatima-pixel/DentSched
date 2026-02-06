@@ -62,7 +62,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             const consent = patient.clinicalMediaConsent;
             let canProceed = false;
 
-            if (consent && consent.generalConsent && !consent.consentRevocation) {
+            if (consent && consent.generalConsent && !consent.consentRevoked) {
                 if (consent.permissions.intraoralPhotos || consent.permissions.extraoralPhotos) {
                     canProceed = true;
                 } else {
@@ -107,11 +107,6 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
     const handleSave = () => {
         if (!capturedImage) return;
 
-        if (purpose === 'Marketing' && !patient.clinicalMediaConsent?.permissions.marketingUse) {
-            toast.error("Patient has not consented to the use of images for marketing purposes. Cannot save.");
-            return;
-        }
-
         const hash = CryptoJS.SHA256(capturedImage).toString();
         const timestamp = new Date().toISOString();
 
@@ -134,7 +129,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             imageHashes: [hash],
             procedure: chartEntry.procedure,
             device: deviceInfo,
-            consentVerified: true,
+            consentReconfirmed: true,
             purpose: purpose,
         };
 

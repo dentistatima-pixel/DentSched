@@ -1,6 +1,5 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-/* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 

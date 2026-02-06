@@ -23,8 +23,6 @@ import { CommandBar } from './CommandBar';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { ErrorBoundary } from './ErrorBoundary';
-import { NetworkStatus } from './NetworkStatus';
-import { generateUid } from '../constants';
 
 
 interface LayoutProps {
@@ -34,8 +32,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ 
   children
 }) => {
-  // Fix: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-  const { openModal: showModal } = useModal();
+  const { showModal } = useModal();
   const { route } = useRouter();
   const navigate = useNavigate();
   const activeTab = route.path;
@@ -46,7 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({
     handleStopImpersonating, logout: handleLogout,
     currentBranch, setCurrentBranch, isAuthorityLocked, setIsInKioskMode,
     theme, toggleTheme,
-    syncQueueCount, isSyncing
+    syncQueueCount, isSyncing,
   } = useAppContext();
   const { staff, handleSaveStaff } = useStaff();
   const { patients } = usePatient();
@@ -155,7 +152,7 @@ export const Layout: React.FC<LayoutProps> = ({
     if (type === 'patient') {
       navigate(`patients/${payload}`);
     } else if (type === 'action' && payload === 'newPatient') {
-      showModal('patientRegistration', { currentBranch, tempId: generateUid('reg') });
+      showModal('patientRegistration', { currentBranch });
     } else if (type === 'action' && payload === 'newAppointment') {
       showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch });
     }
@@ -170,7 +167,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
-      <NetworkStatus />
+      
       {impersonatingUser && (
         <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
           <ShieldAlert size={18} className="animate-pulse"/>
@@ -244,8 +241,7 @@ export const Layout: React.FC<LayoutProps> = ({
                  </button>
 
                  {/* Sync Status Indicator */}
-                <button 
-                    onClick={() => showModal('syncQueue', { isSyncing })}
+                <div 
                     className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${
                         isSyncing ? 'bg-blue-100 text-blue-700' :
                         syncQueueCount > 0 ? 'bg-lilac-100 text-lilac-700' :
@@ -267,7 +263,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     {syncQueueCount > 0 && !isSyncing && (
                         <span>{syncQueueCount}</span>
                     )}
-                </button>
+                </div>
 
                 {/* User Menu */}
                 <div className="relative">
@@ -295,23 +291,23 @@ export const Layout: React.FC<LayoutProps> = ({
                                     <p className="text-sm text-text-secondary font-bold">{currentUser.role}</p>
                                 </div>
                                 <div className="p-2 space-y-1">
-                                    <button onClick={openProfile} className="w-full text-left flex items-center gap-3 px-4 py-4 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                    <button onClick={openProfile} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         <UserIcon size={16}/> My Profile
                                     </button>
                                     {can('manage:setup') && (
-                                        <button onClick={() => { navigate('field-mgmt'); setIsUserMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-4 py-4 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                        <button onClick={() => { navigate('field-mgmt'); setIsUserMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                             <Sliders size={16}/> Practice Setup
                                         </button>
                                     )}
-                                    <button onClick={toggleTheme} className="w-full text-left flex items-center gap-3 px-4 py-4 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                    <button onClick={toggleTheme} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />} Theme ({theme})
                                     </button>
-                                    <button onClick={() => showModal('shortcutHelp')} className="w-full text-left flex items-center gap-3 px-4 py-4 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                    <button onClick={() => showModal('shortcutHelp')} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         <HelpCircle size={16} /> Shortcuts
                                     </button>
                                 </div>
                                 <div className="p-2 border-t border-border-primary">
-                                    <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-4 py-4 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors" role="menuitem">
+                                    <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors" role="menuitem">
                                         <LogOut size={16}/> Logout & Secure
                                     </button>
                                 </div>

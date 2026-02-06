@@ -1,13 +1,10 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
-import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, SignatureChainEntry, ConsentRecord } from '../types';
+import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
 import { useSettings } from './SettingsContext';
 import { DataService } from '../services/dataService';
-import CryptoJS from 'crypto-js';
-import { createSignatureEntry } from '../services/signatureVerification';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -39,12 +36,10 @@ interface PatientContextType {
     handleSupervisorySeal: (patientId: string, noteToSeal: DentalChartEntry) => Promise<void>;
     handleConfirmRevocation: (patient: Patient, category: ConsentCategory, reason: string, notes: string) => Promise<void>;
     handleRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
-    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string, paymentAgreement: any) => Promise<void>;
+    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string) => Promise<void>;
     handleSaveInformedRefusal: (patientId: string, refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => Promise<void>;
     handleVoidNote: (patientId: string, noteId: string, reason: string) => Promise<string | null>;
     handlePatientSignOffOnNote: (patientId: string, noteId: string, signature: string) => Promise<void>;
-    addConsentRecord: (patientId: string, consent: Omit<ConsentRecord, 'id'>) => Promise<void>;
-    revokeConsent: (patientId: string, consentId: string) => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -162,52 +157,16 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
     };
 
-    const handleApproveFinancialConsent = async (patientId: string, planId: string, signatureDataUrl: string, paymentAgreement: any): Promise<void> => {
+    const handleApproveFinancialConsent = async (patientId: string, planId: string, signature: string): Promise<void> => {
         const patient = patients.find(p => p.id === patientId);
-        if (!patient || !currentUser) return;
-
-        const plan = patient.treatmentPlans?.find(p => p.id === planId);
-        if (!plan) return;
-
-        const planItems = patient.dentalChart?.filter(item => item.planId === plan.id) || [];
-        const planTotal = planItems.reduce((acc, item) => acc + (item.price || 0), 0);
-        
-        const financialTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'FINANCIAL_AGREEMENT');
-
-        const contextHash = CryptoJS.SHA256(JSON.stringify({
-            planId: plan.id,
-            planName: plan.name,
-            total: planTotal,
-            items: planItems.map(i => ({ p: i.procedure, t: i.toothNumber, c: i.price }))
-        })).toString();
-        
-        const previousHash = plan.approvalSignatureChain?.slice(-1)[0]?.hash || '0';
-
-        const signatureEntry = await createSignatureEntry(
-            signatureDataUrl,
-            {
-                signerName: patient.name,
-                signerRole: 'Patient',
-                signatureType: 'patient',
-                previousHash,
-                metadata: {
-                    deviceInfo: navigator.userAgent,
-                    consentType: 'Financial Consent',
-                    contextHash,
-                    templateId: financialTemplate?.id,
-                    templateVersion: financialTemplate?.version,
-                    paymentAgreement,
-                },
-            }
-        );
-
+        if (!patient) return;
         const updatedPlans = patient.treatmentPlans?.map(p => 
-            p.id === plan.id 
-            ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignatureChain: [...(p.financialConsentSignatureChain || []), signatureEntry] } 
+            p.id === planId 
+            ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignature: signature, financialConsentTimestamp: new Date().toISOString() } 
             : p
         );
         await handleSavePatient({ ...patient, treatmentPlans: updatedPlans });
-        toast.success("Financial consent approved and cryptographically sealed.");
+        toast.success("Financial consent approved.");
     };
 
     const handleAnonymizePatient = async (patientId: string): Promise<void> => {
@@ -281,6 +240,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
     
     const handleConfirmRevocation = async (patient: Patient, category: ConsentCategory, reason: string, notes: string) => {
+        // FIX: Added the required `expiryDate` property to the new log entry.
+        // A consent revocation effectively means it expires at that moment.
         const timestamp = new Date().toISOString();
         const updatedLogs = [...(patient.consentLogs || []), { 
             category, 
@@ -296,109 +257,102 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     const handleSaveInformedRefusal = async (patientId: string, refusalData: Omit<InformedRefusal, 'id' | 'patientId'>) => {
         const patient = patients.find(p => p.id === patientId);
-        if (!patient) return;
-        
+        if (!patient) {
+            toast.error("Patient not found to save informed refusal.");
+            return;
+        }
+
         const newRefusal: InformedRefusal = {
             ...refusalData,
             id: generateUid('ref'),
             patientId: patientId,
         };
 
-        const updatedPatient = { ...patient, informedRefusals: [...(patient.informedRefusals || []), newRefusal] };
+        const updatedPatient = {
+            ...patient,
+            informedRefusals: [...(patient.informedRefusals || []), newRefusal],
+        };
+
         await handleSavePatient(updatedPatient);
+        logAction('CREATE', 'InformedRefusal', newRefusal.id, `Documented refusal for: ${refusalData.relatedEntity.entityDescription}`);
     };
 
     const handleVoidNote = async (patientId: string, noteId: string, reason: string): Promise<string | null> => {
+        if (!currentUser) return null;
         const patient = patients.find(p => p.id === patientId);
-        if (!patient || !currentUser) return null;
+        if (!patient) return null;
 
-        const noteToVoid = patient.dentalChart?.find(n => n.id === noteId);
-        if (!noteToVoid) return null;
+        let newNoteId: string | null = null;
+        const newChart = patient.dentalChart?.map(note => {
+            if (note.id === noteId) {
+                const amendment = { ...note };
+                // Create amendment
+                delete amendment.id;
+                delete amendment.sealedAt;
+                delete amendment.sealedHash;
+                delete amendment.isVoided;
+                delete amendment.voidDetails;
+                amendment.originalNoteId = note.id;
+                amendment.id = generateUid('dca'); // amendment ID
+                newNoteId = amendment.id;
 
-        const amendmentNoteId = generateUid('note');
+                // Void original
+                const voidedNote = {
+                    ...note,
+                    isVoided: true,
+                    voidDetails: {
+                        reason,
+                        userId: currentUser.id,
+                        userName: currentUser.name,
+                        timestamp: new Date().toISOString(),
+                    }
+                };
+                
+                return [voidedNote, amendment];
+            }
+            return note;
+        }).flat() as DentalChartEntry[];
 
-        const voidedNote = {
-            ...noteToVoid,
-            isVoided: true,
-            voidDetails: {
-                reason,
-                userId: currentUser.id,
-                userName: currentUser.name,
-                timestamp: new Date().toISOString(),
-                amendmentNoteId: amendmentNoteId,
-            },
-        };
-
-        const amendmentNote: DentalChartEntry = {
-            ...noteToVoid,
-            id: amendmentNoteId,
-            isVoided: false,
-            voidDetails: undefined,
-            sealedHash: undefined,
-            sealedAt: undefined,
-            isLocked: false,
-            originalNoteId: noteId,
-            notes: `AMENDMENT to note ${noteId}. Reason: ${reason}\n\n--- ORIGINAL NOTE ---\n${noteToVoid.notes || ''}`
-        };
-
-        const updatedChart = patient.dentalChart?.map(n => n.id === noteId ? voidedNote : n);
-        updatedChart?.push(amendmentNote);
-
-        await handleSavePatient({ ...patient, dentalChart: updatedChart });
-        logAction('UPDATE', 'ClinicalNote', noteId, `Note voided. Reason: ${reason}. Amendment created: ${amendmentNoteId}`);
-        toast.info("Note has been voided. A new amendment note has been created.");
-        return amendmentNoteId;
+        await handleSavePatient({ ...patient, dentalChart: newChart });
+        logAction('SECURITY_ALERT', 'ClinicalNote', noteId, `Note VOIDED and amended. Reason: ${reason}. New note is ${newNoteId}`);
+        toast.success("Note amended. Please complete and save the new version.");
+        return newNoteId;
     };
-
-    const handlePatientSignOffOnNote = async (patientId: string, noteId: string, signatureDataUrl: string) => {
+    
+    const handlePatientSignOffOnNote = async (patientId: string, noteId: string, signature: string) => {
         const patient = patients.find(p => p.id === patientId);
         if (!patient) return;
-
-        const updatedChart = patient.dentalChart?.map(note => 
-            note.id === noteId 
-            ? { ...note, patientSignature: signatureDataUrl, patientSignatureTimestamp: new Date().toISOString() } 
-            : note
-        );
-        
-        await handleSavePatient({ ...patient, dentalChart: updatedChart });
-        logAction('UPDATE', 'ClinicalNote', noteId, `Patient sign-off obtained for treatment completion.`);
+        const newChart = patient.dentalChart?.map(note => {
+            if (note.id === noteId) {
+                return {
+                    ...note,
+                    patientSignature: signature,
+                    patientSignatureTimestamp: new Date().toISOString(),
+                };
+            }
+            return note;
+        });
+        await handleSavePatient({ ...patient, dentalChart: newChart });
+        logAction('SIGN', 'ClinicalNote', noteId, 'Patient sign-off captured for completed procedure.');
         toast.success("Patient sign-off recorded.");
     };
 
-    const addConsentRecord = async (patientId: string, consent: Omit<ConsentRecord, 'id'>) => {
-        const patient = patients.find(p => p.id === patientId);
-        if (!patient) return;
-        const newRecord: ConsentRecord = { ...consent, id: generateUid('con') };
-        const updatedPatient = {
-            ...patient,
-            consentHistory: [...(patient.consentHistory || []), newRecord]
-        };
-        await handleSavePatient(updatedPatient);
-    };
-    
-    const revokeConsent = async (patientId: string, consentId: string) => {
-        // More complex logic for revocation would go here
-    };
-
-    
-    const value = {
+    const value: PatientContextType = {
         patients: scopedPatients,
         isLoading,
         handleSavePatient,
+        handleRecordPaymentWithReceipt,
+        handleApproveFinancialConsent,
         handleAnonymizePatient,
         handleUpdatePatientRecall,
         handleDeleteClinicalNote,
         handleSupervisorySeal,
         handleConfirmRevocation,
-        handleRecordPaymentWithReceipt,
-        handleApproveFinancialConsent,
         handleSaveInformedRefusal,
         handleVoidNote,
         handlePatientSignOffOnNote,
-        addConsentRecord,
-        revokeConsent,
     };
-    
+
     return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;
 };
 

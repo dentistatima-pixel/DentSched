@@ -1,12 +1,12 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageSquare, Heart, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
+  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
   Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, 
+// FIX: Added 'UserX' to lucide-react imports to resolve 'Cannot find name' error.
   UserX
 } from 'lucide-react';
 import { 
@@ -29,7 +29,6 @@ import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { generateMorningHuddle } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
-import { RecentPatientsWidget } from './RecentPatientsWidget';
 
 
 interface DashboardProps {}
@@ -93,7 +92,7 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
 
 const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {
     const navigate = useNavigate();
-    const { openModal } = useModal();
+    const { showModal } = useModal();
     const { currentBranch } = useAppContext();
 
     return (
@@ -142,7 +141,7 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                             <div className="flex items-center gap-2 pl-20">
                                 {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
                                 {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
-                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); openModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
+                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
                                 {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-xs font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
                             </div>
                         </div>
@@ -238,7 +237,7 @@ const StatCard: React.FC<{title: string, value: string | React.ReactNode, icon: 
 )
 
 const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, actionItems, myTasks, onToggleTask, appointments, patients }) => {
-    const { openModal } = useModal();
+    const { showModal } = useModal();
     const todayStr = new Date().toLocaleDateString('en-CA');
     const completedToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.COMPLETED);
     const noShowsToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.NO_SHOW);
@@ -248,7 +247,7 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
             const p = patients.find(p => p.id === apt.patientId);
             return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
         }).join('\n');
-        openModal('infoDisplay', { title: "Today's Completed Appointments", content: patientList || 'No completed appointments yet.' });
+        showModal('infoDisplay', { title: "Today's Completed Appointments", content: patientList || 'No completed appointments yet.' });
     };
 
     const showNoShowList = () => {
@@ -256,151 +255,218 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
             const p = patients.find(p => p.id === apt.patientId);
             return `- ${apt.time}: ${p?.name} - *${apt.type}*`;
         }).join('\n');
-        openModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No no-shows recorded yet.' });
+        showModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No-shows today. Great!' });
     };
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true} />} icon={DollarSign} color="bg-teal-600 shadow-teal-600/20"/>
-                <StatCard title="Collections" value={<AnimatedCounter value={dailyKPIs.collections} isCurrency={true} />} icon={PieChart} color="bg-blue-600 shadow-blue-600/20"/>
-                <StatCard title="Completed" value={<AnimatedCounter value={completedToday.length} />} icon={CheckCircle} color="bg-lilac-600 shadow-lilac-600/20" onClick={showCompletedList}/>
-                <StatCard title="No Shows" value={<AnimatedCounter value={noShowsToday.length} />} icon={UserX} color="bg-red-600 shadow-red-600/20" onClick={showNoShowList}/>
+             <div className="flex items-center gap-3 px-2">
+                <Activity size={20} className="text-red-700 dark:text-red-400"/>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Action Center</h3>
             </div>
-
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">My Tasks</h3>
-                {myTasks.length > 0 ? myTasks.map(task => (
-                    <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl ${task.isUrgent ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
-                        <button onClick={() => onToggleTask(task.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center ${task.isCompleted ? 'bg-teal-600 border-teal-600' : 'border-slate-300 dark:border-slate-600'}`}>
-                            {task.isCompleted && <CheckSquare size={14} className="text-white"/>}
-                        </button>
-                        <div className="flex-1">
-                            <p className={`font-bold text-sm leading-tight ${task.isCompleted ? 'line-through text-text-secondary' : 'text-text-primary'}`}>{task.text}</p>
-                            {task.isUrgent && <div className="flex items-center gap-1 text-[10px] text-red-700 font-black uppercase mt-1"><Flag size={10}/> Urgent</div>}
-                        </div>
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4">
+                    <StatCard title="Today's Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
+                    <StatCard title="Patients Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
+                    <StatCard title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
+                </div>
+                
+                 <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-4">My Tasks ({myTasks.length})</h4>
+                     <div className="space-y-2">
+                        {myTasks.map(task => (
+                            <div key={task.id} className="flex items-start gap-3 p-3 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg group">
+                                <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 text-text-secondary hover:text-teal-700 dark:hover:text-teal-400"><CheckCircle size={16} /></button>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-bold text-text-primary leading-tight">{task.text}</div>
+                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[11px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
+                                </div>
+                            </div>
+                        ))}
+                        {myTasks.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">No pending tasks.</p>}
                     </div>
-                )) : <div className="text-center p-8 text-slate-400 italic">No tasks assigned to you.</div>}
+                </div>
             </div>
         </div>
     )
 }
 
-const QuickActionButton: React.FC<{onClick: () => void, icon: React.ElementType, color: string, label: string}> = ({ onClick, icon: Icon, color, label }) => (
-    <button
-        onClick={onClick}
-        aria-label={label}
-        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 transform hover:-translate-y-1 ${color} shadow-lg hover:shadow-2xl`}
-    >
-        <Icon size={32} className="text-white" />
-    </button>
-);
+const AIMorningHuddle: React.FC<{ appointments: Appointment[], patients: Patient[], currentUser: User }> = ({ appointments, patients, currentUser }) => {
+    const [huddle, setHuddle] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-const QuickActionButtons: React.FC<{ openModal: (type: string, props?: any) => void; currentBranch: string }> = ({ openModal, currentBranch }) => {
+    useEffect(() => {
+        const fetchHuddle = async () => {
+            setIsLoading(true);
+            try {
+                // Filter appointments for the current user
+                const userAppointments = appointments.filter(apt => apt.providerId === currentUser.id);
+                if (userAppointments.length > 0) {
+                    const huddleText = await generateMorningHuddle(userAppointments, patients);
+                    setHuddle(huddleText);
+                } else {
+                    setHuddle("### AI Morning Huddle\n\nYou have no appointments scheduled for today.");
+                }
+            } catch (error) {
+                console.error(error);
+                setHuddle("### AI Morning Huddle\n\nCould not generate your daily briefing at this time.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchHuddle();
+    }, [appointments, patients, currentUser]);
+
     return (
-        <div className="flex items-center gap-6 mb-6">
-            <QuickActionButton
-                onClick={() => openModal('quickAddPatient')}
-                icon={UserPlus}
-                color="bg-teal-600"
-                label="New Patient"
-            />
-            <QuickActionButton
-                onClick={() => openModal('appointment', { currentBranch })}
-                icon={CalendarPlus}
-                color="bg-blue-600"
-                label="New Appointment"
-            />
-            <QuickActionButton
-                onClick={() => openModal('quickTriage', { currentBranch })}
-                icon={AlertTriangle}
-                color="bg-red-600"
-                label="Emergency Triage"
-            />
+        <div className="bg-gradient-to-br from-lilac-700 to-teal-800 p-8 rounded-[2.5rem] shadow-2xl shadow-lilac-900/20 text-white relative overflow-hidden">
+            <Sparkles size={128} className="absolute -top-8 -right-8 text-white/5 opacity-50" />
+            <div className="relative z-10">
+                {isLoading ? (
+                    <div className="flex items-center gap-4">
+                        <Loader className="animate-spin" size={24} />
+                        <span className="font-bold text-lg">Generating your AI Morning Huddle...</span>
+                    </div>
+                ) : (
+                    <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-lilac-100 prose-strong:text-amber-300">
+                        <ReactMarkdown>{huddle || ''}</ReactMarkdown>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
-
 export const Dashboard: React.FC<DashboardProps> = () => {
-  const { openModal } = useModal();
-  const { appointments, transitionAppointmentStatus } = useAppointments();
+  const { showModal } = useModal();
+  const navigate = useNavigate();
+  const { appointments, handleUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
   const { staff } = useStaff();
+  const { currentUser, currentBranch } = useAppContext();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
-  const { tasks, handleToggleTask } = useClinicalOps();
-  const { currentUser, isOnline, systemStatus, currentBranch } = useAppContext();
+  const { stock } = useInventory();
+  const { tasks, handleToggleTask, incidents, handleAddToWaitlist } = useClinicalOps();
   
-  const [morningHuddle, setMorningHuddle] = useState<string | null>(null);
-  const [isHuddleLoading, setIsHuddleLoading] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [time, setTime] = useState(new Date());
 
-  const todayStr = new Date().toLocaleDateString('en-CA');
+  useEffect(() => {
+      const timer = setInterval(() => setTime(new Date()), 1000 * 60); // Update every minute
+      return () => clearInterval(timer);
+  }, []);
   
-  const todaysAppointments = useMemo(() => {
+  const syncConflicts: SyncConflict[] = [];
+
+  const getGreeting = () => {
+      const hour = time.getHours();
+      if (hour < 12) return "Good Morning";
+      if (hour < 18) return "Good Afternoon";
+      return "Good Evening";
+  };
+  
+  const getPatient = (id: string) => patients.find(pt => pt.id === id);
+
+  const todaysFullSchedule = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
     return appointments
       .filter(a => a.date === todayStr && a.branch === currentBranch)
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [appointments, todayStr, currentBranch]);
+  }, [appointments, currentBranch]);
+  
+  const triageQueue = useMemo(() => todaysFullSchedule.filter(a => a.triageLevel && a.status === AppointmentStatus.ARRIVED), [todaysFullSchedule]);
 
   const patientFlow = useMemo(() => {
-    const arrived = todaysAppointments.filter(a => a.status === AppointmentStatus.ARRIVED);
-    const inClinic = todaysAppointments.filter(a => a.status === AppointmentStatus.SEATED || a.status === AppointmentStatus.TREATING);
-    return { arrived, inClinic };
-  }, [todaysAppointments]);
+    const todaysApts = todaysFullSchedule.filter(a => !a.isBlock && !a.triageLevel);
+    return {
+      arrived: todaysApts.filter(a => a.status === AppointmentStatus.ARRIVED),
+      inClinic: todaysApts.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)),
+      needsCheckout: todaysApts.filter(a => a.status === AppointmentStatus.COMPLETED)
+    };
+  }, [todaysFullSchedule]);
 
   const dailyKPIs = useMemo(() => {
-      const completed = todaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED);
-      const production = completed.reduce((sum, apt) => {
-          const procedure = fieldSettings?.procedures.find(p => p.name === apt.type);
-          const price = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === procedure?.id)?.price || 0;
-          return sum + price;
-      }, 0);
-      return { production, collections: production * 0.85 }; // Simplified
-  }, [todaysAppointments, fieldSettings]);
+    const completedToday = todaysFullSchedule.filter(a => a.status === AppointmentStatus.COMPLETED);
+    const production = completedToday.reduce((sum, apt) => {
+        const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+        const patient = getPatient(apt.patientId);
+        if (!proc || !patient) return sum;
+        let priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id;
+        if (!priceBookId) return sum;
+        const priceEntry = fieldSettings?.priceBookEntries?.find(
+            pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId
+        );
+        return sum + (priceEntry?.price || 0);
+    }, 0);
+    return {
+      production: production,
+      patientsSeen: completedToday.length,
+      noShows: todaysFullSchedule.filter(a => a.status === AppointmentStatus.NO_SHOW).length
+    };
+  }, [todaysFullSchedule, fieldSettings, patients]);
 
-  const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser?.id && !t.isCompleted), [tasks, currentUser]);
-  
-  const fetchHuddle = async () => {
-    if (!currentUser || currentUser.role !== UserRole.DENTIST) return;
-    setIsHuddleLoading(true);
-    try {
-        const huddleText = await generateMorningHuddle(todaysAppointments, patients);
-        setMorningHuddle(huddleText);
-    } catch (e) {
-        setMorningHuddle("Error generating huddle.");
-    } finally {
-        setIsHuddleLoading(false);
+  const actionItems = useMemo(() => {
+    const items = [];
+    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => navigate('admin/sync') });
+    return items.sort((a,b) => b.count - a.count);
+  }, [syncConflicts, navigate]);
+
+  if (!currentUser) return null;
+
+  const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
+
+  const roleBasedLayout = useMemo(() => {
+    const components = {
+        schedule: <DailySchedule appointments={todaysFullSchedule} patients={patients} settings={fieldSettings} />,
+        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={handleUpdateAppointmentStatus} />,
+        actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysFullSchedule} patients={patients} />,
+    };
+
+    switch (currentUser.role) {
+        case UserRole.ADMIN:
+            return [components.actions, components.flow, components.schedule];
+        case UserRole.DENTIST:
+            return [components.schedule, components.flow, components.actions];
+        case UserRole.DENTAL_ASSISTANT:
+            return [components.flow, components.schedule, components.actions];
+        default:
+            return [components.schedule, components.flow, components.actions];
     }
-  };
+  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, handleUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, handleToggleTask]);
 
   return (
-    <div className="w-full h-full">
-        <QuickActionButtons openModal={openModal} currentBranch={currentBranch} />
-        <div className="w-full h-full dashboard-grid gap-6">
-            <div className="dashboard-col-1 space-y-6">
-                <ActionCenter dailyKPIs={dailyKPIs} actionItems={[]} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysAppointments} patients={patients}/>
-                {currentUser?.role === UserRole.DENTIST && (
-                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">AI Huddle</h3>
-                            <button onClick={fetchHuddle} disabled={isHuddleLoading} className="bg-lilac-100 text-lilac-700 px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2">
-                               {isHuddleLoading ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} {isHuddleLoading ? 'Generating...' : 'Generate Briefing'}
-                            </button>
-                        </div>
-                        <div className="prose prose-sm max-w-none bg-slate-50 p-4 rounded-xl border border-slate-100 min-h-[100px]">
-                            {morningHuddle ? <ReactMarkdown>{morningHuddle}</ReactMarkdown> : <p className="italic text-slate-400">Click generate to get your AI-powered morning briefing.</p>}
-                        </div>
-                    </div>
-                )}
-                <RecentPatientsWidget />
-            </div>
-            <div className="dashboard-col-2">
-                <DailySchedule appointments={todaysAppointments} patients={patients} settings={fieldSettings} />
-            </div>
-            <div className="dashboard-col-3">
-                 <PatientFlow triageQueue={[]} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={transitionAppointmentStatus} />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      <div className="flex items-center justify-between gap-6">
+        <div>
+            <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{getGreeting()}, {currentUser.name.split(' ')[0]}!</h1>
+            <div className="flex items-center gap-2 mt-2">
+                <Clock size={14} className="text-slate-400"/>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
         </div>
+        <div className="flex items-center gap-3">
+            <button onClick={() => showModal('patientRegistration', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile">
+                <UserPlus size={16}/> New Patient
+            </button>
+            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-lilac-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile">
+                <CalendarPlus size={16}/> New Appt
+            </button>
+            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-red-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile">
+                <Zap size={16}/> Walk-In
+            </button>
+        </div>
+      </div>
+
+      {currentUser && (currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.SYSTEM_ARCHITECT) && (
+        <AIMorningHuddle appointments={todaysFullSchedule} patients={patients} currentUser={currentUser} />
+      )}
+
+      <div className="grid gap-8 items-start dashboard-grid">
+        <div className="dashboard-col-1">{roleBasedLayout[0]}</div>
+        <div className="dashboard-col-2">{roleBasedLayout[1]}</div>
+        <div className="dashboard-col-3">{roleBasedLayout[2]}</div>
+      </div>
     </div>
   );
 };

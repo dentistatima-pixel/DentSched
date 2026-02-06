@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry, User, UserRole } from '../types';
 import { X, CheckCircle, XCircle, FileText, Stethoscope, Activity, ImageIcon, Search, ArrowRight, User as UserIcon } from 'lucide-react';
@@ -24,8 +23,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
   const [isRejecting, setIsRejecting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
-  // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-  const { openModal: showModal } = useModal();
+  const { showModal } = useModal();
   const { handleSaveInformedRefusal } = usePatient();
   const { fieldSettings } = useSettings();
   const { currentUser } = useAppContext();

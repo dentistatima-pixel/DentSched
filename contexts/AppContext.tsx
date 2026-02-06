@@ -27,7 +27,7 @@ interface AppContextType {
   setSystemStatus: (status: SystemStatus) => void;
   isOnline: boolean;
   auditLog: AuditLogEntry[];
-  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, justification?: string) => Promise<void>;
+  logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => Promise<void>;
   isAuditLogVerified: boolean | null;
   governanceTrack: GovernanceTrack;
   setGovernanceTrack: (track: GovernanceTrack) => void;
@@ -45,7 +45,6 @@ interface AppContextType {
   syncQueueCount: number;
   isSyncing: boolean;
   enqueueAction: (action: SyncIntent['action'], payload: any) => Promise<void>;
-  processSyncQueue: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -165,7 +164,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isReadOnly = useMemo(() => currentUser?.status === 'Inactive' || isAuthorityLocked, [currentUser, isAuthorityLocked]);
 
-    const logAction = useCallback(async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string, justification?: string) => {
+    const logAction = useCallback(async (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => {
       if (!currentUser) return; // Don't log actions if no user is logged in
       
       const { timestamp, isVerified } = await getTrustedTime();
@@ -181,7 +180,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             entity,
             entityId,
             details,
-            justification,
             previousHash
           });
           const hash = CryptoJS.SHA256(dataToHash).toString();
@@ -196,7 +194,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               entity,
               entityId,
               details,
-              justification,
               hash,
               previousHash,
               impersonatingUser: originalUser ? { id: originalUser.id, name: originalUser.name } : undefined,
@@ -298,13 +295,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         syncQueueCount,
         isSyncing,
         enqueueAction,
-        processSyncQueue,
     }), [
         currentUser, originalUser, systemStatus, isOnline, auditLog, 
         isAuditLogVerified, governanceTrack, currentBranch, isReadOnly, 
         isAuthorityLocked, theme, fullScreenView, isInKioskMode, 
         syncQueueCount, isSyncing, logAction, handleStartImpersonating,
-        handleStopImpersonating, logout, toggleTheme, enqueueAction, processSyncQueue
+        handleStopImpersonating, logout, toggleTheme, enqueueAction
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

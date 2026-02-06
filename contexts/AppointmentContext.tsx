@@ -1,23 +1,35 @@
 
-import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
-import { Appointment, AppointmentStatus, Patient, User } from '../types';
-import { APPOINTMENTS, generateUid } from '../constants';
+import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
+import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent, InstrumentSet } from '../types';
+import { APPOINTMENTS, generateUid, PROCEDURE_TO_CONSENT_MAP, isExpired } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
-import { DataService } from '../services/dataService';
-import { canTransitionTo } from '../services/appointmentStatusValidator';
-import { canStartTreatment, canCompleteAppointment } from '../services/medicolegalGuard';
-import { usePatient } from './PatientContext';
-import { useStaff } from './StaffContext';
-import { useSettings } from './SettingsContext';
 import { useModal } from './ModalContext';
+import { usePatient } from './PatientContext';
+import { useSettings } from './SettingsContext';
+import { DataService } from '../services/dataService';
+import { checkClinicalProtocols } from '../services/protocolEnforcement';
+import { useStaff } from './StaffContext';
+import { canStartTreatment } from '../services/medicolegalGuard';
+import { validateSignatureChain } from '../services/signatureVerification';
+
+const generateDiff = (oldObj: any, newObj: any): string => {
+    if (!oldObj) return 'Created record';
+    const changes: string[] = [];
+    Object.keys(newObj).forEach(key => {
+        if (oldObj[key] !== newObj[key]) changes.push(`${key}: ${oldObj[key]} -> ${newObj[key]}`);
+    });
+    return changes.join('; ');
+};
 
 interface AppointmentContextType {
     appointments: Appointment[];
     handleSaveAppointment: (appointment: Appointment) => Promise<void>;
-    handleUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus, details?: any) => Promise<void>;
     handleMoveAppointment: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => Promise<void>;
-    transitionAppointmentStatus: (appointmentId: string, newStatus: AppointmentStatus) => Promise<void>;
+    handleUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus, additionalData?: Partial<Appointment>) => Promise<void>;
+    handleVerifyDowntimeEntry: (id: string) => Promise<void>;
+    handleVerifyMedHistory: (appointmentId: string) => Promise<void>;
+    handleConfirmFollowUp: (appointmentId: string) => Promise<void>;
 }
 
 const AppointmentContext = createContext<AppointmentContextType | undefined>(undefined);
@@ -25,243 +37,272 @@ const AppointmentContext = createContext<AppointmentContextType | undefined>(und
 export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
+    const { showModal } = useModal();
+    const { patients } = usePatient();
+    const { fieldSettings, handleUpdateSettings } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
-    const { patients, handleSavePatient } = usePatient();
     const { staff } = useStaff();
-    const { fieldSettings, addScheduledSms } = useSettings();
-    const { openModal, closeModal } = useModal();
+    
+    const canManageAppointments = useMemo(() => {
+        if (!currentUser) return false;
+        return [UserRole.ADMIN, UserRole.SYSTEM_ARCHITECT, UserRole.DENTIST].includes(currentUser.role);
+    }, [currentUser]);
+    
+    const _finishSavingAppointment = async (appointmentData: Appointment) => {
+        try {
+            if (!canManageAppointments) throw new Error("Authorization Denied");
+            
+            const isNew = !appointments.some(a => a.id === appointmentData.id);
+            const oldApt = isNew ? null : appointments.find(a => a.id === appointmentData.id);
+            
+            if (!isOnline) {
+                const offlineApt = { ...appointmentData, isPendingSync: true };
+                setAppointments(prev => isNew ? [...prev, offlineApt] : prev.map(a => a.id === offlineApt.id ? offlineApt : a));
+                await enqueueAction(isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', offlineApt);
+                toast.info('Offline: Appointment saved locally.');
+                return;
+            }
+            
+            const finalAppointment = await DataService.saveAppointment(appointmentData);
 
-    const handleSaveAppointment = useCallback(async (appointmentData: Appointment): Promise<void> => {
+            setAppointments(prev => isNew ? [...prev, finalAppointment] : prev.map(a => a.id === finalAppointment.id ? finalAppointment : a));
+            
+            logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', finalAppointment.id, generateDiff(oldApt, finalAppointment));
+            toast.success(`Appointment saved.`);
+
+        } catch (e) {
+            toast.error('Failed to save appointment.');
+        }
+    };
+
+    const handleSaveAppointment = async (appointmentData: Appointment): Promise<void> => {
+        if (!canManageAppointments) {
+            toast.error("Authorization Denied: You cannot create or modify appointments.");
+            return;
+        }
+
+        const patient = patients.find(p => p.id === appointmentData.patientId);
+        const procedure = fieldSettings.procedures.find(p => p.name === appointmentData.type);
         const isNew = !appointments.some(a => a.id === appointmentData.id);
 
-        if (!isOnline) {
-            const offlineAppointment = { ...appointmentData, isPendingSync: true };
-            setAppointments(prev => isNew ? [...prev, offlineAppointment] : prev.map(a => a.id === offlineAppointment.id ? offlineAppointment : a));
-            await enqueueAction(isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', offlineAppointment);
-            toast.info(`Offline: Appointment for "${appointmentData.type}" saved locally.`);
-            return;
-        }
+        if (procedure?.requiresConsent && isNew && patient) {
+            // --- PRE-FLIGHT FINANCIAL CONSENT CHECK ---
+            if (appointmentData.planId) {
+                const plan = patient.treatmentPlans?.find(tp => tp.id === appointmentData.planId);
 
-        try {
-            const updatedAppointment = await DataService.saveAppointment(appointmentData);
-            setAppointments(prev => {
-                return isNew ? [...prev, updatedAppointment] : prev.map(a => a.id === updatedAppointment.id ? updatedAppointment : a);
-            });
+                if (!plan) {
+                    toast.error('CRITICAL ERROR: Appointment is linked to a non-existent treatment plan.');
+                    return;
+                }
+
+                if (plan.status === TreatmentPlanStatus.DRAFT || plan.status === TreatmentPlanStatus.PENDING_REVIEW) {
+                    toast.warning('This procedure is part of a plan that has not been clinically approved yet.');
+                    showModal('approvalDashboard', { patient, plan, onConfirm: () => {}, onReject: () => {} });
+                    return;
+                }
+
+                if (plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
+                    toast.error('Financial consent for the treatment plan must be captured before this procedure.');
+                    showModal('financialConsent', { patient, plan });
+                    return;
+                }
+            }
+            // --- END PRE-FLIGHT CHECK ---
             
-            if (isNew && fieldSettings.features.enableSmsAutomation) {
-                const procedure = fieldSettings?.procedures.find(p => p.name === appointmentData.type);
-                if (procedure?.requiresConsent) {
-                    const appointmentDate = new Date(appointmentData.date + 'T' + appointmentData.time);
-                    const reminderDate = new Date(appointmentDate);
-                    reminderDate.setDate(reminderDate.getDate() - 1);
-                    
-                    const patient = patients.find(p => p.id === appointmentData.patientId);
-                    const provider = staff.find(s => s.id === appointmentData.providerId);
+            let consentTemplateId = 'GENERAL_AUTHORIZATION'; // Default
+            const procedureNameLower = procedure.name.toLowerCase();
 
-                    if (patient && provider) {
-                        addScheduledSms({
-                            patientId: patient.id,
-                            templateId: 'pre_appointment_consent',
-                            dueDate: reminderDate.toISOString(),
-                            data: {
-                                PatientName: patient.name,
-                                ProviderName: provider.name,
-                                ConsentUrl: `https://dentsched.app/consent/${appointmentData.id}` // Placeholder URL
-                            }
-                        });
-                    }
+            for (const keyword in PROCEDURE_TO_CONSENT_MAP) {
+                if (procedureNameLower.includes(keyword)) {
+                    consentTemplateId = PROCEDURE_TO_CONSENT_MAP[keyword];
+                    break;
                 }
             }
 
-            logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', updatedAppointment.id, `Appointment for ${updatedAppointment.type} ${isNew ? 'created' : 'updated'}.`);
-            toast.success(`Appointment for "${updatedAppointment.type}" saved.`);
-        } catch (error) {
-            console.error("Error saving appointment:", error);
-            toast.error("Failed to save appointment.");
-            throw error;
+            const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === consentTemplateId);
+            
+            if (!consentTemplate) {
+                toast.error(`Consent form template "${consentTemplateId}" not found. Please check settings. Proceeding without consent.`);
+                _finishSavingAppointment(appointmentData);
+                return;
+            }
+
+            showModal('consentCapture', { 
+                patient, 
+                appointment: appointmentData,
+                template: consentTemplate,
+                procedure,
+                onSave: (chain: SignatureChainEntry[], pediatricConsent?: PediatricConsent) => {
+                    const finalAppointment = { 
+                        ...appointmentData, 
+                        consentSignatureChain: chain,
+                        pediatricConsent: pediatricConsent,
+                    };
+                    _finishSavingAppointment(finalAppointment as Appointment);
+                }
+            });
+        } else {
+            _finishSavingAppointment(appointmentData);
         }
-    }, [isOnline, appointments, enqueueAction, toast, logAction, fieldSettings, patients, staff, addScheduledSms]);
-    
-    const handleUpdateAppointmentStatus = useCallback(async (appointmentId: string, status: AppointmentStatus, details: any = {}): Promise<void> => {
-        const appointment = appointments.find(a => a.id === appointmentId);
-        if (!appointment || !currentUser) return;
+    };
+
+    const handleMoveAppointment = async (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string): Promise<void> => {
+        if (!canManageAppointments) {
+            toast.error("Authorization Denied: You cannot move appointments.");
+            return;
+        }
         
-        const updatedAppointment = { 
-            ...appointment, 
-            status,
-            statusHistory: [...(appointment.statusHistory || []), { status, timestamp: new Date().toISOString(), userId: currentUser.id, userName: currentUser.name }],
-            ...details 
-        };
+        const aptToMove = appointments.find(a => a.id === appointmentId);
+        if (!aptToMove) {
+            toast.error("Appointment not found");
+            return;
+        }
+
+        const updatedApt = { ...aptToMove, date: newDate, time: newTime, providerId: newProviderId, resourceId: newResourceId };
         
         if (!isOnline) {
-            const offlineUpdate = { ...updatedAppointment, isPendingSync: true };
-            setAppointments(prev => prev.map(a => a.id === appointmentId ? offlineUpdate : a));
-            await enqueueAction('UPDATE_STATUS', { id: appointmentId, status, details });
-            toast.info(`Offline: Appointment status updated locally.`);
+            const offlineApt = { ...updatedApt, isPendingSync: true };
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
+            await enqueueAction('UPDATE_APPOINTMENT', offlineApt);
+            toast.info("Offline: Appointment move saved locally.");
             return;
         }
 
         try {
-            await DataService.saveAppointment(updatedAppointment);
-            setAppointments(prev => prev.map(a => a.id === appointmentId ? updatedAppointment : a));
-            logAction('UPDATE', 'Appointment', appointmentId, `Status changed from ${appointment.status} to ${status}.`);
-            toast.success(`Appointment status updated to ${status}.`);
-        } catch (error) {
-             console.error("Error updating appointment status:", error);
-            toast.error("Failed to update appointment status.");
-            throw error;
+            await DataService.saveAppointment(updatedApt);
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
+            toast.success("Appointment rescheduled.");
+            logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
+        } catch (e) {
+            toast.error('Failed to move appointment.');
         }
-    }, [appointments, currentUser, isOnline, enqueueAction, toast, logAction]);
-
-    const transitionAppointmentStatus = useCallback(async (appointmentId: string, newStatus: AppointmentStatus): Promise<void> => {
-        const appointment = appointments.find(a => a.id === appointmentId);
-        const patient = patients.find(p => p.id === appointment?.patientId);
-        const provider = staff.find(s => s.id === appointment?.providerId);
-
-        if (!appointment || !patient || !provider || !currentUser || !fieldSettings) {
-            toast.error("Cannot change status: Required data is missing.");
+    };
+    
+    const handleUpdateAppointmentStatus = async (appointmentId: string, status: AppointmentStatus, additionalData: Partial<Appointment> = {}, bypassProtocol = false): Promise<void> => {
+        if (!canManageAppointments) {
+            toast.error("Authorization Denied: You cannot update appointment status.");
             return;
         }
-
-        if (!canTransitionTo(appointment.status, newStatus)) {
-            toast.error(`Invalid workflow transition from "${appointment.status}" to "${newStatus}".`);
+        
+        const aptToUpdate = appointments.find(a => a.id === appointmentId);
+        if (!aptToUpdate) {
+            toast.error("Appointment not found");
             return;
         }
-
-        if (newStatus === AppointmentStatus.CANCELLED) {
-            openModal('cancellation', {
-                onConfirm: (reason: string) => {
-                    handleUpdateAppointmentStatus(appointmentId, newStatus, { cancellationReason: reason });
-                }
-            });
-            return;
-        }
-
-        // 2. Medico-legal Guard checks (Issue #1)
-        let block;
-        if (newStatus === AppointmentStatus.SEATED) {
-            block = canStartTreatment(appointment, patient, provider, fieldSettings, staff);
-        } else if (newStatus === AppointmentStatus.COMPLETED) {
-            const procedure = fieldSettings.procedures.find(p => p.name === appointment.type);
-            block = canCompleteAppointment(appointment, patient, procedure);
-        }
-
-        if (block && block.isBlocked) {
-            if (block.modal) {
-                let modalProps = { ...block.modal.props };
-
-                if (block.modal.type === 'consentCapture') {
-                    modalProps.onRefuse = () => {
-                        closeModal(); // Close consent modal
-                        setTimeout(() => openModal('informedRefusal', {
-                            patient,
-                            currentUser,
-                            relatedEntity: {
-                                type: 'Procedure',
-                                entityId: block.modal.props.procedure.id,
-                                entityDescription: `Refusal of Procedure: "${block.modal.props.procedure.name}"`
-                            },
-                            risks: block.modal.props.procedure.riskDisclosures || ['Progression of disease'],
-                            alternatives: block.modal.props.procedure.alternatives || ['No treatment'],
-                            recommendation: `Proceed with procedure "${block.modal.props.procedure.name}" as recommended.`,
-                            onSave: (refusalData: any) => {
-                                handleSavePatient({ 
-                                    ...patient, 
-                                    informedRefusals: [...(patient.informedRefusals || []), { ...refusalData, id: generateUid('ref'), patientId: patient.id }]
-                                });
-                                toast.success("Informed refusal has been documented.");
+        
+        const patient = patients.find(p => p.id === aptToUpdate.patientId);
+        const provider = staff.find(s => s.id === aptToUpdate.providerId);
+    
+        if (status === AppointmentStatus.TREATING && !bypassProtocol && patient && provider && fieldSettings) {
+            const block = canStartTreatment(aptToUpdate, patient, provider, fieldSettings);
+            if (block.isBlocked) {
+                toast.error(block.reason, { duration: 8000 });
+                if (block.modal) {
+                    const props: any = {
+                        ...block.modal.props,
+                        onConfirm: (data: any) => {
+                            let updatedData = {};
+                            if (block.modal.type === 'medicalHistoryAffirmation') {
+                                updatedData = { medHistoryAffirmation: data };
+                            } else if (block.modal.type === 'sterilizationVerification') {
+                                updatedData = { sterilizationVerified: true, linkedInstrumentSetIds: data };
                             }
-                        }), 300);
+                            handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, ...updatedData }, true);
+                        }
                     };
-                }
-                
-                openModal(block.modal.type, {
-                    ...modalProps,
-                    onConfirm: async (data: any) => {
-                         const detailsToUpdate: Partial<Appointment> = {};
-                         // FIX: Also update the patient record with the latest medical history affirmation
-                         // to ensure global state is current for subsequent checks.
-                         if (block?.modal?.type === 'medicalHistoryAffirmation') {
-                            detailsToUpdate.medHistoryAffirmation = data;
-                            // Also update patient with the latest affirmation
-                            await handleSavePatient({ ...patient, medHistoryAffirmation: data });
-                         }
-                         if (block?.modal?.type === 'safetyTimeout') detailsToUpdate.safetyChecklistChain = data;
-                         if (block?.modal?.type === 'sterilizationVerification') {
-                             detailsToUpdate.sterilizationVerified = true;
-                             detailsToUpdate.linkedInstrumentSetIds = data;
-                         }
-                         if (block?.modal?.type === 'postOpHandover') detailsToUpdate.postOpHandoverChain = data.handoverChain;
-                         if (block?.modal?.type === 'protocolOverride') {
-                            detailsToUpdate.protocolOverrides = [...(appointment.protocolOverrides || []), { ruleId: block.modal.props.rule.id, reason: data.reason, signatureChain: data.signatureChain }];
-                         }
-                         
-                         const updatedAppointment = { ...appointment, ...detailsToUpdate };
-                         await DataService.saveAppointment(updatedAppointment);
-                         setAppointments(prev => prev.map(a => a.id === appointmentId ? updatedAppointment : a));
-                         
-                         transitionAppointmentStatus(appointmentId, newStatus);
-                    },
-                    onSave: async (data: any) => {
-                        if (block?.modal?.type === 'consentCapture') {
-                           const updatedAppointment = { ...appointment, consentSignatureChain: data };
-                           await DataService.saveAppointment(updatedAppointment);
-                           setAppointments(prev => prev.map(a => a.id === appointmentId ? updatedAppointment : a));
-                           transitionAppointmentStatus(appointmentId, newStatus);
+                    
+                    if (block.modal.type === 'protocolOverride' && block.modal.props.rule) {
+                        props.onConfirm = (reason: string) => {
+                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${block.modal.props.rule.name}. Reason: ${reason}`);
+                            handleUpdateAppointmentStatus(appointmentId, status, additionalData, true);
                         }
                     }
-                });
-            } else {
-                toast.error(block.reason, { duration: 10000 });
-            }
-            return; // Halt the transition
-        }
-
-        // 3. If all checks pass, proceed with the status update
-        await handleUpdateAppointmentStatus(appointmentId, newStatus);
-
-    }, [appointments, patients, staff, fieldSettings, toast, openModal, closeModal, currentUser, handleUpdateAppointmentStatus, handleSavePatient]);
-
-    const handleMoveAppointment = useCallback(async (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string): Promise<void> => {
-        const appointment = appointments.find(a => a.id === appointmentId);
-        if (!appointment) return;
-
-        const updatedAppointment: Appointment = {
-            ...appointment,
-            date: newDate,
-            time: newTime,
-            providerId: newProviderId,
-            resourceId: newResourceId,
-            modifiedAt: new Date().toISOString(),
-        };
-        
-        if (!isOnline) {
-             const offlineMove = { ...updatedAppointment, isPendingSync: true };
-             setAppointments(prev => prev.map(a => a.id === appointmentId ? offlineMove : a));
-             await enqueueAction('UPDATE_APPOINTMENT', offlineMove);
-             toast.info(`Offline: Appointment moved locally.`);
-             return;
-        }
-        
-        try {
-            await DataService.saveAppointment(updatedAppointment);
-            setAppointments(prev => prev.map(a => a.id === appointmentId ? updatedAppointment : a));
-            logAction('UPDATE', 'Appointment', appointmentId, `Rescheduled to ${newDate} at ${newTime}.`);
-            toast.success(`Appointment moved successfully.`);
-        } catch (error) {
-            console.error("Error moving appointment:", error);
-            toast.error("Failed to move appointment.");
-            throw error;
-        }
-    }, [appointments, isOnline, enqueueAction, toast, logAction]);
     
-    const value: AppointmentContextType = {
-        appointments,
-        handleSaveAppointment,
-        handleUpdateAppointmentStatus,
-        handleMoveAppointment,
-        transitionAppointmentStatus,
+                    if (block.modal.type === 'consentCapture') {
+                        props.onSave = (chain: SignatureChainEntry[]) => {
+                            handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, consentSignatureChain: chain }, true);
+                        }
+                    }
+                    
+                    showModal(block.modal.type, props);
+                }
+                return;
+            }
+        }
+        
+        // POST-OP HANDOVER & SOAP NOTE GATE
+        if (status === AppointmentStatus.COMPLETED && !bypassProtocol) {
+            if (patient) {
+                const noteForAppointment = patient.dentalChart?.find(note => note.appointmentId === appointmentId);
+                const hasSoapNotes = noteForAppointment && (
+                    (noteForAppointment.subjective && noteForAppointment.subjective.trim() !== '') ||
+                    (noteForAppointment.objective && noteForAppointment.objective.trim() !== '') ||
+                    (noteForAppointment.assessment && noteForAppointment.assessment.trim() !== '') ||
+                    (noteForAppointment.plan && noteForAppointment.plan.trim() !== '')
+                );
+
+                if (!hasSoapNotes) {
+                    toast.error("Cannot complete appointment: A clinical note with SOAP details is required.");
+                    return; // Abort.
+                }
+            }
+
+            if (aptToUpdate.consentSignatureChain && aptToUpdate.consentSignatureChain.length > 0) {
+                const validation = validateSignatureChain(aptToUpdate.consentSignatureChain);
+                if (!validation.valid) {
+                    toast.error(`Signature integrity compromised: ${validation.errors.join(', ')}`, { duration: 10000 });
+                    logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Signature chain validation failed: ${validation.errors.join(', ')}`);
+                    return; // Block completion
+                }
+            }
+            
+            showModal('postOpHandover', {
+                appointment: aptToUpdate,
+                onConfirm: async (handoverData: { instructions: string, followUpDays: number }) => {
+                    await handleUpdateAppointmentStatus(appointmentId, status, { 
+                        postOpVerified: true, 
+                        postOpVerifiedAt: new Date().toISOString()
+                    }, true);
+                }
+            });
+            return;
+        }
+    
+        const updatedApt = { ...aptToUpdate, status, ...additionalData };
+    
+        if (!isOnline) {
+            const offlineApt = { ...updatedApt, isPendingSync: true };
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
+            await enqueueAction('UPDATE_STATUS', offlineApt);
+            toast.info(`Offline: Status update saved locally.`);
+            return;
+        }
+    
+        try {
+            await DataService.saveAppointment(updatedApt);
+            setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
+            logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
+        } catch (e) {
+            toast.error('Failed to update appointment status.');
+        }
     };
+
+    const handleVerifyDowntimeEntry = async (id: string) => {
+        await handleUpdateAppointmentStatus(id, appointments.find(a => a.id === id)!.status, { reconciled: true });
+        toast.success("Downtime entry reconciled.");
+    };
+
+    const handleVerifyMedHistory = async (id: string) => {
+        await handleUpdateAppointmentStatus(id, appointments.find(a => a.id === id)!.status, { medHistoryVerified: true, medHistoryVerifiedAt: new Date().toISOString() });
+        toast.success("Medical history verified.");
+    };
+
+    const handleConfirmFollowUp = async (id: string) => {
+        await handleUpdateAppointmentStatus(id, appointments.find(a => a.id === id)!.status, { followUpConfirmed: true, followUpConfirmedAt: new Date().toISOString() });
+        toast.success("Post-op follow-up confirmed.");
+    };
+
+    const value = { appointments, handleSaveAppointment, handleMoveAppointment, handleUpdateAppointmentStatus, handleVerifyDowntimeEntry, handleVerifyMedHistory, handleConfirmFollowUp };
 
     return <AppointmentContext.Provider value={value}>{children}</AppointmentContext.Provider>;
 };

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ShieldAlert, Zap } from 'lucide-react';
 

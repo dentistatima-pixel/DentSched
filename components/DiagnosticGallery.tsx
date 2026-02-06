@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Patient, PatientFile } from '../types';
 import { Camera, Search, FileEdit, X, ImageIcon } from 'lucide-react';

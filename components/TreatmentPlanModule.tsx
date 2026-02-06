@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory, InformedRefusal, SignatureChainEntry } from '../types';
+import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory, InformedRefusal } from '../types';
 import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch, Lock, Sparkles, LayoutGrid } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, isExpired } from '../constants';
@@ -171,8 +170,7 @@ interface TreatmentPlanProps {
 
 const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings, onOpenRevocationModal, onInitiateFinancialConsent }) => {
     const toast = useToast();
-    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-    const { openModal: showModal } = useModal();
+    const { showModal } = useModal();
     const isApprovalEnabled = featureFlags?.enableTreatmentPlanApprovals ?? true;
 
     const [isCreating, setIsCreating] = useState(false);
@@ -229,24 +227,6 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                 toast.error("INDEMNITY LOCK: Cannot approve treatment plan. Your malpractice insurance has expired.");
                 return;
             }
-             showModal('leadDentistApproval', {
-                plan: plan,
-                patient: patient,
-                onConfirm: (approvedPlanId: string, signatureChain: SignatureChainEntry[]) => {
-                    const updatedPlans = allPlans.map(p => {
-                        if (p.id === approvedPlanId) {
-                            const planTotal = patient.dentalChart?.filter(item => item.planId === approvedPlanId).reduce((acc, item) => acc + (item.price || 0), 0) || 0;
-                            logAction('APPROVE', 'TreatmentPlan', p.id, `Clinically approved with lead dentist seal.`);
-                            const nextStatus = planTotal > 0 ? TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT : TreatmentPlanStatus.APPROVED;
-                            return { ...p, status: nextStatus, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString(), approvalSignatureChain: signatureChain };
-                        }
-                        return p;
-                    });
-                    onUpdatePatient({ ...patient, treatmentPlans: updatedPlans });
-                    toast.success(`Plan "${plan.name}" approved.`);
-                }
-            });
-            return;
         }
 
         if (action === 'reject') {
@@ -272,6 +252,13 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                     case 'submit': 
                         logAction('SUBMIT', 'TreatmentPlan', p.id, `Submitted for review.`);
                         return { ...p, status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: undefined, reviewedBy: undefined, reviewedAt: undefined };
+                    case 'approve':
+                        const planTotal = patient.dentalChart?.filter(item => item.planId === planId).reduce((acc, item) => acc + (item.price || 0), 0) || 0;
+                        logAction('APPROVE', 'TreatmentPlan', p.id, `Clinically approved.`);
+                        if(planTotal > 0){
+                           return { ...p, status: TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
+                        }
+                        return { ...p, status: TreatmentPlanStatus.APPROVED, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() };
                     case 'revert_to_draft': 
                         logAction('UPDATE', 'TreatmentPlan', p.id, `Reverted to draft.`);
                         return { ...p, status: TreatmentPlanStatus.DRAFT, reviewNotes: undefined, reviewedBy: undefined, reviewedAt: undefined };

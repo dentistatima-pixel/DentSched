@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { User, LeaveRequest, UserRole } from '../types';
 import { STAFF, generateUid } from '../constants';

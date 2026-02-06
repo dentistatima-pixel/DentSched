@@ -1,25 +1,25 @@
 
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle, X, Save, Plus, Trash2, Archive, User as UserIcon, FileText, Search } from 'lucide-react';
-import { Patient, FieldSettings, ClinicalIncident, ConsentFormTemplate, PrivacyImpactAssessment } from '../types';
+import { FieldSettings, Patient, PrivacyImpactAssessment, User } from '../types';
+import { Shield, Archive, Trash2, Search, AlertTriangle, User as UserIcon, FileText } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { useModal } from '../contexts/ModalContext';
-import { useStaff } from '../contexts/StaffContext';
-import { formatDate } from '../constants';
 import { checkRetentionPolicy } from '../services/validationService';
+import { formatDate } from '../constants';
+import { useStaff } from '../contexts/StaffContext';
+import { useAppContext } from '../contexts/AppContext';
 
 interface ComplianceCenterProps {
-  settings: FieldSettings;
-  onUpdateSettings: (newSettings: FieldSettings) => void;
-  patients: Patient[];
-  onAnonymizePatient: (id: string) => void;
-  initialTab?: string;
+    settings: FieldSettings;
+    onUpdateSettings: (newSettings: FieldSettings) => void;
+    patients: Patient[];
+    onAnonymizePatient: (id: string) => void;
+    initialTab?: string;
 }
 
 const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateSettings, patients, onAnonymizePatient, initialTab }) => {
     const toast = useToast();
     const { staff } = useStaff();
-    const { openModal } = useModal();
+    const { currentUser } = useAppContext();
     const [patientSearch, setPatientSearch] = useState('');
     const [showPiaForm, setShowPiaForm] = useState(false);
     const [newPia, setNewPia] = useState({ processName: '', description: '', risks: '', mitigation: '' });
@@ -54,7 +54,6 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
     };
 
     const handleSavePia = () => {
-        const currentUser = staff.find(s => s.status === 'Active'); // A simplistic way to get a user
         if (!currentUser || !newPia.processName || !newPia.description) {
             toast.error("Process name and description are required for a PIA.");
             return;
@@ -145,16 +144,13 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
                 
                 <div className="bg-red-50 p-6 rounded-2xl border-2 border-dashed border-red-200">
                     <h4 className="font-bold text-sm text-red-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Right to Erasure (Anonymization)</h4>
-                    <p className="text-xs text-red-700 mb-4">This action redacts all PII from a patient's record while retaining their non-identifiable clinical history for regulatory compliance. Use to fulfill a data subject's formal request.</p>
-                     <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input type="text" placeholder="Search patient..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="input pl-10"/></div>
+                    <p className="text-xs text-red-700 mb-4">This action is irreversible and redacts all Personally Identifiable Information (PII) from a patient's record while retaining their non-identifiable clinical history for regulatory compliance. Use only to fulfill a data subject's formal request.</p>
+                     <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input type="text" placeholder="Search patient to anonymize..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="input pl-10"/></div>
                      <div className="max-h-48 overflow-y-auto mt-2 space-y-1 pr-2">
                         {patientSearch && filteredPatients.map(p => (
                             <div key={p.id} className="flex justify-between items-center p-2 bg-white rounded-lg">
                                 <span className="text-sm font-bold">{p.name}</span>
-                                <div className="flex gap-2">
-                                  <button onClick={() => openModal('dataDeletionRequest', { patient: p })} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 text-xs font-black">Request</button>
-                                  <button onClick={() => handleConfirmAnonymize(p) } className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 size={14}/></button>
-                                </div>
+                                <button onClick={() => handleConfirmAnonymize(p) } className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 size={14}/></button>
                             </div>
                         ))}
                      </div>
