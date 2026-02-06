@@ -1,10 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel, SignatureChainEntry, SignatureType, TreatmentPlanStatus, PediatricConsent } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight } from 'lucide-react';
+import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, SignatureChainEntry, PediatricConsent } from '../types';
+import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, ShieldCheck, ArrowRight, PenTool } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
-import { generateUid, calculateAge, formatDate } from '../constants';
-import { useStaff } from '../contexts/StaffContext';
+import { generateUid, formatDate } from '../constants';
 
 interface ConsentCaptureModalProps {
     isOpen: boolean;
@@ -21,27 +21,20 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     isOpen, onClose, onSave, patient, appointment, provider, template, procedure
 }) => {
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
-    const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
     const toast = useToast();
-    const { staff } = useStaff();
     
     const [step, setStep] = useState<'review' | 'sign'>('review');
-    const [isSigning, setIsSigning] = useState<false | 'patient' | 'witness'>(false);
+    const [isSigning, setIsSigning] = useState(false);
     const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
     const [isDuressAffirmed, setIsDuressAffirmed] = useState(false);
     const [isOpportunityAffirmed, setIsOpportunityAffirmed] = useState(false);
     const [isVoluntaryAffirmed, setIsVoluntaryAffirmed] = useState(false);
     const [language, setLanguage] = useState<'en' | 'tl'>('en');
     
-    const [isWitnessRequired, setIsWitnessRequired] = useState(false);
-    const [witnessId, setWitnessId] = useState('');
-
     const isMinor = (calculateAge(patient.dob) || 18) < 18;
-
     const riskDisclosures = procedure?.riskDisclosures || [];
     const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
-    const allAffirmationsChecked = allRisksAcknowledged && isDuressAffirmed && isOpportunityAffirmed && isVoluntaryAffirmed;
-    const canProceedToSign = allAffirmationsChecked;
+    const canProceedToSign = allRisksAcknowledged && isDuressAffirmed && isOpportunityAffirmed && isVoluntaryAffirmed;
     
     const getProcessedContent = () => {
         let content = language === 'en' ? template.content_en : (template.content_tl || template.content_en);
@@ -57,14 +50,14 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       const rect = canvas.parentElement.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       canvas.width = rect.width * dpr;
-      canvas.height = 200 * dpr;
+      canvas.height = 250 * dpr;
       canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `200px`;
+      canvas.style.height = `250px`;
       const ctx = canvas.getContext('2d', { desynchronized: true });
       if (ctx) {
         ctx.scale(dpr, dpr);
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 5.0;
+        ctx.lineWidth = 4.0;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
       }
@@ -78,34 +71,14 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
            setIsDuressAffirmed(false);
            setIsOpportunityAffirmed(false);
            setIsVoluntaryAffirmed(false);
-           const witnessNeeded = !!procedure?.requiresWitness;
-           setIsWitnessRequired(witnessNeeded);
-           setWitnessId('');
         }
-    }, [isOpen, procedure]);
+    }, [isOpen]);
     
     useEffect(() => {
-        const patientCanvas = signatureCanvasRef.current;
-        const witnessCanvas = witnessCanvasRef.current;
-        const touchHandler = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
-
         if (step === 'sign') {
-            setTimeout(() => {
-                setupCanvas(patientCanvas);
-                if (isWitnessRequired) {
-                    setupCanvas(witnessCanvas);
-                }
-            }, 50);
+            setTimeout(() => setupCanvas(signatureCanvasRef.current), 50);
         }
-        
-        patientCanvas?.addEventListener('touchstart', touchHandler, { passive: false });
-        witnessCanvas?.addEventListener('touchstart', touchHandler, { passive: false });
-        
-        return () => {
-            patientCanvas?.removeEventListener('touchstart', touchHandler);
-            witnessCanvas?.removeEventListener('touchstart', touchHandler);
-        }
-    }, [step, isWitnessRequired]);
+    }, [step]);
     
     const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = e.currentTarget;
@@ -113,71 +86,63 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
     };
 
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => { e.preventDefault(); setIsSigning(signer); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
-    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const canvas = e.currentTarget; const { x, y, pressure } = getCoords(e); const ctx = canvas.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(2, Math.min(8, (pressure || 0.5) * 10)); ctx.lineTo(x, y); ctx.stroke(); } };
-    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
+        if (e.pointerType === 'touch' && e.width > 20) return;
+        e.preventDefault(); 
+        setIsSigning(true); 
+        const { x, y } = getCoords(e); 
+        const ctx = e.currentTarget.getContext('2d'); 
+        ctx?.beginPath(); ctx?.moveTo(x, y); 
+        if (window.navigator.vibrate) window.navigator.vibrate(10);
+    };
+
+    const stopSign = () => setIsSigning(false);
+
+    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { 
+        if (!isSigning) return; 
+        e.preventDefault(); 
+        const canvas = e.currentTarget; 
+        const { x, y, pressure } = getCoords(e); 
+        const ctx = canvas.getContext('2d'); 
+        if(ctx){ 
+            ctx.lineWidth = Math.max(2, Math.min(8, (pressure || 0.5) * 10)); 
+            ctx.lineTo(x, y); ctx.stroke(); 
+        } 
+    };
+
+    const clearCanvas = () => { 
+        const canvas = signatureCanvasRef.current; 
+        if (canvas) { 
+            const ctx = canvas.getContext('2d'); 
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        } 
+    };
 
     const handleSave = () => {
         const patientCanvas = signatureCanvasRef.current;
-        if (!patientCanvas) { toast.error("Signature canvas not available."); return; };
+        if (!patientCanvas) return;
         const isPatientCanvasBlank = !patientCanvas.getContext('2d')!.getImageData(0, 0, patientCanvas.width, patientCanvas.height).data.some(channel => channel !== 0);
-        if (isPatientCanvasBlank) { toast.error("Patient/Guardian signature is required."); return; }
+        if (isPatientCanvasBlank) { toast.error("Signature is required."); return; }
 
-        if (isWitnessRequired) {
-            if (!witnessId) { toast.error("A witness must be selected."); return; }
-            const witnessCanvas = witnessCanvasRef.current;
-            if (!witnessCanvas) { toast.error("Witness signature canvas not available."); return; }
-            const isWitnessCanvasBlank = !witnessCanvas.getContext('2d')!.getImageData(0, 0, witnessCanvas.width, witnessCanvas.height).data.some(channel => channel !== 0);
-            if (isWitnessCanvasBlank) { toast.error("Witness signature is required for this procedure."); return; }
-        }
-
-        const newChain: SignatureChainEntry[] = [...(appointment.consentSignatureChain || [])];
         const timestamp = new Date().toISOString();
-        let previousHash = newChain.length > 0 ? newChain[newChain.length - 1].hash : '0';
-
-        const patientSignatureDataUrl = patientCanvas.toDataURL();
-        const patientPayload = { signatureDataUrl: patientSignatureDataUrl, timestamp, signer: patient.name };
-        const patientHash = CryptoJS.SHA256(JSON.stringify(patientPayload)).toString();
+        const signatureDataUrl = patientCanvas.toDataURL();
+        const payload = { signatureDataUrl, timestamp, signer: patient.name };
+        const signatureHash = CryptoJS.SHA256(JSON.stringify(payload)).toString();
         
-        const patientEntry: SignatureChainEntry = {
+        const entry: SignatureChainEntry = {
             id: generateUid('sig'),
             signatureType: isMinor ? 'guardian' : 'patient',
-            signatureDataUrl: patientSignatureDataUrl,
+            signatureDataUrl,
             timestamp,
             signerName: isMinor ? (patient.guardianProfile?.legalName || 'Guardian') : patient.name,
             signerRole: isMinor ? (patient.guardianProfile?.relationship || 'Legal Guardian') : 'Patient',
-            hash: patientHash,
-            previousHash,
-            metadata: { deviceInfo: navigator.userAgent, consentType: template.name, procedureName: appointment.type }
+            hash: signatureHash,
+            previousHash: '0',
+            metadata: { deviceInfo: navigator.userAgent, consentType: template.name }
         };
-        newChain.push(patientEntry);
-        previousHash = patientHash;
 
-        if (isWitnessRequired && witnessId && witnessCanvasRef.current) {
-            const witness = staff.find(s => s.id === witnessId);
-            const witnessSignatureDataUrl = witnessCanvasRef.current.toDataURL();
-            const witnessPayload = { signatureDataUrl: witnessSignatureDataUrl, timestamp, signer: witness?.name };
-            const witnessHash = CryptoJS.SHA256(JSON.stringify(witnessPayload)).toString();
-
-            const witnessEntry: SignatureChainEntry = {
-                id: generateUid('sig'),
-                signatureType: 'witness',
-                signatureDataUrl: witnessSignatureDataUrl,
-                timestamp,
-                signerName: witness?.name || 'Unknown Witness',
-                signerRole: witness?.role,
-                hash: witnessHash,
-                previousHash,
-                metadata: { deviceInfo: navigator.userAgent, consentType: `Witness to ${template.name}` }
-            };
-            newChain.push(witnessEntry);
-        }
-        
-        if (window.navigator.vibrate) {
-            window.navigator.vibrate(50);
-        }
-        onSave(newChain, undefined);
+        if (window.navigator.vibrate) window.navigator.vibrate(50);
+        onSave([entry]);
     };
 
     if (!isOpen) return null;
@@ -186,61 +151,98 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4">
           <div className="bg-white w-full max-w-4xl h-[95vh] rounded-3xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
               <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
-                  <div className="flex items-center gap-3"><div className="bg-teal-100 p-3 rounded-xl text-teal-700"><FileSignature size={24} /></div><div><h2 className="text-xl font-bold text-slate-800">{template.name}</h2><p className="text-sm text-slate-500">for {patient.name}</p></div></div>
-                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg"><button onClick={() => setLanguage('en')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow' : ''}`}>English</button><button onClick={() => setLanguage('tl')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'tl' ? 'bg-white shadow' : ''}`}>Tagalog</button></div>
-                  <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
+                  <div className="flex items-center gap-3">
+                      <div className="bg-teal-100 p-3 rounded-xl text-teal-700"><FileSignature size={24} /></div>
+                      <div>
+                          <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">{template.name}</h2>
+                          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Digital Consent for {patient.name}</p>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                      <button onClick={() => setLanguage('en')} className={`px-4 py-1 text-xs font-black uppercase rounded ${language === 'en' ? 'bg-white shadow' : ''}`}>EN</button>
+                      <button onClick={() => setLanguage('tl')} className={`px-4 py-1 text-xs font-black uppercase rounded ${language === 'tl' ? 'bg-white shadow' : ''}`}>TL</button>
+                  </div>
+                  <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X size={24} /></button>
               </div>
 
               {step === 'review' ? (
                 <>
-                    <div className="flex-1 p-6 min-h-0 overflow-y-auto space-y-6">
-                        <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-200 h-64 overflow-y-auto"><pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans">{getProcessedContent()}</pre></div>
+                    <div className="flex-1 p-8 overflow-y-auto space-y-6 bg-slate-50/50">
+                        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><pre className="text-sm text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{getProcessedContent()}</pre></div>
                         {riskDisclosures.length > 0 && (
-                            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200"><h4 className="font-bold text-sm text-amber-800 mb-2">Acknowledged Risks</h4><div className="space-y-2">{riskDisclosures.map(risk => (<label key={risk} className="flex items-center gap-3 p-2 bg-white rounded-lg cursor-pointer"><input type="checkbox" checked={acknowledgedRisks.includes(risk)} onChange={() => setAcknowledgedRisks(p => p.includes(risk) ? p.filter(r=>r!==risk) : [...p, risk])} className="w-5 h-5 accent-teal-600"/><span className="text-sm font-medium text-slate-700">{risk}</span></label>))}</div></div>
+                            <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200 space-y-3">
+                                <h4 className="font-black text-xs text-amber-800 uppercase tracking-widest flex items-center gap-2"><AlertTriangle size={14}/> Risk Acknowledgements</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {riskDisclosures.map(risk => (
+                                        <label key={risk} className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer border border-transparent hover:border-amber-400 transition-all">
+                                            <input type="checkbox" checked={acknowledgedRisks.includes(risk)} onChange={() => setAcknowledgedRisks(p => p.includes(risk) ? p.filter(r=>r!==risk) : [...p, risk])} className="w-6 h-6 accent-teal-600 rounded"/>
+                                            <span className="text-sm font-bold text-slate-700">{risk}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         )}
-                        <label className="flex items-start gap-3 p-4 bg-white rounded-2xl border-2 border-slate-200 cursor-pointer"><input type="checkbox" checked={isOpportunityAffirmed} onChange={e => setIsOpportunityAffirmed(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1"/><span className="text-sm font-bold text-slate-800">I had the opportunity to ask questions and they were answered to my satisfaction.</span></label>
-                        <label className="flex items-start gap-3 p-4 bg-white rounded-2xl border-2 border-slate-200 cursor-pointer"><input type="checkbox" checked={isVoluntaryAffirmed} onChange={e => setIsVoluntaryAffirmed(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1"/><span className="text-sm font-bold text-slate-800">I voluntarily give my consent for the procedure(s) listed.</span></label>
-                        <label className="flex items-start gap-3 p-4 bg-white rounded-2xl border-2 border-slate-200 cursor-pointer"><input type="checkbox" checked={isDuressAffirmed} onChange={e => setIsDuressAffirmed(e.target.checked)} className="w-6 h-6 accent-teal-600 mt-1"/><span className="text-sm font-bold text-slate-800">I affirm I am signing this consent form freely and without duress.</span></label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="flex items-start gap-4 p-5 bg-white rounded-2xl border-2 border-slate-100 cursor-pointer hover:border-teal-500 transition-all">
+                                <input type="checkbox" checked={isOpportunityAffirmed} onChange={e => setIsOpportunityAffirmed(e.target.checked)} className="w-8 h-8 accent-teal-600 shrink-0"/>
+                                <span className="text-sm font-bold text-slate-800">I have had the opportunity to ask questions and they were answered.</span>
+                            </label>
+                            <label className="flex items-start gap-4 p-5 bg-white rounded-2xl border-2 border-slate-100 cursor-pointer hover:border-teal-500 transition-all">
+                                <input type="checkbox" checked={isVoluntaryAffirmed} onChange={e => setIsVoluntaryAffirmed(e.target.checked)} className="w-8 h-8 accent-teal-600 shrink-0"/>
+                                <span className="text-sm font-bold text-slate-800">I voluntarily give my consent for this procedure.</span>
+                            </label>
+                            <label className="flex items-start gap-4 p-5 bg-white rounded-2xl border-2 border-slate-100 cursor-pointer hover:border-teal-500 transition-all md:col-span-2">
+                                <input type="checkbox" checked={isDuressAffirmed} onChange={e => setIsDuressAffirmed(e.target.checked)} className="w-8 h-8 accent-teal-600 shrink-0"/>
+                                <span className="text-sm font-bold text-slate-800">I affirm I am signing this freely and without duress.</span>
+                            </label>
+                        </div>
                     </div>
-                     <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0"><button onClick={onClose} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">Cancel</button><button onClick={() => setStep('sign')} disabled={!canProceedToSign} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 flex items-center gap-2 disabled:opacity-50 disabled:grayscale"><ArrowRight size={16}/> Proceed to Sign</button></div>
+                    <div className="p-6 border-t bg-white flex justify-end shrink-0">
+                        <button onClick={() => setStep('sign')} disabled={!canProceedToSign} className="px-12 py-5 bg-teal-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3 disabled:opacity-50">
+                            Proceed to Sign <ArrowRight size={20}/>
+                        </button>
+                    </div>
                 </>
               ) : (
                 <>
-                    <div className="flex-1 p-6 min-h-0 overflow-y-auto space-y-4">
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-2">
-                            <h3 className="text-lg font-black text-slate-800">Summary of Attestation</h3>
-                            <p className="text-xs text-slate-500">For Patient: <span className="font-bold">{patient.name}</span> | Procedure: <span className="font-bold">{appointment.type}</span> | Date: <span className="font-bold">{formatDate(appointment.date)}</span></p>
-                        </div>
-                        <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all border-teal-500`}>
-                            <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">Patient/Guardian Signature (Required)</h4><button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button></div>
-                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
-                        </div>
-                        {isWitnessRequired && (
-                            <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 mt-6">
-                                <h4 className="font-bold text-amber-800 flex items-center gap-2 mb-4"><ShieldCheck size={16}/> Witness Attestation (Required)</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <select value={witnessId} onChange={e => setWitnessId(e.target.value)} className="input">
-                                        <option value="">Select Staff Witness...</option>
-                                        {staff.filter(s => s.id !== provider?.id).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="flex justify-between items-center mt-4 mb-2">
-                                    <label className="label text-xs">Witness Signature</label>
-                                    <button onClick={() => clearCanvas(witnessCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
-                                </div>
-                                <canvas ref={witnessCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'witness')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                    <div className="flex-1 p-8 flex flex-col gap-6 bg-slate-50/50">
+                        <div className="bg-white p-8 rounded-[3rem] border-4 border-dashed border-teal-500 flex-1 flex flex-col relative overflow-hidden">
+                            <div className="absolute top-6 left-8 flex items-center gap-2 text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] z-10 pointer-events-none">
+                                <PenTool size={14} /> Official Signature Box
                             </div>
-                        )}
+                            <button onClick={clearCanvas} className="absolute top-6 right-8 p-2 text-slate-300 hover:text-red-500 transition-all z-10"><Eraser size={24}/></button>
+                            <canvas 
+                                ref={signatureCanvasRef} 
+                                className="w-full flex-1 bg-white cursor-crosshair rounded-[2rem] touch-none" 
+                                onPointerDown={startSign} 
+                                onPointerMove={draw} 
+                                onPointerUp={stopSign} 
+                                onPointerLeave={stopSign} 
+                            />
+                            <div className="text-center p-4 border-t border-slate-100">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">By signing here, you bind your clinical record to the terms agreed upon.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div className="p-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
-                        <button onClick={() => setStep('review')} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">Back to Review</button>
-                        <button onClick={handleSave} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 flex items-center gap-2"><CheckCircle size={20} /> Attest & Save Consent</button>
+                    <div className="p-6 border-t bg-white flex justify-between shrink-0">
+                        <button onClick={() => setStep('review')} className="px-8 py-4 bg-slate-100 text-slate-600 font-black uppercase text-xs rounded-2xl">Back to Review</button>
+                        <button onClick={handleSave} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3">
+                            <ShieldCheck size={20} /> Authorize & Save
+                        </button>
                     </div>
                 </>
               )}
           </div>
       </div>
     );
+};
+
+const calculateAge = (dob: string): number => {
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
+    return age;
 };
 
 export default ConsentCaptureModal;

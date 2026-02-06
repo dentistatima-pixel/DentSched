@@ -4,7 +4,7 @@ import {
   Sliders, Settings, ChevronRight, DollarSign, Box, MapPin, User as UserIcon, Pill, 
   ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
   Sparkles, Zap, Wrench, ClipboardList, Armchair, LayoutPanelLeft, Fingerprint, Key, Printer,
-  Smartphone, Banknote, Building2, Sun, Moon, Scale, UserCircle
+  Smartphone, Banknote, Building2, Sun, Moon, Scale, UserCircle, FileSignature
 } from 'lucide-react';
 
 import FormBuilder from './FormBuilder';
@@ -18,6 +18,7 @@ import ComplianceCenter from './ComplianceCenter';
 import PrintoutsHub from './PrintoutsHub';
 import LegalActionHub from './LegalActionHub';
 import GovernanceHub from './GovernanceHub';
+import ConsentFormManager from './ConsentFormManager';
 import { useModal } from '../contexts/ModalContext';
 import { useAppContext } from '../contexts/AppContext';
 import ClinicalCatalogHub from './ClinicalCatalogHub';
@@ -49,6 +50,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const sidebarItems = [
         { id: 'branding', label: 'Global Profile', icon: Sparkles },
         { id: 'patient_registry_form', label: 'Registration Form', icon: LayoutPanelLeft },
+        { id: 'consent_forms', label: 'Consent Forms', icon: FileSignature },
         { id: 'sms_hub', label: 'SMS & Comms Hub', icon: Smartphone },
         { id: 'printouts_hub', label: 'Printouts & Report Hub', icon: Printer },
         { id: 'staff_hub', label: 'Staff Management', icon: UserIcon },
@@ -66,6 +68,8 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             // Core Identity
             case 'branding':
                 return <PracticeBranding settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            case 'consent_forms':
+                return <ConsentFormManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'sms_hub':
                 return <SmsHub settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'printouts_hub':

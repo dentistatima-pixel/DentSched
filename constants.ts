@@ -181,8 +181,8 @@ export const PROCEDURE_TO_CONSENT_MAP: Record<string, string> = {
 };
 
 export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
-    { id: 'GENERAL_AUTHORIZATION', name: 'General Authorization', content_en: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagdedentista ay hindi isang eksaktong agham at walang dentista ang makakapaggarantiya ng tumpak na mga resulta sa lahat ng oras. Pinahihintulutan ko ang sinuman sa mga doktor/dental auxiliaries na magpatuloy at isagawa ang mga dental restoration at paggamot na ipinaliwanag sa akin. Nauunawaan ko na ang mga ito ay maaaring baguhin depende sa mga hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng paggamot. Nauunawaan ko na, anuman ang aking dental insurance, ako ang may pananagutan sa pagbabayad ng mga bayarin sa ngipin, at sumasang-ayon akong bayaran ang anumang mga bayarin sa abogado, bayarin sa koleksyon, o gastos sa korte na maaaring magastos upang matugunan ang anumang obligasyon sa opisina na ito. Ang lahat ng paggamot ay ipinaliwanag nang maayos sa akin at anumang hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng pamamaraan, ang dumadating na dentista ay hindi mananagot dahil ito ay aking malayang kalooban, na may buong tiwala at kumpiyansa sa kanya, na sumailalim sa paggamot sa ngipin sa ilalim ng kanyang pangangalaga." },
-    { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anumang paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglilinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
+    { id: 'GENERAL_AUTHORIZATION', name: 'General Authorization', content_en: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagdedentista ay hindi isang eksaktong agham at walang dentista ang makakapaggarantiya ng tumpak na mga resulta sa lahat ng oras. Pinahihintulutan ko sinuman sa mga doktor/dental auxiliaries na magpatuloy at isagawa ang mga dental restoration at paggamot na ipinaliwanag sa akin. Nauunawaan ko na ang mga ito ay maaaring baguhin depende sa mga hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng paggamot. Nauunawaan ko na, anuman ang aking dental insurance, ako ang may pananagutan sa pagbabayad ng mga bayarin sa ngipin, at sumasang-ayon akong bayaran ang anumang mga bayarin sa abogado, bayarin sa koleksyon, o gastos sa korte na maaaring magastos upang matugunan ang anumang obligasyon sa opisina na ito. Ang lahat ng paggamot ay ipinaliwanag nang maayos sa akin at anumang hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng pamamaraan, ang dumadating na dentista ay hindi mananagot dahil ito ay aking malayang kalooban, na may buong tiwala at kumpiyansa sa kanya, na sumailalim sa paggamot sa ngipin sa ilalim ng kanyang pangangalaga." },
+    { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anu-mang paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglilinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
     { id: 'DRUGS_MEDICATIONS', name: 'Drugs & Medications', content_en: "I understand that antibiotics, analgesics & other medications can cause allergic reactions like redness & swelling of tissues, pain, itching, vomiting, &/or anaphylactic shock.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang mga antibiotic, analgesic at iba pang mga gamot ay maaaring magdulot ng mga reaksiyong alerhiya tulad ng pamumula at pamamaga ng mga tisyu, sakit, pangangati, pagsusuka, at/o anaphylactic shock." },
     { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagdagan kung kinakailangan kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
     { id: 'RADIOGRAPH', name: 'Radiograph', content_en: "I understand that an x-ray shot or a radiograph maybe necessary as part of diagnostic aid to come up with tentative diagnosis of my dental problem and to make a good treatment plan, but, this will not give me a 100% assurance for the accuracy of the treatment since all dental treatments are subject to unpredictable complications that later on may lead to sudden change of treatment plan and subject to new charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang isang x-ray shot o radiograph ay maaaring kailanganin bilang bahagi ng tulong sa pag-diagnose upang makabuo ng pansamantalang diagnosis ng aking problema sa ngipin at gumawa ng isang mahusay na plano sa paggamot, ngunit, hindi ito magbibigay sa akin ng 100% kasiguruhan para sa katumpakan ng paggamot dahil ang lahat ng paggamot sa ngipin ay napapailalim sa hindi mahuhulaan na mga komplikasyon na sa kalaunan ay maaaring humantong sa biglaang pagbabago ng plano sa paggamot at napapailalim sa mga bagong singil." },
@@ -795,6 +795,7 @@ export const STAFF: User[] = [
       colorPreference: '#c026d3', 
       clinicHours: '24/7 System Audit Mode',
       status: 'Active',
+      showDigitalDocent: true,
   },
   { 
       id: 'admin1', 
@@ -832,6 +833,7 @@ export const STAFF: User[] = [
       roster: { 'Mon': 'Makati Main', 'Wed': 'Makati Main', 'Fri': 'Makati Main', 'Tue': 'Quezon City Satellite' },
       commissionRate: 0.40,
       status: 'Active',
+      showDigitalDocent: true,
   },
   { 
       id: 'doc2', 
@@ -987,7 +989,7 @@ export const PATIENTS: Patient[] = [
         ],
         dentalChart: [
             { id: 'dc_m_1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(180), price: 25000 },
-            { id: 'dc_m_2', toothNumber: 46, procedure: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: 'Planned', date: getPastDateStr(10), price: 12000, planId: 'tp_master_1' },
+            { id: 'dc_m_2', toothNumber: 46, procedure: 'Surgical Extraction (Impacted Tooth)', status: 'Planned', date: getPastDateStr(10), price: 12000, planId: 'tp_master_1' },
             { id: 'dc_m_3', toothNumber: 25, procedure: 'Composite Restoration (2 Surfaces)', status: 'Planned', date: getPastDateStr(10), price: 2500, planId: 'tp_master_2' },
             { id: 'dc_m_4', toothNumber: 11, procedure: 'Caries', status: 'Condition', date: getPastDateStr(10), notes: 'Initial signs of mesial caries.' },
         ],
@@ -1177,7 +1179,7 @@ export const PATIENTS: Patient[] = [
     {
         id: 'p_surg_04', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1990-01-01', sex: 'Male', phone: '0921-456-7890', email: 'juan.dc@example.com', lastVisit: getPastDateStr(7), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 6, completedCount: 6, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
-        dentalChart: [ { id: 'dc_surg1', toothNumber: 38, procedure: 'Surgical Extraction (Impacted/Wisdom Tooth)', status: 'Planned', date: getPastDateStr(7), price: 7500 } ],
+        dentalChart: [ { id: 'dc_surg1', toothNumber: 38, procedure: 'Surgical Extraction (Impacted Tooth)', status: 'Planned', date: getPastDateStr(7), price: 7500 } ],
         registrationStatus: RegistrationStatus.COMPLETE,
     },
     {
@@ -1242,10 +1244,10 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_02', patientId: 'p_risk_02', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '10:00', durationMinutes: 60, type: 'Oral Prophylaxis (Heavy w/ Stain Removal)', status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_03', patientId: 'p_reliable_01', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '11:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CONFIRMED },
     { id: 'apt_today_04', patientId: 'p_pediatric_05', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '14:00', durationMinutes: 45, type: 'Topical Fluoride Application', status: AppointmentStatus.SEATED },
-    { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.TREATING },
+    { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Impacted Tooth)', status: AppointmentStatus.TREATING },
 
     // Past appointments
-    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
+    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
     { id: 'apt_past_02', patientId: 'p_unreliable_08', providerId: 'doc2', branch: 'Quezon City Satellite', date: getPastDateStr(30), time: '13:00', durationMinutes: 60, type: 'Composite Restoration (1 Surface)', status: AppointmentStatus.NO_SHOW },
     // A cancelled appointment
     { id: 'apt_past_03', patientId: 'p_reliable_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(15), time: '10:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CANCELLED, cancellationReason: 'Patient called to reschedule' },
@@ -1259,15 +1261,61 @@ export const APPOINTMENTS: Appointment[] = [
 
 
 export const DEFAULT_PROCEDURES: ProcedureItem[] = [
-  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30, isPhilHealthCovered: true },
-  { id: 'proc_prophy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Preventive', defaultDurationMinutes: 60 },
-  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Preventive', defaultDurationMinutes: 15 },
-  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45 },
-  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60 },
-  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30, isPhilHealthCovered: true },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, requiresWitness: true, defaultDurationMinutes: 90, isPhilHealthCovered: true },
-  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60 },
-  { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10 },
+  // --- DIAGNOSTIC & CONSULTATION ---
+  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_periodic_eval', name: 'Periodic Oral Evaluation', category: 'Consultation', defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_limited_eval', name: 'Limited Oral Evaluation - Problem Focused', category: 'Consultation', defaultDurationMinutes: 20, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_specialist_cons', name: 'Specialist Consultation', category: 'Consultation', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- PREVENTIVE ---
+  { id: 'proc_prophy_light', name: 'Oral Prophylaxis (Light)', category: 'Preventive', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+  { id: 'proc_prophy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Preventive', defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Preventive', defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+  { id: 'proc_sealant', name: 'Pit and Fissure Sealant (per tooth)', category: 'Preventive', defaultDurationMinutes: 30, allowedLicenseCategories: ['DENTIST', 'HYGIENIST'] },
+
+  // --- RESTORATIVE ---
+  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultDurationMinutes: 90, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_temp_restor', name: 'Temporary Restoration', category: 'Restorative', defaultDurationMinutes: 20, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_gic_restor', name: 'Glass Ionomer Cement (GIC) Restoration', category: 'Restorative', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- ENDODONTICS ---
+  { id: 'proc_rct_ant', name: 'RCT - Anterior', category: 'Endodontics', defaultDurationMinutes: 60, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_rct_pre', name: 'RCT - Premolar', category: 'Endodontics', defaultDurationMinutes: 75, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_rct_mol', name: 'RCT - Molar', category: 'Endodontics', defaultDurationMinutes: 120, requiresConsent: true, requiresLeadApproval: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_pulpectomy', name: 'Pulpectomy / Pulpotomy', category: 'Endodontics', defaultDurationMinutes: 45, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_rct_retreat', name: 'Endodontic Retreatment', category: 'Endodontics', defaultDurationMinutes: 120, requiresConsent: true, requiresLeadApproval: true, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- PERIODONTICS ---
+  { id: 'proc_scaling_root', name: 'Deep Scaling & Root Planing (per quadrant)', category: 'Periodontics', defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_gingivectomy', name: 'Gingivectomy', category: 'Periodontics', defaultDurationMinutes: 60, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_flap_surg', name: 'Periodontal Flap Surgery', category: 'Periodontics', defaultDurationMinutes: 120, requiresConsent: true, requiresLeadApproval: true, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- ORAL SURGERY ---
+  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Impacted Tooth)', category: 'Surgery', requiresConsent: true, requiresWitness: true, requiresLeadApproval: true, defaultDurationMinutes: 90, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_odontectomy', name: 'Odontectomy (Complex Impacted Tooth)', category: 'Surgery', requiresConsent: true, requiresWitness: true, requiresLeadApproval: true, defaultDurationMinutes: 120, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_alveoloplasty', name: 'Alveoloplasty (per quadrant)', category: 'Surgery', defaultDurationMinutes: 60, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- PROSTHODONTICS ---
+  { id: 'proc_crown_zirc', name: 'Zirconia Crown', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_crown_emax', name: 'E-Max Aesthetic Crown', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_crown_pfm', name: 'PFM Crown (Porcelain Fused to Metal)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_bridge_unit', name: 'Fixed Bridge (per unit)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_full_denture', name: 'Full Denture (Upper/Lower)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_partial_denture', name: 'Removable Partial Denture', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_veneer', name: 'Veneer (Composite/Porcelain)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 90, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- ORTHODONTICS ---
+  { id: 'proc_ortho_metal', name: 'Standard Orthodontic Braces (Metal)', category: 'Orthodontics', defaultDurationMinutes: 120, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_ortho_adj', name: 'Orthodontic Adjustment (Monthly)', category: 'Orthodontics', defaultDurationMinutes: 30, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_retainer', name: 'Retainer Installation', category: 'Orthodontics', defaultDurationMinutes: 45, allowedLicenseCategories: ['DENTIST'] },
+
+  // --- IMAGING ---
+  { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
+  { id: 'proc_xray_pan', name: 'Panoramic X-Ray (OPG)', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
+  { id: 'proc_xray_ceph', name: 'Cephalometric X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
 ];
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
@@ -1405,7 +1453,6 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableBirComplianceMode: true,
       enableStatutoryBirTrack: true,
       enableHmoInsuranceTrack: true,
-      enableDigitalDocent: true,
   },
   permissions: {},
   currentPrivacyVersion: '1.2',

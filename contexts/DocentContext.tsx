@@ -1,6 +1,4 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { useSettings } from './SettingsContext';
 import { useAppContext } from './AppContext';
 
 interface DocentContextType {
@@ -12,12 +10,11 @@ interface DocentContextType {
 const DocentContext = createContext<DocentContextType | undefined>(undefined);
 
 export const DocentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const { fieldSettings } = useSettings();
     const { currentUser } = useAppContext();
     const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-    // Prioritize user's preference, then fall back to the system-wide default.
-    const isDocentEnabled = currentUser?.showDigitalDocent ?? fieldSettings?.features?.enableDigitalDocent ?? false;
+    // Relies solely on user's preference now, defaulting to true if not explicitly set.
+    const isDocentEnabled = currentUser?.showDigitalDocent ?? true;
 
     const togglePanel = () => {
         if (isDocentEnabled) {

@@ -487,6 +487,7 @@ export interface ProcedureItem {
   category?: string;
   traySetup?: string[];
   requiresConsent?: boolean;
+  requiresLeadApproval?: boolean; // NEW: Gate toggle
   requiresXray?: boolean;
   requiresWitness?: boolean;
   riskDisclosures?: string[];
@@ -546,7 +547,6 @@ export interface FeatureToggles {
   enableBirComplianceMode: boolean;
   enableStatutoryBirTrack: true; 
   enableHmoInsuranceTrack: true; 
-  enableDigitalDocent: boolean;
 }
 
 export type SmsCategory = 'Onboarding' | 'Safety' | 'Logistics' | 'Recovery' | 'Financial' | 'Security' | 'Efficiency' | 'Reputation';
@@ -768,6 +768,11 @@ export interface Appointment {
     noChanges: boolean;
     notes?: string;
     signature?: string;
+  };
+  leadApproval?: { // NEW: Authorization metadata
+      dentistId: string;
+      timestamp: string;
+      pinVerified: boolean;
   };
   followUpConfirmed?: boolean;
   followUpConfirmedAt?: string;

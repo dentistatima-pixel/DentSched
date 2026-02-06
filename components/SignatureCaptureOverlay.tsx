@@ -1,31 +1,29 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
+import { X, Eraser, CheckCircle, Lock, ShieldCheck, Fingerprint, Info, PenTool } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 
 interface SignatureCaptureOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (signature: string, witnessHash: string) => void;
+  onSave: (signature: string, hash: string) => void;
   title: string;
   instruction: string;
   themeColor: 'teal' | 'lilac';
   contextSummary?: React.ReactNode;
 }
 
-const SIGNATURE_TIMEOUT_SECONDS = 120; // 2 minutes
+const SIGNATURE_TIMEOUT_SECONDS = 300; // Increased to 5 mins for complex summaries
 
 const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   isOpen, onClose, onSave, title, instruction, themeColor, contextSummary
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  
   const [isSigning, setIsSigning] = useState(false);
-  const [isFaceDetected, setIsFaceDetected] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
   const [hasInk, setHasInk] = useState(false);
   const [affirmations, setAffirmations] = useState({
     isTrue: false,
@@ -59,86 +57,77 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = rect.width * dpr;
-    canvas.height = (contextSummary ? 300 : 400) * dpr;
+    canvas.height = 300 * dpr;
 
     canvas.style.width = `${rect.width}px`;
-    canvas.style.height = contextSummary ? '300px' : `400px`;
+    canvas.style.height = `300px`;
 
     const ctx = canvas.getContext('2d', { desynchronized: true });
     if (ctx) {
       ctx.scale(dpr, dpr);
       ctx.strokeStyle = '#000';
-      ctx.lineWidth = 5.0;
+      ctx.lineWidth = 4.0;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 160, facingMode: 'user' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-        setTimeout(() => setIsFaceDetected(true), 1500);
-      }
-    } catch (err) {
-      console.warn("Witness camera access restricted.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-    }
-    setIsCameraActive(false);
-  };
-
   useEffect(() => {
     const canvas = canvasRef.current;
     const touchStartHandler = (e: TouchEvent) => {
-        if (e.touches.length > 1) { // Palm rejection
+        if (e.touches.length > 1) {
             e.preventDefault();
         }
     };
 
     if (isOpen) {
       setTimeout(setupCanvas, 100);
-      startCamera();
       setHasInk(false);
-      setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true }); // Default to true for simpler flows unless context is provided
+      
+      // Default affirmations to true if no summary is provided (simple signing)
+      if (!contextSummary) {
+          setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true });
+      } else {
+          setAffirmations({ isTrue: false, isPrivacyRead: false, isFeesAcknowledged: false });
+      }
+      
       if (canvas) {
         canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
       }
 
       const timer = setTimeout(() => {
-        toast.error('Signature session expired for security reasons.', { duration: 5000 });
+        toast.error('Signature session expired for security reasons.');
         onClose();
-        console.warn('SECURITY_ALERT: Signature capture timed out.');
       }, SIGNATURE_TIMEOUT_SECONDS * 1000);
 
       return () => {
         clearTimeout(timer);
-        stopCamera();
         if (canvas) {
           canvas.removeEventListener('touchstart', touchStartHandler);
         }
       };
-    } else {
-      stopCamera();
     }
-  }, [isOpen, onClose, toast]);
+  }, [isOpen, onClose, toast, contextSummary]);
 
   const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
     const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    return { 
+        x: e.clientX - rect.left, 
+        y: e.clientY - rect.top, 
+        pressure: e.pressure || 0.5 
+    };
   };
 
   const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && e.width > 10) return; // Palm rejection
-    if (!allAffirmed && contextSummary) return;
+    if (e.pointerType === 'touch' && e.width > 20) return; // Palm rejection
+    if (!allAffirmed) return;
+    
+    if (window.navigator.vibrate) {
+        window.navigator.vibrate(10);
+    }
+    
     e.preventDefault();
     setIsSigning(true);
     const { x, y } = getCoords(e);
@@ -149,25 +138,22 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
 
   const lastDrawTime = useRef(0);
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isSigning || (!allAffirmed && contextSummary)) return;
+    if (!isSigning || !allAffirmed) return;
     e.preventDefault();
     
     const now = Date.now();
-    if (now - lastDrawTime.current < 16) { // ~60fps throttle
-        return;
-    }
+    if (now - lastDrawTime.current < 10) return;
     lastDrawTime.current = now;
 
     const { x, y, pressure } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
       const isPen = e.pointerType === 'pen';
-      const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
-      const baseWidth = isPen ? 3 : 5;
-      ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
+      const effectivePressure = isPen ? pressure : 0.6;
+      ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * 8));
       ctx.lineTo(x, y);
       ctx.stroke();
-      setHasInk(true);
+      if (!hasInk) setHasInk(true);
     }
   };
 
@@ -182,121 +168,115 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     setHasInk(false);
   };
 
-  const handleAuthorize = async () => {
-    if (!hasInk || (!!contextSummary && !allAffirmed)) {
-      if (!allAffirmed) toast.error("Please acknowledge all statements before signing.");
+  const handleAuthorize = () => {
+    if (!hasInk || !allAffirmed) {
+      if (!allAffirmed) toast.error("Please acknowledge all attestations before signing.");
       return;
     }
-    const sigData = canvasRef.current!.toDataURL();
     
-    let witnessHash: string;
+    const sigData = canvasRef.current!.toDataURL('image/png');
+    // Background hashing of the "Digital Ink"
+    const integrityHash = CryptoJS.SHA256(sigData + Date.now()).toString();
     
-    const video = videoRef.current;
-    const witnessCanvas = witnessCanvasRef.current;
-
-    if (video && witnessCanvas && isCameraActive && video.readyState >= 3) {
-      const ctx = witnessCanvas.getContext('2d');
-      if (ctx) {
-        witnessCanvas.width = video.videoWidth;
-        witnessCanvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, witnessCanvas.width, witnessCanvas.height);
-        const witnessImageData = witnessCanvas.toDataURL('image/jpeg', 0.8);
-        witnessHash = CryptoJS.SHA256(witnessImageData + Date.now()).toString();
-      } else {
-        // Fallback if context is lost
-        witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
-        console.warn("Witness canvas context lost, using fallback hash.");
-      }
-    } else {
-        // Fallback if camera isn't ready or available
-        witnessHash = CryptoJS.SHA256(Date.now().toString()).toString();
-        console.warn("Witness camera not available, using fallback hash.");
-    }
-    
-    onSave(sigData, witnessHash);
+    onSave(sigData, integrityHash);
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-      <div className={`bg-white w-full ${contextSummary ? 'max-w-4xl' : 'max-w-lg'} rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-white flex flex-col max-h-[95vh]`}>
-        <div className={`${colors.bg} p-8 text-white flex justify-between items-center`}>
-          <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-2 rounded-xl"><ShieldCheck size={24} /></div>
+      <div className={`bg-white w-full ${contextSummary ? 'max-w-4xl' : 'max-w-xl'} rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-white flex flex-col max-h-[95vh]`}>
+        
+        <div className={`${colors.bg} p-8 text-white flex justify-between items-center shrink-0`}>
+          <div className="flex items-center gap-5">
+            <div className="bg-white/20 p-3 rounded-2xl shadow-inner"><Fingerprint size={32} /></div>
             <div>
-              <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
-              <p className={`text-xs font-black uppercase tracking-widest ${colors.sub}`}>Verified Forensic Identity</p>
+              <h3 className="text-2xl font-black uppercase tracking-tight">{title}</h3>
+              <p className={`text-[10px] font-black uppercase tracking-[0.3em] ${colors.sub}`}>Digital Ink Verification</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
+          <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-colors"><X size={28} /></button>
         </div>
 
-        <div className="p-8 space-y-6 flex-1 flex flex-col overflow-hidden">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar bg-slate-50/30">
+          
           {contextSummary && (
-            <div className="flex-1 overflow-y-auto no-scrollbar pr-2 mb-6 border-b pb-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-2 h-full bg-teal-500 opacity-50" />
                 {contextSummary}
             </div>
           )}
 
           {!contextSummary && (
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <p className="text-sm text-slate-600 font-bold leading-relaxed">{instruction}</p>
-              </div>
-              <div className={`w-20 h-20 rounded-full border-4 overflow-hidden bg-slate-200 relative ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
-                {isCameraActive ? <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <Camera className="w-8 h-8 text-slate-400 m-6" />}
-                {isFaceDetected && <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center"><UserCheck size={32} className="text-teal-600 opacity-60" /></div>}
-              </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Instructions</h4>
+                <p className="text-lg font-bold text-slate-700 leading-tight">{instruction}</p>
             </div>
           )}
 
-          {!contextSummary && (
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                  <input type="checkbox" checked={affirmations.isTrue} onChange={e => setAffirmations(p => ({ ...p, isTrue: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I certify that the information I have provided is true and correct to the best of my knowledge.</span>
-              </label>
-              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                  <input type="checkbox" checked={affirmations.isPrivacyRead} onChange={e => setAffirmations(p => ({ ...p, isPrivacyRead: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information.</span>
-              </label>
-              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
-                  <input type="checkbox" checked={affirmations.isFeesAcknowledged} onChange={e => setAffirmations(p => ({ ...p, isFeesAcknowledged: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I acknowledge that I am responsible for all fees associated with my treatment.</span>
-              </label>
+          {contextSummary && (
+            <div className="space-y-4">
+                <div className="flex items-center gap-3 text-xs font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100 pb-3">
+                    <Info size={16} className="text-teal-600"/> Mandatory Review
+                </div>
+                
+                <label className={`flex items-start gap-5 p-6 rounded-[2rem] border-2 transition-all cursor-pointer ${affirmations.isTrue ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200 hover:border-teal-300'}`}>
+                    <input type="checkbox" checked={affirmations.isTrue} onChange={e => setAffirmations(p => ({ ...p, isTrue: e.target.checked }))} className="w-8 h-8 accent-teal-600 rounded-lg mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                        <span className="text-sm font-black text-teal-950 uppercase tracking-tight block">Accuracy Acknowledgement</span>
+                        <p className="text-xs font-bold text-slate-600 leading-relaxed">I have reviewed the clinical details above and certify they are correct.</p>
+                    </div>
+                </label>
+
+                <label className={`flex items-start gap-5 p-6 rounded-[2rem] border-2 transition-all cursor-pointer ${affirmations.isPrivacyRead ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200 hover:border-teal-300'}`}>
+                    <input type="checkbox" checked={affirmations.isPrivacyRead} onChange={e => setAffirmations(p => ({ ...p, isPrivacyRead: e.target.checked }))} className="w-8 h-8 accent-teal-600 rounded-lg mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                        <span className="text-sm font-black text-teal-950 uppercase tracking-tight block">Treatment Authorization</span>
+                        <p className="text-xs font-bold text-slate-600 leading-relaxed">I authorize the dentist to perform the procedures as listed in this record.</p>
+                    </div>
+                </label>
             </div>
           )}
 
-          <div className={`relative bg-white rounded-3xl border-2 p-2 group transition-all ${allAffirmed || !contextSummary ? 'border-dashed border-slate-300 hover:border-slate-400' : 'border-solid border-slate-200 opacity-50 grayscale'}`}>
-            <div className="absolute top-4 left-4 flex items-center gap-2 text-xs font-black text-slate-300 uppercase tracking-widest">
-              <Fingerprint size={12} /> Digital Ink Pad
-            </div>
-            <button onClick={handleClear} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><Eraser size={16} /></button>
-            <canvas 
-              ref={canvasRef} 
-              className={`w-full touch-none cursor-crosshair ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
-              onPointerDown={startDraw}
-              onPointerMove={draw}
-              onPointerUp={endDraw}
-              onPointerLeave={endDraw}
-            />
-            <div className="absolute bottom-10 left-8 right-8 h-px bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none" />
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-black text-slate-300 uppercase">Signature Baseline</div>
-          </div>
-
-          <div className="flex gap-4">
-            <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button>
-            <button 
-              onClick={handleAuthorize}
-              disabled={!hasInk || (!!contextSummary && !allAffirmed)}
-              className={`flex-[2] py-4 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all ${hasInk && (allAffirmed || !contextSummary) ? `${colors.btn} ${colors.shadow}` : 'bg-slate-200 text-slate-400 grayscale'}`}
-            >
-              Authorize & Complete
-            </button>
+          <div className="relative pt-4">
+              <div className={`relative bg-white rounded-[3rem] border-4 p-4 transition-all duration-700 shadow-inner ${allAffirmed ? 'border-dashed border-teal-500' : 'border-solid border-slate-100 opacity-30 grayscale cursor-not-allowed'}`}>
+                <div className="absolute top-6 left-8 flex items-center gap-2 text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] z-10 pointer-events-none">
+                  <PenTool size={14} /> Digital Signature Pad
+                </div>
+                <button 
+                    onClick={handleClear} 
+                    disabled={!allAffirmed} 
+                    className="absolute top-6 right-8 p-2 text-slate-300 hover:text-red-500 transition-all z-10"
+                >
+                    <Eraser size={24} />
+                </button>
+                
+                <canvas 
+                  ref={canvasRef} 
+                  className={`w-full touch-none h-[300px] bg-white rounded-[2rem] ${!allAffirmed ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+                  onPointerDown={startDraw}
+                  onPointerMove={draw}
+                  onPointerUp={endDraw}
+                  onPointerLeave={endDraw}
+                />
+                
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[9px] font-black text-slate-400 uppercase tracking-[0.5em] whitespace-nowrap opacity-40">
+                  Seal Clinical Entry with Digital Signature
+                </div>
+              </div>
           </div>
         </div>
-        <canvas ref={witnessCanvasRef} className="hidden" />
+
+        <div className="p-8 border-t border-slate-100 bg-white flex gap-5 shrink-0">
+          <button onClick={onClose} className="flex-1 py-6 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl tracking-[0.2em] hover:bg-slate-200 transition-all">Cancel</button>
+          <button 
+            onClick={handleAuthorize}
+            disabled={!hasInk || !allAffirmed}
+            className={`flex-[2] py-6 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-4 ${hasInk && allAffirmed ? `${colors.btn} ${colors.shadow} scale-105` : 'bg-slate-200 text-slate-400 grayscale opacity-50'}`}
+          >
+            <Lock size={20}/> Save & Seal Record
+          </button>
+        </div>
       </div>
     </div>
   );
