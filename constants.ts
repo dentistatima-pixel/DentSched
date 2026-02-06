@@ -1,5 +1,5 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
@@ -204,7 +204,7 @@ My signature below confirms that I have read, understood, and agree to these ter
 1.  **Layunin**: Nauunawaan ko na ang Media na ito ay mahalaga para sa diagnosis, pagpaplano ng paggamot, dokumentasyon ng aking pangangalaga, at para sa komunikasyon sa iba pang mga healthcare provider o dental laboratory kung kinakailangan.
 2.  **Pagiging Kumpidensyal**: Nauunawaan ko na ang Media na ito ay bahagi ng aking kumpidensyal na talaan ng pasyente at protektado sa ilalim ng Data Privacy Act of 2012 (R.A. 10173).
 3.  **Paggamit para sa Edukasyon (Opsyonal)**: Maaari akong magbigay ng hiwalay na pahintulot para sa hindi pagpapakilalang paggamit ng aking Media para sa propesyonal na edukasyon, mga siyentipikong publikasyon, o mga paglalahad ng kaso. Ang lahat ng aking personal na impormasyon sa pagkakakilanlan ay aalisin.
-4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman hindi nito maaapektuhan ang Media na nakuha na.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman nito maaapektuhan ang Media na nakuha na.
 
 Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ayon ako sa mga tuntuning ito.` },
     { id: 'FINANCIAL_CONSENT', name: 'Financial Consent', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
@@ -942,7 +942,7 @@ export const PATIENTS: Patient[] = [
           'Do you use tobacco products?': 'Yes',
           'Do you use alcohol, cocaine or other dangerous drugs?': 'Yes',
           'Taking Blood Thinners? (Aspirin, Warfarin, etc.)': 'Yes',
-          'Taking Bisphosphonates? (Fosamax, Zometa)': 'Yes',
+          'Taking Bisphosphonates? (Fosamax, Daily Use)': 'Yes',
           'Are you pregnant?': 'Yes',
           'Are you nursing?': 'Yes',
           'Are you taking birth control pills?': 'Yes',
@@ -1094,7 +1094,7 @@ export const PATIENTS: Patient[] = [
           'Do you use tobacco products?': 'Yes',
           'Do you use alcohol, cocaine or other dangerous drugs?': 'Yes',
           'Taking Blood Thinners? (Aspirin, Warfarin, etc.)': 'Yes',
-          'Taking Bisphosphonates? (Fosamax, Zometa)': 'Yes',
+          'Taking Bisphosphonates? (Daily Use)': 'Yes',
           'Are you pregnant?': 'No',
           'Are you nursing?': 'No',
           'Are you taking birth control pills?': 'No',
@@ -1295,7 +1295,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   // --- ORAL SURGERY ---
   { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
   { id: 'proc_ext_surg', name: 'Surgical Extraction (Impacted Tooth)', category: 'Surgery', requiresConsent: true, requiresWitness: true, requiresLeadApproval: true, defaultDurationMinutes: 90, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
-  { id: 'proc_odontectomy', name: 'Odontectomy (Complex Impacted Tooth)', category: 'Surgery', requiresConsent: true, requiresWitness: true, requiresLeadApproval: true, defaultDurationMinutes: 120, allowedLicenseCategories: ['DENTIST'] },
+  { id: 'proc_odontectomy', name: 'Odontectomy (Complex Impacted Tooth)', category: 'Surgery', requiresConsent: true, requiresWitness: true, requiresLeadApproval: true, defaultDurationMinutes: 120, isPhilHealthCovered: true, allowedLicenseCategories: ['DENTIST'] },
   { id: 'proc_alveoloplasty', name: 'Alveoloplasty (per quadrant)', category: 'Surgery', defaultDurationMinutes: 60, requiresConsent: true, allowedLicenseCategories: ['DENTIST'] },
 
   // --- PROSTHODONTICS ---
@@ -1316,6 +1316,21 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
   { id: 'proc_xray_pan', name: 'Panoramic X-Ray (OPG)', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
   { id: 'proc_xray_ceph', name: 'Cephalometric X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 15, allowedLicenseCategories: ['DENTIST', 'TECHNOLOGIST'] },
+];
+
+export const DEFAULT_PHARMACY: Medication[] = [
+    { id: 'm1', genericName: 'Amoxicillin', brandName: 'Amoxil', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours for 7 days.' },
+    { id: 'm2', genericName: 'Amoxicillin + Potassium Clavulanate', brandName: 'Augmentin', dosage: '625mg', instructions: 'Take 1 tablet every 12 hours for 7 days.' },
+    { id: 'm3', genericName: 'Clindamycin', brandName: 'Dalacin C', dosage: '300mg', instructions: 'Take 1 capsule every 6 hours for 7 days.' },
+    { id: 'm4', genericName: 'Mefenamic Acid', brandName: 'Ponstan', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours as needed for pain.' },
+    { id: 'm5', genericName: 'Ibuprofen', brandName: 'Advil', dosage: '400mg', instructions: 'Take 1 softgel every 4 to 6 hours as needed for pain.' },
+    { id: 'm6', genericName: 'Paracetamol', brandName: 'Biogesic', dosage: '500mg', instructions: 'Take 1 to 2 tablets every 4 to 6 hours as needed for fever or pain.' },
+    { id: 'm7', genericName: 'Celecoxib', brandName: 'Celebrex', dosage: '200mg', instructions: 'Take 1 capsule once or twice daily for severe inflammation.' },
+    { id: 'm8', genericName: 'Tranexamic Acid', brandName: 'Hemostan', dosage: '500mg', instructions: 'Take 1 capsule every 8 hours to control bleeding.' },
+    { id: 'm9', genericName: 'Metronidazole', brandName: 'Flagyl', dosage: '500mg', instructions: 'Take 1 tablet every 8 hours for 7 days.' },
+    { id: 'm10', genericName: 'Chlorhexidine Gluconate', brandName: 'Orahex', dosage: '0.12%', instructions: 'Rinse with 15ml for 30 seconds twice daily.' },
+    { id: 'm11', genericName: 'Tramadol', brandName: 'Ultram', dosage: '50mg', instructions: 'Take 1 tablet every 6 hours for severe pain only.', isS2Controlled: true },
+    { id: 'm12', genericName: 'Dexamethasone', brandName: 'Decadron', dosage: '4mg', instructions: 'Take as directed by dentist for post-surgical swelling.' }
 ];
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
@@ -1385,7 +1400,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   ],
   medicalRiskRegistry: [
       'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
-      'Taking Bisphosphonates? (Fosamax, Zometa)',
+      'Taking Bisphosphonates? (Daily Use)',
   ],
   dentalHistoryRegistry: [
       'Are you anxious about dental treatment?',
@@ -1397,7 +1412,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   ],
   criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
-  medications: [],
+  medications: DEFAULT_PHARMACY,
   shadeGuides: ['Vita Classical', 'Vita 3D Master'],
   restorativeMaterials: ['Composite', 'Amalgam', 'Glass Ionomer', 'Zirconia', 'EMax'],
   branches: ['Makati Main', 'Quezon City Satellite'],

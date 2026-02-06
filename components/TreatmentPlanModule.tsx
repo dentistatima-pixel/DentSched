@@ -112,6 +112,9 @@ interface TreatmentPlanModuleProps {
   currentUser: User;
   logAction: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
   featureFlags?: FeatureToggles;
+  // FIX: Added missing props to resolve PatientDetailView mismatch.
+  onInitiateFinancialConsent?: (plan: TreatmentPlanType) => void;
+  onOpenRevocationModal?: (patient: Patient, category: ConsentCategory) => void;
 }
 
 const TreatmentPlanModule: React.FC<TreatmentPlanModuleProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags }) => {

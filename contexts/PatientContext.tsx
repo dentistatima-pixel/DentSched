@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
-import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
+import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, DataDeletionRequest } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
@@ -40,6 +41,9 @@ interface PatientContextType {
     handleSaveInformedRefusal: (patientId: string, refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => Promise<void>;
     handleVoidNote: (patientId: string, noteId: string, reason: string) => Promise<string | null>;
     handlePatientSignOffOnNote: (patientId: string, noteId: string, signature: string) => Promise<void>;
+    // FIX: Added missing handlers to PatientContextType interface.
+    handleRequestDataDeletion: (patientId: string, type: string, reason: string) => Promise<void>;
+    handleManageDataDeletionRequest: (patientId: string, requestId: string, action: 'Approved' | 'Rejected') => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -240,8 +244,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
     
     const handleConfirmRevocation = async (patient: Patient, category: ConsentCategory, reason: string, notes: string) => {
-        // FIX: Added the required `expiryDate` property to the new log entry.
-        // A consent revocation effectively means it expires at that moment.
         const timestamp = new Date().toISOString();
         const updatedLogs = [...(patient.consentLogs || []), { 
             category, 
@@ -292,6 +294,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
                 delete amendment.sealedHash;
                 delete amendment.isVoided;
                 delete amendment.voidDetails;
+                amonymizedAt: undefined;
                 amendment.originalNoteId = note.id;
                 amendment.id = generateUid('dca'); // amendment ID
                 newNoteId = amendment.id;
@@ -337,6 +340,34 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         toast.success("Patient sign-off recorded.");
     };
 
+    // FIX: Implemented missing handleRequestDataDeletion and handleManageDataDeletionRequest.
+    const handleRequestDataDeletion = async (patientId: string, type: string, reason: string) => {
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) return;
+        const newRequest: DataDeletionRequest = {
+            id: generateUid('del'),
+            patientId,
+            requestedAt: new Date().toISOString(),
+            requestedBy: currentUser?.id || 'system',
+            reason,
+            status: 'Pending',
+            retentionPeriod: 10
+        };
+        const updatedPatient = { ...patient, dataDeletionRequests: [...(patient.dataDeletionRequests || []), newRequest] };
+        await handleSavePatient(updatedPatient);
+        toast.info("Data deletion request logged.");
+    };
+
+    const handleManageDataDeletionRequest = async (patientId: string, requestId: string, action: 'Approved' | 'Rejected') => {
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) return;
+        const updatedRequests = patient.dataDeletionRequests?.map(r => 
+            r.id === requestId ? { ...r, status: action, approvedAt: action === 'Approved' ? new Date().toISOString() : undefined, approvedBy: currentUser?.id } : r
+        );
+        await handleSavePatient({ ...patient, dataDeletionRequests: updatedRequests });
+        toast.success(`Request ${action.toLowerCase()}.`);
+    };
+
     const value: PatientContextType = {
         patients: scopedPatients,
         isLoading,
@@ -351,6 +382,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         handleSaveInformedRefusal,
         handleVoidNote,
         handlePatientSignOffOnNote,
+        handleRequestDataDeletion,
+        handleManageDataDeletionRequest,
     };
 
     return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;

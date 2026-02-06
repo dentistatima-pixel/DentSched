@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
 import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem, OperationalHours } from '../types';
@@ -220,7 +221,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 entryMode: isDowntime ? 'MANUAL' : 'AUTO',
             };
             
-            const errors = validateAppointment(appointmentData, appointments, patients, staff, existingAppointment?.id);
+            // FIX: Added fieldSettings as the 5th argument to match validateAppointment signature.
+            const errors = validateAppointment(appointmentData, appointments, patients, staff, fieldSettings, existingAppointment?.id);
             if (errors) {
                 Object.values(errors).forEach(errorMsg => toast.error(errorMsg, { duration: 6000 }));
                 setIsSaving(false);

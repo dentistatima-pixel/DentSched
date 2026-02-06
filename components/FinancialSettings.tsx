@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { FieldSettings, PayrollAdjustmentTemplate } from '../types';
 import { Plus, Trash2, Banknote, Sliders, ClipboardList } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -39,6 +40,21 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
     const toast = useToast();
     const [activeTab, setActiveTab] = useState('paymentModes');
 
+    // Local buffering to prevent focus loss
+    const [localTaxConfig, setLocalTaxConfig] = useState(settings.taxConfig);
+
+    useEffect(() => {
+        setLocalTaxConfig(settings.taxConfig);
+    }, [settings.taxConfig]);
+
+    const handleTaxConfigChange = (field: keyof typeof localTaxConfig, value: string) => {
+        setLocalTaxConfig(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
+    };
+
+    const handleCommitTaxConfig = () => {
+        onUpdateSettings({ ...settings, taxConfig: localTaxConfig });
+    };
+
     const tabs = [
         { id: 'paymentModes', label: 'Payment & Tax', icon: Banknote },
         { id: 'payrollAdjustments', label: 'Adjustment Catalog', icon: Sliders },
@@ -73,17 +89,36 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="label text-xs">VAT Rate (%)</label>
-                                    <input type="number" value={settings.taxConfig.vatRate} onChange={e => onUpdateSettings({...settings, taxConfig: {...settings.taxConfig, vatRate: +e.target.value}})} className="input"/>
+                                    <input 
+                                        type="number" 
+                                        value={localTaxConfig.vatRate} 
+                                        onChange={e => handleTaxConfigChange('vatRate', e.target.value)} 
+                                        onBlur={handleCommitTaxConfig}
+                                        className="input"
+                                    />
                                 </div>
                                 <div>
                                     <label className="label text-xs">Withholding Rate (%)</label>
-                                    <input type="number" value={settings.taxConfig.withholdingRate} onChange={e => onUpdateSettings({...settings, taxConfig: {...settings.taxConfig, withholdingRate: +e.target.value}})} className="input"/>
+                                    <input 
+                                        type="number" 
+                                        value={localTaxConfig.withholdingRate} 
+                                        onChange={e => handleTaxConfigChange('withholdingRate', e.target.value)} 
+                                        onBlur={handleCommitTaxConfig}
+                                        className="input"
+                                    />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="label text-xs">Next OR Number</label>
-                                    <input type="number" value={settings.taxConfig.nextOrNumber} onChange={e => onUpdateSettings({...settings, taxConfig: {...settings.taxConfig, nextOrNumber: +e.target.value}})} className="input"/>
+                                    <input 
+                                        type="number" 
+                                        value={localTaxConfig.nextOrNumber} 
+                                        onChange={e => handleTaxConfigChange('nextOrNumber', e.target.value)} 
+                                        onBlur={handleCommitTaxConfig}
+                                        className="input"
+                                    />
                                 </div>
                             </div>
+                            <p className="text-[10px] text-slate-400 italic px-2">Changes are committed to global settings when the field loses focus.</p>
                         </div>
                     </div>
                 );
@@ -121,11 +156,11 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Financial & HR Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">Financial & HR Hub</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Configure financial transaction types and payroll components.</p>
             </div>
             
-            <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm self-start flex gap-2">
+            <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm self-start flex gap-2">
                 {tabs.map(tab => (
                     <button 
                         key={tab.id} 

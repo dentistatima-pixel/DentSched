@@ -1,4 +1,3 @@
-
 import React, { useMemo, Suspense } from 'react';
 import { Dashboard } from './components/Dashboard';
 // FIX: CalendarView is a default export, not a named export.
@@ -114,6 +113,7 @@ function AnalyticsHubContainer() {
 }
 
 function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
+    // FIX: Added handleRequestDataDeletion and handleManageDataDeletionRequest from usePatient hook.
     const { patients, handleAnonymizePatient: onPurgePatient, handleRequestDataDeletion, handleManageDataDeletionRequest } = usePatient();
     const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
@@ -130,6 +130,7 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
         onAnonymizePatient={onPurgePatient}
         onBack={() => onNavigate('admin')}
         incidents={incidents}
+        // FIX: Passed deletion handlers to GovernanceHub.
         handleRequestDataDeletion={handleRequestDataDeletion}
         handleManageDataDeletionRequest={handleManageDataDeletionRequest}
     />;
@@ -341,7 +342,8 @@ const PatientPlaceholder = React.lazy(() => import('./components/PatientDetailVi
 const PatientDetailView = React.lazy(() => import('./components/PatientDetailView'));
 
 function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
-  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleRequestDataDeletion } = usePatient();
+  // FIX: Added handleRequestDataDeletion and handleManageDataDeletionRequest to destructuring.
+  const { patients, isLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleRequestDataDeletion, handleManageDataDeletionRequest } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
@@ -416,7 +418,9 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
         auditLog={auditLog}
+        // FIX: Passed deletion handlers to PatientDetailView.
         handleRequestDataDeletion={handleRequestDataDeletion}
+        handleManageDataDeletionRequest={handleManageDataDeletionRequest}
       />
     </Suspense>
   );

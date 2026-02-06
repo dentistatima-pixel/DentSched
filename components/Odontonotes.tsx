@@ -199,6 +199,8 @@ interface OdontonotesProps {
   patient: Patient;
   onAddEntry: (entry: DentalChartEntry) => void;
   onUpdateEntry: (entry: DentalChartEntry) => void;
+  // FIX: Added onDeleteEntry to props to resolve mismatch with PatientDetailView.
+  onDeleteEntry?: (id: string) => void;
   onUpdateAppointment: (appointment: Appointment) => Promise<void>;
   onQuickUpdatePatient: (patientData: Partial<Patient>) => Promise<void>;
   currentUser: User;

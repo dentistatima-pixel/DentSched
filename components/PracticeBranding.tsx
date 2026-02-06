@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
@@ -159,8 +160,29 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const { theme, toggleTheme } = useAppContext();
     const [activeTab, setActiveTab] = useState('identity');
     
+    // Local state for buffered inputs
+    const [localName, setLocalName] = useState(settings.clinicName);
+    const [localTimeout, setLocalTimeout] = useState(settings.sessionTimeoutMinutes.toString());
+    const [localProfile, setLocalProfile] = useState(settings.clinicProfile);
+
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
+
+    // Sync local state when settings change externally
+    useEffect(() => {
+        setLocalName(settings.clinicName);
+        setLocalTimeout(settings.sessionTimeoutMinutes.toString());
+        setLocalProfile(settings.clinicProfile);
+    }, [settings.clinicName, settings.sessionTimeoutMinutes, settings.clinicProfile]);
+
+    const handleCommitChanges = () => {
+        onUpdateSettings({
+            ...settings,
+            clinicName: localName,
+            clinicProfile: localProfile,
+            sessionTimeoutMinutes: parseInt(localTimeout) || 30
+        });
+    };
 
     const handleSaveBranch = (branchToSave: Branch) => {
         const isNew = !branchToSave.id || !settings.branchProfiles.some(b => b.id === branchToSave.id);
@@ -224,15 +246,37 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                     <div className="space-y-8">
                         <div>
                             <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
-                            <input id="clinicName" type="text" value={settings.clinicName} onChange={(e) => onUpdateSettings({ ...settings, clinicName: e.target.value })} className="input text-lg font-bold"/>
+                            <input 
+                                id="clinicName" 
+                                type="text" 
+                                value={localName} 
+                                onChange={(e) => setLocalName(e.target.value)} 
+                                onBlur={handleCommitChanges}
+                                className="input text-lg font-bold"
+                            />
                         </div>
                         <div>
                             <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
-                            <select id="clinicProfile" value={settings.clinicProfile} onChange={(e) => onUpdateSettings({ ...settings, clinicProfile: e.target.value as any })} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
+                            <select 
+                                id="clinicProfile" 
+                                value={localProfile} 
+                                onChange={(e) => { setLocalProfile(e.target.value as any); onUpdateSettings({ ...settings, clinicProfile: e.target.value as any }); }} 
+                                className="input text-lg font-bold"
+                            >
+                                <option value="boutique">Boutique / Solo Practice</option>
+                                <option value="corporate">Corporate / Multi-Branch</option>
+                            </select>
                         </div>
                         <div>
                             <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
-                            <input id="sessionTimeout" type="number" value={settings.sessionTimeoutMinutes} onChange={(e) => onUpdateSettings({ ...settings, sessionTimeoutMinutes: parseInt(e.target.value) || 30 })} className="input text-lg font-bold"/>
+                            <input 
+                                id="sessionTimeout" 
+                                type="number" 
+                                value={localTimeout} 
+                                onChange={(e) => setLocalTimeout(e.target.value)} 
+                                onBlur={handleCommitChanges}
+                                className="input text-lg font-bold"
+                            />
                         </div>
                     </div>
                     <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
