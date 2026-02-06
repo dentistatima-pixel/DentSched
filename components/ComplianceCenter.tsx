@@ -1,9 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle, X, Save, Plus, Trash2, Archive, User as UserIcon, FileText, Search } from 'lucide-react';
-import AuditTrailViewer from './AuditTrailViewer';
-import LegalActionHub from './LegalActionHub';
-import ConsentFormManager from './ConsentFormManager';
-import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident, ConsentFormTemplate, PrivacyImpactAssessment } from '../types';
+import { Patient, FieldSettings, ClinicalIncident, ConsentFormTemplate, PrivacyImpactAssessment } from '../types';
 import { useToast } from './ToastSystem';
 import { useModal } from '../contexts/ModalContext';
 import { useStaff } from '../contexts/StaffContext';

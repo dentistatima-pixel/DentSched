@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 import { 
@@ -23,6 +24,7 @@ import { useAppContext } from '../contexts/AppContext';
 import ClinicalCatalogHub from './ClinicalCatalogHub';
 import PersonalProfile from './PersonalProfile';
 import { useStaff } from '../contexts/StaffContext';
+import { useSettings } from '../contexts/SettingsContext';
 
 
 interface FieldManagementProps {

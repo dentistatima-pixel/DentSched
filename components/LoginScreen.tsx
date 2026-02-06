@@ -71,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   };
 
   const handleLoginAttempt = () => {
-    if (selectedUser && selectedUser.pin === CryptoJS.SHA256(pin).toString()) {
+    if (selectedUser && selectedUser.pin === CryptoJS.SHA256(pin + selectedUser.id).toString()) {
         onLogin(selectedUser);
     } else {
         setError('Invalid PIN');

@@ -135,3 +135,4 @@ export const PatientAppointmentsView: React.FC<PatientAppointmentsViewProps> = (
         </div>
     );
 };
+export default PatientAppointmentsView;

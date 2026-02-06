@@ -346,8 +346,9 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 consentType: template.name,
                 procedureName: appointment.type,
                 consentLanguage: language,
-                ...(needsGuardianVerification && guardianIdHash && { guardianIdHash })
-            }
+            },
+            guardianIdPhoto: needsGuardianVerification ? guardianIdPhoto ?? undefined : undefined,
+            guardianIdHash: needsGuardianVerification ? guardianIdHash ?? undefined : undefined,
         };
         newChain.push(patientEntry);
         previousHash = patientHash;

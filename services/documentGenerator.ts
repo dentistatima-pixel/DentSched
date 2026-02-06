@@ -1,3 +1,4 @@
+
 import { Patient, User, FieldSettings, Appointment, AppointmentStatus, TreatmentPlan } from '../types';
 import { formatDate, calculateAge } from '../constants';
 

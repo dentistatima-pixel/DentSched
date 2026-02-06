@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { PayrollPeriod, PayrollStatus, User, PayrollAdjustment, CommissionDispute, UserRole } from '../types';
 import { DollarSign, Plus, CheckCircle, Clock, Lock, ShieldCheck, Flag, Edit, MessageSquare, ChevronRight, User as UserIcon } from 'lucide-react';
@@ -58,14 +59,19 @@ const Payroll: React.FC<PayrollProps> = ({ payrollPeriods, payrollAdjustments, c
                     <h3 className="font-black text-slate-600 uppercase tracking-widest text-sm">Periods</h3>
                     <button onClick={handleCreatePeriod} className="p-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-500 hover:text-teal-600"><Plus size={16}/></button>
                 </div>
-                {payrollPeriods.map(p => (
-                    <button key={p.id} onClick={() => setSelectedPeriodId(p.id)} className={`w-full p-4 rounded-xl text-left border-2 transition-all ${selectedPeriodId === p.id ? 'bg-white border-teal-500 shadow-md' : 'bg-slate-100 border-transparent hover:border-slate-300'}`}>
-                        <p className="font-bold text-slate-800">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
-                        <div className={`mt-2 text-xs font-black uppercase px-2 py-1 rounded-full inline-flex items-center gap-2 ${statusConfig[p.status].color}`}>
-                            <statusConfig[p.status].icon size={12} /> {p.status}
-                        </div>
-                    </button>
-                ))}
+                {payrollPeriods.map(p => {
+                    // FIX: Component names in JSX must start with an uppercase letter.
+                    // Assign the icon component to an uppercase variable before rendering.
+                    const Icon = statusConfig[p.status].icon;
+                    return (
+                        <button key={p.id} onClick={() => setSelectedPeriodId(p.id)} className={`w-full p-4 rounded-xl text-left border-2 transition-all ${selectedPeriodId === p.id ? 'bg-white border-teal-500 shadow-md' : 'bg-slate-100 border-transparent hover:border-slate-300'}`}>
+                            <p className="font-bold text-slate-800">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
+                            <div className={`mt-2 text-xs font-black uppercase px-2 py-1 rounded-full inline-flex items-center gap-2 ${statusConfig[p.status].color}`}>
+                                <Icon size={12} /> {p.status}
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
 
             <div className="md:col-span-8 lg:col-span-9">

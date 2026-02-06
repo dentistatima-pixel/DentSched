@@ -113,8 +113,10 @@
         color: var(--text-primary);
         transition: background-color 0.3s ease, color 0.3s ease;
         font-size: 16px; /* Set base font size for tablet readability */
-        -webkit-overflow-scrolling: touch; /* Add momentum scrolling for tablets */
-        overscroll-behavior: contain; /* Prevent pull-to-refresh on body */
+        /* Enable momentum-based scrolling on touch devices (iOS) for a smoother feel. */
+        -webkit-overflow-scrolling: touch;
+        /* Prevent the entire page from scrolling when a nested scrollable element reaches its boundary. */
+        overscroll-behavior: contain;
       }
       
       /* Global Form Styling - Tablet Optimized */
@@ -493,7 +495,8 @@
           }
       }
       
-      /* --- Tablet Touch Optimizations --- */
+      /* FIX #7: --- Tablet Touch Optimizations --- */
+      /* Apply these styles on devices that primarily use touch input. */
       @media (pointer: coarse), (hover: none) {
         /* All buttons minimum height for touch */
         button, .btn {
@@ -528,7 +531,8 @@
         }
       }
 
-      /* Fix #8: Touch Target Helper Class */
+      /* FIX #8: Touch Target Helper Class */
+      /* Ensures any element, including links or divs acting as buttons, meet minimum touch size. */
       .touch-safe {
         min-width: 44px;
         min-height: 44px;
@@ -537,7 +541,7 @@
         justify-content: center;
       }
       
-      /* For buttons that need to look small but be touchable */
+      /* For small icon-only buttons that need a larger invisible touch area. */
       .touch-safe-icon {
         padding: 10px; /* Makes a 24px icon into a 44px touch target */
       }

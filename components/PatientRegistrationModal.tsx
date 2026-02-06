@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch, Eraser } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus } from '../types';
+import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus, SignatureChainEntry } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
@@ -17,6 +18,8 @@ import { useModal } from '../contexts/ModalContext';
 import { Odontogram } from './Odontogram';
 import CryptoJS from 'crypto-js';
 import { useDebounce } from '../hooks/useDebounce';
+import { usePatientAge } from '../hooks/usePatientAge';
+import { createSignatureEntry } from '../services/signatureVerification';
 
 
 interface PatientRegistrationModalProps {
@@ -125,6 +128,8 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     5000 // 5-second auto-save interval
   );
   
+  const patientAge = usePatientAge(formData.dob);
+  
   const generalConsent = useMemo(() => fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), [fieldSettings.consentFormTemplates]);
   
   const formStatus: FormStatus = isAutoSaving ? 'saving' : lastSaved ? 'saved' : 'unsaved';
@@ -196,25 +201,20 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     setFormData(prev => ({...prev, [category]: (prev[category] as string[] || []).includes(value) ? (prev[category] as string[]).filter(item => item !== value) : [...(prev[category] as string[] || []), value]}));
   }, [readOnly, setFormData]);
   
+  // FIX: This handler was inconsistent with Odontogram. Fixed to handle a single entry and manage state correctly.
   const handleChartUpdate = useCallback((entry: DentalChartEntry) => {
     if (readOnly) return;
     setFormData(prev => {
         const existingChart = prev.dentalChart || [];
-        const isNew = !existingChart.some(e => e.id === entry.id);
-
+        
         let nextChart: DentalChartEntry[];
-
-        if (isNew) {
-            const baselineEntry: DentalChartEntry = { ...entry, isBaseline: true, status: ['Missing', 'Extraction'].some(p => entry.procedure.includes(p)) ? entry.status : 'Existing' };
-            nextChart = [...existingChart, baselineEntry];
+        
+        const existingEntry = existingChart.find(e => e.toothNumber === entry.toothNumber && e.procedure === entry.procedure && e.surfaces === entry.surfaces);
+        if(existingEntry) {
+             nextChart = existingChart.filter(e => e.id !== existingEntry.id);
         } else {
-            const existingEntry = existingChart.find(e => e.toothNumber === entry.toothNumber && e.procedure === entry.procedure && e.surfaces === entry.surfaces);
-            if(existingEntry) {
-                 nextChart = existingChart.filter(e => e.id !== existingEntry.id);
-            } else {
-                 const baselineEntry: DentalChartEntry = { ...entry, isBaseline: true, status: ['Missing', 'Extraction'].some(p => entry.procedure.includes(p)) ? entry.status : 'Existing' };
-                 nextChart = [...existingChart, baselineEntry];
-            }
+             const baselineEntry: DentalChartEntry = { ...entry, isBaseline: true, status: ['Missing', 'Extraction'].some(p => entry.procedure.includes(p)) ? entry.status : 'Existing' };
+             nextChart = [...existingChart, baselineEntry];
         }
 
         return { ...prev, dentalChart: nextChart };
@@ -225,7 +225,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     setIsSaving(true);
     try {
         const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
-        await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE });
+        await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE, lastDigitalUpdate: new Date().toISOString() });
         clearSavedForm();
         onClose();
     } catch (error) {
@@ -234,11 +234,35 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     }
   };
 
-  const handleSignatureCaptured = (sig: string, hash: string) => {
+  const handleSignatureCaptured = async (sig: string, witnessHash: string) => {
     const timestamp = new Date().toISOString();
-    const photoHash = hash;
-    const finalHash = CryptoJS.SHA256(photoHash + sig).toString();
-    const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: finalHash, registrationStatus: RegistrationStatus.COMPLETE };
+    const photoHash = witnessHash; // The hash from the camera capture
+    const signatureHash = CryptoJS.SHA256(photoHash + sig).toString();
+
+    // Create DPA Consent signature chain
+    const dpaTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'consent_dpa'); // Assuming a template ID
+    const dpaConsentEntry = await createSignatureEntry(sig, {
+        signerName: formData.firstName + ' ' + formData.surname,
+        signatureType: 'patient',
+        previousHash: '0',
+        metadata: {
+            consentType: 'Data Privacy Agreement',
+            templateId: dpaTemplate?.id,
+            templateVersion: dpaTemplate?.version,
+            witnessHash: photoHash,
+        }
+    });
+
+    const updatedData: Partial<Patient> = { 
+        ...formData, 
+        registrationSignature: sig, 
+        registrationSignatureTimestamp: timestamp, 
+        registrationPhotoHash: signatureHash, 
+        registrationStatus: RegistrationStatus.COMPLETE,
+        privacyConsentChain: [dpaConsentEntry],
+        privacyConsentDate: timestamp,
+        privacyConsentVersion: dpaTemplate?.version,
+    };
     setFormData(updatedData);
     toast.success("Identity Anchor Linked. Record Verified.");
   };
@@ -270,7 +294,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
             if (dobDate > today) {
                 errors.push("Date of Birth cannot be in the future.");
             }
-            const age = calculateAge(formData.dob);
+            const age = patientAge;
             if (age === undefined || age < 0 || age >= 120) {
                 errors.push("Invalid age (must be between 0 and 120). Please check Date of Birth.");
             }
@@ -304,7 +328,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   };
   
   return {
-      step, animationDirection, formData, isSaving, formStatus,
+      step, animationDirection, formData, isSaving, formStatus, patientAge,
       showPrivacyPolicy, setShowPrivacyPolicy,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients,
@@ -318,7 +342,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
   const workflow = useRegistrationWorkflow({ initialData, onSave, onClose, currentBranch, readOnly });
   const { 
-      step, animationDirection, formData, isSaving, formStatus,
+      step, animationDirection, formData, isSaving, formStatus, patientAge,
       showPrivacyPolicy, setShowPrivacyPolicy,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients,
@@ -379,11 +403,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 {step === 1 && (
                      <div key={1} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
                         <div className="bg-white border-2 border-teal-100 p-8 rounded-[2.5rem] shadow-sm space-y-8">
-                            <RegistrationBasicInfo formData={formData} handleChange={handleChange} handleCustomChange={() => {}} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} />
+                            <RegistrationBasicInfo formData={formData} handleChange={handleChange} handleCustomChange={() => {}} readOnly={readOnly} fieldSettings={fieldSettings} patients={patients} patientAge={patientAge} />
                             <div className="grid grid-cols-2 gap-4 pt-8 border-t border-slate-100">
                                <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
                                     <input type="checkbox" name="dpaConsent" checked={!!formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
-                                    <div><span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span><p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.</p></div>
+                                    <div><span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span><p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data and have read the <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPrivacyPolicy(true); }} className="text-teal-600 underline font-black">Data Privacy Policy</button>.</p></div>
                                </label>
                                <label className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all ${formData.clinicalMediaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
                                     <input type="checkbox" name="clinicalMediaConsent" checked={!!formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
@@ -407,6 +431,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <p className="text-sm text-slate-500 mb-8">Use the tools to mark existing conditions, missing teeth, and prior work. This will be saved as the patient's baseline odontogram.</p>
                             <Odontogram
                                 chart={formData.dentalChart || []}
+                                // FIX: Corrected prop name from onChartChange to onChartUpdate
                                 onChartUpdate={handleChartUpdate}
                                 readOnly={readOnly}
                                 onToothClick={() => {}}

@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
 import { Appointment, AppointmentStatus, Patient, User } from '../types';
-import { APPOINTMENTS } from '../constants';
+import { APPOINTMENTS, generateUid } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
 import { DataService } from '../services/dataService';
@@ -28,8 +28,8 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
     const { patients, handleSavePatient } = usePatient();
     const { staff } = useStaff();
-    const { fieldSettings } = useSettings();
-    const { openModal } = useModal();
+    const { fieldSettings, addScheduledSms } = useSettings();
+    const { openModal, closeModal } = useModal();
 
     const handleSaveAppointment = useCallback(async (appointmentData: Appointment): Promise<void> => {
         const isNew = !appointments.some(a => a.id === appointmentData.id);
@@ -47,6 +47,32 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             setAppointments(prev => {
                 return isNew ? [...prev, updatedAppointment] : prev.map(a => a.id === updatedAppointment.id ? updatedAppointment : a);
             });
+            
+            if (isNew && fieldSettings.features.enableSmsAutomation) {
+                const procedure = fieldSettings?.procedures.find(p => p.name === appointmentData.type);
+                if (procedure?.requiresConsent) {
+                    const appointmentDate = new Date(appointmentData.date + 'T' + appointmentData.time);
+                    const reminderDate = new Date(appointmentDate);
+                    reminderDate.setDate(reminderDate.getDate() - 1);
+                    
+                    const patient = patients.find(p => p.id === appointmentData.patientId);
+                    const provider = staff.find(s => s.id === appointmentData.providerId);
+
+                    if (patient && provider) {
+                        addScheduledSms({
+                            patientId: patient.id,
+                            templateId: 'pre_appointment_consent',
+                            dueDate: reminderDate.toISOString(),
+                            data: {
+                                PatientName: patient.name,
+                                ProviderName: provider.name,
+                                ConsentUrl: `https://dentsched.app/consent/${appointmentData.id}` // Placeholder URL
+                            }
+                        });
+                    }
+                }
+            }
+
             logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', updatedAppointment.id, `Appointment for ${updatedAppointment.type} ${isNew ? 'created' : 'updated'}.`);
             toast.success(`Appointment for "${updatedAppointment.type}" saved.`);
         } catch (error) {
@@ -54,7 +80,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             toast.error("Failed to save appointment.");
             throw error;
         }
-    }, [isOnline, appointments, enqueueAction, toast, logAction]);
+    }, [isOnline, appointments, enqueueAction, toast, logAction, fieldSettings, patients, staff, addScheduledSms]);
     
     const handleUpdateAppointmentStatus = useCallback(async (appointmentId: string, status: AppointmentStatus, details: any = {}): Promise<void> => {
         const appointment = appointments.find(a => a.id === appointmentId);
@@ -102,6 +128,15 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             return;
         }
 
+        if (newStatus === AppointmentStatus.CANCELLED) {
+            openModal('cancellation', {
+                onConfirm: (reason: string) => {
+                    handleUpdateAppointmentStatus(appointmentId, newStatus, { cancellationReason: reason });
+                }
+            });
+            return;
+        }
+
         // 2. Medico-legal Guard checks (Issue #1)
         let block;
         if (newStatus === AppointmentStatus.SEATED) {
@@ -113,12 +148,44 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         if (block && block.isBlocked) {
             if (block.modal) {
+                let modalProps = { ...block.modal.props };
+
+                if (block.modal.type === 'consentCapture') {
+                    modalProps.onRefuse = () => {
+                        closeModal(); // Close consent modal
+                        setTimeout(() => openModal('informedRefusal', {
+                            patient,
+                            currentUser,
+                            relatedEntity: {
+                                type: 'Procedure',
+                                entityId: block.modal.props.procedure.id,
+                                entityDescription: `Refusal of Procedure: "${block.modal.props.procedure.name}"`
+                            },
+                            risks: block.modal.props.procedure.riskDisclosures || ['Progression of disease'],
+                            alternatives: block.modal.props.procedure.alternatives || ['No treatment'],
+                            recommendation: `Proceed with procedure "${block.modal.props.procedure.name}" as recommended.`,
+                            onSave: (refusalData: any) => {
+                                handleSavePatient({ 
+                                    ...patient, 
+                                    informedRefusals: [...(patient.informedRefusals || []), { ...refusalData, id: generateUid('ref'), patientId: patient.id }]
+                                });
+                                toast.success("Informed refusal has been documented.");
+                            }
+                        }), 300);
+                    };
+                }
+                
                 openModal(block.modal.type, {
-                    ...block.modal.props,
+                    ...modalProps,
                     onConfirm: async (data: any) => {
                          const detailsToUpdate: Partial<Appointment> = {};
-                         if (block?.modal?.type === 'medicalHistoryAffirmation') detailsToUpdate.medHistoryAffirmation = data;
-                         if (block?.modal?.type === 'consentCapture') detailsToUpdate.consentSignatureChain = data;
+                         // FIX: Also update the patient record with the latest medical history affirmation
+                         // to ensure global state is current for subsequent checks.
+                         if (block?.modal?.type === 'medicalHistoryAffirmation') {
+                            detailsToUpdate.medHistoryAffirmation = data;
+                            // Also update patient with the latest affirmation
+                            await handleSavePatient({ ...patient, medHistoryAffirmation: data });
+                         }
                          if (block?.modal?.type === 'safetyTimeout') detailsToUpdate.safetyChecklistChain = data;
                          if (block?.modal?.type === 'sterilizationVerification') {
                              detailsToUpdate.sterilizationVerified = true;
@@ -153,7 +220,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         // 3. If all checks pass, proceed with the status update
         await handleUpdateAppointmentStatus(appointmentId, newStatus);
 
-    }, [appointments, patients, staff, fieldSettings, toast, openModal, currentUser, handleUpdateAppointmentStatus]);
+    }, [appointments, patients, staff, fieldSettings, toast, openModal, closeModal, currentUser, handleUpdateAppointmentStatus, handleSavePatient]);
 
     const handleMoveAppointment = useCallback(async (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string): Promise<void> => {
         const appointment = appointments.find(a => a.id === appointmentId);

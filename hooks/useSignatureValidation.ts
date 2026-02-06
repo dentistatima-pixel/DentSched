@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { Patient, Appointment } from '../types';
 import { verifyAllPatientSignatures } from '../services/signatureVerification';

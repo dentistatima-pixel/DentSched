@@ -1,3 +1,5 @@
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, InformedRefusal, User, SignatureChainEntry } from '../types';
 import { XCircle, FileSignature, AlertTriangle, ShieldCheck, Square, CheckSquare, Eraser, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
@@ -49,6 +51,10 @@ const SignaturePad: React.FC<{
 
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
         if (disabled || isSigned) return;
+        if (e.pointerType === 'touch' && (e.width > 25 || e.height > 25)) {
+            e.preventDefault();
+            return;
+        }
         setIsSigning(true);
         const { x, y } = getCoords(e);
         const ctx = e.currentTarget.getContext('2d');
@@ -131,7 +137,8 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
         onSave({
             relatedEntity, refusalReason,
             risksDisclosed: risks.map(r => ({ risk: r, acknowledged: acknowledgedRisks.includes(r) })),
-            alternativesOffered: alternatives,
+            // FIX: The property 'alternativesOffered' did not exist on the type. Changed to 'alternativesDiscussed' and mapped to the correct object structure.
+            alternativesDiscussed: alternatives.map(alt => ({ alternative: alt })),
             dentistRecommendation: recommendation,
             patientUnderstandsConsequences: understandsConsequences,
             patientSignatureChain,
@@ -143,7 +150,7 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
         onClose();
     };
 
-    const handleSign = (signer: 'patient' | 'dentist' | 'witness', signatureDataUrl: string) => {
+    const handleSign = async (signer: 'patient' | 'dentist' | 'witness', signatureDataUrl: string) => {
         let previousHash = '0';
         let metadata: Record<string, any> = {
             consentType: 'InformedRefusal',
@@ -171,7 +178,7 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
             metadata.witnessVerified = true;
         }
 
-        const signatureEntry = createSignatureEntry(signatureDataUrl, {
+        const signatureEntry = await createSignatureEntry(signatureDataUrl, {
             signerName,
             signerRole,
             signatureType: signer,

@@ -1,6 +1,8 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, Patient, FamilyGroup } from '../types';
-import { Users2, Plus, ArrowLeft, Search, User, X } from 'lucide-react';
+import { Users2, Plus, ArrowLeft, Search, User, X, Edit, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 
@@ -14,17 +16,27 @@ interface FamilyGroupManagerProps {
 const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpdateSettings, patients, onBack }) => {
     const toast = useToast();
     const [editingGroup, setEditingGroup] = useState<Partial<FamilyGroup> | null>(null);
-    const [patientSearch, setPatientSearch] = useState('');
+    const [memberSearch, setMemberSearch] = useState('');
+    const [activeSearchGroupId, setActiveSearchGroupId] = useState<string | null>(null);
 
     const familyGroups = settings.familyGroups || [];
-    const patientsNotInGroup = patients.filter(p => !p.familyGroupId);
+    
+    const patientsInAnyGroup = useMemo(() => {
+        const memberIds = new Set<string>();
+        familyGroups.forEach(g => g.memberIds.forEach(id => memberIds.add(id)));
+        return memberIds;
+    }, [familyGroups]);
 
-    const filteredPatients = useMemo(() => {
-        if (!patientSearch) return [];
+    const patientsNotInGroup = useMemo(() => 
+        patients.filter(p => !patientsInAnyGroup.has(p.id)), 
+    [patients, patientsInAnyGroup]);
+
+    const searchResults = useMemo(() => {
+        if (!memberSearch) return [];
         return patientsNotInGroup
-            .filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase()))
+            .filter(p => p.name.toLowerCase().includes(memberSearch.toLowerCase()))
             .slice(0, 5);
-    }, [patientSearch, patientsNotInGroup]);
+    }, [memberSearch, patientsNotInGroup]);
 
     const handleSaveGroup = () => {
         if (!editingGroup || !editingGroup.familyName || !editingGroup.headOfFamilyId) {
@@ -56,6 +68,8 @@ const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpd
             return g;
         });
         onUpdateSettings({ ...settings, familyGroups: nextGroups });
+        setMemberSearch('');
+        setActiveSearchGroupId(null);
     };
 
     const handleRemoveMember = (groupId: string, patientId: string) => {
@@ -101,27 +115,37 @@ const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpd
                     const head = patients.find(p => p.id === group.headOfFamilyId);
                     const members = patients.filter(p => group.memberIds.includes(p.id));
                     return (
-                        <div key={group.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
-                            <h4 className="font-black text-lg text-slate-800">{group.familyName}</h4>
-                            <p className="text-xs font-bold text-slate-400">Head: {head?.name || 'N/A'}</p>
-                            <div className="flex-1 mt-4 space-y-2">
+                        <div key={group.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="font-black text-lg text-slate-800">{group.familyName}</h4>
+                                    <p className="text-xs font-bold text-slate-400">Head: {head?.name || 'N/A'}</p>
+                                </div>
+                                <button onClick={() => handleRemoveGroup(group.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
+                            </div>
+                            <div className="space-y-2">
                                 {members.map(m => (
-                                    <div key={m.id} className="flex justify-between items-center text-sm p-2 bg-slate-50 rounded-lg">
-                                        <span>{m.name}</span>
-                                        {m.id !== head?.id && <button onClick={() => handleRemoveMember(group.id, m.id)} className="text-red-500"><X size={14}/></button>}
+                                    <div key={m.id} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <span className="font-bold text-slate-700">{m.name} {m.id === head?.id && '(Head)'}</span>
+                                        {m.id !== head?.id && <button onClick={() => handleRemoveMember(group.id, m.id)} className="text-red-500 hover:bg-red-100 p-1 rounded-full"><X size={14}/></button>}
                                     </div>
                                 ))}
                             </div>
                              <div className="relative mt-2">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-                                <input type="text" onChange={e => setPatientSearch(e.target.value)} placeholder="Add member..." className="input text-xs pl-9"/>
-                                {patientSearch && (
-                                    <div className="absolute bottom-full mb-1 w-full bg-white border rounded-lg shadow-md z-10">
-                                        {filteredPatients.map(p => <button key={p.id} onClick={() => handleAddMember(group.id, p.id)} className="block w-full text-left p-2 text-xs hover:bg-teal-50">{p.name}</button>)}
+                                <input 
+                                    type="text" 
+                                    onChange={e => { setMemberSearch(e.target.value); setActiveSearchGroupId(group.id); }}
+                                    onFocus={() => setActiveSearchGroupId(group.id)}
+                                    placeholder="Add member..." 
+                                    className="input text-xs pl-9"
+                                />
+                                {activeSearchGroupId === group.id && searchResults.length > 0 && (
+                                    <div className="absolute bottom-full mb-1 w-full bg-white border rounded-lg shadow-md z-10 max-h-48 overflow-y-auto">
+                                        {searchResults.map(p => <button key={p.id} onClick={() => handleAddMember(group.id, p.id)} className="block w-full text-left p-2 text-xs hover:bg-teal-50">{p.name}</button>)}
                                     </div>
                                 )}
                             </div>
-                            <button onClick={() => handleRemoveGroup(group.id)} className="mt-4 text-xs text-red-500 font-bold">Delete Group</button>
                         </div>
                     );
                 })}

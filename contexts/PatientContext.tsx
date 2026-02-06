@@ -39,7 +39,7 @@ interface PatientContextType {
     handleSupervisorySeal: (patientId: string, noteToSeal: DentalChartEntry) => Promise<void>;
     handleConfirmRevocation: (patient: Patient, category: ConsentCategory, reason: string, notes: string) => Promise<void>;
     handleRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
-    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string) => Promise<void>;
+    handleApproveFinancialConsent: (patientId: string, planId: string, signature: string, paymentAgreement: any) => Promise<void>;
     handleSaveInformedRefusal: (patientId: string, refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => Promise<void>;
     handleVoidNote: (patientId: string, noteId: string, reason: string) => Promise<string | null>;
     handlePatientSignOffOnNote: (patientId: string, noteId: string, signature: string) => Promise<void>;
@@ -162,7 +162,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         });
     };
 
-    const handleApproveFinancialConsent = async (patientId: string, planId: string, signatureDataUrl: string): Promise<void> => {
+    const handleApproveFinancialConsent = async (patientId: string, planId: string, signatureDataUrl: string, paymentAgreement: any): Promise<void> => {
         const patient = patients.find(p => p.id === patientId);
         if (!patient || !currentUser) return;
 
@@ -171,6 +171,8 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         const planItems = patient.dentalChart?.filter(item => item.planId === plan.id) || [];
         const planTotal = planItems.reduce((acc, item) => acc + (item.price || 0), 0);
+        
+        const financialTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'FINANCIAL_AGREEMENT');
 
         const contextHash = CryptoJS.SHA256(JSON.stringify({
             planId: plan.id,
@@ -181,7 +183,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         
         const previousHash = plan.approvalSignatureChain?.slice(-1)[0]?.hash || '0';
 
-        const signatureEntry = createSignatureEntry(
+        const signatureEntry = await createSignatureEntry(
             signatureDataUrl,
             {
                 signerName: patient.name,
@@ -192,6 +194,9 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
                     deviceInfo: navigator.userAgent,
                     consentType: 'Financial Consent',
                     contextHash,
+                    templateId: financialTemplate?.id,
+                    templateVersion: financialTemplate?.version,
+                    paymentAgreement,
                 },
             }
         );

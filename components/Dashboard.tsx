@@ -1,10 +1,11 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
+  FileWarning, MessageSquare, Heart, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
   Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, 
   UserX
 } from 'lucide-react';
@@ -285,10 +286,45 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
     )
 }
 
+const QuickActionButton: React.FC<{onClick: () => void, icon: React.ElementType, color: string, label: string}> = ({ onClick, icon: Icon, color, label }) => (
+    <button
+        onClick={onClick}
+        aria-label={label}
+        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 transform hover:-translate-y-1 ${color} shadow-lg hover:shadow-2xl`}
+    >
+        <Icon size={32} className="text-white" />
+    </button>
+);
+
+const QuickActionButtons: React.FC<{ openModal: (type: string, props?: any) => void; currentBranch: string }> = ({ openModal, currentBranch }) => {
+    return (
+        <div className="flex items-center gap-6 mb-6">
+            <QuickActionButton
+                onClick={() => openModal('quickAddPatient')}
+                icon={UserPlus}
+                color="bg-teal-600"
+                label="New Patient"
+            />
+            <QuickActionButton
+                onClick={() => openModal('appointment', { currentBranch })}
+                icon={CalendarPlus}
+                color="bg-blue-600"
+                label="New Appointment"
+            />
+            <QuickActionButton
+                onClick={() => openModal('quickTriage', { currentBranch })}
+                icon={AlertTriangle}
+                color="bg-red-600"
+                label="Emergency Triage"
+            />
+        </div>
+    );
+};
+
 
 export const Dashboard: React.FC<DashboardProps> = () => {
   const { openModal } = useModal();
-  const { appointments, handleUpdateAppointmentStatus: onUpdateStatus } = useAppointments();
+  const { appointments, transitionAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
@@ -338,29 +374,32 @@ export const Dashboard: React.FC<DashboardProps> = () => {
   };
 
   return (
-    <div className="w-full h-full dashboard-grid gap-6">
-        <div className="dashboard-col-1 space-y-6">
-            <ActionCenter dailyKPIs={dailyKPIs} actionItems={[]} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysAppointments} patients={patients}/>
-            {currentUser?.role === UserRole.DENTIST && (
-                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">AI Huddle</h3>
-                        <button onClick={fetchHuddle} disabled={isHuddleLoading} className="bg-lilac-100 text-lilac-700 px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2">
-                           {isHuddleLoading ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} {isHuddleLoading ? 'Generating...' : 'Generate Briefing'}
-                        </button>
+    <div className="w-full h-full">
+        <QuickActionButtons openModal={openModal} currentBranch={currentBranch} />
+        <div className="w-full h-full dashboard-grid gap-6">
+            <div className="dashboard-col-1 space-y-6">
+                <ActionCenter dailyKPIs={dailyKPIs} actionItems={[]} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysAppointments} patients={patients}/>
+                {currentUser?.role === UserRole.DENTIST && (
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">AI Huddle</h3>
+                            <button onClick={fetchHuddle} disabled={isHuddleLoading} className="bg-lilac-100 text-lilac-700 px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2">
+                               {isHuddleLoading ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} {isHuddleLoading ? 'Generating...' : 'Generate Briefing'}
+                            </button>
+                        </div>
+                        <div className="prose prose-sm max-w-none bg-slate-50 p-4 rounded-xl border border-slate-100 min-h-[100px]">
+                            {morningHuddle ? <ReactMarkdown>{morningHuddle}</ReactMarkdown> : <p className="italic text-slate-400">Click generate to get your AI-powered morning briefing.</p>}
+                        </div>
                     </div>
-                    <div className="prose prose-sm max-w-none bg-slate-50 p-4 rounded-xl border border-slate-100 min-h-[100px]">
-                        {morningHuddle ? <ReactMarkdown>{morningHuddle}</ReactMarkdown> : <p className="italic text-slate-400">Click generate to get your AI-powered morning briefing.</p>}
-                    </div>
-                </div>
-            )}
-            <RecentPatientsWidget />
-        </div>
-        <div className="dashboard-col-2">
-            <DailySchedule appointments={todaysAppointments} patients={patients} settings={fieldSettings} />
-        </div>
-        <div className="dashboard-col-3">
-             <PatientFlow triageQueue={[]} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={onUpdateStatus} />
+                )}
+                <RecentPatientsWidget />
+            </div>
+            <div className="dashboard-col-2">
+                <DailySchedule appointments={todaysAppointments} patients={patients} settings={fieldSettings} />
+            </div>
+            <div className="dashboard-col-3">
+                 <PatientFlow triageQueue={[]} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={transitionAppointmentStatus} />
+            </div>
         </div>
     </div>
   );

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, TreatmentPlan, SignatureChainEntry, User } from '../types';
 import { X, CheckCircle, ShieldAlert, FileText, Eraser, Users } from 'lucide-react';
@@ -51,7 +52,7 @@ const LeadDentistApprovalModal: React.FC<LeadDentistApprovalModalProps> = ({
   const endSign = () => setIsSigning(false);
   const clear = () => { const ctx = canvasRef.current?.getContext('2d'); if(ctx && canvasRef.current) ctx.clearRect(0,0, canvasRef.current.width, canvasRef.current.height); setHasInk(false); };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!hasInk || !canvasRef.current) {
         toast.error("A signature is required to provide clinical approval.");
         return;
@@ -65,7 +66,8 @@ const LeadDentistApprovalModal: React.FC<LeadDentistApprovalModalProps> = ({
         return;
     }
 
-    const signature = createSignatureEntry(signatureDataUrl, {
+    // FIX: The 'createSignatureEntry' function is asynchronous and must be awaited.
+    const signature = await createSignatureEntry(signatureDataUrl, {
         signerName: approver.name,
         signerRole: 'Lead Dentist',
         signatureType: 'dentist',

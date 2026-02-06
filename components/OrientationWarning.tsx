@@ -16,7 +16,7 @@ export const OrientationWarning: React.FC = () => {
         return () => mediaQuery.removeEventListener('change', handleChange);
     }, []);
 
-    // Only show the warning on non-hoverable (touch) devices when in portrait mode.
+    // Only show the blocking overlay on non-hoverable (touch) devices when in portrait mode.
     if (!isPortrait || isHoverable) {
         return null;
     }

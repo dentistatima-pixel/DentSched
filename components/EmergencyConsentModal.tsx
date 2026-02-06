@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Patient, User, EmergencyTreatmentConsent } from '../types';
 import { X, Zap, CheckCircle } from 'lucide-react';
@@ -36,13 +38,16 @@ const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
             emergencyType: 'Trauma', // Simplified for now
             triageLevel: 'Level 1: Trauma/Bleeding',
             verbalConsentGiven: true,
-            verbalConsentWitnessId: witnessId,
+            // FIX: The property name is `verbalConsentWitnessIds` and it expects an array.
+            verbalConsentWitnessIds: [witnessId],
             verbalConsentTimestamp: new Date().toISOString(),
             signatureObtainedPostTreatment: false, // This would be updated later
             emergencyNarrative: narrative,
             authorizingDentistId: currentUser.id,
             authorizingDentistSignature: 'PENDING_SEAL', // System would seal this
             authorizationTimestamp: new Date().toISOString(),
+            // FIX: Add missing 'emergencyJustification' property to satisfy the type.
+            emergencyJustification: narrative,
         };
         
         logAction('SECURITY_ALERT', 'Patient', patient.id, `Emergency consent documented. Witness: ${staff.find(s=>s.id === witnessId)?.name}. Justification: ${narrative}`);

@@ -497,6 +497,7 @@ export interface ProcedureItem {
   requiresXray?: boolean;
   requiresWitness?: boolean;
   riskDisclosures?: string[];
+  alternatives?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   isPhilHealthCovered?: boolean;
   riskAllergies?: string[]; 
@@ -507,6 +508,13 @@ export interface ProcedureItem {
   postOpInstructions?: string[];
   safetyChecklist?: string[];
   consentTier?: ConsentTier;
+  whatToExpect?: string[];
+  afterCare?: string[];
+  comprehensionQuestions?: {
+      question: string;
+      options: string[];
+      correctAnswer: string;
+  }[];
 }
 
 export interface RolePermissions {
@@ -727,6 +735,13 @@ export interface SignatureChainEntry {
     deviceInfo: string;
     consentLanguage?: 'en' | 'tl';
     contextHash?: string;
+    templateId?: string;
+    templateVersion?: string;
+    witnessHash?: string;
+    interactionTelemetry?: {
+        timeToSignMs: number;
+        strokeCount: number;
+    };
     [key: string]: any; // To embed childAssent data
   };
   guardianIdPhoto?: string;
@@ -740,7 +755,7 @@ export interface EmergencyTreatmentConsent {
   emergencyType: 'Trauma' | 'Severe Pain' | 'Infection' | 'Bleeding';
   triageLevel: 'Level 1: Trauma/Bleeding';
   verbalConsentGiven: boolean;
-  verbalConsentWitnessId: string;
+  verbalConsentWitnessIds: string[];
   verbalConsentTimestamp: string;
   signatureObtainedPostTreatment: boolean;
   signatureTimestamp?: string;
@@ -749,7 +764,12 @@ export interface EmergencyTreatmentConsent {
   authorizingDentistId: string;
   authorizingDentistSignature: string;
   authorizationTimestamp: string;
-  emergencyJustification?: string;
+  emergencyJustification: string;
+  contactAttempts?: Array<{
+    phone: string;
+    time: string;
+    outcome: string;
+  }>;
   emergencyAuthorizedBy?: string;
   twoWitnessClinicians?: string[];
 }
@@ -827,6 +847,7 @@ export interface Appointment {
   patientSignOffSignature?: string;
   patientSignOffTimestamp?: string;
   reminderSentAt?: string;
+  preTreatmentExpectationsReviewed?: boolean;
 }
 
 export enum RegistrationStatus {
@@ -847,7 +868,10 @@ export interface InformedRefusal {
     risk: string;
     acknowledged: boolean;
   }>;
-  alternativesOffered: string[];
+  alternativesDiscussed?: Array<{
+    alternative: string;
+    patientResponse?: string;
+  }>;
   dentistRecommendation: string;
   patientUnderstandsConsequences: boolean;
   patientSignatureChain: SignatureChainEntry[];
@@ -1004,6 +1028,13 @@ export interface Patient {
   researchConsent?: boolean;
   dpaConsent?: boolean;
   lastDigitalUpdate?: string;
+  // FIX: Add 'medHistoryAffirmation' to the Patient type to resolve a type error in medicolegalGuard.ts.
+  medHistoryAffirmation?: {
+    affirmedAt: string;
+    noChanges: boolean;
+    notes?: string;
+    signature?: string;
+  };
   weightKg?: number;
   medicationDetails?: string;
   allergies?: string[];
@@ -1269,6 +1300,7 @@ export interface ConsentFormTemplate {
   category?: 'GENERAL' | 'SURGICAL' | 'PREVENTIVE' | string;
   content_en: string;
   content_tl: string;
+  version: string;
   validityDays?: number;
   requiresRenewal?: boolean;
   requiresWitness?: boolean;
@@ -1346,6 +1378,7 @@ export interface FieldSettings {
   strictMode: boolean;
   editBufferWindowMinutes: number;
   sessionTimeoutMinutes: number;
+  medHistoryReaffirmationDays?: number;
   suffixes: string[];
   civilStatus: string[];
   sex: string[];
@@ -1414,6 +1447,8 @@ export interface FieldSettings {
   savedViews?: SavedView[];
   dataProtectionOfficerId?: string;
   privacyImpactAssessments?: PrivacyImpactAssessment[];
+// FIX: Add 'priceBookEntries' to support pricing information throughout the application.
+  priceBookEntries?: PriceBookEntry[];
 }
 
 export interface Medication {

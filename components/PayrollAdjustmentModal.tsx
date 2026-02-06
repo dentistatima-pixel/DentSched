@@ -5,7 +5,6 @@ import { X, Save, DollarSign } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useToast } from './ToastSystem';
-// FIX: Import `formatDate` from constants to resolve 'Cannot find name' error.
 import { generateUid, formatDate } from '../constants';
 
 interface PayrollAdjustmentModalProps {

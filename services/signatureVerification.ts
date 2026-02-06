@@ -1,6 +1,8 @@
+
 import { SignatureChainEntry, Patient, Appointment } from '../types';
 import CryptoJS from 'crypto-js';
 import { generateUid } from '../constants';
+import { getTrustedTime } from './timeService';
 
 export const validateSignatureChain = (chain: SignatureChainEntry[]): {
   valid: boolean;
@@ -41,15 +43,22 @@ interface CreateSignatureParams {
     signerRole?: string;
     signatureType: SignatureChainEntry['signatureType'];
     previousHash: string;
-    metadata: Record<string, any>;
+    metadata: {
+        interactionTelemetry?: {
+            timeToSignMs: number;
+            strokeCount: number;
+        };
+        [key: string]: any;
+    };
     expiresInDays?: number;
+    contextContent?: string;
 }
 
-export const createSignatureEntry = (
+export const createSignatureEntry = async (
     signatureDataUrl: string,
     params: CreateSignatureParams
-): SignatureChainEntry => {
-    const timestamp = new Date().toISOString();
+): Promise<SignatureChainEntry> => {
+    const { timestamp, isVerified } = await getTrustedTime();
     let expiresAt: string | undefined = undefined;
 
     if (params.expiresInDays) {
@@ -58,12 +67,13 @@ export const createSignatureEntry = (
         expiresAt = expiryDate.toISOString();
     }
     
+    const contextHash = params.contextContent ? CryptoJS.SHA256(params.contextContent).toString() : undefined;
     const nonce = generateUid('nonce');
     const payload = {
         signatureDataUrl,
         timestamp,
         signer: params.signerName,
-        metadata: { ...params.metadata, nonce },
+        metadata: { ...params.metadata, nonce, contextHash },
         expiresAt,
     };
     
@@ -81,7 +91,9 @@ export const createSignatureEntry = (
         metadata: {
             deviceInfo: navigator.userAgent,
             ...params.metadata,
+            contextHash,
             nonce,
+            isVerifiedTimestamp: isVerified,
         },
         expiresAt,
     };

@@ -45,6 +45,7 @@ interface AppContextType {
   syncQueueCount: number;
   isSyncing: boolean;
   enqueueAction: (action: SyncIntent['action'], payload: any) => Promise<void>;
+  processSyncQueue: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -297,12 +298,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         syncQueueCount,
         isSyncing,
         enqueueAction,
+        processSyncQueue,
     }), [
         currentUser, originalUser, systemStatus, isOnline, auditLog, 
         isAuditLogVerified, governanceTrack, currentBranch, isReadOnly, 
         isAuthorityLocked, theme, fullScreenView, isInKioskMode, 
         syncQueueCount, isSyncing, logAction, handleStartImpersonating,
-        handleStopImpersonating, logout, toggleTheme, enqueueAction
+        handleStopImpersonating, logout, toggleTheme, enqueueAction, processSyncQueue
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

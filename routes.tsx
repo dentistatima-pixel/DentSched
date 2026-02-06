@@ -9,7 +9,6 @@ import { Financials } from './components/Financials';
 import Inventory from './components/Inventory';
 import RecallCenter from './components/RecallCenter';
 import ReferralManager from './components/ReferralManager';
-import RosterView from './components/RosterView';
 import LeaveAndShiftManager from './components/LeaveAndShiftManager';
 import { UserRole, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Patient, TreatmentPlanStatus, Appointment, AppointmentStatus, SignatureChainEntry } from './types';
 
@@ -75,9 +74,9 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
             case 'referrals':
                 return <ReferralManagerContainer />;
             case 'roster':
-                return <RosterViewContainer />;
+                return <LeaveAndShiftManagerContainer initialTab="roster" onBack={() => navigate('admin')} />;
             case 'leave':
-                return <LeaveAndShiftManagerContainer />;
+                return <LeaveAndShiftManagerContainer initialTab="requests" onBack={() => navigate('admin')} />;
             case 'familygroups':
                 return <Suspense fallback={<PageLoader />}><FamilyGroupManagerContainer onBack={() => navigate('admin')} /></Suspense>;
             default:
@@ -240,35 +239,24 @@ function ReferralManagerContainer() {
     />;
 }
 
-function RosterViewContainer() {
-    const { staff, handleUpdateStaffRoster } = useStaff();
-    const { fieldSettings } = useSettings();
-    const { currentUser } = useAppContext();
-    const navigate = useNavigate();
-    return <RosterView 
-        staff={staff}
-        fieldSettings={fieldSettings}
-        currentUser={currentUser!}
-        onUpdateStaffRoster={handleUpdateStaffRoster}
-        onBack={() => navigate('admin')}
-    />;
-}
-
-function LeaveAndShiftManagerContainer() {
+function LeaveAndShiftManagerContainer({ initialTab, onBack }: { initialTab?: 'requests' | 'roster'; onBack: () => void; }) {
     const { staff, leaveRequests, handleAddLeaveRequest, handleApproveLeaveRequest, handleUpdateStaffRoster } = useStaff();
     const { currentUser } = useAppContext();
     const { fieldSettings } = useSettings();
-    const navigate = useNavigate();
-    return <LeaveAndShiftManager
-        staff={staff}
-        currentUser={currentUser!}
-        leaveRequests={leaveRequests}
-        onAddLeaveRequest={handleAddLeaveRequest}
-        onApproveLeaveRequest={handleApproveLeaveRequest}
-        fieldSettings={fieldSettings}
-        onBack={() => navigate('admin')}
-        onUpdateStaffRoster={handleUpdateStaffRoster}
-    />;
+
+    return <Suspense fallback={<PageLoader />}>
+        <LeaveAndShiftManager
+            staff={staff}
+            currentUser={currentUser!}
+            leaveRequests={leaveRequests}
+            onAddLeaveRequest={handleAddLeaveRequest}
+            onApproveLeaveRequest={handleApproveLeaveRequest}
+            fieldSettings={fieldSettings}
+            onBack={onBack}
+            onUpdateStaffRoster={handleUpdateStaffRoster}
+            initialTab={initialTab}
+        />
+    </Suspense>;
 }
 
 function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {

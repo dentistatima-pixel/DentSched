@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { usePatient } from '../contexts/PatientContext';
 import { useNavigate } from '../contexts/RouterContext';
@@ -11,8 +10,13 @@ export const RecentPatientsWidget: React.FC = () => {
 
     const recentPatients = useMemo(() => {
         return [...patients]
-            .filter(p => p.lastVisit !== 'First Visit')
-            .sort((a, b) => new Date(b.lastDigitalUpdate || b.lastVisit).getTime() - new Date(a.lastDigitalUpdate || a.lastVisit).getTime())
+            .sort((a, b) => {
+                const dateA = a.lastDigitalUpdate || a.lastVisit;
+                const dateB = b.lastDigitalUpdate || b.lastVisit;
+                if (dateA === 'First Visit') return 1;
+                if (dateB === 'First Visit') return -1;
+                return new Date(dateB).getTime() - new Date(dateA).getTime();
+            })
             .slice(0, 5);
     }, [patients]);
 

@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { UserRole } from '../types';
@@ -8,7 +9,8 @@ const PERMISSION_MAP: Record<UserRole, string[]> = {
     'view:financials',
     'manage:admin',
     'manage:setup',
-    'manage:day-session'
+    'manage:day-session',
+    'void:notes'
   ],
   [UserRole.LEAD_DENTIST]: [
     'view:financials',
@@ -24,7 +26,8 @@ const PERMISSION_MAP: Record<UserRole, string[]> = {
     'view:financials',
     'manage:admin',
     'manage:setup',
-    'use:ai-features'
+    'use:ai-features',
+    'void:notes'
   ],
 };
 

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
@@ -85,11 +86,13 @@ interface RegistrationBasicInfoProps {
   designMode?: boolean;
   onFieldClick?: (fieldId: string, type: 'identity' | 'question') => void;
   selectedFieldId?: string;
+// FIX: Add 'patientAge' to the props interface to accept the calculated age from the parent.
+  patientAge?: number;
 }
 
 const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({ 
     formData, handleChange, handleCustomChange, readOnly, fieldSettings, patients = [], isMasked = false,
-    designMode = false, onFieldClick, selectedFieldId
+    designMode = false, onFieldClick, selectedFieldId, patientAge
 }) => {
   const [refSearch, setRefSearch] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -148,7 +151,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
     setSearchResults([]);
   };
 
-  const isMinor = useMemo(() => (calculateAge(formData.dob) || 18) < 18, [formData.dob]);
+  const isMinor = useMemo(() => (patientAge || 18) < 18, [patientAge]);
   const showGuardian = isMinor || formData.isPwd || formData.isSeniorDependent || designMode;
   const showFemaleQuestions = formData.sex === 'Female' || designMode;
 
@@ -200,7 +203,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           if (coreId === 'age') {
               return (
                 <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
+                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{patientAge ?? '--'}</div></div>
                 </DesignWrapper>
               );
           }

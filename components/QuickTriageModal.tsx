@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
 import { Appointment, AppointmentStatus, Patient, RegistrationStatus, TriageLevel, RecallStatus } from '../types';
@@ -16,8 +15,7 @@ interface QuickTriageModalProps {
 }
 
 const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, currentBranch }) => {
-    // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
-    const { openModal: showModal } = useModal();
+    const { openModal } = useModal();
     const { handleSaveAppointment } = useAppointments();
     const { handleSavePatient } = usePatient();
     const { currentUser } = useAppContext();
@@ -69,7 +67,7 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
         };
 
         if (isEmergency) {
-            showModal('emergencyConsent', {
+            openModal('emergencyConsent', {
                 patient: provisionalPatient,
                 currentUser,
                 onSave: (consentData: any) => {

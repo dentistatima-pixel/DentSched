@@ -26,21 +26,26 @@ export const checkSignatureQuality = (canvas: HTMLCanvasElement, strokes: number
   reason?: string 
 } => {
     const { minX, maxX, minY, maxY, inkPixels } = getSignatureBounds(canvas);
+    if (inkPixels === 0) {
+        return { valid: false, reason: 'A signature is required.' };
+    }
+
     const canvasArea = canvas.width * canvas.height;
-    const minInkCoverage = 0.015; // 1.5%
+    const minInkCoverage = 0.02; // 2%
 
     if (inkPixels / canvasArea < minInkCoverage) {
         return { valid: false, reason: `Signature too small. Please provide a full, substantial signature.` };
     }
     if (strokes < 3) {
-        return { valid: false, reason: 'Signature must have at least 3 distinct strokes.' };
+        return { valid: false, reason: 'A single dot or line is not sufficient. Please sign fully (at least 3 strokes).' };
     }
-    if (timeToSign < 1000) {
-        return { valid: false, reason: 'Please sign more carefully.' };
+    if (timeToSign < 1500) { // At least 1.5 seconds
+        return { valid: false, reason: 'Please take your time to sign carefully.' };
     }
     const spanX = maxX - minX;
     const spanY = maxY - minY;
-    if (spanX < canvas.width * 0.2 || spanY < canvas.height * 0.1) {
+    
+    if (spanX < canvas.width * 0.25 || spanY < canvas.height * 0.15) {
         return { valid: false, reason: 'Signature span is too small. Please use more of the signature area.' };
     }
 

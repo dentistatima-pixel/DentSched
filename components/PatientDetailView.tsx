@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
@@ -21,6 +22,8 @@ import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
 // FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
 import { useAppointments } from '../contexts/AppointmentContext';
+// FIX: Import the new reactive usePatientAge hook.
+import { usePatientAge } from '../hooks/usePatientAge';
 
 
 // Lazy load heavy components
@@ -121,7 +124,8 @@ const DiagnosticGallery: React.FC<{
     const handleTouchStart = (e: React.TouchEvent) => {
         if (e.touches.length === 2) { // Pinch
             e.preventDefault();
-            const [t1, t2] = e.touches;
+            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
+            const [t1, t2] = Array.from(e.touches);
             touchStartRef.current = {
                 distance: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
                 lastPan: null,
@@ -135,14 +139,16 @@ const DiagnosticGallery: React.FC<{
     const handleTouchMove = (e: React.TouchEvent) => {
         if (e.touches.length === 2) { // Zooming
             e.preventDefault();
-            const [t1, t2] = e.touches;
+            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
+            const [t1, t2] = Array.from(e.touches);
             const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
             const scale = Math.max(1, Math.min(5, transform.scale * (currentDistance / touchStartRef.current.distance)));
             setTransform(t => ({ ...t, scale }));
             touchStartRef.current.distance = currentDistance;
         } else if (e.touches.length === 1 && transform.scale > 1 && touchStartRef.current.lastPan) { // Panning
             e.preventDefault();
-            const [touch] = e.touches;
+            // FIX: The 'TouchList' type is not an array and lacks an iterator. Convert it to an array before destructuring.
+            const [touch] = Array.from(e.touches);
             const dx = touch.clientX - touchStartRef.current.lastPan.x;
             const dy = touch.clientY - touchStartRef.current.lastPan.y;
 
@@ -453,11 +459,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const toast = useToast();
   const { can } = useAuthorization();
   const navigate = useNavigate();
-  const { patients } = usePatient();
+  const { patients, isLoading } = usePatient();
   const { setFullScreenView } = useAppContext();
   // FIX: The useModal hook returns `openModal`, not `showModal`. Aliasing to match existing usage.
   const { openModal: showModal } = useModal();
   const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
+  
+  const patientAge = usePatientAge(patient?.dob);
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -518,9 +526,10 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     const flags = getCriticalFlags(patient);
     if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
     if (patient.isPwd) return { bg: 'bg-amber-500', text: 'text-white', sub: 'text-amber-100' };
-    if ((calculateAge(patient.dob) || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
+    // FIX: Replaced static calculateAge with reactive patientAge hook.
+    if ((patientAge || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
     return { bg: 'bg-teal-700', text: 'text-white', sub: 'text-teal-200' };
-  }, [patient]);
+  }, [patient, patientAge]);
 
   const tabs = [
       { id: 'summary', label: 'Details', icon: UserIcon },
@@ -536,6 +545,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       { id: 'history', label: 'History', icon: History },
   ];
   
+  // FIX: Corrected handleChartUpdate to align with Odontogram's onChartUpdate prop, which passes a single entry. This fixes the previous inconsistency.
   const handleChartUpdate = (entry: DentalChartEntry) => {
       const isNew = !patient.dentalChart?.some(e => e.id === entry.id);
       const nextChart = isNew ? [...(patient.dentalChart || []), entry] : patient.dentalChart?.map(e => e.id === entry.id ? entry : e);

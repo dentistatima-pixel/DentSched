@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, DollarSign } from 'lucide-react';
+import { X, CheckCircle, Eraser, FileSignature, DollarSign, Info } from 'lucide-react';
 import { usePatient } from '../contexts/PatientContext';
 import { useToast } from './ToastSystem';
 import { checkSignatureQuality } from '../utils/signatureValidation';
@@ -11,6 +11,8 @@ interface FinancialConsentModalProps {
     patient: Patient;
     plan: TreatmentPlanType;
 }
+
+type PaymentOption = 'full' | '3-month' | '6-month' | 'insurance';
 
 const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
     isOpen, onClose, patient, plan
@@ -26,11 +28,23 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
     });
     const [strokeCount, setStrokeCount] = useState(0);
     const [startTime, setStartTime] = useState<number | null>(null);
+    const [paymentOption, setPaymentOption] = useState<PaymentOption>('full');
+
+    const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
+    const planTotal = planItems.reduce((acc, item) => acc + (item.price || 0), 0);
 
     const allAffirmed = affirmations.understood && affirmations.responsible && affirmations.discussed;
     
-    const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
-    const planTotal = planItems.reduce((acc, item) => acc + (item.price || 0), 0);
+    const installmentDetails = useMemo(() => {
+        if (paymentOption === '3-month') {
+            return { monthly: (planTotal / 3).toFixed(2), months: 3 };
+        }
+        if (paymentOption === '6-month') {
+            return { monthly: (planTotal / 6).toFixed(2), months: 6 };
+        }
+        return null;
+    }, [paymentOption, planTotal]);
+
 
     const setupCanvas = () => {
         const canvas = signatureCanvasRef.current;
@@ -55,6 +69,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
            setAffirmations({ understood: false, responsible: false, discussed: false });
            setStrokeCount(0);
            setStartTime(null);
+           setPaymentOption('full');
            canvas?.addEventListener('touchstart', touchHandler, { passive: false });
         }
         
@@ -70,7 +85,10 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
     };
     
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (e.pointerType === 'touch' && e.width > 10) return;
+        if (e.pointerType === 'touch' && (e.width > 25 || e.height > 25)) {
+            e.preventDefault();
+            return;
+        }
         e.preventDefault(); 
         if (!isSigning) {
             setStrokeCount(prev => prev + 1);
@@ -129,8 +147,14 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
         }
 
         const signatureDataUrl = signatureCanvas.toDataURL('image/png');
+        
+        const paymentAgreement = {
+            option: paymentOption,
+            total: planTotal,
+            ...installmentDetails
+        };
 
-        await handleApproveFinancialConsent(patient.id, plan.id, signatureDataUrl);
+        await handleApproveFinancialConsent(patient.id, plan.id, signatureDataUrl, paymentAgreement);
         if (window.navigator.vibrate) {
             window.navigator.vibrate(50);
         }
@@ -161,7 +185,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 space-y-6">
-                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all ${allAffirmed ? 'opacity-70 grayscale' : ''}`}>
+                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm`}>
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-200">
@@ -187,17 +211,42 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                             </tfoot>
                         </table>
                     </div>
-                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3 transition-all ${allAffirmed ? 'opacity-70 grayscale' : ''}`}>
+
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-slate-800 mb-3">Payment Agreement</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            {(['full', '3-month', '6-month', 'insurance'] as PaymentOption[]).map(opt => (
+                                <label key={opt} className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${paymentOption === opt ? 'bg-teal-50 border-teal-500' : 'border-slate-200'}`}>
+                                    <input type="radio" name="paymentOption" value={opt} checked={paymentOption === opt} onChange={() => setPaymentOption(opt)} className="mr-2"/>
+                                    <span className="font-bold text-sm">
+                                        {opt === 'full' && 'Full Payment Today'}
+                                        {opt === '3-month' && '3-Month Plan'}
+                                        {opt === '6-month' && '6-Month Plan'}
+                                        {opt === 'insurance' && 'Through Insurance (Estimate)'}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        {installmentDetails && (
+                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 animate-in fade-in">
+                                <p><strong className="font-bold">Plan Selected:</strong> {installmentDetails.months}-Month Installment</p>
+                                <p><strong className="font-bold">Monthly Payment:</strong> ₱{installmentDetails.monthly}</p>
+                                <p className="text-xs mt-2 italic">First payment due today. Subsequent payments due on the same day each month. A missed payment policy applies.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3`}>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input type="checkbox" checked={affirmations.understood} onChange={e => setAffirmations(p => ({...p, understood: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <input type="checkbox" checked={affirmations.understood} onChange={e => setAffirmations(p => ({...p, understood: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" />
                             <span className="text-sm font-medium text-slate-700">I understand the provided quote is an estimate and may change based on clinical findings.</span>
                         </label>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input type="checkbox" checked={affirmations.responsible} onChange={e => setAffirmations(p => ({...p, responsible: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <input type="checkbox" checked={affirmations.responsible} onChange={e => setAffirmations(p => ({...p, responsible: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" />
                             <span className="text-sm font-medium text-slate-700">I accept full financial responsibility for the total payment of all procedures performed.</span>
                         </label>
                         <label className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input type="checkbox" checked={affirmations.discussed} onChange={e => setAffirmations(p => ({...p, discussed: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" disabled={allAffirmed}/>
+                            <input type="checkbox" checked={affirmations.discussed} onChange={e => setAffirmations(p => ({...p, discussed: e.target.checked}))} className="w-5 h-5 accent-teal-600 mt-0.5" />
                             <span className="text-sm font-medium text-slate-700">I have had the opportunity to discuss payment options with the clinic staff.</span>
                         </label>
                     </div>
@@ -207,7 +256,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                              <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                          </div>
                          <canvas ref={signatureCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!allAffirmed ? 'cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={allAffirmed ? startSign : undefined} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
-                         <p className="text-sm text-slate-500 mt-2">By signing, I confirm I have reviewed this treatment plan quote and agree to be financially responsible for the estimated total cost.</p>
+                         <p className="text-sm text-slate-500 mt-2">By signing, I confirm I have reviewed this treatment plan quote and agree to be financially responsible for the estimated total cost and selected payment plan.</p>
                     </div>
                 </div>
 

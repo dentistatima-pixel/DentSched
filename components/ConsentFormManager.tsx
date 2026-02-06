@@ -1,86 +1,74 @@
+
 import React, { useState } from 'react';
-import { ConsentFormTemplate, ProcedureItem, Patient, Appointment, SignatureChainEntry, PediatricConsent } from '../types';
-import { FileText } from 'lucide-react';
-import ConsentCaptureModal from './ConsentCaptureModal'; 
+import { ConsentFormTemplate } from '../types';
+import { FileText, Plus, Edit, Trash2 } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContext';
+import { useToast } from './ToastSystem';
 
 interface ConsentFormManagerProps {
-    isOpen: boolean;
-    procedure?: ProcedureItem;
-    templates: ConsentFormTemplate[];
-    patient: Patient;
-    appointment: Appointment;
-    onClose: () => void;
-    onSave: (chain: SignatureChainEntry[], pediatricConsent?: PediatricConsent) => void; 
+    settings: { consentFormTemplates: ConsentFormTemplate[] };
+    onUpdateSettings: (s: any) => void;
 }
 
-export const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ isOpen, procedure, templates, patient, appointment, onClose, onSave }) => {
-    const [selectedTemplate, setSelectedTemplate] = useState<ConsentFormTemplate | null>(null);
-    const [showTemplateSelector, setShowTemplateSelector] = useState(true);
+const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpdateSettings }) => {
+    const [editingTemplate, setEditingTemplate] = useState<Partial<ConsentFormTemplate> | null>(null);
+    const toast = useToast();
 
-    if (!isOpen) return null;
+    const handleSave = () => {
+        if (!editingTemplate || !editingTemplate.name) {
+            toast.error("Template name is required.");
+            return;
+        }
 
-    const getRelevantTemplates = () => {
-        if (!procedure) return templates.filter(t => t.category === 'GENERAL');
+        const isNew = !settings.consentFormTemplates.some(t => t.id === editingTemplate.id);
+        const nextTemplates = isNew
+            ? [...settings.consentFormTemplates, editingTemplate as ConsentFormTemplate]
+            : settings.consentFormTemplates.map(t => t.id === editingTemplate.id ? editingTemplate as ConsentFormTemplate : t);
         
-        return templates.filter(t => {
-            if (procedure.requiresSurgicalConsent) return t.category === 'SURGICAL';
-            if (procedure.isMinorProcedure) return t.category === 'PREVENTIVE';
-            return t.category === 'GENERAL' || t.category === procedure.category;
-        });
+        onUpdateSettings({ ...settings, consentFormTemplates: nextTemplates });
+        toast.success(`Template "${editingTemplate.name}" saved.`);
+        setEditingTemplate(null);
     };
 
-    const TemplateSelector = () => (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8">
-          <h3 className="text-2xl font-black mb-6">Select Consent Form</h3>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-            {getRelevantTemplates().map(template => (
-              <button
-                key={template.id}
-                onClick={() => {
-                  setSelectedTemplate(template);
-                  setShowTemplateSelector(false);
-                }}
-                className="w-full text-left p-4 border-2 border-slate-200 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <FileText size={24} className="text-teal-600 mt-1" />
-                  <div className="flex-1">
-                    <h4 className="font-bold text-slate-900">{template.name}</h4>
-                    <p className="text-sm text-slate-600 mt-1">{template.description}</p>
-                    <div className="flex gap-2 mt-2">
-                      <span className="text-xs bg-slate-100 px-2 py-1 rounded">{template.category}</span>
-                      {template.requiresWitness && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Requires Witness</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <button onClick={onClose} className="mt-4 w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-    
+    const handleRemove = (id: string) => {
+        if (window.confirm("Are you sure you want to delete this template?")) {
+            const nextTemplates = settings.consentFormTemplates.filter(t => t.id !== id);
+            onUpdateSettings({ ...settings, consentFormTemplates: nextTemplates });
+            toast.info("Template deleted.");
+        }
+    };
+
     return (
-        <>
-            {showTemplateSelector && <TemplateSelector />}
-            {selectedTemplate && (
-              <ConsentCaptureModal 
-                isOpen={true}
-                template={selectedTemplate}
-                patient={patient}
-                appointment={appointment}
-                onClose={onClose}
-                onSave={onSave}
-                procedure={procedure}
-              />
+        <div className="space-y-4">
+            <div className="flex justify-end">
+                <button onClick={() => setEditingTemplate({ id: `custom_${Date.now()}`, name: 'New Custom Form', content_en: '', content_tl: '' })} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Plus/> Add Template</button>
+            </div>
+            <div className="space-y-2">
+                {settings.consentFormTemplates.map(template => (
+                    <div key={template.id} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center group">
+                        <span className="font-bold text-sm text-slate-800">{template.name}</span>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+                            <button onClick={() => setEditingTemplate(template)} className="p-2 text-slate-500 hover:text-teal-600"><Edit size={16}/></button>
+                            <button onClick={() => handleRemove(template.id)} className="p-2 text-slate-500 hover:text-red-600"><Trash2 size={16}/></button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {editingTemplate && (
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-2xl space-y-4">
+                        <h3 className="font-bold">Edit Template</h3>
+                        <input value={editingTemplate.name} onChange={e => setEditingTemplate({ ...editingTemplate, name: e.target.value })} className="input"/>
+                        <textarea value={editingTemplate.content_en} onChange={e => setEditingTemplate({ ...editingTemplate, content_en: e.target.value })} className="input h-32" placeholder="English Content"/>
+                        <textarea value={editingTemplate.content_tl} onChange={e => setEditingTemplate({ ...editingTemplate, content_tl: e.target.value })} className="input h-32" placeholder="Tagalog Content"/>
+                        <div className="flex gap-2 justify-end">
+                            <button onClick={() => setEditingTemplate(null)} className="px-4 py-2 text-xs font-bold">Cancel</button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold">Save</button>
+                        </div>
+                    </div>
+                </div>
             )}
-        </>
+        </div>
     );
 };
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
@@ -17,6 +18,7 @@ import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader, CloudOff } from 'luc
 import { Dashboard } from './components/Dashboard';
 import { GlobalShortcuts } from './hooks/useKeyboardShortcuts';
 import { OrientationWarning } from './components/OrientationWarning';
+import { useToast } from './components/ToastSystem';
 
 
 // Lazy load components for the full-screen workspace
@@ -109,10 +111,11 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 export const App: React.FC = () => {
     const { 
       currentUser, setCurrentUser, logAction, fullScreenView, setFullScreenView, 
-      isInKioskMode, setIsInKioskMode, isAuthorityLocked, setIsAuthorityLocked, isOnline
+      isInKioskMode, setIsInKioskMode, isAuthorityLocked, setIsAuthorityLocked, isOnline, logout
     } = useAppContext();
     const { fieldSettings } = useSettings();
     const { route } = useRouter();
+    const toast = useToast();
 
     const [isLocked, setIsLocked] = useState(false);
     const [showSessionWarning, setShowSessionWarning] = useState(false);
@@ -173,8 +176,23 @@ export const App: React.FC = () => {
         };
     }, [resetIdleTimer]);
 
+    useEffect(() => {
+        let hardTimeout: number | undefined;
+        if (currentUser) {
+            hardTimeout = window.setTimeout(() => {
+                logout();
+                toast.warning("Session expired for security reasons. Please log in again.");
+            }, 2 * 60 * 60 * 1000); // 2 hours
+        }
+        return () => {
+            if (hardTimeout) {
+                clearTimeout(hardTimeout);
+            }
+        };
+    }, [currentUser, logout, toast]);
+
     const handleUnlock = (pin: string) => {
-        if (currentUser && currentUser.pin === CryptoJS.SHA256(pin).toString()) {
+        if (currentUser && currentUser.pin === CryptoJS.SHA256(pin + currentUser.id).toString()) {
             setIsLocked(false);
             resetIdleTimer();
             logAction('SESSION_UNLOCK', 'System', currentUser.id, 'User unlocked session.');

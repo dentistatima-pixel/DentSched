@@ -54,7 +54,10 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
     };
 
     const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
-        if (e.pointerType === 'touch' && e.width > 10) return;
+        if (e.pointerType === 'touch' && (e.width > 25 || e.height > 25)) {
+            e.preventDefault();
+            return;
+        }
         e.preventDefault(); 
         if (!isSigning) {
             setStrokeCount(prev => prev + 1);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Patient, AuditLogEntry, FieldSettings, AuthorityLevel } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
@@ -39,6 +40,24 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
     toastRef.current = toast;
   }, [toast]);
 
+  const resetToWelcome = useCallback(() => {
+    // Stop camera completely
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    
+    // Clear all state
+    setStep('welcome');
+    setIdentifier('');
+    setBirthDateInput('');
+    setFoundPatient(null);
+    setCapturedThumb(null);
+    setCapturedHash(null);
+    setIsCameraActive(false);
+  }, []);
+
   useEffect(() => {
     let timeout: number;
     
@@ -47,8 +66,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
         if (step !== 'welcome' && step !== 'thankyou') {
             timeout = window.setTimeout(() => {
                 toastRef.current.warning('Session timed out for your privacy.');
-                setStep('welcome');
-            }, 10 * 60 * 1000); // 10 minutes
+                resetToWelcome();
+            }, 2 * 60 * 1000); // 2 minutes for kiosk
         }
     };
     
@@ -61,7 +80,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
         clearTimeout(timeout);
         events.forEach(e => window.removeEventListener(e, resetTimeout));
     };
-  }, [step]);
+  }, [step, resetToWelcome]);
 
   useEffect(() => {
     if (step === 'welcome') {
@@ -195,8 +214,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
   };
 
   const handlePinExit = () => {
-    const hashedPin = CryptoJS.SHA256(exitPin).toString();
-    if (STAFF.some(s => s.pin === hashedPin)) {
+    const match = STAFF.some(s => s.pin === CryptoJS.SHA256(exitPin + s.id).toString());
+    if (match) {
         onExitKiosk();
     } else {
         toast.error("Incorrect PIN");

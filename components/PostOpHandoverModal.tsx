@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw, CalendarPlus, FileText, User as UserIcon } from 'lucide-react';
 import { Appointment, SignatureChainEntry } from '../types';
@@ -40,7 +41,8 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
         }
         setIsSaving(true);
         try {
-            const signatureEntry = createSignatureEntry(signatureDataUrl, {
+            // FIX: The 'createSignatureEntry' function is asynchronous and must be awaited.
+            const signatureEntry = await createSignatureEntry(signatureDataUrl, {
                 signerName: 'Patient/Guardian',
                 signatureType: 'patient',
                 previousHash: appointment.consentSignatureChain?.slice(-1)[0]?.hash || '0',
