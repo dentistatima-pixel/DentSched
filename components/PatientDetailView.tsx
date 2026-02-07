@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription, FeatureToggles } from '../types';
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
+// FIX: Add PerioMeasurement to imports
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
+// FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
+// Fix: Add missing 'Droplet' icon import from lucide-react.
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
+// FIX: Added 'calculateAge' to the import from '../constants' to resolve an undefined function error.
 import { formatDate, generateUid, calculateAge } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -14,12 +18,14 @@ import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
+// FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
 import { useAppointments } from '../contexts/AppointmentContext';
 
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
 const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
+// FIX: Corrected lazy import to properly handle the named export 'PerioChart'. The previous syntax was causing type resolution issues.
 const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
@@ -55,9 +61,6 @@ interface PatientDetailViewProps {
   onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
   onOpenPostOpHandover: (appointment: Appointment) => void;
   auditLog: AuditLogEntry[];
-  // FIX: Added missing props to resolve PatientDetailContainer mismatch.
-  handleRequestDataDeletion: (patientId: string, type: string, reason: string) => Promise<void>;
-  handleManageDataDeletionRequest: (patientId: string, requestId: string, action: 'Approved' | 'Rejected') => Promise<void>;
 }
 
 const TabLoader: React.FC = () => (
@@ -382,8 +385,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     fieldSettings, logAction, incidents = [], onSaveIncident, referrals = [], onSaveReferral, onBack,
     governanceTrack, onOpenRevocationModal, readOnly, sterilizationCycles, onUpdateSettings,
     onRequestProtocolOverride, onDeleteClinicalNote, onInitiateFinancialConsent, onSupervisorySeal,
-    onRecordPaymentWithReceipt, onOpenPostOpHandover, auditLog,
-    handleRequestDataDeletion, handleManageDataDeletionRequest
+    onRecordPaymentWithReceipt, onOpenPostOpHandover, auditLog
 }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const [noteToAutoEdit, setNoteToAutoEdit] = useState<DentalChartEntry | null>(null);
@@ -546,7 +548,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
             {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
             {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} /></Suspense>}
-            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={(apt: Appointment) => handleUpdateAppointmentStatus(apt.id, apt.status)} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} /></Suspense>}
+            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} /></Suspense>}
             {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
             {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
                 patient={patient} 

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
 import { Appointment, AppointmentStatus, Patient, RegistrationStatus, TriageLevel, RecallStatus } from '../types';
@@ -5,7 +6,6 @@ import { useModal } from '../contexts/ModalContext';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
-import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { generateUid } from '../constants';
 
 interface QuickTriageModalProps {
@@ -19,7 +19,6 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
     const { handleSaveAppointment } = useAppointments();
     const { handleSavePatient } = usePatient();
     const { currentUser } = useAppContext();
-    const { handleAddTask } = useClinicalOps();
     
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -63,17 +62,6 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
                 emergencyConsent: emergencyConsentData,
             };
             handleSaveAppointment(triageAppointment);
-            
-            // AUTOMATED MEDICO-LEGAL FOLLOW-UP TASK
-            if (isEmergency && currentUser) {
-                handleAddTask(
-                    `MANDATORY FOLLOW-UP: Collect stabilized digital signature for ${name} (Emergency Protocol Exception)`,
-                    true, // Set as Urgent
-                    currentUser.id, // Assign to current intake staff
-                    provisionalPatient.id // Link to patient record
-                );
-            }
-
             resetState();
             onClose();
         };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
 import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent, UserCircle, Sparkles, Moon, Sun } from 'lucide-react';
@@ -201,9 +202,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                 </div>
                                 <div className="relative">
                                     <input type="checkbox" id="theme-toggle-profile" checked={theme === 'dark'} onChange={toggleTheme} className="sr-only peer"/>
-                                    <label htmlFor="theme-toggle-profile" className="block w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors cursor-pointer relative">
-                                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                                    </label>
+                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
+                                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center">
@@ -214,15 +214,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                 <div className="relative">
                                     <input 
                                         type="checkbox" 
-                                        id="modal-user-docent-toggle"
-                                        checked={formData.showDigitalDocent ?? true}
+                                        id="user-docent-toggle"
+                                        checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
                                         onChange={handleDocentToggle}
                                         className="sr-only peer"
                                         disabled={!isEditing}
                                     />
-                                    <label htmlFor="modal-user-docent-toggle" className="block w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors relative cursor-pointer peer-disabled:opacity-50 peer-disabled:cursor-not-allowed">
-                                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                                    </label>
+                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6 peer-disabled:cursor-not-allowed"></div>
                                 </div>
                             </div>
                         </div>

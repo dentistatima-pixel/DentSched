@@ -62,8 +62,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             const consent = patient.clinicalMediaConsent;
             let canProceed = false;
 
-            // FIX: Changed consentRevoked to consentRevocation to match interface property.
-            if (consent && consent.generalConsent && !consent.consentRevocation) {
+            if (consent && consent.generalConsent && !consent.consentRevoked) {
                 if (consent.permissions.intraoralPhotos || consent.permissions.extraoralPhotos) {
                     canProceed = true;
                 } else {

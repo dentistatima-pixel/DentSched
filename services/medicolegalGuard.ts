@@ -32,18 +32,6 @@ export const canStartTreatment = (
         if (procedure.allowedLicenseCategories && !procedure.allowedLicenseCategories.includes(provider.licenseCategory!)) {
             return { isBlocked: true, reason: `Scope of Practice Violation: ${procedure.name} requires a ${procedure.allowedLicenseCategories.join('/')} license. ${provider.name} is a ${provider.licenseCategory}.`};
         }
-
-        // --- NEW: Lead Dentist Approval Gate ---
-        if (procedure.requiresLeadApproval && !appointment.leadApproval) {
-            return { 
-                isBlocked: true, 
-                reason: `LEAD AUTHORIZATION REQUIRED: This high-complexity procedure requires a senior clinical seal before treatment can commence.`,
-                modal: { 
-                    type: 'leadDentistApproval', 
-                    props: { appointment, procedure, patient } 
-                } 
-            };
-        }
     }
     
     // 2. Patient Registration Status

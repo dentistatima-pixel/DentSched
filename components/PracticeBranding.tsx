@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
@@ -160,29 +159,8 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const { theme, toggleTheme } = useAppContext();
     const [activeTab, setActiveTab] = useState('identity');
     
-    // Local state for buffered inputs
-    const [localName, setLocalName] = useState(settings.clinicName);
-    const [localTimeout, setLocalTimeout] = useState(settings.sessionTimeoutMinutes.toString());
-    const [localProfile, setLocalProfile] = useState(settings.clinicProfile);
-
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
-
-    // Sync local state when settings change externally
-    useEffect(() => {
-        setLocalName(settings.clinicName);
-        setLocalTimeout(settings.sessionTimeoutMinutes.toString());
-        setLocalProfile(settings.clinicProfile);
-    }, [settings.clinicName, settings.sessionTimeoutMinutes, settings.clinicProfile]);
-
-    const handleCommitChanges = () => {
-        onUpdateSettings({
-            ...settings,
-            clinicName: localName,
-            clinicProfile: localProfile,
-            sessionTimeoutMinutes: parseInt(localTimeout) || 30
-        });
-    };
 
     const handleSaveBranch = (branchToSave: Branch) => {
         const isNew = !branchToSave.id || !settings.branchProfiles.some(b => b.id === branchToSave.id);
@@ -246,37 +224,15 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                     <div className="space-y-8">
                         <div>
                             <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
-                            <input 
-                                id="clinicName" 
-                                type="text" 
-                                value={localName} 
-                                onChange={(e) => setLocalName(e.target.value)} 
-                                onBlur={handleCommitChanges}
-                                className="input text-lg font-bold"
-                            />
+                            <input id="clinicName" type="text" value={settings.clinicName} onChange={(e) => onUpdateSettings({ ...settings, clinicName: e.target.value })} className="input text-lg font-bold"/>
                         </div>
                         <div>
                             <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
-                            <select 
-                                id="clinicProfile" 
-                                value={localProfile} 
-                                onChange={(e) => { setLocalProfile(e.target.value as any); onUpdateSettings({ ...settings, clinicProfile: e.target.value as any }); }} 
-                                className="input text-lg font-bold"
-                            >
-                                <option value="boutique">Boutique / Solo Practice</option>
-                                <option value="corporate">Corporate / Multi-Branch</option>
-                            </select>
+                            <select id="clinicProfile" value={settings.clinicProfile} onChange={(e) => onUpdateSettings({ ...settings, clinicProfile: e.target.value as any })} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
                         </div>
                         <div>
                             <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
-                            <input 
-                                id="sessionTimeout" 
-                                type="number" 
-                                value={localTimeout} 
-                                onChange={(e) => setLocalTimeout(e.target.value)} 
-                                onBlur={handleCommitChanges}
-                                className="input text-lg font-bold"
-                            />
+                            <input id="sessionTimeout" type="number" value={settings.sessionTimeoutMinutes} onChange={(e) => onUpdateSettings({ ...settings, sessionTimeoutMinutes: parseInt(e.target.value) || 30 })} className="input text-lg font-bold"/>
                         </div>
                     </div>
                     <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
@@ -284,6 +240,26 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                         <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                             <button onClick={() => theme === 'dark' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'light' ? 'bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Sun size={14}/> Light</button>
                             <button onClick={() => theme === 'light' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'dark' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Moon size={14}/> Dark</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="label text-sm">Assistance & Training</h4>
+                        <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
+                            <div>
+                                <h4 className="font-bold text-text-primary">Enable Digital Docent by Default</h4>
+                                <p className="text-sm text-text-secondary">Sets the default state for AI help. Users can override this in their profile.</p>
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type="checkbox" 
+                                    id="docent-toggle"
+                                    checked={settings.features.enableDigitalDocent}
+                                    onChange={e => onUpdateSettings({...settings, features: { ...settings.features, enableDigitalDocent: e.target.checked }})}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
+                                <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

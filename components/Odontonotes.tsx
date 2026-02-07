@@ -1,14 +1,12 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, Patient, SignatureChainEntry } from '../types';
-import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle, Fingerprint } from 'lucide-react';
-import { formatDate, isExpired, generateUid } from '../constants';
+// FIX: Added 'Patient' to the import from '../types' to resolve type errors.
+import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
+import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
+import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useModal } from '../contexts/ModalContext';
-import SignatureCaptureOverlay from './SignatureCaptureOverlay';
-import CryptoJS from 'crypto-js';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -17,6 +15,7 @@ const statusColors: { [key in TreatmentStatus]: string } = {
     'Condition': 'border-red-500 bg-red-50 text-red-800',
 };
 
+// Standalone EntryForm component to manage its own state and prevent focus loss
 interface EntryFormProps {
     note: DentalChartEntry;
     procedures: ProcedureItem[];
@@ -25,10 +24,9 @@ interface EntryFormProps {
     onCancel: () => void;
     currentUser: User;
     onAssign: (note: DentalChartEntry) => void;
-    onSignAndSeal: (note: DentalChartEntry) => void;
 }
 
-const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign, onSignAndSeal }) => {
+const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans, onSave, onCancel, currentUser, onAssign }) => {
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
@@ -78,22 +76,27 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             toast.success("AI SOAP note generated.");
         } catch (error) {
             toast.error("Could not generate AI note.");
+            console.error(error);
         } finally {
             setIsSoapLoading(false);
         }
     };
 
+
     const isSealed = !!formData.sealedHash;
     const canGetAiReview = (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT) && formData.needsProfessionalismReview;
+
+    const handleAssignClick = () => {
+        onAssign(formData);
+    };
 
     return (
       <div className="p-8 space-y-6 bg-white rounded-[2rem] border-2 border-teal-100 shadow-xl shadow-teal-900/5 relative">
         {isSealed && (
             <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 text-center rounded-[2rem]">
-                <ShieldCheck size={64} className="text-teal-600 mb-4" />
-                <h4 className="font-black text-teal-800 uppercase tracking-tight text-xl">Clinically Sealed Record</h4>
-                <p className="text-sm text-slate-500 font-bold mt-2 max-w-md">This note is cryptographically locked and signed by the patient. No further modifications are permitted.</p>
-                <div className="mt-6 font-mono text-[10px] bg-white p-3 border rounded-xl shadow-sm">SEAL: {formData.sealedHash?.substring(0,32)}...</div>
+                <Lock size={32} className="text-teal-600 mb-4" />
+                <h4 className="font-black text-teal-800 uppercase tracking-tight">Note Sealed & Finalized</h4>
+                <p className="text-sm text-slate-500 font-bold mt-2">This clinical record is cryptographically sealed and cannot be edited for medico-legal integrity.</p>
             </div>
         )}
         
@@ -130,25 +133,23 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                 </select>
             </div>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label className="label">Status</label>
                 <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
                     {(['Planned', 'Completed', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
-                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-sm font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow text-teal-800' : 'opacity-60'}`}>{status}</button>
+                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-sm font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow' : 'opacity-60'}`}>{status}</button>
                     ))}
                 </div>
             </div>
              <div>
-                <label className="label">Link to Strategy Phase</label>
+                <label className="label">Treatment Phase</label>
                 <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input text-sm font-black uppercase" disabled={isSealed}>
                     <option value="">- Unassigned -</option>
                     {treatmentPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
             </div>
         </div>
-
         <div className="space-y-4 pt-6 border-t border-slate-100">
             <div className="flex justify-between items-center">
                 <label className="label flex items-center gap-2"><Stethoscope size={14}/> SOAP Narrative</label>
@@ -156,42 +157,80 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                     type="button" 
                     onClick={handleGenerateAiSoap}
                     disabled={isSoapLoading || isSealed || !formData.procedure}
-                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
                 >
-                    {isSoapLoading ? <RotateCcw size={12} className="animate-spin" /> : <Sparkles size={12}/>}
+                    {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
                     {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
                 </button>
             </div>
             <div>
-                <label className="label text-[10px]">S (Subjective)</label>
-                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-20 text-sm" disabled={isSealed} placeholder="Chief complaint..."/>
+                <label className="label">S (Subjective)</label>
+                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Patient's chief complaint and history..."/>
             </div>
             <div>
-                <label className="label text-[10px]">O (Objective)</label>
-                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-24 text-sm" disabled={isSealed} placeholder="Clinical findings..."/>
+                <label className="label">O (Objective)</label>
+                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-28" disabled={isSealed} placeholder="Clinical findings and observations..."/>
             </div>
             <div>
-                <label className="label text-[10px]">A (Assessment)</label>
-                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20 text-sm" disabled={isSealed} placeholder="Diagnosis..."/>
+                <label className="label">A (Assessment)</label>
+                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Diagnosis and clinical judgment..."/>
             </div>
              <div>
-                <label className="label text-[10px]">P (Plan / Treatment Done)</label>
-                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24 text-sm" disabled={isSealed} placeholder="Treatment performed today..."/>
+                <label className="label">P (Plan)</label>
+                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
             </div>
         </div>
-
-        <div className="flex justify-between items-center pt-6 border-t border-slate-100">
-            <button type="button" onClick={onCancel} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-xs tracking-widest">Discard Changes</button>
-            <div className="flex gap-3">
-                <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-8 py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Save Draft</button>
-                <button type="button" onClick={() => onSignAndSeal(formData)} disabled={isSealed || !formData.procedure} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3">
-                    <FileSignature size={18}/> Sign & Seal Record
+        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+            <button type="button" onClick={onCancel} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-sm tracking-widest">Cancel</button>
+            {formData.status === 'Planned' && (
+                <button type="button" onClick={handleAssignClick} disabled={isSealed} className="px-8 py-3 bg-teal-700 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-700/20 flex items-center gap-2">
+                    Save & Assign <ArrowRight size={14}/>
                 </button>
-            </div>
+            )}
+            <button type="button" onClick={() => onSave(formData)} disabled={isSealed} className="px-10 py-3 bg-teal-600 text-white rounded-xl font-black uppercase text-sm tracking-widest shadow-lg shadow-teal-600/20 disabled:opacity-50">
+                {formData.id.startsWith('note_') ? 'Save Entry' : 'Update Entry'}
+            </button>
         </div>
       </div>
     );
 };
+
+interface ConsentVerificationGateProps {
+    appointment: Appointment;
+    onAffirm: () => void;
+    onReconsent: () => void;
+}
+
+const ConsentVerificationGate: React.FC<ConsentVerificationGateProps> = ({ appointment, onAffirm, onReconsent }) => {
+    const lastConsentDate = appointment.consentSignatureChain?.[0]?.timestamp;
+    
+    return (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white rounded-[2rem] border-4 border-dashed border-lilac-200 shadow-inner">
+            <div className="w-24 h-24 bg-lilac-100 text-lilac-600 rounded-full flex items-center justify-center mb-6 ring-8 ring-lilac-50">
+                <FileSignature size={48} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight text-center">Consent Verification Gate</h3>
+            <p className="text-sm text-slate-500 mt-2 text-center max-w-md">
+                Before proceeding with documentation for <strong>{appointment.type}</strong>, please verify the patient's consent for today's session.
+            </p>
+            <div className="my-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Last Consent Captured</p>
+                <p className="text-base font-bold text-slate-700 mt-1">
+                    {lastConsentDate ? new Date(lastConsentDate).toLocaleString() : 'No prior consent found for this session.'}
+                </p>
+            </div>
+            <div className="flex gap-4">
+                <button onClick={onReconsent} className="px-8 py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg shadow-amber-900/30 flex items-center gap-2">
+                    <AlertTriangle size={16}/> Require Re-Consent
+                </button>
+                <button onClick={onAffirm} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-2">
+                    <ShieldCheck size={16}/> Affirm Consent is Valid
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 interface OdontonotesProps {
   entries: DentalChartEntry[];
@@ -199,10 +238,9 @@ interface OdontonotesProps {
   patient: Patient;
   onAddEntry: (entry: DentalChartEntry) => void;
   onUpdateEntry: (entry: DentalChartEntry) => void;
-  // FIX: Added onDeleteEntry to props to resolve mismatch with PatientDetailView.
-  onDeleteEntry?: (id: string) => void;
   onUpdateAppointment: (appointment: Appointment) => Promise<void>;
   onQuickUpdatePatient: (patientData: Partial<Patient>) => Promise<void>;
+  onDeleteEntry?: (id: string) => void;
   currentUser: User;
   readOnly?: boolean;
   procedures: ProcedureItem[];
@@ -215,12 +253,12 @@ interface OdontonotesProps {
 }
 
 export const Odontonotes: React.FC<OdontonotesProps> = ({ 
-  entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, onQuickUpdatePatient, currentUser, readOnly, 
+  entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, onQuickUpdatePatient, onDeleteEntry, currentUser, readOnly, 
   procedures, treatmentPlans = [], prefill, onClearPrefill, onSwitchToPlanTab, showModal, logAction
 }) => {
   const toast = useToast();
   const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
-  const [signingNote, setSigningNote] = useState<DentalChartEntry | null>(null);
+  const [verifiedConsentMap, setVerifiedConsentMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (prefill && onClearPrefill) {
@@ -250,111 +288,132 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
 
   const handleSaveNote = (noteToSave: DentalChartEntry) => {
     if (!noteToSave.procedure) {
-      toast.error("Procedure is required.");
+      toast.error("Procedure is a mandatory field for clinical entries.");
       return;
     }
+
+    const procedure = procedures.find(p => p.name === noteToSave.procedure);
+    const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
+    const isHighRisk = highRiskCats.includes(procedure?.category || '');
+    const malpracticeIsExpired = isExpired(currentUser.malpracticeExpiry);
+    
+    if (isHighRisk && malpracticeIsExpired) {
+        toast.error("INDEMNITY LOCK: Cannot save note for high-risk procedure. Malpractice insurance has expired.");
+        return;
+    }
+
+    const totalLength = (noteToSave.subjective || '').length + (noteToSave.objective || '').length + (noteToSave.assessment || '').length + (noteToSave.plan || '').length;
+    const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SYSTEM_ARCHITECT;
+    noteToSave.needsProfessionalismReview = !isAdmin && totalLength > 0 && totalLength < 100;
+
     const isNew = !entries.some(e => e.id === noteToSave.id);
-    if (isNew) onAddEntry(noteToSave);
-    else onUpdateEntry(noteToSave);
+    if (isNew) {
+      onAddEntry(noteToSave);
+      toast.success("New clinical entry added.");
+    } else {
+      onUpdateEntry(noteToSave);
+      toast.success("Clinical entry updated.");
+    }
     setEditingNote(null);
   };
 
-  const handleSignatureSave = async (signatureDataUrl: string, hash: string) => {
-    if (!signingNote) return;
+  const handleAssignToPlan = (noteToSave: DentalChartEntry) => {
+    handleSaveNote(noteToSave);
+    if (onSwitchToPlanTab) {
+        onSwitchToPlanTab();
+    }
+  };
+  
+  const appointmentForEditingNote = useMemo(() => {
+      if (!editingNote || !editingNote.appointmentId) return null;
+      return appointments.find(a => a.id === editingNote.appointmentId);
+  }, [editingNote, appointments]);
+
+  const needsConsentVerification = useMemo(() => {
+      if (!editingNote || !appointmentForEditingNote) return false;
+      const today = new Date().toISOString().split('T')[0];
+      // Only trigger for today's appointments and if not yet verified in this session
+      return appointmentForEditingNote.date === today && !verifiedConsentMap[editingNote.id];
+  }, [editingNote, appointmentForEditingNote, verifiedConsentMap]);
+
+  const handleAffirmConsent = () => {
+    if (!editingNote || !appointmentForEditingNote) return;
+    logAction('AFFIRM_CONSENT', 'Appointment', appointmentForEditingNote.id, `Practitioner affirmed consent validity for procedure: ${appointmentForEditingNote.type}`);
+    setVerifiedConsentMap(prev => ({ ...prev, [editingNote.id]: true }));
+    toast.success("Consent affirmed for this session.");
+  };
+  
+  const handleReconsent = () => {
+    if (!appointmentForEditingNote || !procedures) return;
+    const procedureDef = procedures.find(p => p.name === appointmentForEditingNote.type);
     
-    const sealedNote: DentalChartEntry = {
-        ...signingNote,
-        patientSignature: signatureDataUrl,
-        patientSignatureTimestamp: new Date().toISOString(),
-        sealedHash: hash,
-        sealedAt: new Date().toISOString(),
-        isLocked: true,
-        status: 'Completed'
-    };
-    
-    const isNew = !entries.some(e => e.id === sealedNote.id);
-    if (isNew) onAddEntry(sealedNote);
-    else onUpdateEntry(sealedNote);
-    
-    logAction('SIGN', 'ClinicalNote', sealedNote.id, `Patient signed and sealed record for ${sealedNote.procedure}. Hash: ${hash.substring(0,16)}...`);
-    toast.success("Clinical record signed and cryptographically sealed.");
-    setSigningNote(null);
-    setEditingNote(null);
+    showModal('consentCapture', {
+      patient,
+      appointment: appointmentForEditingNote,
+      template: procedures.find(p => p.id === 'GENERAL_AUTHORIZATION'), // This needs better logic
+      procedure: procedureDef,
+      onSave: (newChain: any) => {
+          const updatedAppointment = { ...appointmentForEditingNote, consentSignatureChain: newChain };
+          // FIX: The component now calls the onUpdateAppointment prop to correctly save the appointment.
+          onUpdateAppointment(updatedAppointment as Appointment);
+          handleAffirmConsent();
+      }
+    });
   };
 
   return (
     <div className="flex h-full">
         <div className="w-full md:w-1/3 border-r border-slate-200 flex flex-col bg-slate-50/50">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-                <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Archive</h3>
-                <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={14}/> New Entry</button>
+                <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Narrative</h3>
+                <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={16}/> New</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {sortedEntries.map(entry => {
                     const isSelected = editingNote?.id === entry.id;
                     return (
-                        <div key={entry.id} onClick={() => setEditingNote(entry)} className={`p-5 rounded-[2rem] cursor-pointer border-2 transition-all ${isSelected ? 'bg-white border-teal-500 shadow-xl' : 'bg-white border-slate-100 hover:border-teal-200'}`}>
+                        <div key={entry.id} onClick={() => setEditingNote(entry)} className={`p-5 rounded-2xl cursor-pointer border-2 transition-all ${isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : entry.needsProfessionalismReview ? 'bg-amber-50 border-amber-200 hover:border-amber-400' : 'bg-white border-slate-100 hover:border-teal-200'}`}>
                             <div className="flex justify-between items-start">
-                                <span className="font-black text-sm text-slate-800 uppercase tracking-tight">{entry.procedure || 'Untitled Note'}</span>
-                                {entry.sealedHash ? <ShieldCheck size={18} className="text-teal-600 shrink-0"/> : <Lock size={14} className="text-slate-300 shrink-0"/>}
+                                <span className="font-black text-base text-slate-800 uppercase tracking-tight">{entry.procedure || 'Untitled Note'}</span>
+                                {entry.sealedHash && <Lock size={14} className="text-teal-600 shrink-0"/>}
                             </div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">{formatDate(entry.date)} &bull; {entry.toothNumber ? `Tooth #${entry.toothNumber}` : 'General'}</div>
-                            <div className="mt-4 pt-3 border-t border-slate-50 flex items-center gap-2">
-                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${statusColors[entry.status]}`}>{entry.status}</span>
-                                <span className="text-[9px] text-slate-400 font-bold ml-auto">Dr. {entry.author?.split(' ').pop()}</span>
+                            <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">{formatDate(entry.date)} &bull; {entry.toothNumber ? `Tooth #${entry.toothNumber}` : 'General Note'}</div>
+                            <div className={`mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 ${isSelected ? 'border-teal-100' : ''}`}>
+                                <span className={`text-sm font-black uppercase px-2 py-0.5 rounded-full border ${statusColors[entry.status]}`}>{entry.status}</span>
+                                <span className="text-sm text-slate-400 font-bold">by {entry.author}</span>
                             </div>
                         </div>
                     );
                 })}
             </div>
         </div>
-        <div className="w-full md:w-2/3 flex flex-col p-8 overflow-y-auto bg-slate-50/30">
+        <div className="w-full md:w-2/3 flex flex-col p-6 overflow-y-auto">
             {editingNote ? (
-                <EntryForm 
-                    note={editingNote}
-                    procedures={procedures}
-                    treatmentPlans={treatmentPlans}
-                    onSave={handleSaveNote}
-                    onCancel={() => setEditingNote(null)}
-                    currentUser={currentUser}
-                    onAssign={(note) => { handleSaveNote(note); onSwitchToPlanTab?.(); }}
-                    onSignAndSeal={setSigningNote}
-                />
+                needsConsentVerification && appointmentForEditingNote ? (
+                    <ConsentVerificationGate 
+                        appointment={appointmentForEditingNote}
+                        onAffirm={handleAffirmConsent}
+                        onReconsent={handleReconsent}
+                    />
+                ) : (
+                    <EntryForm 
+                        note={editingNote}
+                        procedures={procedures}
+                        treatmentPlans={treatmentPlans}
+                        onSave={handleSaveNote}
+                        onCancel={() => setEditingNote(null)}
+                        currentUser={currentUser}
+                        onAssign={handleAssignToPlan}
+                    />
+                )
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-10">
-                    <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center max-w-sm">
-                        <FileText size={48} className="mb-6 opacity-30 text-teal-600"/>
-                        <h4 className="font-black text-slate-500 uppercase tracking-tighter text-lg">Electronic Health Record</h4>
-                        <p className="text-sm font-medium mt-2 leading-relaxed">Select an archive entry or initiate a new clinical narrative for today's session.</p>
-                        <button onClick={() => startNewNote()} className="mt-8 px-8 py-3 bg-teal-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-teal-600/20">Write Note</button>
-                    </div>
+                    <FileText size={48} className="mb-4 opacity-50"/>
+                    <h4 className="font-black text-slate-500 uppercase">Select an entry or create a new one.</h4>
+                    <p className="text-sm">This is the medico-legal record of the patient's clinical history.</p>
                 </div>
             )}
         </div>
-
-        {signingNote && (
-            <SignatureCaptureOverlay 
-                isOpen={true}
-                onClose={() => setSigningNote(null)}
-                onSave={handleSignatureSave}
-                title="Seal Clinical Record"
-                instruction="Please sign below to acknowledge the clinical findings and treatment performed today."
-                themeColor="teal"
-                contextSummary={
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight border-b border-slate-100 pb-3">Treatment Summary</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="font-bold text-slate-400 uppercase text-[10px] block">Procedure</span><span className="font-black text-teal-900">{signingNote.procedure}</span></div>
-                            <div><span className="font-bold text-slate-400 uppercase text-[10px] block">Target</span><span className="font-black text-teal-900">{signingNote.toothNumber ? `Tooth #${signingNote.toothNumber}` : 'General Area'}</span></div>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                            <div><span className="font-black text-[10px] uppercase text-teal-700 block mb-1">Assessment</span><p className="text-xs text-slate-600 italic font-medium leading-relaxed">{signingNote.assessment || 'Normal findings recorded.'}</p></div>
-                            <div><span className="font-black text-[10px] uppercase text-teal-700 block mb-1">Work Done</span><p className="text-xs text-slate-600 font-bold leading-relaxed">{signingNote.plan || 'Procedure completed as planned.'}</p></div>
-                        </div>
-                    </div>
-                }
-            />
-        )}
     </div>
   );
 };

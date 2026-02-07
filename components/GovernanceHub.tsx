@@ -82,9 +82,6 @@ interface GovernanceHubProps {
   onAnonymizePatient: (id: string) => void;
   onBack: () => void;
   incidents: ClinicalIncident[];
-  // Added missing data deletion handlers to resolve prop mismatch in routes.tsx
-  handleRequestDataDeletion: (patientId: string, type: string, reason: string) => Promise<void>;
-  handleManageDataDeletionRequest: (patientId: string, requestId: string, action: 'Approved' | 'Rejected') => Promise<void>;
 }
 
 const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {

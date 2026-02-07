@@ -174,15 +174,14 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
                 <div className="relative">
                     <input 
                         type="checkbox" 
-                        id="profile-user-docent-toggle"
-                        checked={formData.showDigitalDocent ?? true}
+                        id="user-docent-toggle"
+                        checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
                         onChange={e => setFormData({...formData, showDigitalDocent: e.target.checked })}
                         disabled={!isEditing}
                         className="sr-only peer"
                     />
-                    <label htmlFor="profile-user-docent-toggle" className="block w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors relative cursor-pointer peer-disabled:opacity-50 peer-disabled:cursor-not-allowed">
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                    </label>
+                    <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
                 </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FieldSettings, SmsTemplates, SmsTemplateConfig } from '../types';
 import { Smartphone, Cloud, Server, MessageSquare, Save, Zap, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -16,22 +16,15 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
     const [isLocalPasswordVisible, setIsLocalPasswordVisible] = useState(false);
     const [isCloudPasswordVisible, setIsCloudPasswordVisible] = useState(false);
 
-    // Local state to prevent focus loss during typing
-    const [localConfig, setLocalConfig] = useState(smsConfig);
-    const [localTemplates, setLocalTemplates] = useState(smsTemplates);
-
-    // Sync local state when external settings change (e.g. from DB)
-    useEffect(() => {
-        setLocalConfig(smsConfig);
-        setLocalTemplates(smsTemplates);
-    }, [smsConfig, smsTemplates]);
-
     const handleConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target;
-        setLocalConfig(prev => ({ 
-            ...prev, 
-            [name]: type === 'checkbox' ? checked : value 
-        }));
+        onUpdateSettings({ 
+            ...settings, 
+            smsConfig: { 
+                ...smsConfig, 
+                [name]: type === 'checkbox' ? checked : value 
+            } 
+        });
     };
 
     const handleTemplateChange = (id: string, field: keyof SmsTemplateConfig, value: any) => {
@@ -40,13 +33,11 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
             const escapedClinicName = clinicName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             valueToSave = value.replace(new RegExp(escapedClinicName, 'g'), '{ClinicName}');
         }
-        setLocalTemplates(prev => ({ 
-            ...prev, 
-            [id]: { ...prev[id], [field]: valueToSave } 
-        }));
+        const newTemplates = { ...smsTemplates, [id]: { ...smsTemplates[id], [field]: valueToSave } };
+        onUpdateSettings({ ...settings, smsTemplates: newTemplates });
     };
 
-    const hasViolations = Object.values(localTemplates).some(config => 
+    const hasViolations = Object.values(smsTemplates).some(config => 
         PDA_FORBIDDEN_COMMERCIAL_TERMS.some(term => (config as SmsTemplateConfig).text.toLowerCase().includes(term))
     );
 
@@ -55,11 +46,6 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
             toast.error("Cannot save: One or more templates violate PDA advertising rules.");
             return;
         }
-        onUpdateSettings({
-            ...settings,
-            smsConfig: localConfig,
-            smsTemplates: localTemplates
-        });
         toast.success("SMS configuration saved.");
     };
 
@@ -73,13 +59,13 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                 </div>
                 <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] border border-slate-200">
                     <button 
-                        onClick={() => { setLocalConfig({...localConfig, mode: 'LOCAL'}); onUpdateSettings({...settings, smsConfig: {...localConfig, mode: 'LOCAL'}}); }}
-                        className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${localConfig.mode === 'LOCAL' ? 'bg-white text-teal-800 shadow-lg' : 'text-slate-400 hover:text-teal-600'}`}>
+                        onClick={() => onUpdateSettings({...settings, smsConfig: {...smsConfig, mode: 'LOCAL'}})}
+                        className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${smsConfig.mode === 'LOCAL' ? 'bg-white text-teal-800 shadow-lg' : 'text-slate-400 hover:text-teal-600'}`}>
                         <Server size={14}/> Local Server
                     </button>
                     <button 
-                        onClick={() => { setLocalConfig({...localConfig, mode: 'CLOUD'}); onUpdateSettings({...settings, smsConfig: {...localConfig, mode: 'CLOUD'}}); }}
-                        className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${localConfig.mode === 'CLOUD' ? 'bg-white text-lilac-800 shadow-lg' : 'text-slate-400 hover:text-lilac-600'}`}>
+                        onClick={() => onUpdateSettings({...settings, smsConfig: {...smsConfig, mode: 'CLOUD'}})}
+                        className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${smsConfig.mode === 'CLOUD' ? 'bg-white text-lilac-800 shadow-lg' : 'text-slate-400 hover:text-lilac-600'}`}>
                         <Cloud size={14}/> Cloud Server
                     </button>
                 </div>
@@ -102,21 +88,20 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
             {/* Config Sections */}
             <div className="grid grid-cols-1 gap-8">
                 {/* Local Server Config */}
-                <div className={`bg-white p-8 rounded-[3rem] border-4 shadow-2xl space-y-6 transition-all duration-500 ${localConfig.mode === 'LOCAL' ? 'border-teal-500' : 'border-slate-100 opacity-50 scale-95 pointer-events-none'}`}>
+                <div className={`bg-white p-8 rounded-[3rem] border-4 shadow-2xl space-y-6 transition-all duration-500 ${smsConfig.mode === 'LOCAL' ? 'border-teal-500' : 'border-slate-100 opacity-50 scale-95 pointer-events-none'}`}>
                     <h4 className="label text-teal-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2"><Server size={16}/>Local Server (SIM Gateway)</h4>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="label text-xs">Local address</label><input type="text" name="gatewayUrl" value={localConfig.gatewayUrl} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
-                        <div><label className="label text-xs">Public address</label><input type="text" name="publicAddress" value={localConfig.publicAddress || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
-                        <div><label className="label text-xs">Username</label><input type="text" name="local_username" value={localConfig.local_username || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
+                        <div><label className="label text-xs">Local address</label><input type="text" name="gatewayUrl" value={smsConfig.gatewayUrl} onChange={handleConfigChange} className="input"/></div>
+                        <div><label className="label text-xs">Public address</label><input type="text" name="publicAddress" value={smsConfig.publicAddress || ''} onChange={handleConfigChange} className="input"/></div>
+                        <div><label className="label text-xs">Username</label><input type="text" name="local_username" value={smsConfig.local_username || ''} onChange={handleConfigChange} className="input"/></div>
                         <div>
                             <label className="label text-xs">Password</label>
                             <div className="relative">
                                 <input 
                                     type={isLocalPasswordVisible ? "text" : "password"} 
                                     name="local_password" 
-                                    value={localConfig.local_password || ''} 
+                                    value={smsConfig.local_password || ''} 
                                     onChange={handleConfigChange} 
-                                    onBlur={handleSave}
                                     className="input pr-12"
                                 />
                                 <button 
@@ -129,25 +114,24 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                                 </button>
                             </div>
                         </div>
-                        <div className="col-span-2"><label className="label text-xs">Device ID</label><input type="text" name="local_deviceId" value={localConfig.local_deviceId || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
+                        <div className="col-span-2"><label className="label text-xs">Device ID</label><input type="text" name="local_deviceId" value={smsConfig.local_deviceId || ''} onChange={handleConfigChange} className="input"/></div>
                     </div>
                 </div>
 
                 {/* Cloud Server Config */}
-                <div className={`bg-white p-8 rounded-[3rem] border-4 shadow-2xl space-y-6 transition-all duration-500 ${localConfig.mode === 'CLOUD' ? 'border-lilac-500' : 'border-slate-100 opacity-50 scale-95 pointer-events-none'}`}>
+                <div className={`bg-white p-8 rounded-[3rem] border-4 shadow-2xl space-y-6 transition-all duration-500 ${smsConfig.mode === 'CLOUD' ? 'border-lilac-500' : 'border-slate-100 opacity-50 scale-95 pointer-events-none'}`}>
                     <h4 className="label text-lilac-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2"><Cloud size={16}/>Cloud Server (API Provider)</h4>
                      <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2"><label className="label text-xs">Server address</label><input type="text" name="cloudUrl" value={localConfig.cloudUrl || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
-                        <div><label className="label text-xs">Username</label><input type="text" name="cloud_username" value={localConfig.cloud_username || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
+                        <div className="col-span-2"><label className="label text-xs">Server address</label><input type="text" name="cloudUrl" value={smsConfig.cloudUrl || ''} onChange={handleConfigChange} className="input"/></div>
+                        <div><label className="label text-xs">Username</label><input type="text" name="cloud_username" value={smsConfig.cloud_username || ''} onChange={handleConfigChange} className="input"/></div>
                         <div>
                             <label className="label text-xs">Password</label>
                             <div className="relative">
                                 <input 
                                     type={isCloudPasswordVisible ? "text" : "password"} 
                                     name="cloud_password" 
-                                    value={localConfig.cloud_password || ''} 
+                                    value={smsConfig.cloud_password || ''} 
                                     onChange={handleConfigChange} 
-                                    onBlur={handleSave}
                                     className="input pr-12"
                                 />
                                 <button 
@@ -160,7 +144,7 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                                 </button>
                             </div>
                         </div>
-                        <div className="col-span-2"><label className="label text-xs">Device ID</label><input type="text" name="cloud_deviceId" value={localConfig.cloud_deviceId || ''} onChange={handleConfigChange} onBlur={handleSave} className="input"/></div>
+                        <div className="col-span-2"><label className="label text-xs">Device ID</label><input type="text" name="cloud_deviceId" value={smsConfig.cloud_deviceId || ''} onChange={handleConfigChange} className="input"/></div>
                     </div>
                 </div>
 
@@ -171,7 +155,7 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                         <h4 className="font-black text-slate-800 uppercase text-sm">Automated Operational Narratives</h4>
                     </div>
                     <div className="grid grid-cols-1 gap-6">
-                        {Object.entries(localTemplates).map(([key, config]: [string, SmsTemplateConfig]) => {
+                        {Object.entries(smsTemplates).map(([key, config]: [string, SmsTemplateConfig]) => {
                             const forbiddenTerm = PDA_FORBIDDEN_COMMERCIAL_TERMS.find(term => (config as SmsTemplateConfig).text.toLowerCase().includes(term));
                             const displayText = (config as SmsTemplateConfig).text.replace(/{ClinicName}/g, clinicName);
                             return (
@@ -181,12 +165,11 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${forbiddenTerm ? 'text-red-800' : 'text-teal-700'}`}>{config.label}</span>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{config.triggerDescription}</p>
                                         </div>
-                                        <button onClick={() => { handleTemplateChange(key, 'enabled', !config.enabled); handleSave(); }} className={`w-10 h-5 rounded-full p-1 transition-colors flex items-center ${config.enabled ? 'bg-teal-600 justify-end' : 'bg-slate-300 justify-start'}`}><div className="w-3 h-3 bg-white rounded-full"/></button>
+                                        <button onClick={() => handleTemplateChange(key, 'enabled', !config.enabled)} className={`w-10 h-5 rounded-full p-1 transition-colors flex items-center ${config.enabled ? 'bg-teal-600 justify-end' : 'bg-slate-300 justify-start'}`}><div className="w-3 h-3 bg-white rounded-full"/></button>
                                     </div>
                                     <textarea 
                                         value={displayText} 
                                         onChange={e => handleTemplateChange(key, 'text', e.target.value)}
-                                        onBlur={handleSave}
                                         className={`w-full p-3 text-xs font-mono text-slate-600 bg-white border rounded-2xl outline-none h-24 shadow-inner ${forbiddenTerm ? 'border-red-300' : 'border-slate-200 focus:border-teal-500'}`}
                                     />
                                     {forbiddenTerm && (
@@ -209,8 +192,8 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                         type="checkbox" 
                         id="startOnBoot"
                         name="isPollingEnabled"
-                        checked={localConfig.isPollingEnabled}
-                        onChange={(e) => { handleConfigChange(e); handleSave(); }}
+                        checked={smsConfig.isPollingEnabled}
+                        onChange={handleConfigChange}
                         className="sr-only peer"
                     />
                     <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
