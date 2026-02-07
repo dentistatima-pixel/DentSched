@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
-import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent, UserCircle, Sparkles, Moon, Sun } from 'lucide-react';
+import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent, UserCircle, Moon, Sun } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
@@ -65,10 +64,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
       const entry: CpdEntry = { id: `cpd_${Date.now()}`, date: new Date().toISOString().split('T')[0], title: newCpdTitle, units: parseFloat(newCpdUnits) };
       setFormData(prev => ({ ...prev, cpdEntries: [entry, ...(prev.cpdEntries || [])] }));
       setNewCpdTitle(''); setNewCpdUnits('');
-  };
-  
-  const handleDocentToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, showDigitalDocent: e.target.checked }));
   };
 
   return (
@@ -192,7 +187,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
 
                      <div className="bg-bg-secondary p-6 rounded-[2rem] border border-border-primary shadow-inner">
                         <div className="flex items-center gap-3 text-lilac-800 dark:text-lilac-300 font-black uppercase text-xs tracking-widest border-b border-border-secondary pb-3 mb-4">
-                            <Sparkles size={20} /> Interface Preferences
+                            <Sliders size={20} /> Interface Preferences
                         </div>
                          <div className="space-y-4">
                             <div className="flex justify-between items-center">
@@ -204,24 +199,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                                     <input type="checkbox" id="theme-toggle-profile" checked={theme === 'dark'} onChange={toggleTheme} className="sr-only peer"/>
                                     <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
                                     <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h4 className="font-bold text-text-primary">Show Digital Docent</h4>
-                                    <p className="text-xs text-text-secondary">Show AI-powered help icons and panel.</p>
-                                </div>
-                                <div className="relative">
-                                    <input 
-                                        type="checkbox" 
-                                        id="user-docent-toggle"
-                                        checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
-                                        onChange={handleDocentToggle}
-                                        className="sr-only peer"
-                                        disabled={!isEditing}
-                                    />
-                                    <div className="w-14 h-8 bg-slate-200 dark:bg-slate-700 rounded-full peer-checked:bg-teal-600 transition-colors peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
-                                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6 peer-disabled:cursor-not-allowed"></div>
                                 </div>
                             </div>
                         </div>

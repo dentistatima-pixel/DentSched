@@ -1,5 +1,5 @@
 
-import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem } from '../types';
+import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus } from '../types';
 import { isExpired } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';
 
@@ -18,56 +18,50 @@ export const canStartTreatment = (
     provider: User,
     fieldSettings: FieldSettings,
 ): MedicolegalBlock => {
-    // 1. Practitioner License & Authority
+    // 1. Clinical Authority Check
     if (isExpired(provider.prcExpiry)) {
-        return { isBlocked: true, reason: `CLINICAL AUTHORITY LOCK: Practitioner ${provider.name}'s PRC license has expired. Cannot start treatment.` };
+        return { isBlocked: true, reason: `PRC license for ${provider.name} has expired.` };
     }
+
     const procedure = fieldSettings.procedures.find(p => p.name === appointment.type);
-    if (procedure) {
-        const highRiskCats = ['Surgery', 'Endodontics', 'Prosthodontics'];
-        const isHighRisk = highRiskCats.includes(procedure.category || '');
-        if (isHighRisk && isExpired(provider.malpracticeExpiry)) {
-            return { isBlocked: true, reason: `INDEMNITY LOCK: ${provider.name}'s Malpractice Insurance has expired. High-risk procedure '${procedure.name}' cannot be started.` };
-        }
-        if (procedure.allowedLicenseCategories && !procedure.allowedLicenseCategories.includes(provider.licenseCategory!)) {
-            return { isBlocked: true, reason: `Scope of Practice Violation: ${procedure.name} requires a ${procedure.allowedLicenseCategories.join('/')} license. ${provider.name} is a ${provider.licenseCategory}.`};
-        }
-    }
     
-    // 2. Patient Registration Status
-    if (patient.registrationStatus !== 'Complete') {
-        return { isBlocked: true, reason: 'Patient registration is incomplete.', modal: { type: 'incompleteRegistration', props: { patient, missingItems: ['Signature', 'Medical History Section'], riskLevel: 'High' } } };
+    // 2. High-Risk Surgical Affirmation (Strategic Sealing)
+    if (procedure?.category === 'Surgery') {
+        if (!appointment.consentSignatureChain || appointment.consentSignatureChain.length === 0) {
+            return { 
+                isBlocked: true, 
+                reason: 'Surgical procedure requires Red-Button Affirmation Seal.',
+                modal: { 
+                    type: 'consentCapture', 
+                    props: { 
+                        patient, 
+                        appointment, 
+                        template: fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), 
+                        procedure 
+                    } 
+                } 
+            };
+        }
     }
 
-    // 3. Medical History Affirmation for today's session
+    // 3. Medical History Verification Gate
     if (!appointment.medHistoryAffirmation) {
-         return { isBlocked: true, reason: 'Patient medical history must be affirmed for today\'s session.', modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } };
+         return { 
+             isBlocked: true, 
+             reason: 'Medical history requires today\'s affirmation seal.', 
+             modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } 
+         };
     }
 
-    // 4. Clinical Protocols
-    if (fieldSettings.features.enableClinicalProtocolAlerts && procedure) {
-        const { violations, rule } = checkClinicalProtocols(patient, procedure, fieldSettings.clinicalProtocolRules || []);
-        if (violations.length > 0 && rule) {
-            return { isBlocked: true, reason: violations[0], modal: { type: 'protocolOverride', props: { rule } } };
-        }
-    }
-
-    // 5. Consent
-    if (procedure?.requiresConsent && (!appointment.consentSignatureChain || appointment.consentSignatureChain.length === 0)) {
-        const consentTemplate = fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'); // Simplified
-        return { isBlocked: true, reason: 'Procedure requires signed consent.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } } };
-    }
-    
-    // 6. Sterilization
-    if (fieldSettings.features.enableMaterialTraceability && procedure?.traySetup && procedure.traySetup.length > 0 && !appointment.sterilizationVerified) {
-        return { isBlocked: true, reason: 'Procedure requires sterilization verification.', modal: { type: 'sterilizationVerification', props: { appointment, requiredSets: procedure.traySetup, instrumentSets: fieldSettings.instrumentSets || [], sterilizationCycles: fieldSettings.sterilizationCycles || [] } } };
-    }
-
-    // 7. Financial Consent for Plans
+    // 4. Financial Alignment Check
     if (appointment.planId) {
         const plan = patient.treatmentPlans?.find(p => p.id === appointment.planId);
         if (plan && plan.status === TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT) {
-            return { isBlocked: true, reason: 'Financial consent for the treatment plan must be captured.', modal: { type: 'financialConsent', props: { patient, plan } } };
+            return { 
+                isBlocked: true, 
+                reason: 'Phase Estimate requires signature before proceeding.', 
+                modal: { type: 'financialConsent', props: { patient, plan } } 
+            };
         }
     }
 

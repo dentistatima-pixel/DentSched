@@ -35,6 +35,7 @@ const SterilizationVerificationModal = React.lazy(() => import('./SterilizationV
 const DataSubjectRightsModal = React.lazy(() => import('./DataSubjectRightsModal'));
 const ShortcutHelpModal = React.lazy(() => import('./ShortcutHelpModal'));
 const IncompleteRegistrationModal = React.lazy(() => import('./IncompleteRegistrationModal'));
+const SealInspector = React.lazy(() => import('./SealInspector'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -73,6 +74,7 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     dataSubjectRights: DataSubjectRightsModal,
     shortcutHelp: ShortcutHelpModal,
     incompleteRegistration: IncompleteRegistrationModal,
+    sealInspector: SealInspector,
 };
 
 const ModalManager: React.FC = () => {

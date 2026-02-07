@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 // FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
@@ -20,6 +21,7 @@ import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
 // FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
 import { useAppointments } from '../contexts/AppointmentContext';
+import { SealBadge } from './SealBadge';
 
 
 // Lazy load heavy components
@@ -518,10 +520,24 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             {activeTab === 'summary' && (
                 <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-500">
                     <div className="md:col-span-12">
-                        <div className="flex flex-wrap gap-3">
-                            {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
-                                <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
-                            ))}
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap gap-3">
+                                {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
+                                    <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
+                                ))}
+                            </div>
+                            {patient.registrationSignature && (
+                                <SealBadge 
+                                    data={{
+                                        signerName: patient.name,
+                                        signerRole: 'Patient (Registration)',
+                                        timestamp: patient.registrationSignatureTimestamp!,
+                                        signatureUrl: patient.registrationSignature!,
+                                        snapUrl: patient.identitySnap,
+                                        title: 'Initial Intake Registration Seal'
+                                    }}
+                                />
+                            )}
                         </div>
                     </div>
                     <InfoItem label="Mobile" value={patient.phone} icon={Phone} />

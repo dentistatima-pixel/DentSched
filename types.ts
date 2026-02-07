@@ -706,6 +706,7 @@ export interface SignatureChainEntry {
   id: string;
   signatureType: SignatureType;
   signatureDataUrl: string;
+  identitySnap?: string; // NEW: 96x96 grayscale image for strategic sealing
   timestamp: string;
   signerName: string;
   signerRole?: string;
@@ -1004,6 +1005,7 @@ export interface Patient {
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
   registrationPhotoHash?: string;
+  identitySnap?: string; // NEW: Grayscale ID proof
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
   registrationStatus?: RegistrationStatus;
@@ -1061,6 +1063,7 @@ export interface TreatmentPlan {
   color?: string;
   financialConsentSignature?: string;
   financialConsentTimestamp?: string;
+  financialConsentSnap?: string; // NEW: Identity snap for financial estimate
   discountAmount?: number;
   discountReason?: string;
   consultations?: {
