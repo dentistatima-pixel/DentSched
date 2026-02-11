@@ -1,10 +1,34 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer } from 'react';
 import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
 import { useSettings } from './SettingsContext';
 import { DataService } from '../services/dataService';
+
+// --- START: REDUCER LOGIC ---
+type PatientAction =
+  | { type: 'SET_PATIENTS'; payload: Patient[] }
+  | { type: 'ADD_PATIENT'; payload: Patient }
+  | { type: 'UPDATE_PATIENT'; payload: Partial<Patient> & { id: string } };
+
+const patientReducer = (state: Patient[], action: PatientAction): Patient[] => {
+  switch (action.type) {
+    case 'SET_PATIENTS':
+      return action.payload;
+    case 'ADD_PATIENT':
+      return [...state, action.payload];
+    case 'UPDATE_PATIENT':
+      return state.map(patient =>
+        patient.id === action.payload.id
+          ? { ...patient, ...action.payload }
+          : patient
+      );
+    default:
+      return state;
+  }
+};
+// --- END: REDUCER LOGIC ---
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -48,12 +72,14 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     const toast = useToast();
     const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction } = useAppContext();
     const { fieldSettings, setFieldSettings, addScheduledSms } = useSettings();
-    const [patients, setPatients] = useState<Patient[]>([]);
+    const [patients, dispatch] = useReducer(patientReducer, []);
     const [isLoading, setIsLoading] = useState(true);
     
     useEffect(() => {
         setIsLoading(true);
-        DataService.getPatients().then(setPatients).catch(err => {
+        DataService.getPatients().then(data => {
+            dispatch({ type: 'SET_PATIENTS', payload: data });
+        }).catch(err => {
             toast.error("Failed to load patient data.");
             console.error(err);
         }).finally(() => setIsLoading(false));
@@ -99,12 +125,18 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         
         const isNew = !patientData.id || !patients.some(p => p.id === patientData.id);
         const oldPatient = isNew ? null : patients.find(p => p.id === patientData.id);
-        const fullName = `${patientData.firstName || ''} ${patientData.middleName || ''} ${patientData.surname || ''}`.replace(/\s+/g, ' ').trim();
+        const fullName = ('firstName' in patientData && 'surname' in patientData) 
+            ? `${patientData.firstName || ''} ${patientData.middleName || ''} ${patientData.surname || ''}`.replace(/\s+/g, ' ').trim() 
+            : oldPatient?.name;
 
         if (!isOnline) {
             const offlinePatient = { ...patientData, name: fullName, isPendingSync: true } as Patient;
             
-            setPatients(prev => isNew ? [...prev, offlinePatient] : prev.map(p => p.id === offlinePatient.id ? offlinePatient : p));
+            if (isNew) {
+                dispatch({ type: 'ADD_PATIENT', payload: offlinePatient });
+            } else {
+                dispatch({ type: 'UPDATE_PATIENT', payload: offlinePatient as Partial<Patient> & { id: string } });
+            }
             await enqueueAction(isNew ? 'REGISTER_PATIENT' : 'UPDATE_PATIENT', offlinePatient);
             toast.info(`Offline: Patient "${offlinePatient.name}" saved locally.`);
             return;
@@ -114,9 +146,11 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             const patientToSave = { ...patientData, name: fullName };
             const updatedPatient = await DataService.savePatient(patientToSave);
 
-            setPatients(prev => {
-                return isNew ? [...prev, updatedPatient] : prev.map(p => p.id === updatedPatient.id ? updatedPatient : p);
-            });
+            if (isNew) {
+                dispatch({ type: 'ADD_PATIENT', payload: updatedPatient });
+            } else {
+                dispatch({ type: 'UPDATE_PATIENT', payload: updatedPatient as Partial<Patient> & { id: string } });
+            }
 
             logAction(oldPatient ? 'UPDATE' : 'CREATE', 'Patient', updatedPatient.id, generateDiff(oldPatient, updatedPatient));
             toast.success(`Patient "${updatedPatient.name}" saved.`);
@@ -143,7 +177,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             amount: paymentDetails.amount, balanceAfter: newBalance, orNumber: paymentDetails.orNumber, orDate: paymentDetails.date,
         };
 
-        await handleSavePatient({ ...patient, ledger: [...(patient.ledger || []), newLedgerEntry], currentBalance: newBalance });
+        await handleSavePatient({ id: patient.id, ledger: [...(patient.ledger || []), newLedgerEntry], currentBalance: newBalance });
         
         const nextOr = parseInt(paymentDetails.orNumber) + 1;
         if (!isNaN(nextOr)) {
@@ -165,7 +199,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             ? { ...p, status: TreatmentPlanStatus.APPROVED, financialConsentSignature: signature, financialConsentTimestamp: new Date().toISOString() } 
             : p
         );
-        await handleSavePatient({ ...patient, treatmentPlans: updatedPlans });
+        await handleSavePatient({ id: patient.id, treatmentPlans: updatedPlans });
         toast.success("Financial consent approved.");
     };
 
@@ -176,7 +210,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             return;
         }
 
-        const anonymizedPatient: Partial<Patient> = {
+        const anonymizedPatient: Partial<Patient> & { id: string } = {
             ...patientToAnonymize,
             isAnonymized: true,
             name: `ANONYMIZED-${patientId}`,
@@ -219,13 +253,12 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const handleUpdatePatientRecall = async (patientId: string, status: RecallStatus) => {
-        const patient = patients.find(p => p.id === patientId);
-        if(patient) await handleSavePatient({ ...patient, recallStatus: status });
+        await handleSavePatient({ id: patientId, recallStatus: status });
     };
 
     const handleDeleteClinicalNote = async (patientId: string, noteId: string) => {
         const patient = patients.find(p => p.id === patientId);
-        if(patient) await handleSavePatient({ ...patient, dentalChart: patient.dentalChart?.filter(note => note.id !== noteId) });
+        if(patient) await handleSavePatient({ id: patient.id, dentalChart: patient.dentalChart?.filter(note => note.id !== noteId) });
         toast.info("Clinical note deleted.");
     };
     
@@ -234,14 +267,12 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         const patient = patients.find(p => p.id === patientId);
         if(patient) {
             const updatedChart = patient.dentalChart?.map(note => note.id === noteToSeal.id ? { ...note, isPendingSupervision: false, supervisorySeal: { dentistId: currentUser.id, dentistName: currentUser.name, timestamp: new Date().toISOString(), hash: 'sealed' } } : note);
-            await handleSavePatient({ ...patient, dentalChart: updatedChart });
+            await handleSavePatient({ id: patient.id, dentalChart: updatedChart });
             toast.success("Note sealed under supervision.");
         }
     };
     
     const handleConfirmRevocation = async (patient: Patient, category: ConsentCategory, reason: string, notes: string) => {
-        // FIX: Added the required `expiryDate` property to the new log entry.
-        // A consent revocation effectively means it expires at that moment.
         const timestamp = new Date().toISOString();
         const updatedLogs = [...(patient.consentLogs || []), { 
             category, 
@@ -250,7 +281,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             version: fieldSettings.currentPrivacyVersion,
             expiryDate: timestamp 
         }];
-        await handleSavePatient({ ...patient, consentLogs: updatedLogs });
+        await handleSavePatient({ id: patient.id, consentLogs: updatedLogs });
         logAction('SECURITY_ALERT', 'Patient', patient.id, `Consent Revoked for category: ${category}. Reason: ${reason}`);
         toast.warning(`Consent for ${category} has been revoked.`);
     };
@@ -268,12 +299,10 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             patientId: patientId,
         };
 
-        const updatedPatient = {
-            ...patient,
+        await handleSavePatient({
+            id: patient.id,
             informedRefusals: [...(patient.informedRefusals || []), newRefusal],
-        };
-
-        await handleSavePatient(updatedPatient);
+        });
         logAction('CREATE', 'InformedRefusal', newRefusal.id, `Documented refusal for: ${refusalData.relatedEntity.entityDescription}`);
     };
 
@@ -313,7 +342,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             return note;
         }).flat() as DentalChartEntry[];
 
-        await handleSavePatient({ ...patient, dentalChart: newChart });
+        await handleSavePatient({ id: patient.id, dentalChart: newChart });
         logAction('SECURITY_ALERT', 'ClinicalNote', noteId, `Note VOIDED and amended. Reason: ${reason}. New note is ${newNoteId}`);
         toast.success("Note amended. Please complete and save the new version.");
         return newNoteId;
@@ -332,7 +361,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             }
             return note;
         });
-        await handleSavePatient({ ...patient, dentalChart: newChart });
+        await handleSavePatient({ id: patient.id, dentalChart: newChart });
         logAction('SIGN', 'ClinicalNote', noteId, 'Patient sign-off captured for completed procedure.');
         toast.success("Patient sign-off recorded.");
     };

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack } from '../types';
 import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
@@ -266,4 +265,4 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
     );
 };
 
-export default PatientLedger;
+export default React.memo(PatientLedger);

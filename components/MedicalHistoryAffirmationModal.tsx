@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Patient, Appointment } from '../types';
 import { X, HeartPulse, CheckCircle, Eraser, AlertTriangle } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -25,13 +25,59 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
 }) => {
   const [step, setStep] = useState<'question' | 'details'>('question');
   const [notes, setNotes] = useState('');
-  const [isSigning, setIsSigning] = useState(false);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const toast = useToast();
 
   const daysSinceUpdate = patient.lastDigitalUpdate ? Math.floor(
     (Date.now() - new Date(patient.lastDigitalUpdate).getTime()) / (1000 * 60 * 60 * 24)
   ) : null;
+  
+    // --- START: Refactored Signature Logic ---
+    const isDrawingRef = useRef(false);
+    
+    const getCoords = (e: PointerEvent) => {
+        const canvas = signatureCanvasRef.current;
+        if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    };
+
+    const draw = useCallback((e: PointerEvent) => {
+        if (!isDrawingRef.current) return;
+        e.preventDefault();
+        const canvas = signatureCanvasRef.current;
+        if (!canvas) return;
+        const { x, y, pressure } = getCoords(e);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2.5;
+            ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+    }, []);
+
+    const stopSign = useCallback(() => {
+        isDrawingRef.current = false;
+        window.removeEventListener('pointermove', draw);
+        window.removeEventListener('pointerup', stopSign);
+    }, [draw]);
+
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        if (e.pointerType === 'touch' && e.width > 10) return;
+        e.preventDefault();
+        isDrawingRef.current = true;
+        const { x, y } = getCoords(e.nativeEvent);
+        const ctx = e.currentTarget.getContext('2d');
+        ctx?.beginPath();
+        ctx?.moveTo(x, y);
+
+        window.addEventListener('pointermove', draw);
+        window.addEventListener('pointerup', stopSign);
+    };
+    // --- END: Refactored Signature Logic ---
 
   const setupCanvas = () => {
     const canvas = signatureCanvasRef.current;
@@ -56,37 +102,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
           setTimeout(setupCanvas, 50);
       }
   }, [isOpen, step]);
-
-  const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = e.currentTarget;
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
-  };
-
-  const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
-    if (e.pointerType === 'touch' && e.width > 10) return;
-    e.preventDefault(); 
-    setIsSigning(true); 
-    const { x, y } = getCoords(e); 
-    const ctx = e.currentTarget.getContext('2d'); 
-    ctx?.beginPath(); 
-    ctx?.moveTo(x, y); 
-  };
-  const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { 
-    if (!isSigning) return; 
-    e.preventDefault(); 
-    const { x, y, pressure } = getCoords(e); 
-    const ctx = e.currentTarget.getContext('2d'); 
-    if(ctx){ 
-        const isPen = e.pointerType === 'pen';
-        const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
-        const baseWidth = isPen ? 1.5 : 2.5;
-        ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
-        ctx.lineTo(x, y); 
-        ctx.stroke(); 
-    } 
-  };
+  
   const clearCanvas = () => { const canvas = signatureCanvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
 
   const handleNoChanges = () => {
@@ -167,7 +183,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
                         <label className="label">Patient/Guardian Signature *</label>
                         <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                     </div>
-                    <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} onPointerUp={stopSign} onPointerLeave={stopSign} onPointerMove={draw}/>
+                    <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} />
                     <p className="text-xs text-slate-400 mt-2 font-bold uppercase">This signature applies ONLY to the information shown.</p>
                 </div>
              </div>

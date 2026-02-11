@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
@@ -23,7 +22,6 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
   const toast = useToast();
-  const [isSigning, setIsSigning] = useState(false);
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [hasInk, setHasInk] = useState(false);
@@ -51,6 +49,62 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     shadow: 'shadow-lilac-600/30'
   };
 
+  // --- START: Refactored Signature Logic ---
+  const isDrawingRef = useRef(false);
+  const lastDrawTime = useRef(0);
+
+  const getCoords = (e: PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+  };
+
+  const draw = useCallback((e: PointerEvent) => {
+      if (!isDrawingRef.current) return;
+      e.preventDefault();
+
+      const now = Date.now();
+      if (now - lastDrawTime.current < 16) return;
+      lastDrawTime.current = now;
+      
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const { x, y, pressure } = getCoords(e);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+          const isPen = e.pointerType === 'pen';
+          const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+          const baseWidth = isPen ? 3 : 5;
+          ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          setHasInk(true);
+      }
+  }, []);
+  
+  const stopSign = useCallback(() => {
+      isDrawingRef.current = false;
+      window.removeEventListener('pointermove', draw);
+      window.removeEventListener('pointerup', stopSign);
+  }, [draw]);
+
+  const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!allAffirmed && contextSummary) return;
+      if (e.pointerType === 'touch' && e.width > 10) return;
+      e.preventDefault();
+      
+      isDrawingRef.current = true;
+      const { x, y } = getCoords(e.nativeEvent);
+      const ctx = e.currentTarget.getContext('2d');
+      ctx?.beginPath();
+      ctx?.moveTo(x, y);
+
+      window.addEventListener('pointermove', draw);
+      window.addEventListener('pointerup', stopSign);
+  };
+  // --- END: Refactored Signature Logic ---
+
   const setupCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas || !canvas.parentElement) return;
@@ -74,104 +128,54 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 160, facingMode: 'user' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-        setTimeout(() => setIsFaceDetected(true), 1500);
-      }
-    } catch (err) {
-      console.warn("Witness camera access restricted.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-    }
-    setIsCameraActive(false);
-  };
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const touchStartHandler = (e: TouchEvent) => {
-        if (e.touches.length > 1) { // Palm rejection
-            e.preventDefault();
+    if (!isOpen) return;
+
+    let stream: MediaStream | null = null;
+    let isCancelled = false;
+    
+    const start = async () => {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 160, facingMode: 'user' } });
+            if (isCancelled) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setIsCameraActive(true);
+                setTimeout(() => { if (!isCancelled) setIsFaceDetected(true); }, 1500);
+            }
+        } catch (err) {
+            console.warn("Witness camera access restricted.");
         }
     };
 
-    if (isOpen) {
-      setTimeout(setupCanvas, 100);
-      startCamera();
-      setHasInk(false);
-      setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true }); // Default to true for simpler flows unless context is provided
-      if (canvas) {
-        canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
-      }
-
-      const timer = setTimeout(() => {
-        toast.error('Signature session expired for security reasons.', { duration: 5000 });
-        onClose();
-        console.warn('SECURITY_ALERT: Signature capture timed out.');
-      }, SIGNATURE_TIMEOUT_SECONDS * 1000);
-
-      return () => {
-        clearTimeout(timer);
-        stopCamera();
-        if (canvas) {
-          canvas.removeEventListener('touchstart', touchStartHandler);
-        }
-      };
-    } else {
-      stopCamera();
-    }
-  }, [isOpen, onClose, toast]);
-
-  const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
-  };
-
-  const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && e.width > 10) return; // Palm rejection
-    if (!allAffirmed && contextSummary) return;
-    e.preventDefault();
-    setIsSigning(true);
-    const { x, y } = getCoords(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    ctx?.beginPath();
-    ctx?.moveTo(x, y);
-  };
-
-  const lastDrawTime = useRef(0);
-  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isSigning || (!allAffirmed && contextSummary)) return;
-    e.preventDefault();
+    setTimeout(setupCanvas, 100);
+    start();
+    setHasInk(false);
+    setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true });
     
-    const now = Date.now();
-    if (now - lastDrawTime.current < 16) { // ~60fps throttle
-        return;
-    }
-    lastDrawTime.current = now;
+    const timer = setTimeout(() => {
+        if (!isCancelled) {
+            toast.error('Signature session expired for security reasons.', { duration: 5000 });
+            onClose();
+            console.warn('SECURITY_ALERT: Signature capture timed out.');
+        }
+    }, SIGNATURE_TIMEOUT_SECONDS * 1000);
 
-    const { x, y, pressure } = getCoords(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    if (ctx) {
-      const isPen = e.pointerType === 'pen';
-      const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
-      const baseWidth = isPen ? 3 : 5;
-      ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      setHasInk(true);
-    }
-  };
-
-  const endDraw = () => setIsSigning(false);
+    return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+        setIsCameraActive(false);
+    };
+}, [isOpen, onClose, toast, contextSummary]);
 
   const handleClear = () => {
     const canvas = canvasRef.current;
@@ -275,11 +279,8 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <button onClick={handleClear} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><Eraser size={16} /></button>
             <canvas 
               ref={canvasRef} 
-              className={`w-full touch-none cursor-crosshair ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
-              onPointerDown={startDraw}
-              onPointerMove={draw}
-              onPointerUp={endDraw}
-              onPointerLeave={endDraw}
+              className={`w-full touch-none ${!allAffirmed && contextSummary ? 'cursor-not-allowed' : 'cursor-crosshair'} ${contextSummary ? 'h-[300px]' : 'h-[400px]'}`}
+              onPointerDown={startSign}
             />
             <div className="absolute bottom-10 left-8 right-8 h-px bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none" />
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-black text-slate-300 uppercase">Signature Baseline</div>

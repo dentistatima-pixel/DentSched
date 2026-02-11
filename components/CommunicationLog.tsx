@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Patient, CommunicationLogEntry, CommunicationChannel } from '../types';
 import { MessageSquare, Phone, StickyNote, Send, Plus } from 'lucide-react';
@@ -7,7 +6,7 @@ import { useAppContext } from '../contexts/AppContext';
 
 interface CommunicationLogProps {
   patient: Patient;
-  onUpdatePatient: (patient: Patient) => void;
+  onUpdatePatient: (patient: Partial<Patient>) => void;
 }
 
 const channelIcons: Record<CommunicationChannel, React.ElementType> = {
@@ -35,12 +34,13 @@ const CommunicationLog: React.FC<CommunicationLogProps> = ({ patient, onUpdatePa
       content: newLogContent,
     };
 
-    const updatedPatient: Patient = {
-      ...patient,
-      communicationLog: [newLog, ...(patient.communicationLog || [])],
-    };
+    const updatedLog = [newLog, ...(patient.communicationLog || [])];
 
-    onUpdatePatient(updatedPatient);
+    onUpdatePatient({
+      id: patient.id,
+      communicationLog: updatedLog,
+    });
+
     setNewLogContent('');
     setIsAdding(false);
   };

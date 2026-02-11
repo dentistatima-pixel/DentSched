@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, LicenseCategory } from '../types';
-import { Save, Edit, X, Shield, Percent, MapPin, Power, PowerOff } from 'lucide-react';
+import { Save, Edit, X, Shield, Percent, Sparkles, MapPin, Power, PowerOff } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
@@ -163,6 +163,28 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
             </div>
           </div>
         )}
+        
+         <div className="space-y-4 pt-8 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="label text-sm flex items-center gap-2"><Sparkles size={16}/> Interface Preferences</h4>
+            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-700 p-4 rounded-xl">
+                <div>
+                    <h4 className="font-bold text-text-primary">Show Digital Docent</h4>
+                    <p className="text-xs text-text-secondary">Show AI-powered help icons and panel.</p>
+                </div>
+                <div className="relative">
+                    <input 
+                        type="checkbox" 
+                        id="user-docent-toggle"
+                        checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
+                        onChange={e => setFormData({...formData, showDigitalDocent: e.target.checked })}
+                        disabled={!isEditing}
+                        className="sr-only peer"
+                    />
+                    <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+                </div>
+            </div>
+          </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm space-y-6">

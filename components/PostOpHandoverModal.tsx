@@ -1,110 +1,113 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, Camera, Eraser } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw, CalendarPlus, FileText } from 'lucide-react';
 import { Appointment } from '../types';
 import { useToast } from './ToastSystem';
 
 interface PostOpHandoverModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (handoverData: { signature: string; snap: string }) => Promise<void>;
+    onConfirm: (handoverData: { instructions: string; followUpDays: number }) => Promise<void>;
     appointment: Appointment;
 }
 
 const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm, appointment }) => {
     const toast = useToast();
     const [isSaving, setIsSaving] = useState(false);
-    const [hasInk, setHasInk] = useState(false);
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+    const [checks, setChecks] = useState({
+        oral: false,
+        written: false,
+        emergency: false,
+        medication: false,
+    });
+    const [instructions, setInstructions] = useState('');
+    const [followUpDays, setFollowUpDays] = useState(7);
 
-    const setupResources = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320 } });
-            if (videoRef.current) videoRef.current.srcObject = stream;
-            
-            const c = sigCanvasRef.current;
-            if (c) {
-                c.width = c.parentElement?.clientWidth || 400; c.height = 100;
-                const ctx = c.getContext('2d');
-                if (ctx) { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; }
-            }
-        } catch (e) { console.error(e); }
-    };
 
-    useEffect(() => {
-        if (isOpen) setupResources();
-        return () => {
-            if (videoRef.current?.srcObject) (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-        };
-    }, [isOpen]);
+    if (!isOpen) return null;
+
+    const allChecked = checks.oral && checks.written && checks.emergency && checks.medication;
 
     const handleConfirm = async () => {
-        if (!hasInk) { toast.error("Patient signature required."); return; }
+        if (!allChecked) {
+            toast.error("Please confirm all handover checklist items.");
+            return;
+        }
         setIsSaving(true);
         try {
-            const canvas = canvasRef.current;
-            const video = videoRef.current;
-            let snap = '';
-            if (video && canvas) {
-                canvas.width = 96; canvas.height = 96;
-                const ctx = canvas.getContext('2d');
-                ctx?.filter('grayscale(100%)');
-                ctx?.drawImage(video, 0, 0, 96, 96);
-                snap = canvas.toDataURL('image/jpeg', 0.5);
-            }
-            const signature = sigCanvasRef.current?.toDataURL() || '';
-            await onConfirm({ signature, snap });
+            await onConfirm({ instructions, followUpDays });
+            toast.success("Post-Op Handover Verified and Logged.");
             onClose();
         } catch (error) {
-            toast.error("Checkout failed.");
+            toast.error("Failed to update status. Please try again.");
+            console.error(error);
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (!isOpen) return null;
-
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
             <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl flex flex-col animate-in zoom-in-95 duration-300 border-4 border-teal-100">
-                <div className="p-8 text-center bg-slate-50/50">
-                    <h2 className="text-2xl font-black text-teal-900 uppercase">Checkout Seal</h2>
-                    <p className="text-xs text-slate-400 font-bold uppercase mt-1">Post-Op & Financial Release</p>
+                <div className="p-8 border-b border-teal-50 bg-teal-50/50 flex flex-col items-center text-center">
+                    <div className="bg-teal-600 text-white p-4 rounded-3xl shadow-lg shadow-teal-600/20 mb-4">
+                        <ClipboardList size={32} />
+                    </div>
+                    <h2 className="text-2xl font-black text-teal-900 uppercase tracking-tight">Clinical Handover Gate</h2>
+                    <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-1">Post-Operative Instruction Verification</p>
                 </div>
 
-                <div className="p-8 space-y-8">
-                    <div className="flex gap-4">
-                        <div className="w-24 h-24 bg-slate-900 rounded-2xl overflow-hidden border-2 border-white shadow-lg">
-                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover grayscale scale-x-[-1]" />
-                            <canvas ref={canvasRef} className="hidden" />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                             <p className="text-xs font-bold text-slate-700 leading-relaxed">
-                                "I have received my post-operative instructions and walkout statement. I am satisfied with today's treatment."
-                             </p>
-                        </div>
+                <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+                        <AlertTriangle size={24} className="text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-900 font-bold leading-relaxed">
+                            <strong>Liability Protection Gate:</strong> You must certify that the patient understands their post-treatment responsibilities before clinical release. This action is logged permanently.
+                        </p>
                     </div>
 
-                    <div className="bg-slate-50 p-4 rounded-3xl border-2 border-slate-100">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase">Patient Signature Pad</span>
-                            <button onClick={() => { const c = sigCanvasRef.current; c?.getContext('2d')?.clearRect(0,0,c.width,c.height); setHasInk(false); }} className="text-red-400"><Eraser size={14}/></button>
+                    <div className="space-y-3">
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.oral ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.oral} onChange={e => setChecks({...checks, oral: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Oral instructions for home care delivered and understood by patient/guardian.</span>
+                        </label>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.medication ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.medication} onChange={e => setChecks({...checks, medication: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Medication dosage, schedule, and potential side effects explained.</span>
+                        </label>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.written ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.written} onChange={e => setChecks({...checks, written: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Written care card or digital equivalent provided to patient.</span>
+                        </label>
+                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.emergency ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
+                            <input type="checkbox" checked={checks.emergency} onChange={e => setChecks({...checks, emergency: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
+                            <span className="text-sm font-bold text-slate-700">Emergency contact protocol and when to call explained clearly.</span>
+                        </label>
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-200 space-y-4">
+                        <div>
+                           <label className="label text-xs flex items-center gap-1.5"><FileText size={14}/> Handover Instructions</label>
+                           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} className="input h-24" placeholder="e.g., Soft diet for 3 days, no strenuous activity."/>
                         </div>
-                        <canvas ref={sigCanvasRef} onPointerDown={(e) => {
-                            const c = sigCanvasRef.current; if (!c) return;
-                            const rect = c.getBoundingClientRect();
-                            const ctx = c.getContext('2d');
-                            ctx?.beginPath(); ctx?.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-                            c.onpointermove = (m) => { ctx?.lineTo(m.clientX - rect.left, m.clientY - rect.top); ctx?.stroke(); setHasInk(true); };
-                        }} onPointerUp={() => { if(sigCanvasRef.current) sigCanvasRef.current.onpointermove = null; }} className="w-full h-24 bg-white rounded-xl border border-slate-200 touch-none cursor-crosshair" />
+                        <div>
+                           <label className="label text-xs flex items-center gap-1.5"><CalendarPlus size={14}/> Schedule Follow-up (days)</label>
+                           <input type="number" value={followUpDays} onChange={e => setFollowUpDays(parseInt(e.target.value))} className="input"/>
+                        </div>
                     </div>
                 </div>
 
-                <div className="p-6 border-t bg-white">
-                    <button onClick={handleConfirm} disabled={isSaving || !hasInk} className="w-full py-5 bg-teal-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 disabled:opacity-50">
-                        <ShieldCheck size={20}/> Authorize Clinical Release
+                <div className="p-6 border-t border-slate-100 bg-white flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Cancel</button>
+                    <button 
+                        onClick={handleConfirm} 
+                        disabled={!allChecked || isSaving}
+                        className={`flex-[2] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all flex items-center justify-center gap-2 ${allChecked && !isSaving ? 'bg-teal-600 text-white shadow-teal-600/20 hover:scale-105' : 'bg-slate-200 text-slate-400 opacity-50'}`}
+                    >
+                        {isSaving ? (
+                            <><RotateCcw size={16} className="animate-spin" /> Verifying...</>
+                        ) : (
+                            <><ShieldCheck size={16}/> Verify & Complete Session</>
+                        )}
                     </button>
                 </div>
             </div>

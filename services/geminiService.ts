@@ -29,7 +29,6 @@ export const generateSoapNote = async (procedure: string, toothNumber?: number):
         },
     });
 
-    // FIX: Changed to use .text property instead of .text() method
     const jsonText = response.text?.trim();
     if (!jsonText) {
         throw new Error("AI returned an empty response.");
@@ -59,7 +58,6 @@ export const generateSafetyBriefing = async (patient: Patient, procedureType: st
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini safety briefing failed:", error);
@@ -80,41 +78,10 @@ export const explainProcedures = async (procedureNames: string[]): Promise<strin
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini procedure explanation failed:", error);
         throw new Error("Could not generate explanation.");
-    }
-};
-
-export const analyzeRadiograph = async (dataUrl: string): Promise<string> => {
-    try {
-        const match = dataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
-        if (!match) throw new Error("Invalid image data URL format");
-
-        const [, mimeType, data] = match;
-
-        const imagePart = {
-            inlineData: { mimeType, data },
-        };
-        const textPart = {
-            text: `Analyze this dental radiograph. Provide a brief, preliminary text description of potential areas of interest for a dentist to review. 
-            This is NOT a diagnosis. Mention potential caries, bone loss, or periapical radiolucencies if visible. If the image quality is poor or it is not a radiograph, state that.
-            Be concise and use clinical terminology. Start with a heading "### Preliminary AI Analysis".`,
-        };
-
-        const response = await ai.models.generateContent({
-            // FIX: Corrected model name for image analysis per guidelines.
-            model: 'gemini-3-pro-image-preview', // Vision capable model
-            contents: { parts: [imagePart, textPart] },
-        });
-
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
-        return response.text || '';
-    } catch (error) {
-        console.error("Gemini radiograph analysis failed:", error);
-        throw new Error("Could not analyze radiograph.");
     }
 };
 
@@ -138,7 +105,6 @@ export const reviewClinicalNote = async (note: Partial<DentalChartEntry>): Promi
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini note review failed:", error);
@@ -160,7 +126,6 @@ export const analyzeIncidents = async (incidents: ClinicalIncident[]): Promise<s
             model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini incident analysis failed:", error);
@@ -185,7 +150,6 @@ export const draftReferralLetter = async (patient: Patient, referredTo: string, 
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini referral letter drafting failed:", error);
@@ -232,7 +196,6 @@ export const generateMorningHuddle = async (appointments: Appointment[], patient
             model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini morning huddle generation failed:", error);
@@ -262,7 +225,6 @@ export const summarizePatient = async (patient: Patient): Promise<string> => {
             model: 'gemini-3-pro-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini patient summarization failed:", error);
@@ -286,7 +248,6 @@ export const translateText = async (text: string, targetLanguage: 'tl'): Promise
             contents: prompt,
         });
 
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         let translatedText = response.text?.trim() || '';
         if (translatedText.startsWith('TAGALOG TRANSLATION:')) {
             translatedText = translatedText.replace('TAGALOG TRANSLATION:', '').trim();
@@ -317,7 +278,6 @@ export const getDocentExplanation = async (elementId: string, context: string, u
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
-        // FIX: Changed to use .text property instead of .text() method and added fallback to empty string.
         return response.text || '';
     } catch (error) {
         console.error("Gemini Docent explanation failed:", error);

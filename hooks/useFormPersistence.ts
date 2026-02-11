@@ -8,7 +8,8 @@ export const useFormPersistence = <T extends object>(
   formId: string,
   data: T,
   setData: Dispatch<SetStateAction<T>>,
-  isReadOnly: boolean = false
+  isReadOnly: boolean = false,
+  initialData?: T | null
 ) => {
   const [status, setStatus] = useState<FormStatus>('saved');
   const toast = useToast();
@@ -16,9 +17,16 @@ export const useFormPersistence = <T extends object>(
   const initialDataRef = useRef<string>(JSON.stringify(data));
   const hasLoadedDraft = useRef(false);
 
-  // 1. Restore from localStorage on initial load
+  // 1. Restore from localStorage on initial load, respecting initialData
   useEffect(() => {
     if (isReadOnly || hasLoadedDraft.current) return;
+    hasLoadedDraft.current = true;
+
+    // If initialData is provided (i.e., we are editing an existing record),
+    // do not attempt to restore a draft from localStorage.
+    if (initialData) {
+        return;
+    }
 
     const savedDataString = localStorage.getItem(formId);
     if (savedDataString) {
@@ -35,8 +43,7 @@ export const useFormPersistence = <T extends object>(
         localStorage.removeItem(formId);
       }
     }
-    hasLoadedDraft.current = true;
-  }, [formId, setData, isReadOnly, toast]);
+  }, [formId, setData, isReadOnly, toast, initialData]);
 
   // 2. Debounced save to localStorage on data change
   useEffect(() => {

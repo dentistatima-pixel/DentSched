@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DentalChartEntry } from '../types';
 import { X, CheckCircle, Eraser, FileSignature } from 'lucide-react';
 import { formatDate } from '../constants';
@@ -12,7 +12,59 @@ interface PatientSignOffModalProps {
 
 const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClose, onSave, note }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isSigning, setIsSigning] = useState(false);
+    
+    // --- START: Refactored Signature Logic ---
+    const isDrawingRef = useRef(false);
+    const lastDrawTime = useRef(0);
+
+    const getCoords = (e: PointerEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    };
+
+    const draw = useCallback((e: PointerEvent) => {
+        if (!isDrawingRef.current) return;
+        e.preventDefault();
+
+        const now = Date.now();
+        if (now - lastDrawTime.current < 16) return;
+        lastDrawTime.current = now;
+        
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const { x, y, pressure } = getCoords(e);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2.5;
+            ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+    }, []);
+
+    const stopSign = useCallback(() => {
+        isDrawingRef.current = false;
+        window.removeEventListener('pointermove', draw);
+        window.removeEventListener('pointerup', stopSign);
+    }, [draw]);
+
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        if (e.pointerType === 'touch' && e.width > 10) return;
+        e.preventDefault();
+        isDrawingRef.current = true;
+        const { x, y } = getCoords(e.nativeEvent);
+        const ctx = e.currentTarget.getContext('2d');
+        ctx?.beginPath();
+        ctx?.moveTo(x, y);
+
+        window.addEventListener('pointermove', draw);
+        window.addEventListener('pointerup', stopSign);
+    };
+    // --- END: Refactored Signature Logic ---
 
     const setupCanvas = () => {
         const canvas = canvasRef.current;
@@ -29,56 +81,11 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
     };
     
     useEffect(() => {
-        const canvas = canvasRef.current;
-        const touchHandler = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
         if (isOpen) {
             setTimeout(setupCanvas, 50);
-            canvas?.addEventListener('touchstart', touchHandler, { passive: false });
-        }
-        return () => {
-            canvas?.removeEventListener('touchstart', touchHandler);
         }
     }, [isOpen]);
 
-    const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        const canvas = e.currentTarget;
-        const rect = canvas.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
-    };
-
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => { 
-        if (e.pointerType === 'touch' && e.width > 10) return;
-        e.preventDefault(); 
-        setIsSigning(true); 
-        const { x, y } = getCoords(e); 
-        const ctx = e.currentTarget.getContext('2d'); 
-        ctx?.beginPath(); 
-        ctx?.moveTo(x, y); 
-    };
-    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-    
-    const lastDrawTime = useRef(0);
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { 
-        if (!isSigning) return; 
-        e.preventDefault(); 
-        
-        const now = Date.now();
-        if (now - lastDrawTime.current < 16) { // ~60fps throttle
-            return;
-        }
-        lastDrawTime.current = now;
-
-        const { x, y, pressure } = getCoords(e); 
-        const ctx = e.currentTarget.getContext('2d'); 
-        if(ctx){ 
-            const isPen = e.pointerType === 'pen';
-            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
-            const baseWidth = isPen ? 1.5 : 2.5;
-            ctx.lineWidth = Math.max(1, Math.min(5, effectivePressure * baseWidth * 2));
-            ctx.lineTo(x, y); 
-            ctx.stroke(); 
-        } 
-    };
     const clearCanvas = () => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
     
     const handleSave = () => {
@@ -114,7 +121,7 @@ const PatientSignOffModal: React.FC<PatientSignOffModalProps> = ({ isOpen, onClo
                             <label className="label text-xs">Patient Signature *</label>
                             <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                         </div>
-                        <canvas ref={canvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} onPointerUp={stopSign} onPointerLeave={stopSign} onPointerMove={draw}/>
+                        <canvas ref={canvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} />
                         <p className="text-[11px] text-slate-400 mt-2 font-bold uppercase">This signature applies ONLY to the information shown.</p>
                     </div>
                 </div>

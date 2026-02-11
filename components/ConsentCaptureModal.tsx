@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel, SignatureChainEntry, SignatureType, TreatmentPlanStatus, PediatricConsent } from '../types';
 import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight } from 'lucide-react';
 import CryptoJS from 'crypto-js';
@@ -26,7 +26,6 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const { staff } = useStaff();
     
     const [step, setStep] = useState<'review' | 'sign'>('review');
-    const [isSigning, setIsSigning] = useState<false | 'patient' | 'witness'>(false);
     const [acknowledgedRisks, setAcknowledgedRisks] = useState<string[]>([]);
     const [isDuressAffirmed, setIsDuressAffirmed] = useState(false);
     const [isOpportunityAffirmed, setIsOpportunityAffirmed] = useState(false);
@@ -42,6 +41,51 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     const allRisksAcknowledged = riskDisclosures.length === 0 || riskDisclosures.length === acknowledgedRisks.length;
     const allAffirmationsChecked = allRisksAcknowledged && isDuressAffirmed && isOpportunityAffirmed && isVoluntaryAffirmed;
     const canProceedToSign = allAffirmationsChecked;
+
+    // --- START: Refactored Signature Logic ---
+    const activeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const isDrawingRef = useRef(false);
+
+    const getCoords = (e: PointerEvent) => {
+        if (!activeCanvasRef.current) return { x: 0, y: 0, pressure: 0.5 };
+        const canvas = activeCanvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    };
+
+    const draw = useCallback((e: PointerEvent) => {
+        if (!isDrawingRef.current || !activeCanvasRef.current) return;
+        e.preventDefault();
+        const canvas = activeCanvasRef.current;
+        const { x, y, pressure } = getCoords(e);
+        const ctx = canvas.getContext('2d');
+        if(ctx){
+            ctx.lineWidth = Math.max(2, Math.min(8, (pressure || 0.5) * 10));
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+    }, []);
+
+    const stopSign = useCallback(() => {
+        isDrawingRef.current = false;
+        activeCanvasRef.current = null;
+        window.removeEventListener('pointermove', draw);
+        window.removeEventListener('pointerup', stopSign);
+    }, [draw]);
+    
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => {
+        e.preventDefault();
+        isDrawingRef.current = true;
+        activeCanvasRef.current = e.currentTarget;
+        const { x, y } = getCoords(e.nativeEvent);
+        const ctx = e.currentTarget.getContext('2d');
+        ctx?.beginPath();
+        ctx?.moveTo(x, y);
+
+        window.addEventListener('pointermove', draw);
+        window.addEventListener('pointerup', stopSign);
+    };
+    // --- END: Refactored Signature Logic ---
     
     const getProcessedContent = () => {
         let content = language === 'en' ? template.content_en : (template.content_tl || template.content_en);
@@ -87,8 +131,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     useEffect(() => {
         const patientCanvas = signatureCanvasRef.current;
         const witnessCanvas = witnessCanvasRef.current;
-        const touchHandler = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
-
+        
         if (step === 'sign') {
             setTimeout(() => {
                 setupCanvas(patientCanvas);
@@ -97,25 +140,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 }
             }, 50);
         }
-        
-        patientCanvas?.addEventListener('touchstart', touchHandler, { passive: false });
-        witnessCanvas?.addEventListener('touchstart', touchHandler, { passive: false });
-        
-        return () => {
-            patientCanvas?.removeEventListener('touchstart', touchHandler);
-            witnessCanvas?.removeEventListener('touchstart', touchHandler);
-        }
     }, [step, isWitnessRequired]);
     
-    const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
-      const canvas = e.currentTarget;
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
-    };
-
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => { e.preventDefault(); setIsSigning(signer); const { x, y } = getCoords(e); const ctx = e.currentTarget.getContext('2d'); ctx?.beginPath(); ctx?.moveTo(x, y); };
-    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => { e.preventDefault(); setIsSigning(false); };
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => { if (!isSigning) return; e.preventDefault(); const canvas = e.currentTarget; const { x, y, pressure } = getCoords(e); const ctx = canvas.getContext('2d'); if(ctx){ ctx.lineWidth = Math.max(2, Math.min(8, (pressure || 0.5) * 10)); ctx.lineTo(x, y); ctx.stroke(); } };
     const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
 
     const handleSave = () => {
@@ -188,7 +214,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
               <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-3"><div className="bg-teal-100 p-3 rounded-xl text-teal-700"><FileSignature size={24} /></div><div><h2 className="text-xl font-bold text-slate-800">{template.name}</h2><p className="text-sm text-slate-500">for {patient.name}</p></div></div>
                   <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg"><button onClick={() => setLanguage('en')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow' : ''}`}>English</button><button onClick={() => setLanguage('tl')} className={`px-3 py-1 text-xs font-bold rounded ${language === 'tl' ? 'bg-white shadow' : ''}`}>Tagalog</button></div>
-                  <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
+                  <button onClick={onClose} className="p-2.5 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
               </div>
 
               {step === 'review' ? (
@@ -213,7 +239,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                         </div>
                         <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all border-teal-500`}>
                             <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">Patient/Guardian Signature (Required)</h4><button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button></div>
-                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'patient')} />
                         </div>
                         {isWitnessRequired && (
                             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 mt-6">
@@ -228,7 +254,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                                     <label className="label text-xs">Witness Signature</label>
                                     <button onClick={() => clearCanvas(witnessCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                                 </div>
-                                <canvas ref={witnessCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'witness')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                                <canvas ref={witnessCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'witness')} />
                             </div>
                         )}
                     </div>

@@ -1,11 +1,34 @@
 
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus } from './types';
+
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
 
+// Helper for new patient ID format
+const generateRandomAlpha = (length: number): string => {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+};
+
 // Generators for mock data
-export const generateUid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+export const generateUid = (prefix = 'id') => {
+    // The user wants a specific format for patient IDs.
+    // New format: 8-digit number + 5 alpha characters, e.g. 17765432QASGT
+    if (prefix === 'p') {
+        const timestampPart = Date.now().toString().slice(-8);
+        const randomAlphaPart = generateRandomAlpha(5);
+        return `${timestampPart}${randomAlphaPart}`;
+    }
+    
+    // Keep original format for other IDs (appointments, notes, etc.)
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+};
 
 // --- DATE UTILITY ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
@@ -186,9 +209,9 @@ export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
     { id: 'DRUGS_MEDICATIONS', name: 'Drugs & Medications', content_en: "I understand that antibiotics, analgesics & other medications can cause allergic reactions like redness & swelling of tissues, pain, itching, vomiting, &/or anaphylactic shock.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang mga antibiotic, analgesic at iba pang mga gamot ay maaaring magdulot ng mga reaksiyong alerhiya tulad ng pamumula at pamamaga ng mga tisyu, sakit, pangangati, pagsusuka, at/o anaphylactic shock." },
     { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagdagan kung kinakailangan kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
     { id: 'RADIOGRAPH', name: 'Radiograph', content_en: "I understand that an x-ray shot or a radiograph maybe necessary as part of diagnostic aid to come up with tentative diagnosis of my dental problem and to make a good treatment plan, but, this will not give me a 100% assurance for the accuracy of the treatment since all dental treatments are subject to unpredictable complications that later on may lead to sudden change of treatment plan and subject to new charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang isang x-ray shot o radiograph ay maaaring kailanganin bilang bahagi ng tulong sa pag-diagnose upang makabuo ng pansamantalang diagnosis ng aking problema sa ngipin at gumawa ng isang mahusay na plano sa paggamot, ngunit, hindi ito magbibigay sa akin ng 100% kasiguruhan para sa katumpakan ng paggamot dahil ang lahat ng paggamot sa ngipin ay napapailalim sa hindi mahuhulaan na mga komplikasyon na sa kalaunan ay maaaring humantong sa biglaang pagbabago ng plano sa paggamot at napapailalim sa mga bagong singil." },
-    { id: 'EXTRACTION', name: 'Removal of Teeth', content_en: "I understand that alternatives to tooth removal (root canal therapy, crowns & periodontal surgery, etc.) & I completely understand these alternatives, including their risk & benefits prior to authorizing the dentist to remove teeth & any other structures necessary for reasons above. I understand that removing teeth does not always remove all the infections, if present, & it may be necessary to have further treatment. I understand the risk involved in having teeth removed, such as pain, swelling, spread of infection, dry socket, fractured jaw, loss of feeling on the teeth, lips, tongue & surrounding tissue that can last for an indefinite period of time. I understand that I may need further treatment under a specialist if complications arise during or following treatment.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko ang mga alternatibo sa pagbunot ng ngipin (root canal therapy, korona at periodontal surgery, atbp.) at lubos kong nauunawaan ang mga alternatibong ito, kabilang ang kanilang mga panganib at benepisyo bago pahintulutan ang dentista na bunutin ang mga ngipin at anumang iba pang mga istraktura na kinakailangan para sa mga dahilan sa itaas. Nauunawaan ko na ang pagbunot ng mga ngipin ay hindi palaging nag-aalis ng lahat ng impeksyon, kung mayroon, at maaaring kailanganin na magkaroon ng karagdagang paggamot. Nauunawaan ko ang mga panganib na kasangkot sa pagbunot ng ngipin, tulad ng sakit, pamamaga, pagkalat ng impeksyon, dry socket, bali ng panga, pagkawala ng pakiramdam sa ngipin, labi, dila at nakapaligid na tisyu na maaaring tumagal nang walang katiyakan. Nauunawaan ko na maaaring kailanganin ko ng karagdagang paggamot sa ilalim ng isang espesyalista kung magkakaroon ng mga komplikasyon sa panahon o pagkatapos ng paggamot." },
+    { id: 'EXTRACTION', name: 'Removal of Teeth', content_en: "I understand that alternatives to tooth removal (root canal therapy, crowns & periodontal surgery, etc.) & I completely understand these alternatives, including their risk & benefits prior to authorizing the dentist to remove teeth & any other structures necessary for reasons above. I understand that removing teeth does not always remove all the infections, if present, & it may be necessary to have further treatment. I understand the risk involved in having teeth removed, such as pain, swelling, spread of infection, dry socket, fractured jaw, loss of feeling on the teeth, lips, tongue & surrounding tissue that can last for an indefinite period of time. I understand that I may need further treatment under a specialist if complications arise during or following treatment.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko ang mga alternatibo sa pagbunot ng ngipin (root canal therapy, korona at periodontal surgery, atbp.) at lubos kong nauunawaan ang mga alternatibong ito, kabilang ang kanilang mga panganib at benepisyo bago pahintulutan ang dentista na bunutin ang mga ngipin at anumang iba pang mga istraktura na kinakailangang para sa mga dahilan sa itaas. Nauunawaan ko na ang pagbunot ng mga ngipin ay hindi palaging nag-aalis ng lahat ng impeksyon, kung mayroon, at maaaring kailanganin na magkaroon ng karagdagang paggamot. Nauunawaan ko ang mga panganib na kasangkot sa pagbunot ng ngipin, tulad ng sakit, pamamaga, pagkalat ng impeksyon, dry socket, bali ng panga, pagkawala ng pakiramdam sa ngipin, labi, dila at nakapaligid na tisyu na maaaring tumagal nang walang katiyakan. Nauunawaan ko na maaaring kailanganin ko ng karagdagang paggamot sa ilalim ng isang espesyalista kung magkakaroon ng mga komplikasyon sa panahon o pagkatapos ng paggamot." },
     { id: 'CROWNS_BRIDGES', name: 'Crowns, Caps & Bridges', content_en: "Preparing a tooth may irritate the nerve tissue in the center of the tooth, leaving the tooth extra sensitive to heat, cold & pressure. Treating such irritation may involve using special toothpastes, mouth rinses or root canal therapy. I understand that sometimes it is not possible to match the color of natural teeth exactly with artificial teeth. I further understand that I may be wearing temporary crowns, which may come off easily & that I must be careful to ensure that they are kept on until the permanent crowns are delivered. It is my responsibility to return for permanent cementation within 20 days from tooth preparation, as excessive days delay may allow for tooth movement, which may necessitate a remake of the crown, bridge/ cap. I understand there will be additional charges for remakes due to my delaying of permanent cementation, & I realize that final opportunity to make changes in my new crown, bridges or cap (including shape, fit, size, & color) will be before permanent cementation.", content_tl: "[Pagsasalin sa Tagalog]: Ang paghahanda ng ngipin ay maaaring makairita sa tisyu ng nerbiyos sa gitna ng ngipin, na nag-iiwan sa ngipin na sobrang sensitibo sa init, lamig at presyon. Ang paggamot sa naturang pangangati ay maaaring kasangkot sa paggamit ng mga espesyal na toothpaste, mouth rinses o root canal therapy. Nauunawaan ko na kung minsan ay hindi posible na eksaktong tumugma sa kulay ng mga natural na ngipin sa mga artipisiyal na ngipin. Higit pa rito, nauunawaan ko na maaaring ako ay nagsusuot ng mga pansamantalang korona, na maaaring madaling matanggal at dapat akong mag-ingat upang matiyaky na mananatili ang mga ito hanggang sa maihatid ang mga permanenteng korona. Responsibilidad kong bumalik para sa permanenteng sementasyon sa loob ng 20 araw mula sa paghahanda ng ngipin, dahil ang labis na araw ng pagkaantala ay maaaring magbigay-daan para sa paggalaw ng ngipin, na maaaring mangailangan ng muling paggawa ng korona, tulay/ takip. Nauunawaan ko na magkakaroon ng mga karagdagang singil para sa muling paggawa dahil sa aking pagkaantala ng permanenteng sementasyon, at napagtanto ko na ang huling pagkakataon na gumawa ng mga pagbabago sa aking bagong korona, tulay o takip (kabilang ang hugis, sukat, laki, at kulay) ay bago ang permanenteng sementasyon." },
-    { id: 'ROOT_CANAL', name: 'Endodontics (Root Canal)', content_en: "I understand there is no guarantee that a root canal treatment will save a tooth & that complications can occur from the treatment & that occasionally root canal filling materials may extend through the tooth which does not necessarily effect the success of the treatment. I understand that endodontic files & drills are very fine instruments & stresses vented in their manufacture & calcifications present in teeth can cause them to break during use. I understand that referral to the endodontist for additional treatments may be necessary following any root canal treatment & I agree that I am responsible for any additional cost for treatment performed by the endodontist. I understand that a tooth may require removal in spite of all efforts to save it.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na walang garantiya na ang isang root canal treatment ay makakapagligtas sa isang ngipin at maaaring magkaroon ng mga komplikasyon mula sa paggamot at na paminsan-minsan ang mga materyales sa pagpuno ng root canal ay maaaring lumampas sa ngipin na hindi kinakailangang makaapekto sa tagumpay ng paggamot. Nauunawaan ko na ang mga endodontic file at drill ay napakapinong mga instrumento at ang mga stress na ibinubuga sa kanilang paggawa at mga calcification na naroroon sa mga ngipin ay maaaring maging sanhi ng pagkasira nito sa panahon ng paggamit. Nauunawaan ko na ang referral sa endodontist para sa mga karagdagang paggamot ay maaaring kailanganin kasunod ng anumang root canal treatment at sumasang-ayon ako na ako ang may pananagutan para sa anumang karagdagang gastos para sa paggamot na ginawa ng endodontist. Nauunawaan ko na ang isang ngipin ay maaaring kailanganing tanggalin sa kabila ng lahat ng pagsisikap na iligtas ito." },
+    { id: 'ROOT_CANAL', name: 'Endodontics (Root Canal)', content_en: "I understand there is no guarantee that a root canal treatment will save a tooth & that complications can occur from the treatment & that occasionally root canal filling materials may extend through the tooth which does not necessarily effect the success of the treatment. I understand that endodontic files & drills are very fine instruments & stresses vented in their manufacture & calcifications present in teeth can cause them to break during use. I understand that referral to the endodontist for additional treatments may be necessary following any root canal treatment & I agree that I am responsible for any additional cost for treatment performed by the endodontist. I understand that a tooth may require removal in spite of all efforts to save it.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na walang garantiya na ang isang root canal treatment ay makakapagligtas sa isang ngipin at maaaring magkakaroon ng mga komplikasyon mula sa paggamot at na paminsan-minsan ang mga materyales sa pagpuno ng root canal ay maaaring lumampas sa ngipin na hindi kinakailangang makaapekto sa tagumpay ng paggamot. Nauunawaan ko na ang mga endodontic file at drill ay napakapinong mga instrumento at ang mga stress na ibinubuga sa kanilang paggawa at mga calcification na naroroon sa mga ngipin ay maaaring maging sanhi ng pagkasira nito sa panahon ng paggamit. Nauunawaan ko na ang referral sa endodontist para sa mga karagdagang paggamot ay maaaring kailanganin kasunod ng anumang root canal treatment at sumasang-ayon ako na ako ang may pananagutan para sa anumang karagdagang gastos para sa paggamot na ginawa ng endodontist. Nauunawaan ko na ang isang ngipin ay maaaring kailanganing tanggalin sa kabila ng lahat ng pagsisikap na iligtas ito." },
     { id: 'PERIODONTAL', name: 'Periodontal Disease', content_en: "I understand that periodontal disease is a serious condition causing gum & bone inflammation &/or loss & that can lead eventually to the loss of my teeth. I understand the alternative treatment plans to correct periodontal disease, including gum surgery tooth extractions with or without replacement. I understand that undertaking any dental procedures may have future adverse effect on my periodontal Conditions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang periodontal disease ay isang seryesong kondisyon na nagdudulot ng pamamaga at/o pagkawala ng gilagid at buto at maaaring humantong sa pagkawala ng aking mga ngipin. Nauunawaan ko ang mga alternatibong plano sa paggamot upang itama ang periodontal disease, kabilang ang operasyon sa gilagid, pagbunot ng ngipin na mayroon o walang kapalit. Nauunawaan ko na ang pagsasagawa ng anumang mga pamamaraan sa ngipin ay maaaring magkaroon ng masamang epekto sa hinaharap sa aking mga kondisyon sa periodontal." },
     { id: 'FILLINGS', name: 'Fillings', content_en: "I understand that care must be exercised in chewing on fillings, especially during the first 24 hours to avoid breakage. I understand that a more extensive filling or a crown may be required, as additional decay or fracture may become evident after initial excavation. I understand that significant sensitivity is a common, but usually temporary, after-effect of a newly placed filling. I further understand that filling a tooth may irritate the nerve tissue creating sensitivity & treating such sensitivity could require root canal therapy or extractions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na dapat mag-ingat sa pagnguya sa mga pasta, lalo na sa unang 24 na oras upang maiwasan ang pagkasira. Nauunawaan ko na maaaring kailanganin ang isang mas malawak na pasta o korona, dahil maaaring maging malinaw ang karagdagang pagkabulok o bali pagkatapos ng paunang paghuhukay. Nauunawaan ko na ang makabuluhang pagiging sensitibo ay isang karaniwan, ngunit kadalasang pansamantala, na epekto pagkatapos ng isang bagong inilagay na pasta. Higit pa rito, nauunawaan ko na ang pagpasta sa isang ngipin ay maaaring makairita sa tisyu ng nerbiyos na lumilikha ng pagiging sensitibo at ang paggamot sa naturang pagiging sensitibo ay maaaring mangailangan ng root canal therapy o pagbunot." },
     { id: 'DENTURES', name: 'Dentures', content_en: "I understand that wearing of dentures can be difficult. Sore spots, altered speech & difficulty in eating are common problems. Immediate dentures (placement of denture immediately after extractions) may be painful. Immediate dentures may require considerable adjusting & several relines. I understand that it is my responsibility to return for delivery of dentures. I understand that failure to keep my delivery appointment may result in poorly fitted dentures. If a remake is required due to my delays of more than 30 days, there will be additional charges. A permanent reline will be needed later, which is not included in the initial fee. I understand that all adjustment or alterations of any kind after this initial period is subject to charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagsusuot ng pustiso ay maaaring mahirap. Ang mga masakit na bahagi, nabagong pagsasalita at kahirapan sa pagkain ay mga karaniwang problema. Ang mga agarang pustiso (paglalagay ng pustiso kaagad pagkatapos ng pagbunot) ay maaaring masakit. Ang mga agarang pustiso ay maaaring mangailangan ng malaking pagsasaayos at ilang reline. Nauunawaan ko na responsibilidad kong bumalik para sa paghahatid ng pustiso. Nauunawaan ko na ang hindi pagtupad sa aking appointment sa paghahatid ay maaaring magresulta sa hindi magandang pagkakalagay ng pustiso. Kung kinakailangan ang muling paggawa dahil sa aking mga pagkaantala ng higit sa 30 araw, magkakaroon ng mga karagdagang singil. Kakailanganin ang isang permanenteng reline sa kalaunan, na hindi kasama sa paunang bayad. Nauunawaan ko na ang lahat ng pagsasaayos o pagbabago ng anumang uri pagkatapos ng paunang panahon na ito ay napapailalim sa mga singil." },
@@ -218,7 +241,7 @@ Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ay
 1.  **Tantya vs. Aktwal na Gastos**: Ang ibinigay na quote ay isang pagtatantya. Ang mga hindi inaasahang klinikal na natuklasan sa panahon ng paggamot ay maaaring mangailangan ng mga pagbabago sa plano at mga kaugnay na gastos. Ipapabatid sa akin ang anumang makabuluhang pagbabago.
 2.  **Responsibilidad sa Pinansyal**: Ako ang may buong pananagutan para sa kabuuang bayad ng lahat ng mga pamamaraang isinagawa. Sumasang-ayon akong magbayad para sa mga serbisyo sa oras na ito ay isagawa maliban kung may ibang mga kasunduan na ginawa nang maaga.
 3.  **Insurance**: Ang aking dental insurance ay isang kontrata sa pagitan ko at ng aking insurance provider. Nauunawaan ko na ako ang may pananagutan para sa anumang natitirang balanse na hindi sakop ng aking insurance. Tutulong ang klinika na ito sa pagproseso ng mga claim, ngunit ang pangunahing responsibilidad sa pagbabayad ay nasa akin.
-4.  **Mga Karapatan ng Pasyente**: May karapatan akong humingi ng detalyadong breakdown ng mga gastos at talakayin ang mga opsyon sa pagbabayad sa mga kawani ng klinika.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong humingi ng detalyedong breakdown ng mga gastos at talakayin ang mga opsyon sa pagbabayad sa mga kawani ng klinika.
 5.  **Pag-atras**: Nauunawaan ko na ang pag-atras mula sa paggamot matapos itong magsimula ay hindi nag-aalis sa akin ng responsibilidad sa pananalapi para sa mga serbisyong naisagawa na.` },
     { id: 'PEDIATRIC_CONSENT', name: 'Consent for Treatment of a Minor', content_en: `As the parent or legal guardian of the minor patient, **{PatientName}**, I hereby authorize **{DoctorName}** and their designated staff to perform the necessary dental procedures as have been explained to me.
 
@@ -255,7 +278,7 @@ export const MOCK_BRANCH_PROFILES: Branch[] = [
         thursday: { start: '08:00', end: '18:00', isClosed: false },
         friday: { start: '08:00', end: '18:00', isClosed: false },
         saturday: { start: '08:00', end: '16:00', isClosed: false },
-        sunday: { start: '09:00', end: '12:00', isClosed: true }
+        sunday: { start: null, end: null, isClosed: true }
     }
   },
   {
@@ -273,8 +296,8 @@ export const MOCK_BRANCH_PROFILES: Branch[] = [
         wednesday: { start: '09:00', end: '17:00', isClosed: false },
         thursday: { start: '09:00', end: '17:00', isClosed: false },
         friday: { start: '09:00', end: '17:00', isClosed: false },
-        saturday: { start: '09:00', end: '13:00', isClosed: true },
-        sunday: { start: '09:00', end: '12:00', isClosed: true }
+        saturday: { start: null, end: null, isClosed: true },
+        sunday: { start: null, end: null, isClosed: true }
     }
   }
 ];
@@ -992,8 +1015,8 @@ export const PATIENTS: Patient[] = [
             { id: 'dc_m_4', toothNumber: 11, procedure: 'Caries', status: 'Condition', date: getPastDateStr(10), notes: 'Initial signs of mesial caries.' },
         ],
         perioChart: [
-            { toothNumber: 16, date: getPastDateStr(10), pocketDepths: [3,4,3,3,4,3], recession: [1,1,1,1,1,1], bleeding: [false,true,false,false,true,false], mobility: 1 },
-            { toothNumber: 36, date: getPastDateStr(10), pocketDepths: [5,4,5,4,4,5], recession: [2,1,2,1,1,2], bleeding: [true,true,true,true,true,true], mobility: 2 },
+            { toothNumber: 16, date: getPastDateStr(10), pocketDepths: [3,4,3,3,4,3], recession: [1,1,1,1,1,1], bop: 2, mobility: 1 },
+            { toothNumber: 36, date: getPastDateStr(10), pocketDepths: [5,4,5,4,4,5], recession: [2,1,2,1,1,2], bop: 3, mobility: 2 },
         ],
         ledger: [
             { id: 'l_m_1', date: getPastDateStr(180), description: 'Zirconia Crown #16', type: 'Charge', amount: 25000, balanceAfter: 25000 },
@@ -1227,10 +1250,10 @@ export const PATIENTS: Patient[] = [
         id: 'p_full_perio_02', name: 'Sofia Reyes', firstName: 'Sofia', surname: 'Reyes', dob: '1991-04-10', sex: 'Female', phone: '0919-987-6543', email: 'sofia.r@example.com', lastVisit: getPastDateStr(10), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
         attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         perioChart: [
-            { toothNumber: 18, date: getPastDateStr(180), pocketDepths: [3,2,3,3,2,3], recession: [1,1,1,1,1,1], bleeding: [false,true,false,false,true,false], mobility: 0 },
-            { toothNumber: 17, date: getPastDateStr(180), pocketDepths: [4,3,4,3,3,4], recession: [1,1,1,1,1,1], bleeding: [true,true,true,true,true,true], mobility: 1 },
-            { toothNumber: 18, date: getPastDateStr(10), pocketDepths: [2,2,2,2,2,2], recession: [1,1,1,1,1,1], bleeding: [false,false,false,false,false,false], mobility: 0 },
-            { toothNumber: 17, date: getPastDateStr(10), pocketDepths: [3,2,3,2,2,3], recession: [1,1,1,1,1,1], bleeding: [false,true,false,false,false,false], mobility: 0 },
+            { toothNumber: 18, date: getPastDateStr(180), pocketDepths: [3,2,3,3,2,3], recession: [1,1,1,1,1,1], bop: 2, mobility: 0 },
+            { toothNumber: 17, date: getPastDateStr(180), pocketDepths: [4,3,4,3,3,4], recession: [1,1,1,1,1,1], bop: 3, mobility: 1 },
+            { toothNumber: 18, date: getPastDateStr(10), pocketDepths: [2,2,2,2,2,2], recession: [1,1,1,1,1,1], bop: 0, mobility: 0 },
+            { toothNumber: 17, date: getPastDateStr(10), pocketDepths: [3,2,3,2,2,3], recession: [1,1,1,1,1,1], bop: 1, mobility: 0 },
         ],
         registrationStatus: RegistrationStatus.COMPLETE,
     }
@@ -1258,16 +1281,64 @@ export const APPOINTMENTS: Appointment[] = [
 ];
 
 
+// THIS IS THE MASTER SOURCE OF TRUTH FOR THE CLINICAL CATALOG.
+// All procedures offered by the practice are defined here.
 export const DEFAULT_PROCEDURES: ProcedureItem[] = [
-  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Consultation', defaultDurationMinutes: 30, isPhilHealthCovered: true },
-  { id: 'proc_prophy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Preventive', defaultDurationMinutes: 60 },
-  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Preventive', defaultDurationMinutes: 15 },
-  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultDurationMinutes: 45 },
-  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultDurationMinutes: 60 },
-  { id: 'proc_ext_simple', name: 'Simple Extraction', category: 'Surgery', requiresConsent: true, defaultDurationMinutes: 30, isPhilHealthCovered: true },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', requiresConsent: true, requiresWitness: true, defaultDurationMinutes: 90, isPhilHealthCovered: true },
-  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', requiresConsent: true, defaultDurationMinutes: 60 },
-  { id: 'proc_xray_pa', name: 'Periapical X-Ray', category: 'Imaging', requiresXray: true, defaultDurationMinutes: 10 },
+  // A. Diagnostic & Preventive
+  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 30 },
+  { id: 'proc_xray_pa', name: 'Periapical X-Ray (Single)', category: 'Diagnostic & Preventive', defaultPrice: 500, defaultDurationMinutes: 10, requiresImaging: true },
+  { id: 'proc_xray_pano', name: 'Panoramic X-Ray', category: 'Diagnostic & Preventive', defaultPrice: 1500, defaultDurationMinutes: 15, requiresImaging: true },
+  { id: 'proc_prophy_light', name: 'Oral Prophylaxis (Light to Moderate)', category: 'Diagnostic & Preventive', defaultPrice: 1200, defaultDurationMinutes: 45 },
+  { id: 'proc_prophy_heavy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diagnostic & Preventive', defaultPrice: 1800, defaultDurationMinutes: 60 },
+  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 15 },
+  { id: 'proc_sealant', name: 'Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive', defaultPrice: 1000, defaultDurationMinutes: 20 },
+
+  // B. Restorative Dentistry
+  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45 },
+  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60 },
+  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75 },
+  { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30 },
+
+  // C. Endodontics (Root Canals)
+  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true },
+  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true },
+  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true },
+  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true },
+
+  // D. Surgery & Extractions
+  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true },
+  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true },
+
+  // E. Prosthodontics (Crowns, Bridges, Dentures)
+  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true },
+  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true },
+  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true },
+  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60 },
+];
+
+const DEFAULT_MEDICATIONS: Medication[] = [
+    // Analgesics
+    { id: 'med_01', genericName: 'Mefenamic Acid', dosage: '250mg Capsule', instructions: 'Take 2 capsules now, then 1 capsule every 6 hours as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_02', genericName: 'Mefenamic Acid', dosage: '500mg Tablet', instructions: 'Take 1 tablet now, then 1 tablet every 6 hours as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_03', genericName: 'Ibuprofen', dosage: '200mg Tablet', instructions: 'Take 1-2 tablets every 4-6 hours with food as needed for pain.', drugClassification: 'OTC' },
+    { id: 'med_04', genericName: 'Ibuprofen', dosage: '400mg Tablet', instructions: 'Take 1 tablet every 4-6 hours with food as needed for pain.', drugClassification: 'OTC' },
+    { id: 'med_05', genericName: 'Celecoxib', dosage: '200mg Capsule', instructions: 'Take 1 capsule twice a day as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_06', genericName: 'Paracetamol', brandName: 'Acetaminophen', dosage: '500mg Tablet', instructions: 'Take 1-2 tablets every 4-6 hours as needed. Do not exceed 8 tablets in 24 hours.', drugClassification: 'OTC' },
+    // Antibiotics
+    { id: 'med_07', genericName: 'Amoxicillin', dosage: '500mg Capsule', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    { id: 'med_08', genericName: 'Amoxicillin + Clavulanic Acid', brandName: 'Co-Amoxiclav', dosage: '625mg Tablet', instructions: 'Take 1 tablet every 12 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    { id: 'med_09', genericName: 'Clindamycin', dosage: '300mg Capsule', instructions: 'Take 1 capsule every 6 hours for 7 days.', drugClassification: 'Rx' },
+    { id: 'med_10', genericName: 'Azithromycin', dosage: '500mg Tablet', instructions: 'Take 1 tablet once a day for 3 days.', drugClassification: 'Rx' },
+    { id: 'med_11', genericName: 'Metronidazole', dosage: '500mg Tablet', instructions: 'Take 1 tablet every 8 hours for 7 days.', drugClassification: 'Rx' },
+    // Steroids
+    { id: 'med_12', genericName: 'Dexamethasone', dosage: '4mg Tablet', instructions: 'Take 1 tablet once a day for 3 days to manage severe inflammation.', drugClassification: 'Rx' },
+    { id: 'med_13', genericName: 'Triamcinolone Acetonide in Orabase', brandName: 'Kenalog', dosage: '0.1% Ointment', instructions: 'Apply a thin film to the affected area (e.g., mouth ulcer) after meals and at bedtime.', drugClassification: 'Rx' },
+    // Anxiolytics
+    { id: 'med_14', genericName: 'Diazepam', dosage: '5mg Tablet', instructions: 'Take 1 tablet one hour before the dental appointment.', isS2Controlled: true, drugClassification: 'S2-Controlled' },
+    // Rinses
+    { id: 'med_15', genericName: 'Chlorhexidine Gluconate Mouthwash', dosage: '0.12% Solution', instructions: 'Rinse with 15mL for 30 seconds twice daily after brushing. Do not swallow.', drugClassification: 'Rx' },
+    { id: 'med_16', genericName: 'Povidone-Iodine Mouthwash', dosage: '1% Solution', instructions: 'Dilute with an equal amount of water and rinse for 30 seconds before the procedure.', drugClassification: 'OTC' },
 ];
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
@@ -1283,9 +1354,9 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   strictMode: true,
   editBufferWindowMinutes: 5,
   sessionTimeoutMinutes: 30,
-  suffixes: ['Jr.', 'Sr.', 'II', 'III', 'IV'],
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated'],
   sex: ['Male', 'Female'],
+  suffixes: ['Jr.', 'Sr.', 'II', 'III', 'IV'],
   insuranceProviders: ['Maxicare', 'Intellicare', 'Medicard', 'PhilCare'],
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
   nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'Korean'],
@@ -1305,21 +1376,93 @@ export const DEFAULT_SETTINGS: FieldSettings = {
     'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
     'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
   ],
-  identityFields: [],
+  identityFields: [
+      { id: 'field_header_name', label: 'Patient Name', type: 'header', section: 'IDENTITY' },
+      { id: 'firstName', label: 'First Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'firstName', isRequired: true, width: 'third' },
+      { id: 'middleName', label: 'Middle Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'middleName', width: 'third' },
+      { id: 'surname', label: 'Surname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'surname', isRequired: true, width: 'third' },
+      { id: 'suffix', label: 'Suffix', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'suffix', registryKey: 'suffixes', width: 'half' },
+      { id: 'nickname', label: 'Nickname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'nickname', width: 'half' },
+      
+      { id: 'field_header_demographics', label: 'Demographics', type: 'header', section: 'IDENTITY' },
+      { id: 'dob', label: 'Date of Birth', type: 'date', section: 'IDENTITY', isCore: true, patientKey: 'dob', isRequired: true, width: 'half' },
+      { id: 'age', label: 'Age', type: 'text', section: 'IDENTITY', isCore: true, width: 'half' },
+      { id: 'sex', label: 'Sex', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'sex', registryKey: 'sex', width: 'half' },
+      { id: 'civilStatus', label: 'Civil Status', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'civilStatus', registryKey: 'civilStatus', width: 'half' },
+      { id: 'religion', label: 'Religion', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'religion', registryKey: 'religions', width: 'half' },
+      { id: 'nationality', label: 'Nationality', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'nationality', registryKey: 'nationalities', width: 'half' },
+
+      { id: 'field_header_contact', label: 'Contact Information', type: 'header', section: 'CONTACT' },
+      { id: 'homeAddress', label: 'Home Address', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'homeAddress', width: 'full' },
+      { id: 'barangay', label: 'Barangay', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'barangay', width: 'half' },
+      { id: 'city', label: 'City', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'city', width: 'half' },
+      { id: 'homeNumber', label: 'Home No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'homeNumber', width: 'third' },
+      { id: 'officeNumber', label: 'Office No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'officeNumber', width: 'third' },
+      { id: 'faxNumber', label: 'Fax No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'faxNumber', width: 'third' },
+      { id: 'phone', label: 'Mobile Number', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'phone', isRequired: true, width: 'half' },
+      { id: 'email', label: 'Email Address', type: 'email', section: 'CONTACT', isCore: true, patientKey: 'email', width: 'half' },
+
+      { id: 'field_header_occupation', label: 'Occupation', type: 'header', section: 'IDENTITY' },
+      { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'occupation', width: 'full' },
+      
+      { id: 'field_header_insurance', label: 'Dental Insurance', type: 'header', section: 'INSURANCE' },
+      { id: 'dentalInsurance', label: 'Dental Insurance', type: 'text', section: 'INSURANCE', isCore: true, patientKey: 'dentalInsurance', width: 'half' },
+      { id: 'insuranceEffectiveDate', label: 'Effective Date', type: 'date', section: 'INSURANCE', isCore: true, patientKey: 'insuranceEffectiveDate', width: 'half' },
+      
+      // Dental Section Fields
+      { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', isCore: true, patientKey: 'previousDentist' },
+      { id: 'lastDentalVisit', label: 'Last Dental Visit', type: 'date', section: 'DENTAL', isCore: true, patientKey: 'lastDentalVisit' },
+      { id: 'chiefComplaint', label: 'Chief Complaint', type: 'textarea', section: 'DENTAL', isCore: true, patientKey: 'chiefComplaint', isRequired: true },
+
+      // Medical Section Fields
+      { id: 'physicianName', label: 'Name of Physician', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianName' },
+      { id: 'physicianSpecialty', label: 'Specialty', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianSpecialty' },
+      { id: 'physicianAddress', label: 'Office Address', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianAddress' },
+      { id: 'physicianNumber', label: 'Office Number', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianNumber' },
+      { id: 'bloodGroup', label: 'Blood Type', type: 'dropdown', section: 'MEDICAL', isCore: true, patientKey: 'bloodGroup', registryKey: 'bloodGroups' },
+      { id: 'bloodPressure', label: 'Blood Pressure', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'bloodPressure' },
+  ],
   fieldLabels: {},
   identityLayoutOrder: [
-      'core_firstName', 'core_middleName', 'core_surname',
-      'core_suffix', 'core_dob', 'core_age', 'core_sex', 'core_civilStatus',
+      'field_header_name',
+      'core_firstName', 'core_middleName', 'core_surname', 'core_suffix',
+      'core_nickname',
+      'field_header_demographics',
+      'core_dob', 'core_age', 'core_sex', 'core_civilStatus',
+      'core_religion', 'core_nationality',
+      'field_header_contact',
       'core_homeAddress', 'core_barangay', 'core_city',
-      'core_phone', 'core_email'
+      'core_homeNumber', 'core_officeNumber', 'core_faxNumber',
+      'core_phone', 'core_email',
+      'field_header_occupation',
+      'core_occupation',
+      'field_header_insurance',
+      'core_dentalInsurance', 'core_insuranceEffectiveDate',
   ],
   medicalLayoutOrder: [
+      'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
+      'core_bloodGroup', 'core_bloodPressure',
       'Are you in good health?',
       'Are you under medical treatment now?*',
       'Have you ever had serious illness or surgical operation?*',
       'Have you ever been hospitalized?*',
       'Are you taking any prescription/non-prescription medication?*',
+      'Do you use tobacco products?',
+      'Do you use alcohol, cocaine or other dangerous drugs?',
+      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+      'Taking Bisphosphonates? (Fosamax, Zometa)',
       'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex',
+  ],
+  dentalLayoutOrder: [
+      'core_previousDentist',
+      'core_lastDentalVisit',
+      'core_chiefComplaint',
+      'Are you anxious about dental treatment?',
+      'Do your gums bleed when you brush?',
+      'Do you have sensitive teeth (hot, cold, sweet)?',
+      'Do you clench or grind your teeth?',
+      'Have you had previous orthodontic treatment?',
+      'Are you satisfied with the appearance of your teeth?'
   ],
   identityQuestionRegistry: [
     'Are you in good health?',
@@ -1349,7 +1492,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   ],
   criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
   procedures: DEFAULT_PROCEDURES,
-  medications: [],
+  medications: DEFAULT_MEDICATIONS,
   shadeGuides: ['Vita Classical', 'Vita 3D Master'],
   restorativeMaterials: ['Composite', 'Amalgam', 'Glass Ionomer', 'Zirconia', 'EMax'],
   branches: ['Makati Main', 'Quezon City Satellite'],
@@ -1370,9 +1513,21 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   hospitalAffiliations: [],
   smsTemplates: DEFAULT_SMS_TEMPLATES,
   smsConfig: {
-      mode: 'LOCAL',
-      isPollingEnabled: false,
-      gatewayUrl: 'http://192.168.1.100:8080'
+    mode: 'CLOUD',
+    isPollingEnabled: false, // Start on boot
+
+    // Local server config
+    gatewayUrl: 'http://192.168.1.188:8080', // Local Address
+    publicAddress: 'http://175.158.219.123:8080',
+    local_username: 'sms',
+    local_password: '9EWSEOt4', 
+    local_deviceId: '00000000768614ef0000019a',
+
+    // Cloud server config
+    cloudUrl: 'https://api.sms-gate.app:443', // Cloud Address
+    cloud_username: 'CSAAHI',
+    cloud_password: 'ypcsxllu442tha', 
+    cloud_deviceId: 'obd9qcsflj8YkCkPgbxDS' 
   },
   consentFormTemplates: DEFAULT_CONSENT_FORM_TEMPLATES,
   smartPhrases: [],
@@ -1396,15 +1551,15 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableLabPortal: false,
       enableDocumentManagement: true,
       enableClinicalProtocolAlerts: true,
-      enableTreatmentPlanApprovals: true,
+      enableTreatmentPlanApprovals: true, 
       enableAccountabilityLog: true,
       enableReferralTracking: true,
       enablePromotions: false,
       enableSmsAutomation: true,
       enableMaterialTraceability: true,
       enableBirComplianceMode: true,
-      enableStatutoryBirTrack: true,
-      enableHmoInsuranceTrack: true,
+      enableStatutoryBirTrack: true, 
+      enableHmoInsuranceTrack: true, 
       enableDigitalDocent: true,
   },
   permissions: {},
@@ -1426,9 +1581,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   familyGroups: [
     { id: 'fam_scott_01', familyName: 'Scott-Schrute', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
   ],
-  clinicalProtocolRules: [
-    { id: 'proto_bp', name: 'Hypertension Protocol', triggerProcedureCategories: ['Surgery'], requiresMedicalConditions: ['High Blood Pressure', 'High BP'], requiresDocumentCategory: 'Medical Clearance', alertMessage: 'Hypertension Protocol: Patient requires valid Medical Clearance for surgical procedures.' }
-  ],
+  clinicalProtocolRules: [],
   savedViews: [],
   dataProtectionOfficerId: undefined,
   privacyImpactAssessments: [],

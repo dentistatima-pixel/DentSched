@@ -1,15 +1,10 @@
 
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
-// FIX: Add PerioMeasurement to imports
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
-// FIX: Add UserSearch to lucide-react imports for PatientPlaceholder
-// Fix: Add missing 'Droplet' icon import from lucide-react.
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill } from 'lucide-react';
-// FIX: Added 'calculateAge' to the import from '../constants' to resolve an undefined function error.
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill, HeartPulse, Book, ChevronDown } from 'lucide-react';
 import { formatDate, generateUid, calculateAge } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
-import PhilHealthCF4Generator from './PhilHealthCF4Generator';
 import { summarizePatient } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { useAuthorization } from '../hooks/useAuthorization';
@@ -19,15 +14,13 @@ import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
-// FIX: Import 'useAppointments' hook to resolve 'Cannot find name' error.
 import { useAppointments } from '../contexts/AppointmentContext';
-import { SealBadge } from './SealBadge';
+import { usePatientAlerts } from '../hooks/usePatientAlerts';
 
 
 // Lazy load heavy components
 const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
 const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
-// FIX: Corrected lazy import to properly handle the named export 'PerioChart'. The previous syntax was causing type resolution issues.
 const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
@@ -74,26 +67,92 @@ const TabLoader: React.FC = () => (
     </div>
 );
 
-const InfoItem: React.FC<{ label: string; value?: string | number | null | string[]; icon?: React.ElementType, isFlag?: boolean, isSpecial?: boolean }> = ({ label, value, icon: Icon, isFlag, isSpecial }) => {
+type ThemeColor = 'blue' | 'indigo' | 'lilac' | 'orange' | 'red';
+
+interface InfoItemProps { 
+  label: string; 
+  value?: string | number | null | string[]; 
+  icon?: React.ElementType;
+  isFlag?: boolean;
+  isSpecial?: boolean;
+  themeColor?: ThemeColor;
+  isLargeValue?: boolean;
+}
+
+const InfoItem: React.FC<InfoItemProps> = ({ label, value, icon: Icon, isFlag, isSpecial, themeColor, isLargeValue }) => {
     const displayValue = Array.isArray(value) && value.length > 0 ? value.join(', ') : Array.isArray(value) ? 'None' : (value || '---');
+
+    const themeStyles = {
+        blue: {
+            bg: 'bg-blue-50',
+            border: 'border-blue-200',
+            text: 'text-blue-800',
+            icon: 'text-blue-600',
+        },
+        indigo: {
+            bg: 'bg-indigo-50',
+            border: 'border-indigo-200',
+            text: 'text-indigo-800',
+            icon: 'text-indigo-600',
+        },
+        lilac: {
+            bg: 'bg-lilac-50',
+            border: 'border-lilac-200',
+            text: 'text-lilac-800',
+            icon: 'text-lilac-600',
+        },
+        orange: {
+            bg: 'bg-orange-50',
+            border: 'border-orange-200',
+            text: 'text-orange-800',
+            icon: 'text-orange-600',
+        },
+        red: { 
+             bg: 'bg-red-50',
+            border: 'border-red-200',
+            text: 'text-red-800',
+            icon: 'text-red-600',
+        }
+    };
+
+    const containerClasses = isFlag 
+        ? 'bg-red-50 border-2 border-red-200' 
+        : isSpecial 
+        ? 'bg-amber-50 border-2 border-amber-200' 
+        : themeColor 
+        ? `${themeStyles[themeColor].bg} border-2 ${themeStyles[themeColor].border}`
+        : 'bg-white border border-slate-100 shadow-sm';
+    
+    const iconClasses = isFlag
+        ? 'text-red-600'
+        : isSpecial
+        ? 'text-amber-600'
+        : themeColor
+        ? themeStyles[themeColor].icon
+        : 'text-slate-400';
+
+    const labelClasses = isFlag
+        ? 'text-red-700'
+        : isSpecial
+        ? 'text-amber-700'
+        : themeColor
+        ? themeStyles[themeColor].text
+        : 'text-slate-400';
+
+    const valueColorClasses = isFlag
+        ? 'text-red-800'
+        : isSpecial
+        ? 'text-amber-800'
+        : 'text-slate-800';
+
+    const valueSizeClasses = isLargeValue ? 'text-lg font-black tracking-tight' : 'text-sm font-bold';
+
     return (
-        <div className={`p-4 rounded-2xl flex items-start gap-4 ${
-            isFlag ? 'bg-red-50 border-2 border-red-200' : 
-            isSpecial ? 'bg-amber-50 border-2 border-amber-200' : 
-            'bg-white border border-slate-100 shadow-sm'
-        }`}>
-            {Icon && <Icon size={18} className={`mt-1 shrink-0 ${
-                isFlag ? 'text-red-600' : 
-                isSpecial ? 'text-amber-600' : 
-                'text-slate-400'
-            }`} />}
+        <div className={`p-4 rounded-2xl flex items-start gap-4 ${containerClasses}`}>
+            {Icon && <Icon size={18} className={`mt-1 shrink-0 ${iconClasses}`} />}
             <div className="flex-1">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</div>
-                <div className={`text-sm font-bold mt-1 ${
-                    isFlag ? 'text-red-800' : 
-                    isSpecial ? 'text-amber-800' : 
-                    'text-slate-800'
-                }`}>{displayValue}</div>
+                <div className={`text-[10px] font-black uppercase tracking-widest ${labelClasses}`}>{label}</div>
+                <div className={`${valueSizeClasses} mt-1 ${valueColorClasses}`}>{displayValue}</div>
             </div>
         </div>
     );
@@ -353,36 +412,46 @@ const MedicalHistoryAnswers: React.FC<{ patient: Patient }> = ({ patient }) => {
     const questions = {
         ...patient.registryAnswers
     };
+    
+    const femaleQuestions = [
+      'Are you pregnant?',
+      'Are you nursing?',
+      'Are you taking birth control pills?'
+    ];
 
-    // Filter out detail/date fields to be handled with their parent question
-    const mainQuestions = Object.keys(questions).filter(q => !q.endsWith('_details') && !q.endsWith('_date'));
+    const mainQuestions = Object.keys(questions)
+        .filter(q => !q.endsWith('_details') && !q.endsWith('_date'))
+        .filter(q => questions[q] === 'Yes' || q === 'Are you in good health?');
 
     return (
-        <div className="md:col-span-12">
-            <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Medical History Questionnaire</h4>
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {mainQuestions.map(q => (
-                    <div key={q} className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mainQuestions.map(q => {
+                const isFemaleQuestion = femaleQuestions.includes(q);
+                const isYes = questions[q] === 'Yes';
+                const isSpecial = isFemaleQuestion && isYes;
+
+                return (
+                    <div key={q} className={`p-4 rounded-xl border ${isSpecial ? 'bg-amber-50 border-2 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
                         <p className="font-bold text-slate-700 text-sm">{q.replace('*', '')}</p>
-                        <p className={`font-black text-lg mt-1 ${questions[q] === 'Yes' ? 'text-red-700' : 'text-teal-700'}`}>{questions[q]}</p>
-                        {questions[q] === 'Yes' && questions[`${q}_details`] && (
+                        <p className={`font-black text-lg mt-1 ${isYes ? (isSpecial ? 'text-amber-800' : 'text-red-700') : 'text-teal-700'}`}>{questions[q]}</p>
+                        {isYes && questions[`${q}_details`] && (
                             <p className="text-xs mt-2 p-3 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium"><strong>Details:</strong> {questions[`${q}_details`]}</p>
                         )}
-                        {questions[q] === 'Yes' && questions[`${q}_date`] && (
+                        {isYes && questions[`${q}_date`] && (
                             <p className="text-xs mt-2 p-3 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium"><strong>Date:</strong> {formatDate(questions[`${q}_date`])}</p>
                         )}
                     </div>
-                ))}
-                {patient.medicalTreatmentDetails && <InfoItem label="Details of Medical Treatment" value={patient.medicalTreatmentDetails} icon={FileText} />}
-                {patient.seriousIllnessDetails && <InfoItem label="Details of Serious Illness/Operation" value={patient.seriousIllnessDetails} icon={FileText} />}
-                {patient.lastHospitalizationDetails && <InfoItem label="Details of Last Hospitalization" value={`${patient.lastHospitalizationDetails} on ${formatDate(patient.lastHospitalizationDate)}`} icon={FileText} />}
-            </div>
+                );
+            })}
+            {patient.medicalTreatmentDetails && <InfoItem label="Details of Medical Treatment" value={patient.medicalTreatmentDetails} icon={FileText} />}
+            {patient.seriousIllnessDetails && <InfoItem label="Details of Serious Illness/Operation" value={patient.seriousIllnessDetails} icon={FileText} />}
+            {patient.lastHospitalizationDetails && <InfoItem label="Details of Last Hospitalization" value={`${patient.lastHospitalizationDetails} on ${formatDate(patient.lastHospitalizationDate)}`} icon={FileText} />}
         </div>
     );
 };
 
 
-const PatientDetailView: React.FC<PatientDetailViewProps> = ({ 
+export const PatientDetailView: React.FC<PatientDetailViewProps> = ({ 
     patient, appointments, staff, stock = [], currentUser, onQuickUpdatePatient, onBookAppointment, onEditPatient, 
     fieldSettings, logAction, incidents = [], onSaveIncident, referrals = [], onSaveReferral, onBack,
     governanceTrack, onOpenRevocationModal, readOnly, sterilizationCycles, onUpdateSettings,
@@ -390,80 +459,87 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     onRecordPaymentWithReceipt, onOpenPostOpHandover, auditLog
 }) => {
   const [activeTab, setActiveTab] = useState('summary');
-  const [noteToAutoEdit, setNoteToAutoEdit] = useState<DentalChartEntry | null>(null);
+  const { route, navigate } = useRouter();
+  const [editingNote, setEditingNote] = useState<DentalChartEntry | null>(null);
   const toast = useToast();
   const { can } = useAuthorization();
-  const navigate = useNavigate();
   const { patients } = usePatient();
   const { setFullScreenView } = useAppContext();
   const { showModal } = useModal();
   const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  
+  const alerts = usePatientAlerts(patient);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreMenuRef]);
+
+  useEffect(() => {
+    const prefillProcedure = route.query.get('prefill_procedure');
+    if (prefillProcedure && patient) {
+      const prefillNote: Partial<DentalChartEntry> = {
+        procedure: prefillProcedure,
+        status: 'Completed',
+        appointmentId: appointments.find(a => a.patientId === patient.id && a.type === prefillProcedure && a.date === new Date().toLocaleDateString('en-CA'))?.id,
+        resourceId: route.query.get('prefill_resourceId') || undefined,
+      };
+      setEditingNote(prefillNote as DentalChartEntry);
+      setActiveTab('notes');
+      // Clear query params
+      navigate(`patients/${patient.id}`, { replace: true });
+    }
+  }, [route.query, patient?.id, navigate, appointments]);
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
   }
   
-  const getCriticalFlags = (p: Patient) => {
-    if (!p || !fieldSettings) return [];
-    const flags: { type: string; value: string }[] = [];
-    const criticalRegistry = fieldSettings?.criticalRiskRegistry || [];
-    
-    (p.medicalConditions || []).forEach(condition => {
-        if (criticalRegistry.includes(condition)) {
-            flags.push({ type: 'Condition', value: condition });
-        }
-    });
-
-    (p.allergies || []).forEach(allergy => {
-        if (criticalRegistry.includes(allergy)) {
-            flags.push({ type: 'Allergy', value: allergy });
-        }
-    });
-    
-    if (p.registryAnswers) {
-        Object.entries(p.registryAnswers).forEach(([question, answer]) => {
-            if (answer === 'Yes' && criticalRegistry.includes(question)) {
-                const simpleLabel = question.replace(/\?.*$/, '').replace(/\(.*\)/, '').trim();
-                flags.push({ type: 'Alert', value: simpleLabel });
-            }
-        });
-    }
-
-    return flags;
+  const handlePerioSave = (newData: PerioMeasurement[]) => {
+      onQuickUpdatePatient({ id: patient.id, perioChart: newData });
   };
   
   const headerStyle = useMemo(() => {
-    const flags = getCriticalFlags(patient);
-    if (flags.length > 0) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
+    const hasCritical = alerts.some(a => a.level === 'critical');
+    if (hasCritical) return { bg: 'bg-red-600', text: 'text-white', sub: 'text-red-200' };
     if (patient.isPwd) return { bg: 'bg-amber-500', text: 'text-white', sub: 'text-amber-100' };
     if ((calculateAge(patient.dob) || 18) < 18) return { bg: 'bg-blue-500', text: 'text-white', sub: 'text-blue-200' };
     return { bg: 'bg-teal-700', text: 'text-white', sub: 'text-teal-200' };
-  }, [patient]);
+  }, [patient, alerts]);
 
-  const tabs = [
+  const allTabs = useMemo(() => [
       { id: 'summary', label: 'Details', icon: UserIcon },
-      { id: 'appointments', label: 'Appointments', icon: Calendar },
-      { id: 'comms', label: 'Comms', icon: MessageSquare },
       { id: 'notes', label: 'Notes', icon: ClipboardList },
       { id: 'odontogram', label: 'Chart', icon: Stethoscope },
       { id: 'perio', label: 'Perio', icon: Activity },
+      { id: 'images', label: 'Imaging', icon: ImageIcon },
       { id: 'plans', label: 'Strategy', icon: Briefcase },
       { id: 'ledger', label: 'Ledger', icon: DollarSign },
-      { id: 'images', label: 'Imaging', icon: ImageIcon },
+      { id: 'appointments', label: 'Appointments', icon: Calendar },
+      { id: 'comms', label: 'Comms', icon: MessageSquare },
       { id: 'compliance', label: 'Compliance', icon: Shield },
       { id: 'history', label: 'History', icon: History },
-  ];
+  ], []);
+
+  const primaryTabIds = ['summary', 'plans', 'notes', 'odontogram', 'perio', 'images', 'ledger'];
+  const primaryTabs = primaryTabIds.map(id => allTabs.find(tab => tab.id === id)).filter(Boolean) as {id: string; label: string; icon: React.ElementType;}[];
+  const secondaryTabs = allTabs.filter(t => !primaryTabIds.includes(t.id));
+
+  const isMoreMenuActive = useMemo(() => secondaryTabs.some(t => t.id === activeTab), [activeTab, secondaryTabs]);
   
   const handleChartUpdate = (entry: DentalChartEntry) => {
       const isNew = !patient.dentalChart?.some(e => e.id === entry.id);
       const nextChart = isNew ? [...(patient.dentalChart || []), entry] : patient.dentalChart?.map(e => e.id === entry.id ? entry : e);
       onQuickUpdatePatient({ id: patient.id, dentalChart: nextChart });
       setActiveTab('notes');
-      setNoteToAutoEdit(entry);
-  };
-  
-  const handlePerioSave = (newData: PerioMeasurement[]) => {
-      onQuickUpdatePatient({ id: patient.id, perioChart: newData });
+      setEditingNote(entry);
   };
   
   const handleNoteAction = (action: 'add' | 'update' | 'delete', entry: DentalChartEntry) => {
@@ -487,14 +563,26 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
       toast.success("Prescription saved to patient record.");
   };
 
+  const referralSource = useMemo(() => {
+      if (!patient.referredById) return null;
+      return patients.find(p => p.id === patient.referredById)?.name || 'Unknown Source';
+  }, [patient.referredById, patients]);
+
+  const familyGroup = useMemo(() => {
+    if (!patient.familyGroupId) return null;
+    return fieldSettings.familyGroups?.find(g => g.id === patient.familyGroupId)?.familyName || 'Unknown Group';
+  }, [patient.familyGroupId, fieldSettings.familyGroups]);
+
   return (
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
         <header className={`p-6 flex items-center justify-between gap-4 shrink-0 rounded-t-[2.5rem] ${headerStyle.bg}`}>
             <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-4xl text-white">{patient.firstName[0]}{patient.surname[0]}</div>
                 <div>
                     <h2 className={`text-3xl font-black ${headerStyle.text}`}>{patient.name}</h2>
-                    <p className={`text-sm font-bold uppercase tracking-widest ${headerStyle.sub}`}>ID: {patient.id}</p>
+                    <div className="flex items-center gap-4 divide-x divide-white/20 mt-1">
+                        <p className={`text-sm font-bold uppercase tracking-widest ${headerStyle.sub}`}>ID: {patient.id}</p>
+                        <p className={`text-sm font-bold uppercase tracking-widest ${headerStyle.sub} pl-4 flex items-center gap-2`}><Phone size={12}/> {patient.phone}</p>
+                    </div>
                 </div>
                  {patient.isPendingSync && (
                     <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-lilac-600/50 text-white text-[10px] font-black uppercase tracking-widest animate-pulse">
@@ -508,53 +596,126 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             </div>
         </header>
         
-        <div className="p-2 border-b border-border-primary flex items-center gap-1 overflow-x-auto no-scrollbar bg-slate-50">
-            {tabs.map(tab => (
+        <div className="p-2 border-b border-border-primary flex items-center gap-1 bg-slate-50 relative">
+            {primaryTabs.map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white shadow text-teal-700' : 'text-slate-500 hover:bg-white/50'}`}>
                     <tab.icon size={14}/> {tab.label}
                 </button>
             ))}
+            <div ref={moreMenuRef} className="relative">
+                <button onClick={() => setIsMoreMenuOpen(prev => !prev)} className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all whitespace-nowrap ${isMoreMenuActive ? 'bg-white shadow text-teal-700' : 'text-slate-500 hover:bg-white/50'}`}>
+                    More <ChevronDown size={14}/>
+                </button>
+                {isMoreMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 z-50 p-2">
+                        {secondaryTabs.map(tab => (
+                            <button 
+                                key={tab.id} 
+                                onClick={() => { setActiveTab(tab.id); setIsMoreMenuOpen(false); }} 
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${activeTab === tab.id ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                            >
+                                <tab.icon size={14}/> {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
 
         <div className="flex-1 overflow-auto no-scrollbar bg-bg-tertiary">
             {activeTab === 'summary' && (
-                <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in duration-500">
-                    <div className="md:col-span-12">
-                        <div className="flex items-center justify-between">
-                            <div className="flex flex-wrap gap-3">
-                                {getCriticalFlags(patient).slice(0, 4).map((f, i) => (
-                                    <div key={i} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-800 rounded-full text-xs font-black uppercase border-2 border-red-200 shadow-sm"><ShieldAlert size={14}/> {f.value}</div>
-                                ))}
+                <div className="p-6 space-y-8 animate-in fade-in duration-500">
+                    {/* Section for Medical Summary */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical Summary</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className={`p-6 rounded-2xl ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
+                                <div className="flex items-center gap-2">
+                                    <Droplet size={18} className={`${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
+                                    <h5 className={`font-black text-sm uppercase tracking-widest ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Allergies</h5>
+                                </div>
+                                <p className={`text-sm font-bold mt-3 ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
+                                    {(patient.allergies && patient.allergies.length > 0 && !patient.allergies.every(a => a.toLowerCase() === 'none')) ? patient.allergies.filter(a => a.toLowerCase() !== 'none').join(', ') : 'None Reported'}
+                                </p>
                             </div>
-                            {patient.registrationSignature && (
-                                <SealBadge 
-                                    data={{
-                                        signerName: patient.name,
-                                        signerRole: 'Patient (Registration)',
-                                        timestamp: patient.registrationSignatureTimestamp!,
-                                        signatureUrl: patient.registrationSignature!,
-                                        snapUrl: patient.identitySnap,
-                                        title: 'Initial Intake Registration Seal'
-                                    }}
-                                />
-                            )}
+                            
+                            <div className={`p-6 rounded-2xl ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
+                                <div className="flex items-center gap-2">
+                                    <Heart size={18} className={`${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
+                                    <h5 className={`font-black text-sm uppercase tracking-widest ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Medical Conditions</h5>
+                                </div>
+                                <p className={`text-sm font-bold mt-3 ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
+                                    {(patient.medicalConditions && patient.medicalConditions.length > 0 && !patient.medicalConditions.every(c => c.toLowerCase() === 'none')) ? patient.medicalConditions.filter(c => c.toLowerCase() !== 'none').join(', ') : 'None Reported'}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <InfoItem label="Mobile" value={patient.phone} icon={Phone} />
-                    <InfoItem label="Email" value={patient.email} icon={Mail} />
-                    <div className="md:col-span-2"><InfoItem label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} /></div>
-                    <InfoItem label="Occupation" value={patient.occupation} icon={Briefcase} />
-                    <InfoItem label="Guardian" value={patient.guardianProfile?.legalName} icon={Baby} isSpecial={!!patient.guardianProfile} />
-                    <InfoItem label="Allergies" value={patient.allergies} icon={Droplet} isFlag={patient.allergies?.some(a => a.toLowerCase() !== 'none')} />
-                    <div className="md:col-span-2"><InfoItem label="Medical Conditions" value={patient.medicalConditions} icon={Heart} isFlag={patient.medicalConditions?.some(a => a.toLowerCase() !== 'none')} /></div>
-                    <InfoItem label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
-                    <MedicalHistoryAnswers patient={patient} />
-                    <div className="md:col-span-12">
-                        <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 px-4">Actions</h4>
-                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <button onClick={() => showModal('ePrescription', { patient, currentUser, fieldSettings, onSavePrescription: handleSavePrescription })} className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl transition-colors">
+                    
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical History Questionnaire</h4>
+                        <MedicalHistoryAnswers patient={patient} />
+                    </div>
+                    
+                    {/* Section for Personal & Contact Info */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><UserIcon size={18} className="text-blue-600"/> Personal & Contact Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <InfoItem themeColor="blue" label="Email" value={patient.email} icon={Mail} />
+                            <InfoItem themeColor="blue" label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} />
+                            <InfoItem themeColor="blue" label="Occupation" value={patient.occupation} icon={Briefcase} />
+                            <InfoItem themeColor="blue" label="Civil Status" value={patient.civilStatus} icon={BookUser} />
+                            <InfoItem themeColor="blue" label="Nationality" value={patient.nationality} icon={Briefcase} />
+                            <InfoItem themeColor="blue" label="Religion" value={patient.religion} icon={BookUser} />
+                            <InfoItem themeColor="blue" label="Blood Group" value={patient.bloodGroup} icon={Droplet} />
+                            <InfoItem themeColor="blue" label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
+                            {patient.guardianProfile && <InfoItem themeColor="blue" label="Guardian" value={patient.guardianProfile?.legalName} icon={Baby} isSpecial />}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-indigo-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-indigo-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Shield size={18} className="text-indigo-600"/> Insurance & Administrative</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <InfoItem themeColor="indigo" label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
+                            <InfoItem themeColor="indigo" label="Insurance Policy #" value={patient.insuranceNumber} icon={FileText} />
+                            <InfoItem themeColor="indigo" label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
+                            <InfoItem themeColor="indigo" label="PhilHealth Category" value={patient.philHealthCategory} icon={FileText} />
+                            <InfoItem themeColor="indigo" label="PhilHealth Status" value={patient.philHealthMemberStatus} icon={CheckCircle} />
+                            {referralSource && <InfoItem themeColor="indigo" label="Referred By" value={referralSource} icon={Users} isSpecial />}
+                            {familyGroup && <InfoItem themeColor="indigo" label="Family Group" value={familyGroup} icon={Users} isSpecial />}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-lilac-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-lilac-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Users size={18} className="text-lilac-600"/> Associated Health Contacts</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="space-y-4">
+                                <InfoItem themeColor="lilac" label="Primary Physician" value={patient.physicianName} icon={HeartPulse} />
+                                <InfoItem themeColor="lilac" label="Physician's Specialty" value={patient.physicianSpecialty} icon={Stethoscope} />
+                                <InfoItem themeColor="lilac" label="Physician's Contact" value={patient.physicianNumber} icon={Phone} />
+                             </div>
+                             <div className="space-y-4">
+                                <InfoItem themeColor="lilac" label="Emergency Contact Name" value={patient.emergencyContact?.name} icon={UserIcon} isSpecial />
+                                <InfoItem themeColor="lilac" label="Relationship" value={patient.emergencyContact?.relationship} icon={Users} isSpecial />
+                                <InfoItem themeColor="lilac" label="Emergency Contact #" value={patient.emergencyContact?.phoneNumber} icon={Phone} isSpecial />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-orange-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-orange-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><History size={18} className="text-orange-600"/> Dental History Summary</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <InfoItem themeColor="orange" label="Previous Dentist" value={patient.previousDentist} icon={Book} />
+                            <InfoItem themeColor="orange" label="Last Dental Visit" value={formatDate(patient.lastDentalVisit)} icon={Calendar} />
+                        </div>
+                    </div>
+
+                    {/* Actions Section */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
+                        <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Zap size={18} className="text-blue-600"/> Quick Actions</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button onClick={() => showModal('ePrescription', { patient, currentUser, fieldSettings, onSavePrescription: handleSavePrescription })} className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl transition-colors border border-slate-200">
                                 <Pill size={24} className="text-teal-600"/>
-                                <span className="text-xs font-black text-slate-700 uppercase">New Prescription</span>
+                                <span className="text-xs font-black text-slate-700 uppercase text-center">New Prescription</span>
                             </button>
                         </div>
                     </div>
@@ -564,7 +725,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
             {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
             {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
             {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} /></Suspense>}
-            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} prefill={noteToAutoEdit} onClearPrefill={() => setNoteToAutoEdit(null)} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} /></Suspense>}
+            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
             {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
             {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
                 patient={patient} 
@@ -573,6 +734,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 currentUser={currentUser} 
                 logAction={logAction} 
                 featureFlags={fieldSettings.features} 
+                fieldSettings={fieldSettings}
                 onInitiateFinancialConsent={onInitiateFinancialConsent} 
                 onOpenRevocationModal={onOpenRevocationModal}
             /></Suspense>}

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
@@ -8,6 +9,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
+import DocentSparkle from './DocentSparkle';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface PatientListProps {
@@ -18,7 +20,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const { showModal } = useModal();
-  const { patients } = usePatient();
+  const { patients, handleSavePatient } = usePatient();
   const { fieldSettings } = useSettings();
   const navigate = useNavigate();
   const { currentBranch } = useAppContext();
@@ -30,9 +32,9 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
 
   const filteredPatients = useMemo(() => {
     if (!debouncedSearchTerm.trim()) {
-      return patients.slice(0, 100);
+      return patients;
     }
-    return fuse.search(debouncedSearchTerm).map(result => result.item).slice(0, 100);
+    return fuse.search(debouncedSearchTerm).map(result => result.item);
   }, [patients, debouncedSearchTerm, fuse]);
 
   const onSelectPatient = (id: string | null) => {
@@ -86,7 +88,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
           />
         </div>
         <button 
-          onClick={() => showModal('patientRegistration', { currentBranch })}
+          onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })}
           className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
           aria-label="New Patient Registration"
         >
@@ -103,7 +105,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Alerts</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Next Visit</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Last Visit</th>
-              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider flex items-center gap-1 justify-center">Reliability</th>
+              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider flex items-center gap-1 justify-center">Reliability <DocentSparkle elementId="reliabilityScore" context="Patient Registry Table Header" /></th>
               <th className="p-4 text-right font-bold uppercase text-text-secondary text-xs tracking-wider">Balance</th>
               <th className="p-4"></th>
             </tr>

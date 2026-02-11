@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FieldSettings } from '../types';
 import { Layers, Plus, Trash2 } from 'lucide-react';

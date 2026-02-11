@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface Branch {
@@ -484,17 +483,17 @@ export interface OrthoAdjustment {
 export interface ProcedureItem {
   id: string;
   name: string;
-  category?: string;
-  traySetup?: string[];
+  category: string;
+  defaultPrice: number;
+  defaultDurationMinutes: number;
+  requiresLeadApproval?: boolean;
+  requiresImaging?: boolean;
   requiresConsent?: boolean;
-  requiresXray?: boolean;
-  requiresWitness?: boolean;
+  allowedLicenseCategories?: LicenseCategory[];
+  traySetup?: string[];
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
-  isPhilHealthCovered?: boolean;
-  riskAllergies?: string[]; 
-  allowedLicenseCategories?: LicenseCategory[];
-  defaultDurationMinutes?: number;
+  riskAllergies?: string[];
 }
 
 export interface RolePermissions {
@@ -517,6 +516,8 @@ export interface RegistrationField {
   isCritical?: boolean;
   options?: string[];
   isRequired?: boolean;
+  isCore?: boolean;
+  patientKey?: keyof Patient;
 }
 
 export interface FeatureToggles {
@@ -618,8 +619,8 @@ export interface HospitalAffiliation {
 export type ClinicProfile = 'boutique' | 'corporate';
 
 export interface DaySchedule {
-    start: string;
-    end: string;
+    start: string | null;
+    end: string | null;
     isClosed: boolean;
 }
 
@@ -706,7 +707,6 @@ export interface SignatureChainEntry {
   id: string;
   signatureType: SignatureType;
   signatureDataUrl: string;
-  identitySnap?: string; // NEW: 96x96 grayscale image for strategic sealing
   timestamp: string;
   signerName: string;
   signerRole?: string;
@@ -1005,7 +1005,6 @@ export interface Patient {
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
   registrationPhotoHash?: string;
-  identitySnap?: string; // NEW: Grayscale ID proof
   familyGroupId?: string;
   communicationLog?: CommunicationLogEntry[];
   registrationStatus?: RegistrationStatus;
@@ -1063,7 +1062,6 @@ export interface TreatmentPlan {
   color?: string;
   financialConsentSignature?: string;
   financialConsentTimestamp?: string;
-  financialConsentSnap?: string; // NEW: Identity snap for financial estimate
   discountAmount?: number;
   discountReason?: string;
   consultations?: {
@@ -1178,8 +1176,10 @@ export interface PerioMeasurement {
   toothNumber: number;
   pocketDepths: (number | null)[];
   recession: (number | null)[];
-  bleeding: boolean[];
+  bop?: number | null;
   mobility: number | null;
+  furcation?: number | null;
+  plaqueIndex?: number | null;
 }
 
 export interface PatientFile {
@@ -1311,9 +1311,9 @@ export interface FieldSettings {
   strictMode: boolean;
   editBufferWindowMinutes: number;
   sessionTimeoutMinutes: number;
-  suffixes: string[];
   civilStatus: string[];
   sex: string[];
+  suffixes: string[];
   insuranceProviders: string[];
   bloodGroups: string[];
   nationalities: string[];
@@ -1327,6 +1327,7 @@ export interface FieldSettings {
   fieldLabels: Record<string, string>;
   identityLayoutOrder: string[];
   medicalLayoutOrder: string[];
+  dentalLayoutOrder: string[];
   identityQuestionRegistry: string[];
   femaleQuestionRegistry: string[];
   medicalRiskRegistry: string[];
@@ -1374,7 +1375,6 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
-  priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];

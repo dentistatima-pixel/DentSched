@@ -1,5 +1,4 @@
-
-import { Patient, Appointment, User, FieldSettings, UserRole } from '../types';
+import { Patient, Appointment, User, FieldSettings, UserRole, RegistrationField } from '../types';
 
 // Valid 3-digit prefixes (after the initial '0')
 const PH_MOBILE_PREFIXES = new Set([
@@ -15,56 +14,42 @@ const PH_MOBILE_PREFIXES = new Set([
     '968', '969', '970', '971', '980', '981', '989', '992', '998', '999'
 ]);
 
+export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldSettings): Record<string, string> | null => {
+    const errors: Record<string, string> = {};
 
-// Schema-based validation for Patient
-const patientSchema = {
-    name: (patient: Partial<Patient>) => {
-        if (!patient.firstName?.trim() || !patient.surname?.trim()) {
-            return "First Name and Surname are required.";
+    // --- Unified field validation ---
+    fieldSettings.identityFields.forEach(field => {
+        if (field.isRequired) {
+            const value = field.patientKey ? patient[field.patientKey] : patient.customFields?.[field.id];
+            
+            const isMissing = value === undefined || value === null || (typeof value === 'string' && value.trim() === '') || (Array.isArray(value) && value.length === 0);
+
+            if (isMissing) {
+                errors[field.id] = `${field.label} is a required field.`;
+            }
         }
-        return null;
-    },
-    phone: (patient: Partial<Patient>) => {
-        const phone = patient.phone?.trim();
-        if (!phone) {
-            return "Mobile Number is required.";
-        }
-        if (!/^09\d{9}$/.test(phone)) {
-            return "Please enter a valid 11-digit mobile number starting with 09.";
-        }
+    });
+    
+    // --- Special format validations ---
+    const phone = patient.phone?.trim();
+    if (phone && !/^09\d{9}$/.test(phone)) {
+        errors.phone = "Please enter a valid 11-digit mobile number starting with 09.";
+    } else if (phone) {
         const prefix = phone.substring(1, 4);
         if (!PH_MOBILE_PREFIXES.has(prefix)) {
-            return `The prefix ${prefix} is not a valid Philippine mobile number prefix.`;
+            errors.phone = `The prefix ${prefix} is not a valid mobile number prefix.`;
         }
-        return null;
-    },
-    dpaConsent: (patient: Partial<Patient>) => {
-        if (!patient.dpaConsent) {
-            return "Compliance Error: Data Privacy Consent must be accepted.";
-        }
-        return null;
-    },
-    clinicalMediaConsent: (patient: Partial<Patient>) => {
-        if (!patient.clinicalMediaConsent) {
-            return "Compliance Error: General Treatment Authorization must be acknowledged.";
-        }
-        return null;
     }
-};
 
-const validate = (schema: any, data: any): Record<string, string> | null => {
-    const errors: Record<string, string> = {};
-    for (const key in schema) {
-        const error = schema[key](data);
-        if (error) {
-            errors[key] = error;
-        }
+    // --- Consent validation ---
+    if (!patient.dpaConsent) {
+        errors.dpaConsent = "Compliance Error: Data Privacy Consent must be accepted.";
     }
+    if (!patient.clinicalMediaConsent) {
+        errors.clinicalMediaConsent = "Compliance Error: General Treatment Authorization must be acknowledged.";
+    }
+
     return Object.keys(errors).length > 0 ? errors : null;
-};
-
-export const validatePatient = (patient: Partial<Patient>): Record<string, string> | null => {
-    return validate(patientSchema, patient);
 };
 
 

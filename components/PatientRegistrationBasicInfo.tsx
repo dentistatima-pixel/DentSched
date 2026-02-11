@@ -78,6 +78,7 @@ interface RegistrationBasicInfoProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   handleCustomChange: (fieldName: string, value: any, type: RegistrationField['type']) => void;
+  onRegistryChange: (newAnswers: Record<string, any>) => void;
   readOnly?: boolean;
   fieldSettings: FieldSettings;
   patients?: Patient[]; 
@@ -85,15 +86,21 @@ interface RegistrationBasicInfoProps {
   designMode?: boolean;
   onFieldClick?: (fieldId: string, type: 'identity' | 'question') => void;
   selectedFieldId?: string;
+  errors: Record<string, string> | null;
 }
 
 const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({ 
-    formData, handleChange, handleCustomChange, readOnly, fieldSettings, patients = [], isMasked = false,
-    designMode = false, onFieldClick, selectedFieldId
+    formData, handleChange, handleCustomChange, onRegistryChange, readOnly, fieldSettings, patients = [], isMasked = false,
+    designMode = false, onFieldClick, selectedFieldId, errors
 }) => {
   const [refSearch, setRefSearch] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const [headOfHouseholdSearch, setHeadOfHouseholdSearch] = useState('');
+  const [headOfHouseholdResults, setHeadOfHouseholdResults] = useState<Patient[]>([]);
+  const headOfHouseholdContainerRef = useRef<HTMLDivElement>(null);
+
 
   const fuse = useMemo(() => new Fuse(patients, {
     keys: ['name', 'id'],
@@ -107,6 +114,11 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
   }, [formData.referredById, patients]);
 
   useEffect(() => {
+    const headPatient = patients.find(p => p.id === formData.familyGroupId);
+    setHeadOfHouseholdSearch(headPatient ? headPatient.name : '');
+  }, [formData.familyGroupId, patients]);
+
+  useEffect(() => {
     const isExactMatch = patients.some(p => p.id === formData.referredById && p.name === refSearch);
     
     if (refSearch && !isExactMatch) {
@@ -118,16 +130,29 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
   }, [refSearch, fuse, formData.referredById, patients]);
 
   useEffect(() => {
+    const isExactMatch = patients.some(p => p.id === formData.familyGroupId && p.name === headOfHouseholdSearch);
+    if (headOfHouseholdSearch && !isExactMatch) {
+        const results = fuse.search(headOfHouseholdSearch).map(result => result.item);
+        setHeadOfHouseholdResults(results.slice(0, 5));
+    } else {
+        setHeadOfHouseholdResults([]);
+    }
+  }, [headOfHouseholdSearch, fuse, formData.familyGroupId, patients]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setSearchResults([]);
+      }
+      if (headOfHouseholdContainerRef.current && !headOfHouseholdContainerRef.current.contains(event.target as Node)) {
+        setHeadOfHouseholdResults([]);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [searchContainerRef]);
+  }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -148,122 +173,97 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
     setSearchResults([]);
   };
 
+  const handleHeadOfHouseholdSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setHeadOfHouseholdSearch(value);
+    
+    if (value === '') {
+      handleChange({
+        target: { name: 'familyGroupId', value: undefined }
+      } as any);
+    }
+  };
+
+  const handleSelectHeadOfHousehold = (patient: Patient) => {
+    handleChange({
+      target: { name: 'familyGroupId', value: patient.id }
+    } as any);
+    setHeadOfHouseholdSearch(patient.name);
+    setHeadOfHouseholdResults([]);
+  };
+
   const isMinor = useMemo(() => (calculateAge(formData.dob) || 18) < 18, [formData.dob]);
   const showGuardian = isMinor || formData.isPwd || formData.isSeniorDependent || designMode;
   const showFemaleQuestions = formData.sex === 'Female' || designMode;
 
   const getLabel = (id: string, def: string) => fieldSettings.fieldLabels[id] || def;
 
-  const femaleFieldMap: Record<string, string> = {
-    'Are you pregnant?': 'pregnant',
-    'Are you nursing?': 'nursing',
-    'Are you taking birth control pills?': 'birthControl'
-  };
-
   const renderFieldById = (id: string) => {
       const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(id);
 
       if (id.startsWith('core_')) {
           const coreId = id.replace('core_', '');
-          const label = getLabel(coreId, coreId);
+          const field = fieldSettings.identityFields.find(f => f.patientKey === coreId);
+          if (!field) return null;
+          const label = getLabel(coreId, field.label);
+          const value = (formData as any)[coreId] || '';
+          const className = `input bg-white ${errors?.[field.id] ? 'input-error' : ''}`;
           
-          if (coreId === 'firstName' || coreId === 'middleName' || coreId === 'surname') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                  <div>
-                      <label className="label flex items-center gap-2">{label} * {isCritical && <ShieldAlert size={12} className="text-red-500"/>}</label>
-                      <ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className="input bg-white" />
-                  </div>
-                </DesignWrapper>
-              );
-          }
-          if (coreId === 'suffix') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                  <div>
-                      <label className="label">{label}</label>
-                      <select name="suffix" value={formData.suffix || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+          let colSpan = "col-span-1 md:col-span-12";
+          if (field.width === 'half') colSpan = "col-span-1 md:col-span-6";
+          if (field.width === 'third') colSpan = "col-span-1 md:col-span-4";
+          if (field.width === 'quarter') colSpan = "col-span-1 md:col-span-3";
+
+          let inputElement;
+
+          switch(field.type) {
+              case 'text':
+              case 'tel':
+              case 'email':
+              case 'date':
+                  inputElement = <ControlledInput name={coreId} value={value} type={field.type} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className={className} />;
+                  break;
+              case 'textarea':
+                   inputElement = <ControlledTextarea name={coreId} value={value} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${label}`} className={`${className} h-24`} />;
+                   break;
+              case 'dropdown':
+                  inputElement = (
+                    <select name={coreId} value={value} onChange={handleChange} disabled={readOnly} className={className}>
                         <option value="">Select {label}</option>
-                        {fieldSettings.suffixes.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                  </div>
-                </DesignWrapper>
-              );
+                        {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  );
+                  break;
+              case 'boolean':
+                  // Handled separately if needed
+                  break;
+              default:
+                  return null;
           }
-          if (coreId === 'dob') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-4" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label font-bold">{label}</label><input name="dob" type="date" value={formData.dob || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                </DesignWrapper>
-              );
-          }
+
           if (coreId === 'age') {
               return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-2" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                     <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
                 </DesignWrapper>
               );
           }
-          if (coreId === 'sex') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-3" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div>
-                        <label className="label font-bold">{label}</label>
-                        <select name="sex" value={formData.sex || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
-                            <option value="">Select {label}</option>
-                            {fieldSettings.sex.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                </DesignWrapper>
-              );
-          }
-          if (coreId === 'civilStatus') {
-            return (
-              <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+
+          return (
+             <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
-                      <label className="label">{label}</label>
-                      <select name="civilStatus" value={formData.civilStatus || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
-                          <option value="">Select {label}</option>
-                          {fieldSettings.civilStatus.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                      <label className="label flex items-center gap-2">{label} {field.isRequired && '*'}</label>
+                      {inputElement}
                   </div>
-              </DesignWrapper>
-            );
-          }
-          if (coreId === 'homeAddress') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-12" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><ControlledInput name="homeAddress" value={formData.homeAddress || ''} onChange={handleChange} disabled={readOnly} placeholder="Street, Subdivision..." className="input bg-white" /></div>
-                </DesignWrapper>
-              );
-          }
-          if (coreId === 'city' || coreId === 'barangay') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><ControlledInput name={coreId} value={(formData as any)[coreId] || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" /></div>
-                </DesignWrapper>
-              );
-          }
-          if (coreId === 'phone') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label font-bold">{label} *</label><ControlledInput name="phone" value={formData.phone || ''} onChange={handleChange} disabled={readOnly} placeholder="09XXXXXXXXX" className="input bg-white" /></div>
-                </DesignWrapper>
-              );
-          }
-          if (coreId === 'email') {
-              return (
-                <DesignWrapper id={id} type="identity" className="col-span-1 md:col-span-6" key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><ControlledInput name="email" type="email" value={formData.email || ''} onChange={handleChange} disabled={readOnly} placeholder="example@domain.com" className="input bg-white" /></div>
-                </DesignWrapper>
-              );
-          }
+             </DesignWrapper>
+          );
       }
 
       if (id.startsWith('field_')) {
           const fieldId = id.replace('field_', '');
           const field = fieldSettings.identityFields.find(f => f.id === fieldId);
           if (!field) return null;
+          const hasError = !!errors?.[id];
 
           if (field.type === 'header') {
             return (
@@ -283,7 +283,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           if (field.type === 'boolean') {
               return (
                   <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                      <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${!!val ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-slate-200'}`}>
+                      <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${!!val ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white'} ${hasError ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'}`}>
                           <input
                               type="checkbox"
                               name={field.id}
@@ -294,7 +294,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                           />
                           <div>
                             <span className="font-black text-teal-950 uppercase text-sm tracking-widest flex items-center gap-2">
-                                {field.label}
+                                {field.label} {field.isRequired && '*'}
                                 {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                             </span>
                           </div>
@@ -306,18 +306,18 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           return (
               <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <label className="label flex items-center gap-2">
-                    {field.label} 
+                    {field.label} {field.isRequired && '*'}
                     {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                   </label>
                   {field.type === 'dropdown' && field.registryKey ? (
-                      <select name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                      <select name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} className={`input bg-white ${hasError ? 'input-error' : ''}`}>
                           <option value="">Select {field.label}</option>
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <ControlledTextarea name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white h-24" />
+                      <ControlledTextarea name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white h-24 ${hasError ? 'input-error' : ''}`} />
                   ) : (
-                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className="input bg-white" />
+                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white ${hasError ? 'input-error' : ''}`} />
                   )}
               </DesignWrapper>
           );
@@ -327,14 +327,10 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
   const identityFields = useMemo(() => fieldSettings.identityLayoutOrder.filter(id => {
       const fieldId = id.replace('field_', '');
-      const field = fieldSettings.identityFields.find(f => f.id === fieldId);
+      const field = fieldSettings.identityFields.find(f => f.id === fieldId || f.patientKey === fieldId);
       return !field || (field.section !== 'DENTAL' && field.section !== 'FAMILY');
   }), [fieldSettings.identityLayoutOrder, fieldSettings.identityFields]);
   
-  const sexIndex = identityFields.indexOf('core_sex');
-  const fieldsPart1 = identityFields.slice(0, sexIndex + 1);
-  const fieldsPart2 = identityFields.slice(sexIndex + 1);
-
   return (
     <div className="space-y-12">
         <div className="orientation-grid gap-6">
@@ -375,21 +371,38 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                     )}
                 </div>
             </div>
-            <div className="col-span-1 md:col-span-5">
-                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Family Group</label>
-                <select 
-                    name="familyGroupId" 
-                    value={formData.familyGroupId || ''} 
-                    onChange={handleChange} 
-                    disabled={readOnly}
-                    className="input bg-white"
-                >
-                    <option value="">- None / Individual -</option>
-                    {fieldSettings.familyGroups?.map(g => {
-                        const head = patients.find(p => p.id === g.headOfFamilyId);
-                        return <option key={g.id} value={g.id}>{g.familyName} (Head: {head?.name})</option>
-                    })}
-                </select>
+            <div className="col-span-1 md:col-span-5 relative" ref={headOfHouseholdContainerRef}>
+                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
+                    <input 
+                        type="text" 
+                        placeholder="None / Search patient..." 
+                        value={headOfHouseholdSearch}
+                        onChange={handleHeadOfHouseholdSearchChange}
+                        disabled={readOnly}
+                        className="input pl-12 bg-white"
+                        autoComplete="off"
+                    />
+                    {headOfHouseholdResults.length > 0 && (
+                      <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-lg z-50 max-h-60 overflow-y-auto no-scrollbar">
+                          <ul className="divide-y divide-slate-100">
+                              {headOfHouseholdResults.map(patient => (
+                                  <li key={patient.id}>
+                                      <button 
+                                          type="button"
+                                          onClick={() => handleSelectHeadOfHousehold(patient)}
+                                          className="w-full text-left p-4 hover:bg-teal-50 transition-colors"
+                                      >
+                                          <span className="font-bold text-slate-800">{patient.name}</span>
+                                          <span className="text-xs text-slate-500 ml-2 font-mono">ID: {patient.id}</span>
+                                      </button>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -400,7 +413,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">PATIENT INFORMATION RECORD</h4>
             </div>
             <div className="orientation-grid gap-6">
-                {fieldsPart1.map(id => renderFieldById(id))}
+                {identityFields.map(id => renderFieldById(id))}
 
                 {showFemaleQuestions && (
                     <div className="col-span-1 md:col-span-12 mt-8">
@@ -411,9 +424,8 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                             </div>
                             <div className="orientation-grid gap-6">
                                 {fieldSettings.femaleQuestionRegistry.map(q => {
-                                    const fieldName = femaleFieldMap[q];
-                                    const isYes = (formData as any)[fieldName] === true;
-                                    const isNo = (formData as any)[fieldName] === false;
+                                    const isYes = formData.registryAnswers?.[q] === 'Yes';
+                                    const isNo = formData.registryAnswers?.[q] === 'No';
 
                                     return (
                                     <DesignWrapper key={q} id={q} type="question" className="col-span-1 md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
@@ -425,14 +437,14 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                                             <div className="flex gap-3">
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: true, type: 'checkbox', checked: true } } as any)}
+                                                    onClick={() => !readOnly && onRegistryChange({ [q]: 'Yes' })}
                                                     className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isYes ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-teal-200'}`}
                                                 >
                                                     Yes
                                                 </button>
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => !readOnly && handleChange({ target: { name: fieldName, value: false, type: 'checkbox', checked: false } } as any)}
+                                                    onClick={() => !readOnly && onRegistryChange({ [q]: 'No' })}
                                                     className={`flex-1 px-3 py-2.5 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-widest ${isNo ? 'bg-lilac-600 border-lilac-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-lilac-200'}`}
                                                 >
                                                     No
@@ -462,13 +474,10 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                         </div>
                     </div>
                 )}
-                
-                {fieldsPart2.map(id => renderFieldById(id))}
             </div>
         </div>
     </div>
   );
 };
 
-// FIX: Change to a default export to resolve module import ambiguity.
 export default React.memo(RegistrationBasicInfoInternal);

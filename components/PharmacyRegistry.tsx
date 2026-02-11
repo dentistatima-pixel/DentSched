@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FieldSettings, Medication } from '../types';
 import { Pill, Plus, Save } from 'lucide-react';

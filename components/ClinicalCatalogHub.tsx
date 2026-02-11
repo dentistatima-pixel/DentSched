@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FieldSettings } from '../types';
 import ProcedureCatalog from './ProcedureCatalog';

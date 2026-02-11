@@ -1,3 +1,4 @@
+
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -20,7 +21,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
-import { generateSafetyBriefing } from '../services/geminiService';
+import InspectorPanel from './InspectorPanel';
 
 interface CalendarViewProps {}
 
@@ -250,16 +251,13 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
       openAppointmentModal(formattedDate, undefined, entry.patientId);
   };
   
-  const handleOpenChartWithPrefill = () => {
-    if (inspected) {
-        const query = new URLSearchParams();
-        query.set('prefill_procedure', inspected.apt.type);
-        if (inspected.apt.resourceId) {
-            query.set('prefill_resourceId', inspected.apt.resourceId);
-        }
-        navigate(`patients/${inspected.patient.id}?${query.toString()}`);
-        setInspected(null);
-    }
+  const handleOpenChart = (patientId: string, prefill: any) => {
+    const query = new URLSearchParams();
+    if (prefill.prefill_procedure) query.set('prefill_procedure', prefill.prefill_procedure);
+    if (prefill.prefill_resourceId) query.set('prefill_resourceId', prefill.prefill_resourceId);
+    
+    navigate(`patients/${patientId}?${query.toString()}`);
+    setInspected(null);
   };
 
   const executeOverride = () => {
@@ -302,7 +300,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
             newResourceId = colId;
         }
         
-        const newDayOfWeek = new Date(newDate).toLocaleDateString('en-US', { weekday: 'short' });
+        const newDayOfWeek = new Date(newDate + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
         const provider = staff.find(s => s.id === newProviderId);
         if (provider && provider.roster && provider.roster[newDayOfWeek] !== (currentBranch || originalApt.branch)) {
             toast.error("Provider is not rostered for this day/branch.");
@@ -345,12 +343,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
     }
   };
   
-  const hasMedicalAlerts = inspected && (
-    (inspected.patient.allergies && inspected.patient.allergies.some(a => a.toLowerCase() !== 'none')) ||
-    (inspected.patient.medicalConditions && inspected.patient.medicalConditions.some(c => c.toLowerCase() !== 'none'))
-  );
-
-
   return (
     <div className="flex flex-row h-full bg-slate-50 gap-4 relative overflow-hidden">
       <style>{`
@@ -529,46 +521,12 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
           </div>
       )}
 
-      {/* --- INSPECTOR PANEL --- */}
-      <div className={`inspector-panel ${inspected ? 'open' : ''}`}>
-          {inspected && (
-              <div className="h-full flex flex-col p-6 animate-in fade-in">
-                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 shrink-0">
-                      <h3 className="font-black text-xl uppercase tracking-tight text-slate-800">{inspected.patient.name}</h3>
-                      <button onClick={() => setInspected(null)} className="p-2 text-slate-400 hover:text-red-500"><X/></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto no-scrollbar py-6 space-y-6">
-                      <div>
-                          <h4 className="label text-xs">Action Bar</h4>
-                          <div className="grid grid-cols-2 gap-3">
-                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.ARRIVED)} className="bg-orange-100 text-orange-800 p-3 rounded-lg text-xs font-black uppercase">Arrived</button>
-                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.SEATED)} className="bg-blue-100 text-blue-800 p-3 rounded-lg text-xs font-black uppercase">Seat</button>
-                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.TREATING)} className="bg-lilac-100 text-lilac-800 p-3 rounded-lg text-xs font-black uppercase">Treat</button>
-                              <button onClick={() => onUpdateAppointmentStatus?.(inspected.apt.id, AppointmentStatus.COMPLETED)} className="bg-teal-100 text-teal-800 p-3 rounded-lg text-xs font-black uppercase">Complete</button>
-                          </div>
-                      </div>
-                       <div>
-                          <h4 className="label text-xs">Alerts</h4>
-                          <div className="bg-red-50 p-4 rounded-lg space-y-2 border border-red-100">
-                                {(inspected.patient.allergies || []).filter(a => a !== 'None').map(a => <div key={a} className="flex items-center gap-2 text-xs font-bold text-red-800"><Droplet size={14}/> {a}</div>)}
-                                {(inspected.patient.medicalConditions || []).filter(c => c !== 'None').map(c => <div key={c} className="flex items-center gap-2 text-xs font-bold text-red-800"><Heart size={14}/> {c}</div>)}
-                          </div>
-                          {hasMedicalAlerts && (
-                              <button 
-                                onClick={() => showModal('infoDisplay', { title: `AI Safety Briefing for ${inspected.patient.name}`, fetcher: () => generateSafetyBriefing(inspected.patient, inspected.apt.type) })}
-                                className="w-full mt-3 bg-red-600 text-white p-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
-                              >
-                                <Sparkles size={14} /> AI Safety Briefing
-                              </button>
-                          )}
-                       </div>
-                  </div>
-                  <div className="shrink-0 pt-4 border-t border-slate-100">
-                      <button onClick={handleOpenChartWithPrefill} className="w-full py-4 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Open Full Chart</button>
-                  </div>
-              </div>
-          )}
-      </div>
+      <InspectorPanel
+          inspected={inspected}
+          onClose={() => setInspected(null)}
+          onUpdateStatus={onUpdateAppointmentStatus}
+          onOpenChart={handleOpenChart}
+      />
 
       {/* --- WAITLIST SIDE PANEL --- */}
       <div className={`fixed top-24 bottom-8 right-0 w-96 bg-white border-l border-slate-300 shadow-2xl z-40 transition-transform duration-500 ease-in-out ${showWaitlist ? 'translate-x-0' : 'translate-x-full'}`} role="complementary" aria-label="Waitlist Management">

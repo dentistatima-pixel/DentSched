@@ -1,13 +1,10 @@
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck,
-  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, 
-// FIX: Added 'UserX' to lucide-react imports to resolve 'Cannot find name' error.
-  UserX
+  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck, UserX,
+  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, UserRole, Patient, 
@@ -45,16 +42,28 @@ const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: s
 };
 
 const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ value, isCurrency }) => {
-  const [displayValue, setDisplayValue] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
+  const valueRef = useRef(0);
+
+  const formatValue = useCallback((val: number) => {
+    if (isCurrency) {
+        return `₱${Math.round(val).toLocaleString()}`;
+    }
+    return Math.round(val).toLocaleString();
+  }, [isCurrency]);
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
 
-    const startValue = displayValue;
+    const startValue = valueRef.current;
     const endValue = value;
-    if(startValue === endValue) return;
+    valueRef.current = value;
+
+    if (startValue === endValue) {
+        node.textContent = formatValue(endValue);
+        return;
+    }
 
     const duration = 1000;
     let startTime: number | null = null;
@@ -64,30 +73,23 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
       const elapsedTime = currentTime - startTime;
       const progress = Math.min(elapsedTime / duration, 1);
       
-      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
 
       const currentVal = startValue + (endValue - startValue) * easedProgress;
-      setDisplayValue(currentVal);
+      node.textContent = formatValue(currentVal);
 
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        setDisplayValue(endValue);
+        node.textContent = formatValue(endValue);
       }
     };
 
     requestAnimationFrame(animate);
     
-  }, [value]);
+  }, [value, formatValue]);
 
-  const formatValue = (val: number) => {
-    if (isCurrency) {
-        return `₱${Math.round(val).toLocaleString()}`;
-    }
-    return Math.round(val).toLocaleString();
-  };
-
-  return <span ref={ref}>{formatValue(displayValue)}</span>;
+  return <span ref={ref}>{formatValue(0)}</span>;
 };
 
 const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {

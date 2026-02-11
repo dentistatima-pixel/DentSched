@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
-// Fix: Use default import for PatientRegistrationModal.
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -116,7 +114,6 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
           finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
       }
       
-      // FIX: The onSave prop expects a Promise. The function is now async and awaits the update operation.
       await onUpdatePatient(finalPatient);
       setStep('thankyou');
   };

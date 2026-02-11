@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
@@ -12,6 +13,7 @@ import { FinancialProvider } from './contexts/FinancialContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ClinicalOpsProvider } from './contexts/ClinicalOpsContext';
 import { Router } from './contexts/RouterContext';
+import { DocentProvider } from './contexts/DocentContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -28,23 +30,25 @@ root.render(
             <AppProvider>
                 <SettingsProvider>
                   <SearchProvider>
-                    <ModalProvider>
-                      <PatientProvider>
-                        <StaffProvider>
-                            <AppointmentProvider>
-                                <InventoryProvider>
-                                    <FinancialProvider>
-                                        <ClinicalOpsProvider>
-                                          <Router>
-                                              <App />
-                                          </Router>
-                                        </ClinicalOpsProvider>
-                                    </FinancialProvider>
-                                </InventoryProvider>
-                            </AppointmentProvider>
-                        </StaffProvider>
-                      </PatientProvider>
-                    </ModalProvider>
+                    <DocentProvider>
+                      <ModalProvider>
+                        <PatientProvider>
+                            <StaffProvider>
+                                <AppointmentProvider>
+                                    <InventoryProvider>
+                                        <FinancialProvider>
+                                            <ClinicalOpsProvider>
+                                              <Router>
+                                                  <App />
+                                              </Router>
+                                            </ClinicalOpsProvider>
+                                        </FinancialProvider>
+                                    </InventoryProvider>
+                                </AppointmentProvider>
+                            </StaffProvider>
+                        </PatientProvider>
+                      </ModalProvider>
+                    </DocentProvider>
                   </SearchProvider>
                 </SettingsProvider>
             </AppProvider>

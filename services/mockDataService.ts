@@ -24,6 +24,11 @@ export const MockDataService = {
     getPatients: async (): Promise<Patient[]> => {
         return Promise.resolve(mockPatients);
     },
+    getPatientById: async (id: string): Promise<Patient | undefined> => {
+        const patient = mockPatients.find(p => p.id === id);
+        // Return a deep copy to simulate a real API call
+        return Promise.resolve(patient ? JSON.parse(JSON.stringify(patient)) : undefined);
+    },
     savePatient: async (patientData: Partial<Patient>): Promise<Patient> => {
         const isNew = !patientData.id || !mockPatients.some(p => p.id === patientData.id);
         if (isNew) {

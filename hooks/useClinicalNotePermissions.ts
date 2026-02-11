@@ -1,4 +1,3 @@
-
 import { useMemo } from 'react';
 import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
 import { calculateAge } from '../constants';
@@ -14,11 +13,18 @@ export const useClinicalNotePermissions = (
 ) => {
     const isPediatricBlocked = useMemo(() => {
         if (!patient || (calculateAge(patient.dob) || 18) >= 18 || isArchitect) return false;
-        
-        const hasTodayConsent = !!(activeAppointmentToday?.consentSignatureChain && activeAppointmentToday.consentSignatureChain.length > 0);
+
+        // Medico-legal check: Guardian must have full authority profile.
         const hasFullGuardian = patient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
-        
-        return !hasTodayConsent || !hasFullGuardian;
+        if (!hasFullGuardian) return true; // Block if guardian authority is not full.
+
+        const consentChain = activeAppointmentToday?.consentSignatureChain;
+        if (!consentChain || consentChain.length === 0) return true; // Block if no consent chain exists for today.
+
+        // Medico-legal check: At least one signature in the chain MUST be from a 'guardian'.
+        const hasGuardianSignature = consentChain.some(sig => sig.signatureType === 'guardian');
+
+        return !hasGuardianSignature;
     }, [patient, activeAppointmentToday, isArchitect]);
 
     const hasActiveComplication = useMemo(() => {
@@ -50,7 +56,7 @@ export const useClinicalNotePermissions = (
         if (isAuthorityLocked) return "Practitioner PRC license is expired. Update profile to restore authority.";
         if (isIndemnityLocked) return "Malpractice insurance is expired. High-risk procedures are suspended.";
         if (hasActiveComplication) return "Patient has an unresolved clinical complication that requires sign-off.";
-        if (isPediatricBlocked) return "Minor patient requires guardian consent for today's session.";
+        if (isPediatricBlocked) return "Minor patient requires a valid guardian consent signature for today's session.";
         if (!activeAppointmentToday && !isArchitect) return "No active appointment found for today. Notes can only be added during a session.";
         return "Mandatory clinical gate triggered. Commitment functions suspended for regulatory protocol.";
     };

@@ -1,6 +1,5 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-/* Added missing types Patient and FieldSettings from ../types */
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
 
@@ -171,6 +170,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onCustomChange: (fieldName: string, value: any, type: RegistrationField['type']) => void;
   registryAnswers: Record<string, any>;
   onRegistryChange: (newAnswers: Record<string, any>) => void;
@@ -188,6 +188,7 @@ interface RegistrationMedicalProps {
 
 const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
     formData,
+    handleChange,
     onCustomChange,
     registryAnswers,
     onRegistryChange,
@@ -221,9 +222,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
         )
     };
   
-    const mainMedicalOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => !id.startsWith('al_') && id !== 'field_otherAllergies' && id !== 'core_bloodGroup' && id !== 'core_bloodPressure' && !id.startsWith('core_physician')), [fieldSettings.medicalLayoutOrder]);
+    const mainMedicalOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => !id.startsWith('al_') && !id.startsWith('field_') && !id.startsWith('core_')), [fieldSettings.medicalLayoutOrder]);
     const allergiesOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => id.startsWith('al_') || id === 'field_otherAllergies'), [fieldSettings.medicalLayoutOrder]);
-  
+    const physicianOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => id.startsWith('core_')), [fieldSettings.medicalLayoutOrder]);
+
     const dynamicRedFlags = useMemo(() => {
         const flags: { label: string; details?: string; icon: any }[] = [];
         const critRegistry = fieldSettings.criticalRiskRegistry || [];
@@ -247,12 +249,42 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                     <div className="p-3 bg-red-50 text-red-600 rounded-2xl"><HeartPulse size={24}/></div>
                     <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">MEDICAL HISTORY</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+                <div className="space-y-8 pt-4">
+                    <h5 className="font-black text-slate-800 uppercase tracking-widest text-xs">Physician & Vitals</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <label className="label">Name of Physician</label>
+                            <ControlledInput name="physicianName" value={formData.physicianName || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="label">Office Address</label>
+                            <ControlledInput name="physicianAddress" value={formData.physicianAddress || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" />
+                        </div>
+                        <div>
+                            <label className="label">Specialty</label>
+                            <ControlledInput name="physicianSpecialty" value={formData.physicianSpecialty || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" />
+                        </div>
+                         <div>
+                            <label className="label">Office Number</label>
+                            <ControlledInput name="physicianNumber" value={formData.physicianNumber || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" />
+                        </div>
+                         <div>
+                            <label className="label">Blood Type</label>
+                             <select name="bloodGroup" value={formData.bloodGroup || ''} onChange={handleChange} disabled={readOnly} className="input bg-white">
+                                 <option value="">Select Blood Type</option>
+                                 {fieldSettings.bloodGroups.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                             </select>
+                        </div>
+                         <div>
+                            <label className="label">Blood Pressure</label>
+                            <ControlledInput name="bloodPressure" value={formData.bloodPressure || ''} onChange={handleChange} disabled={readOnly} className="input bg-white" placeholder="e.g. 120/80"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-8 border-t border-slate-100">
                     {mainMedicalOrder.map(id => {
-                        if (id.startsWith('field_')) {
-                            const field = fieldSettings.identityFields.find(f => f.id === id.replace('field_', ''));
-                            return field ? renderDynamicField(field) : null;
-                        }
                         if (fieldSettings.identityQuestionRegistry.includes(id)) {
                             const label = id.replace('*', '');
                             let placeholder, showDate = false;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Patient, InformedRefusal, User } from '../types';
 import { XCircle, FileSignature, AlertTriangle, ShieldCheck, Square, CheckSquare, Eraser, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -30,8 +30,80 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
     
     const [patientSignatureData, setPatientSignatureData] = useState<string | null>(null);
     const [dentistSignatureData, setDentistSignatureData] = useState<string | null>(null);
-    
-    const [signingFor, setSigningFor] = useState<'patient' | 'dentist' | null>(null);
+
+    const allRisksAcknowledged = acknowledgedRisks.length === risks.length;
+    const affirmationsChecked = allRisksAcknowledged && understandsConsequences && isVoluntary;
+    const canPatientSign = affirmationsChecked && !patientSignatureData;
+    const canDentistSign = !!patientSignatureData && !dentistSignatureData;
+    const canSave = !!patientSignatureData && !!dentistSignatureData && refusalReason.trim() !== '';
+
+    // --- START: Refactored Signature Logic ---
+    const activeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const isDrawingRef = useRef(false);
+    const lastDrawTime = useRef(0);
+
+    const getCoords = (e: PointerEvent) => {
+        if (!activeCanvasRef.current) return { x: 0, y: 0, pressure: 0.5 };
+        const canvas = activeCanvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+    };
+
+    const draw = useCallback((e: PointerEvent) => {
+        if (!isDrawingRef.current || !activeCanvasRef.current) return;
+        e.preventDefault();
+
+        const now = Date.now();
+        if (now - lastDrawTime.current < 16) return;
+        lastDrawTime.current = now;
+
+        const canvas = activeCanvasRef.current;
+        const { x, y, pressure } = getCoords(e);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            const isPen = e.pointerType === 'pen';
+            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
+            const baseWidth = isPen ? 1.5 : 2;
+            ctx.lineWidth = Math.max(1, Math.min(4, effectivePressure * baseWidth * 2));
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+    }, []);
+
+    const stopSign = useCallback((e: PointerEvent) => {
+        if (!isDrawingRef.current) return;
+        e.preventDefault();
+        
+        if (activeCanvasRef.current === patientCanvasRef.current) {
+            setPatientSignatureData(patientCanvasRef.current!.toDataURL());
+        } else if (activeCanvasRef.current === dentistCanvasRef.current) {
+            setDentistSignatureData(dentistCanvasRef.current!.toDataURL());
+        }
+
+        isDrawingRef.current = false;
+        activeCanvasRef.current = null;
+        window.removeEventListener('pointermove', draw);
+        window.removeEventListener('pointerup', stopSign);
+    }, [draw]);
+
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'dentist') => {
+        if (e.pointerType === 'touch' && e.width > 10) return;
+        e.preventDefault();
+
+        if ((signer === 'patient' && !canPatientSign) || (signer === 'dentist' && !canDentistSign)) return;
+        
+        isDrawingRef.current = true;
+        activeCanvasRef.current = e.currentTarget;
+
+        const { x, y } = getCoords(e.nativeEvent);
+        const ctx = e.currentTarget.getContext('2d');
+        ctx?.beginPath();
+        ctx?.moveTo(x, y);
+
+        window.addEventListener('pointermove', draw);
+        window.addEventListener('pointerup', stopSign);
+    };
+    // --- END: Refactored Signature Logic ---
 
     const setupCanvas = (canvas: HTMLCanvasElement | null) => {
         if (canvas && canvas.parentElement) {
@@ -61,65 +133,9 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
         }
     }, [isOpen]);
     
-    const allRisksAcknowledged = acknowledgedRisks.length === risks.length;
-    const affirmationsChecked = allRisksAcknowledged && understandsConsequences && isVoluntary;
-    const canPatientSign = affirmationsChecked && !patientSignatureData;
-    const canDentistSign = !!patientSignatureData && !dentistSignatureData;
-    const canSave = !!patientSignatureData && !!dentistSignatureData && refusalReason.trim() !== '';
-    
-    const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        const canvas = e.currentTarget;
-        const rect = canvas.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
-    };
-
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'dentist') => {
-        if (e.pointerType === 'touch' && e.width > 10) return;
-        e.preventDefault();
-        if ((signer === 'patient' && !canPatientSign) || (signer === 'dentist' && !canDentistSign)) return;
-        setSigningFor(signer);
-        const { x, y } = getCoords(e);
-        e.currentTarget.getContext('2d')?.beginPath();
-        e.currentTarget.getContext('2d')?.moveTo(x, y);
-    };
-
-    const lastDrawTime = useRef(0);
-    const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (!signingFor) return;
-        if ((signingFor === 'patient' && !canPatientSign) || (signingFor === 'dentist' && !canDentistSign)) return;
-        e.preventDefault();
-        
-        const now = Date.now();
-        if (now - lastDrawTime.current < 16) { // ~60fps throttle
-            return;
-        }
-        lastDrawTime.current = now;
-
-        const { x, y, pressure } = getCoords(e);
-        const ctx = e.currentTarget.getContext('2d');
-        if(ctx) {
-            const isPen = e.pointerType === 'pen';
-            const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
-            const baseWidth = isPen ? 1.5 : 2;
-            ctx.lineWidth = Math.max(1, Math.min(4, effectivePressure * baseWidth * 2));
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        }
-    };
-    
-    const stopSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        e.preventDefault();
-        if (signingFor === 'patient' && patientCanvasRef.current) {
-            setPatientSignatureData(patientCanvasRef.current.toDataURL());
-        } else if (signingFor === 'dentist' && dentistCanvasRef.current) {
-            setDentistSignatureData(dentistCanvasRef.current.toDataURL());
-        }
-        setSigningFor(null);
-    };
-    
     const clearCanvas = (signer: 'patient' | 'dentist') => {
         const canvasRef = signer === 'patient' ? patientCanvasRef : dentistCanvasRef;
-        if (!((signer === 'patient' && patientSignatureData) || (signer === 'dentist' && dentistSignatureData))) {
+        if ((signer === 'patient' && !patientSignatureData) || (signer === 'dentist' && !dentistSignatureData)) {
             const canvas = canvasRef.current;
             canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
         }
@@ -196,14 +212,14 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
                                 <label className="font-bold text-slate-700 text-sm">Patient Signature</label>
                                 {!patientSignatureData && <button onClick={() => clearCanvas('patient')} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>}
                             </div>
-                            <canvas ref={patientCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canPatientSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'patient')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                            <canvas ref={patientCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canPatientSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'patient')} />
                         </div>
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="font-bold text-slate-700 text-sm">Dentist Signature</label>
                                 {!dentistSignatureData && <button onClick={() => clearCanvas('dentist')} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>}
                             </div>
-                            <canvas ref={dentistCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canDentistSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'dentist')} onPointerMove={draw} onPointerUp={stopSign} onPointerLeave={stopSign} />
+                            <canvas ref={dentistCanvasRef} className={`bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none ${!canDentistSign ? 'opacity-50 cursor-not-allowed' : 'cursor-crosshair'}`} onPointerDown={e => startSign(e, 'dentist')} />
                         </div>
                     </div>
                 </div>

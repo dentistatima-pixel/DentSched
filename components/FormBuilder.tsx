@@ -1,12 +1,10 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
-import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
+import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar, Activity } from 'lucide-react';
 import { useToast } from './ToastSystem';
-// Fix: `RegistrationBasicInfo` is exported as default, so changed to a default import.
 import RegistrationBasicInfo from './RegistrationBasicInfo';
-// Fix: Changed to a default import for consistency.
 import RegistrationMedical from './RegistrationMedical';
-import CoreFieldEditor from './form-builder/CoreFieldEditor';
+import RegistrationDental from './RegistrationDental';
 import DynamicFieldEditor from './form-builder/DynamicFieldEditor';
 import QuestionEditor from './form-builder/QuestionEditor';
 import RegistryEditor from './form-builder/RegistryEditor';
@@ -19,7 +17,7 @@ const FormBuilder: React.FC = () => {
     const toast = useToast();
     
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
-    const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL'>('IDENTITY');
+    const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL' | 'DENTAL'>('IDENTITY');
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     
     // State for floating panel
@@ -37,29 +35,44 @@ const FormBuilder: React.FC = () => {
         setSelectedField({ id, type });
     };
 
-    const handleUpdateLabelMap = (id: string, newTitle: string) => {
-        const cleanId = id.startsWith('core_') ? id.replace('core_', '') : id;
-        const newMap = { ...settings.fieldLabels, [cleanId]: newTitle };
-        onUpdateSettings({ ...settings, fieldLabels: newMap });
-    };
-
     const handleUpdateDynamicField = (id: string, updates: Partial<RegistrationField>) => {
-        const cleanId = id.startsWith('field_') ? id.replace('field_', '') : id;
-        const newFields = settings.identityFields.map(f => f.id === cleanId ? { ...f, ...updates } : f);
-        onUpdateSettings({ ...settings, identityFields: newFields });
+        const fieldId = id.startsWith('core_') ? id.replace('core_', '') : id.startsWith('field_') ? id.replace('field_', '') : id;
+        
+        const newFields = settings.identityFields.map(f => {
+            if ((f.patientKey && f.patientKey === fieldId) || f.id === fieldId) {
+                // If label is changed, update fieldLabels map as well
+                if (updates.label && f.isCore && f.patientKey) {
+                    const newFieldLabels = { ...settings.fieldLabels, [f.patientKey]: updates.label };
+                    onUpdateSettings({ ...settings, fieldLabels: newFieldLabels, identityFields: settings.identityFields.map(field => field.id === f.id ? { ...f, ...updates } : field) });
+                    return { ...f, ...updates };
+                }
+                return { ...f, ...updates };
+            }
+            return f;
+        });
+        
+        const finalSettings = { ...settings, identityFields: newFields };
+
+        // Also update the label in fieldLabels for core fields for consistency
+        if(updates.label && id.startsWith('core_')) {
+            const patientKey = id.replace('core_', '');
+            finalSettings.fieldLabels = { ...settings.fieldLabels, [patientKey]: updates.label };
+        }
+        
+        onUpdateSettings(finalSettings);
     };
 
-    const handleUpdateQuestion = (oldQuestion: string, newQuestion: string) => {
+    const handleUpdateQuestion = (oldQuestion: string, newQuestion: string, registryKey: keyof FieldSettings) => {
         const updateRegistry = (registry: string[]) => registry.map(q => q === oldQuestion ? newQuestion : q);
         const newSettings = {
             ...settings,
-            identityQuestionRegistry: updateRegistry(settings.identityQuestionRegistry),
-            femaleQuestionRegistry: updateRegistry(settings.femaleQuestionRegistry),
+            [registryKey]: updateRegistry(settings[registryKey] as string[]),
             medicalLayoutOrder: updateRegistry(settings.medicalLayoutOrder),
+            dentalLayoutOrder: updateRegistry(settings.dentalLayoutOrder),
             criticalRiskRegistry: updateRegistry(settings.criticalRiskRegistry),
         };
         onUpdateSettings(newSettings);
-        setSelectedField({ id: newQuestion, type: 'question' }); // Update selection
+        setSelectedField({ id: newQuestion, type: selectedField?.type || 'question' }); // Update selection
     };
 
     const toggleCriticalStatus = (id: string) => {
@@ -78,7 +91,7 @@ const FormBuilder: React.FC = () => {
 
     const moveElement = (direction: 'up' | 'down') => {
         if (!selectedField) return;
-        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : 'medicalLayoutOrder';
+        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : activeSection === 'MEDICAL' ? 'medicalLayoutOrder' : 'dentalLayoutOrder';
         const order = [...(settings as any)[orderKey]];
         const index = order.indexOf(selectedField.id);
 
@@ -100,7 +113,7 @@ const FormBuilder: React.FC = () => {
             return;
         }
         
-        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : 'medicalLayoutOrder';
+        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : activeSection === 'MEDICAL' ? 'medicalLayoutOrder' : 'dentalLayoutOrder';
         let newSettings = { ...settings };
         
         (newSettings as any)[orderKey] = (settings as any)[orderKey].filter((id: string) => id !== selectedField.id);
@@ -110,6 +123,8 @@ const FormBuilder: React.FC = () => {
         } else if (selectedField.type === 'question') {
             newSettings.identityQuestionRegistry = settings.identityQuestionRegistry.filter(q => q !== selectedField.id);
             newSettings.femaleQuestionRegistry = settings.femaleQuestionRegistry.filter(q => q !== selectedField.id);
+        } else if (selectedField.type === 'dentalQuestion') {
+            newSettings.dentalHistoryRegistry = settings.dentalHistoryRegistry.filter(q => q !== selectedField.id);
         }
         
         onUpdateSettings(newSettings);
@@ -124,24 +139,38 @@ const FormBuilder: React.FC = () => {
             id: newId,
             label: `New ${fieldType.charAt(0).toUpperCase() + fieldType.slice(1).replace('-', ' ')} Field`,
             type: fieldType,
-            section: activeSection === 'IDENTITY' ? 'IDENTITY' : 'MEDICAL',
+            section: activeSection,
             width: 'full'
         };
     
         const newIdentityFields = [...settings.identityFields, newField];
-        
         let newSettingsUpdate: Partial<FieldSettings> = { identityFields: newIdentityFields };
 
-        if (activeSection === 'IDENTITY') {
-            newSettingsUpdate.identityLayoutOrder = [...settings.identityLayoutOrder, `field_${newId}`];
-        } else { // MEDICAL
-            newSettingsUpdate.medicalLayoutOrder = [...settings.medicalLayoutOrder, `field_${newId}`];
-        }
+        const orderKey = activeSection === 'IDENTITY' ? 'identityLayoutOrder' : activeSection === 'MEDICAL' ? 'medicalLayoutOrder' : 'dentalLayoutOrder';
+        (newSettingsUpdate as any)[orderKey] = [...(settings as any)[orderKey], `field_${newId}`];
         
         onUpdateSettings({ ...settings, ...newSettingsUpdate });
         
         toast.success(`New ${fieldType} field added to ${activeSection} section.`);
-        setSelectedField({ id: `field_${newId}`, type: 'identity' }); // Select the new field
+        setSelectedField({ id: `field_${newId}`, type: 'identity' });
+    };
+    
+    const handleAddNewDentalQuestion = () => {
+        const newQuestion = prompt("Enter the new dental history question:");
+        if (newQuestion && newQuestion.trim()) {
+            const trimmed = newQuestion.trim();
+            if (settings.dentalHistoryRegistry.includes(trimmed)) {
+                toast.error("This question already exists.");
+                return;
+            }
+            const newSettings = {
+                ...settings,
+                dentalHistoryRegistry: [...settings.dentalHistoryRegistry, trimmed],
+                dentalLayoutOrder: [...settings.dentalLayoutOrder, trimmed]
+            };
+            onUpdateSettings(newSettings);
+            setSelectedField({ id: trimmed, type: 'dentalQuestion' });
+        }
     };
 
     // --- DRAGGING LOGIC ---
@@ -201,33 +230,36 @@ const FormBuilder: React.FC = () => {
                     <h4 className="label text-sm">Add Elements</h4>
                     <p className="text-xs text-slate-500 mb-6">Select a field type to add it to the current section.</p>
                     <div className="grid grid-cols-2 gap-2">
-                        {fieldTypes.map(ft => (
+                        {activeSection !== 'DENTAL' ? fieldTypes.map(ft => (
                             <button key={ft.type} onClick={() => handleAddNewField(ft.type)} className="flex items-center gap-3 p-4 bg-slate-50 hover:bg-teal-50 hover:text-teal-800 rounded-2xl text-slate-700 transition-all text-left border border-slate-100 hover:border-teal-200 hover:shadow-lg">
                                 <ft.icon size={18} className="text-teal-600"/>
                                 <span className="text-xs font-black uppercase tracking-wider">{ft.label}</span>
                             </button>
-                        ))}
+                        )) : (
+                            <button onClick={handleAddNewDentalQuestion} className="col-span-2 flex items-center gap-3 p-4 bg-slate-50 hover:bg-teal-50 hover:text-teal-800 rounded-2xl text-slate-700 transition-all text-left border border-slate-100 hover:border-teal-200 hover:shadow-lg">
+                                <PlusCircle size={18} className="text-teal-600"/>
+                                <span className="text-xs font-black uppercase tracking-wider">Add Yes/No Question</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             );
         }
 
         const { id, type } = selectedField;
-        const isCritical = (settings.criticalRiskRegistry || []).includes(id);
+        
+        // --- UNIFIED FIELD LOGIC ---
+        const fieldId = id.startsWith('core_') ? id.replace('core_', '') : id.startsWith('field_') ? id.replace('field_', '') : id;
+        const field = settings.identityFields.find(f => (f.patientKey && f.patientKey === fieldId) || f.id === fieldId);
 
-        if (id.startsWith('core_')) {
-            const fieldId = id.replace('core_', '');
-            return <CoreFieldEditor label={settings.fieldLabels[fieldId] || fieldId} onUpdateLabel={(newLabel) => handleUpdateLabelMap(id, newLabel)} />;
-        }
-
-        if (id.startsWith('field_')) {
-            const field = settings.identityFields.find(f => `field_${f.id}` === id);
-            if (!field) return null;
-            return <DynamicFieldEditor field={field} onUpdateField={(updates) => handleUpdateDynamicField(id, updates)} isCritical={isCritical} onToggleCritical={() => toggleCriticalStatus(id)} />;
+        if (field) {
+            return <DynamicFieldEditor field={field} onUpdateField={(updates) => handleUpdateDynamicField(id, updates)} />;
         }
         
-        if (type === 'question') {
-            return <QuestionEditor question={id} onUpdateQuestion={handleUpdateQuestion} isCritical={isCritical} onToggleCritical={() => toggleCriticalStatus(id)} />;
+        if (type === 'question' || type === 'dentalQuestion') {
+            const registryKey = type === 'question' ? 'identityQuestionRegistry' : 'dentalHistoryRegistry';
+            const isCritical = (settings.criticalRiskRegistry || []).includes(id);
+            return <QuestionEditor question={id} onUpdateQuestion={(old, newQ) => handleUpdateQuestion(old, newQ, registryKey)} isCritical={isCritical} onToggleCritical={() => toggleCriticalStatus(id)} />;
         }
         
         if (type === 'condition') {
@@ -256,6 +288,7 @@ const FormBuilder: React.FC = () => {
                              <div className="flex bg-white p-1 rounded-2xl border-2 border-slate-100 shadow-sm">
                                 <button onClick={() => setActiveSection('IDENTITY')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeSection === 'IDENTITY' ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-500 hover:text-teal-600'}`}>I. Identity</button>
                                 <button onClick={() => setActiveSection('MEDICAL')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeSection === 'MEDICAL' ? 'bg-lilac-600 text-white shadow-lg' : 'text-slate-500 hover:text-lilac-600'}`}>II. Medical</button>
+                                <button onClick={() => setActiveSection('DENTAL')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeSection === 'DENTAL' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-blue-600'}`}>III. Dental</button>
                             </div>
                              <button onClick={() => setIsPreviewMode(!isPreviewMode)} className={`px-6 py-2 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${isPreviewMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 border-2 border-slate-100'}`}>
                                 {isPreviewMode ? <Code size={14}/> : <Eye size={14}/>} {isPreviewMode ? 'Editor' : 'Preview'}
@@ -270,14 +303,16 @@ const FormBuilder: React.FC = () => {
                                     formData={{sex: 'Female'}} 
                                     handleChange={() => {}}
                                     handleCustomChange={() => {}}
+                                    onRegistryChange={() => {}}
                                     readOnly={true} 
                                     fieldSettings={settings} 
                                     designMode={!isPreviewMode}
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
+                                    errors={null}
                                 />
                             </div>
-                         ) : (
+                         ) : activeSection === 'MEDICAL' ? (
                             <div className="p-8">
                                 <RegistrationMedical 
                                     formData={{customFields: {}}}
@@ -293,6 +328,20 @@ const FormBuilder: React.FC = () => {
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
                                     onCustomChange={() => {}}
+                                />
+                            </div>
+                         ) : (
+                            <div className="p-8">
+                                <RegistrationDental
+                                    formData={{}}
+                                    handleChange={() => {}}
+                                    registryAnswers={{}}
+                                    onRegistryChange={() => {}}
+                                    readOnly={true}
+                                    fieldSettings={settings}
+                                    designMode={!isPreviewMode}
+                                    onFieldClick={handleFieldClick}
+                                    selectedFieldId={selectedField?.id}
                                 />
                             </div>
                          )}

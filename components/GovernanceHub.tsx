@@ -1,6 +1,5 @@
-// Fix: Import useState from React.
+
 import React, { useState, useEffect } from 'react';
-// Fix: Import ShieldCheck icon from lucide-react.
 import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle } from 'lucide-react';
 import AuditTrailViewer from './AuditTrailViewer';
 import LegalActionHub from './LegalActionHub';
@@ -84,6 +83,7 @@ interface GovernanceHubProps {
   incidents: ClinicalIncident[];
 }
 
+// FIX: Changed "export const" to "const" to make this a clean default export.
 const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
   const [activeTab, setActiveTab] = useState('audit');
 
@@ -143,14 +143,15 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id)} 
-            className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500'}`}
+            className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100'}`}
           >
-            <tab.icon size={16} className={activeTab === tab.id ? tab.color : ''} /> {tab.label}
+            <tab.icon size={16} className={activeTab === tab.id ? 'text-white' : tab.color}/>
+            {tab.label}
           </button>
         ))}
       </div>
-      
-      <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
         {renderContent()}
       </div>
     </div>

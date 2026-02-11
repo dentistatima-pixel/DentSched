@@ -2,7 +2,6 @@
   "name": "dentsched",
   "description": "A mobile-first, intelligent dental patient management and appointment scheduler for a large practice, featuring a beautiful teal and lilac aesthetic.",
   "requestFramePermissions": [
-    "camera",
-    "microphone"
+    "camera"
   ]
 }
