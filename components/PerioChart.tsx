@@ -16,57 +16,32 @@ const TEETH_LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37,
 const ALL_TEETH = [...TEETH_UPPER, ...TEETH_LOWER];
 const SITES_PER_TOOTH = 6;
 
+const legendDefs = [
+    { label: 'Recession', value: '1-15mm', icon: <div className="w-5 h-4 bg-blue-50 border border-blue-200 rounded-sm" aria-hidden="true"/> },
+    { label: 'PPD', value: '1-15', icon: <div className="w-6 h-5 bg-amber-50 border border-amber-200 rounded-md" aria-hidden="true"/> },
+    { label: 'CAL', value: '(calc)', icon: <div className="w-6 h-6 bg-green-50 border border-green-200 rounded-md" aria-hidden="true"/> },
+    { label: 'BOP', value: '0-3', icon: <div className="w-4 h-4 bg-red-400 border border-red-500 rounded-full" aria-hidden="true"/> },
+    { label: 'Mobility', value: '0-3', icon: <MoveHorizontal size={16} className="text-orange-700" aria-hidden="true"/> },
+    { label: 'Furcation', value: '0-3', icon: <Diamond size={16} className="text-indigo-700" aria-hidden="true"/> },
+    { label: 'Plaque Index', value: '0-3', icon: <Shield size={16} className="text-green-700" aria-hidden="true"/> },
+];
+
 const HeaderVisualKey: React.FC = () => (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <div className="flex items-center gap-2">
-           <div className="w-5 h-3 bg-blue-50 border border-blue-200 rounded-sm" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">Recession</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">1-15mm</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <div className="w-6 h-4 bg-amber-50 border border-amber-200 rounded-md" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">PPD</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">1-15</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <div className="w-6 h-6 bg-green-50 border border-green-200 rounded-md" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">CAL</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">(calc)</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <div className="w-3 h-3 bg-red-400 border border-red-500 rounded-full" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">BOP</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">0-3</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-1">
-           <MoveHorizontal size={14} className="text-orange-700" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">Mobility</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">0-3</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-1">
-           <Diamond size={14} className="text-indigo-700" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">Furcation</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">0-3</p>
-           </div>
-        </div>
-        <div className="flex items-center gap-1">
-           <Shield size={14} className="text-green-700" aria-hidden="true"/>
-           <div>
-             <p className="text-[9px] font-bold uppercase text-slate-600 leading-none">Plaque Index</p>
-             <p className="text-[10px] font-mono text-slate-900 font-black">0-3</p>
-           </div>
-        </div>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {legendDefs.map((item, index) => (
+            <React.Fragment key={item.label}>
+                <div className="flex items-center gap-2">
+                   {item.icon}
+                   <div>
+                     <p className="text-[10px] font-bold uppercase text-slate-600 dark:text-slate-400 leading-none">{item.label}</p>
+                     <p className="text-xs font-mono text-slate-900 dark:text-slate-200 font-black">{item.value}</p>
+                   </div>
+                </div>
+                {index < legendDefs.length - 1 && (
+                    <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
+                )}
+            </React.Fragment>
+        ))}
     </div>
 );
 
@@ -308,14 +283,17 @@ export const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSav
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-inner">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm sticky top-0 z-30">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-4 shrink-0">
-                        <h3 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Perio Chart</h3>
+            <div className="sticky top-0 z-30">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-4 shrink-0">
+                            <h3 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Perio Chart</h3>
+                        </div>
+                        <HeaderVisualKey />
                     </div>
-                    <HeaderVisualKey />
                 </div>
-                <div className="flex items-center gap-3">
+                {/* Perio Chart Toolbar */}
+                <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-start bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
                     {!readOnly && <button onClick={handleSave} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Save size={14}/> Save Chart</button>}
                 </div>
             </div>
