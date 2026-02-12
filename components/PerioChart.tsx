@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { PerioMeasurement, DentalChartEntry } from '../types';
-import { Save, AlertTriangle, Info, ChevronDown, ChevronUp, Activity, ArrowRightLeft, TrendingDown, History, Volume2, FastForward, LineChart, Sparkles, Droplet, MoveHorizontal, Diamond, Shield, Calculator as CalculatorIcon, Ruler } from 'lucide-react';
+import { Save, AlertTriangle, Info, MoveHorizontal, Diamond, Shield, History, Plus, Maximize2, Minimize2, ArrowRightLeft, Edit2, Droplet } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -48,7 +48,7 @@ const HeaderVisualKey: React.FC = () => (
 interface PerioRowProps {
     tooth: number;
     measurement?: PerioMeasurement;
-    previousMeasurement?: PerioMeasurement;
+    compareMeasurement?: PerioMeasurement;
     dentalChart: DentalChartEntry[];
     focusedSite: { tooth: number, index: number } | null;
     onValueChange: (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => void;
@@ -59,11 +59,11 @@ interface PerioRowProps {
     onFocusSite: (tooth: number, index: number) => void;
     isColumnFocused?: boolean;
     readOnly?: boolean;
-    compareMode?: boolean;
+    compareMode: boolean;
     inputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
 }
 
-const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, previousMeasurement, dentalChart, focusedSite, onValueChange, onMobilityCycle, onBopCycle, onPlaqueIndexCycle, onFurcationChange, onFocusSite, readOnly, compareMode, inputRefs, isColumnFocused }) => {
+const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, compareMeasurement, dentalChart, focusedSite, onValueChange, onMobilityCycle, onBopCycle, onPlaqueIndexCycle, onFurcationChange, onFocusSite, readOnly, compareMode, inputRefs, isColumnFocused }) => {
     const m = measurement;
     if (!m) return null;
 
@@ -83,7 +83,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
 
     const renderSite = (index: number) => {
         const isFocused = focusedSite?.tooth === tooth && focusedSite?.index === index;
-        const diff = previousMeasurement && compareMode ? (m.pocketDepths[index] || 0) - (previousMeasurement.pocketDepths[index] || 0) : 0;
+        const diff = compareMeasurement && compareMode ? (m.pocketDepths[index] || 0) - (compareMeasurement.pocketDepths[index] || 0) : 0;
         const cal = (m.pocketDepths[index] || 0) + (m.recession[index] || 0);
         
         return (
@@ -207,39 +207,90 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, prev
     );
 });
 
-export const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSave, readOnly }) => {
+export const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSave, readOnly: isPatientReadOnly }) => {
     const [chartData, setChartData] = useState<PerioMeasurement[]>([]);
+    const [activeDate, setActiveDate] = useState<string | 'new'>('new');
     const [focusedSite, setFocusedSite] = useState<{ tooth: number, index: number } | null>(null);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const [compareMode, setCompareMode] = useState(false);
+    const [comparisonDate, setComparisonDate] = useState<string | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    
     const toast = useToast();
     const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+    const historyButtonRef = useRef<HTMLButtonElement>(null);
 
-    useEffect(() => {
-        const initialData: PerioMeasurement[] = ALL_TEETH.map(toothNum => {
-            const existing = data.find(d => d.toothNumber === toothNum);
-            if (existing) return existing;
-            return {
-                toothNumber: toothNum,
-                pocketDepths: Array(SITES_PER_TOOTH).fill(null),
-                recession: Array(SITES_PER_TOOTH).fill(null),
-                bop: null,
-                mobility: null,
-                furcation: null,
-                plaqueIndex: null,
+    const historicalDates = useMemo(() => {
+        const dates = new Set(data.map(d => d.date).filter(Boolean) as string[]);
+        return Array.from(dates).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    }, [data]);
+
+    const getChartByDate = useCallback((chartHistory: PerioMeasurement[], date: string): PerioMeasurement[] => {
+        const measurements = chartHistory.filter(d => d.date === date);
+        return ALL_TEETH.map(toothNum => {
+            return measurements.find(m => m.toothNumber === toothNum) || {
+                toothNumber: toothNum, date: date,
+                pocketDepths: Array(SITES_PER_TOOTH).fill(null), recession: Array(SITES_PER_TOOTH).fill(null),
+                bop: null, mobility: null, furcation: null, plaqueIndex: null,
             };
         });
-        setChartData(initialData);
-    }, [data]);
+    }, []);
     
-    const [history, setHistory] = useState<PerioMeasurement[][]>([]);
-    const [compareDate, setCompareDate] = useState<string | null>(null);
+    const handleNewChart = useCallback(() => {
+        const newChart = ALL_TEETH.map(toothNum => ({
+            toothNumber: toothNum,
+            date: new Date().toISOString().split('T')[0],
+            pocketDepths: Array(SITES_PER_TOOTH).fill(null), recession: Array(SITES_PER_TOOTH).fill(null),
+            bop: null, mobility: null, furcation: null, plaqueIndex: null,
+        }));
+        setChartData(newChart);
+        setActiveDate('new');
+        setCompareMode(false);
+        setComparisonDate(null);
+    }, []);
+    
+    const handleHistorySelect = useCallback((date: string) => {
+        setChartData(getChartByDate(data, date));
+        setActiveDate(date);
+        setIsHistoryOpen(false);
+        setCompareMode(false);
+        setComparisonDate(null);
+    }, [data, getChartByDate]);
 
-    const previousMeasurementForTooth = (tooth: number) => {
-        if (!compareDate) return undefined;
-        const historyEntry = history.find(h => h[0]?.date === compareDate);
-        return historyEntry?.find(m => m.toothNumber === tooth);
+    useEffect(() => {
+        if (historicalDates.length > 0) {
+            handleHistorySelect(historicalDates[0]);
+        } else {
+            handleNewChart();
+        }
+    }, [data, historicalDates, handleHistorySelect, handleNewChart]);
+
+    const comparisonChartData = useMemo(() => {
+        if (!compareMode || !comparisonDate) return null;
+        return getChartByDate(data, comparisonDate);
+    }, [compareMode, comparisonDate, getChartByDate, data]);
+    
+    const handleEditChart = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const editableChart = chartData.map(m => ({ ...m, date: today }));
+        setChartData(editableChart);
+        setActiveDate('new');
+        toast.info("Copied historical data to a new chart for today. Save to create a new record.");
     };
 
+    const handleSave = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const otherHistory = data.filter(d => d.date !== today);
+        const newHistory = [...otherHistory, ...chartData];
+        onSave(newHistory);
+        toast.success("Periodontal chart saved.");
+        setActiveDate(today);
+    };
+
+    const isChartReadOnly = activeDate !== 'new' || isPatientReadOnly;
+
     const handleValueChange = (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => {
+        if(isChartReadOnly) return;
         const numVal = value === '' ? null : parseInt(value);
         if (numVal !== null && (isNaN(numVal) || numVal < 0 || numVal > 20)) return;
 
@@ -253,65 +304,55 @@ export const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSav
         }));
     };
     
-    const handleMobilityCycle = (tooth: number, currentValue: number | null) => {
-        const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1;
-        setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, mobility: nextValue, date: new Date().toISOString().split('T')[0] } : m));
-    };
-
-    const handleBopCycle = (tooth: number, currentValue: number | null) => {
-        const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1;
-        setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, bop: nextValue, date: new Date().toISOString().split('T')[0] } : m));
-    };
-
-    const handlePlaqueIndexCycle = (tooth: number, currentValue: number | null) => {
-        const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1;
-        setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, plaqueIndex: nextValue, date: new Date().toISOString().split('T')[0] } : m));
-    };
-
-    const handleFurcationChange = (tooth: number, value: number | null) => {
-        setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, furcation: value, date: new Date().toISOString().split('T')[0] } : m));
-    };
-
-    const handleFocusSite = (tooth: number, index: number) => {
-        setFocusedSite({ tooth, index });
-    };
-
-    const handleSave = () => {
-        onSave(chartData.filter(m => m.date)); // Only save entries that have been modified
-        toast.success("Periodontal chart updated.");
-    };
+    const handleMobilityCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, mobility: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleBopCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, bop: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handlePlaqueIndexCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, plaqueIndex: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleFurcationChange = (tooth: number, value: number | null) => { if(isChartReadOnly) return; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, furcation: value, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleFocusSite = (tooth: number, index: number) => { setFocusedSite({ tooth, index }); };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-inner">
+        <div className={`flex flex-col bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-inner transition-all duration-300 ${isFullScreen ? 'fixed inset-0 top-24 z-[60] rounded-none' : 'relative h-full'}`}>
             <div className="sticky top-0 z-30">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-4 shrink-0">
-                            <h3 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Perio Chart</h3>
-                        </div>
-                        <HeaderVisualKey />
-                    </div>
+                    <div className="flex items-center gap-6"><h3 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Perio Chart</h3><HeaderVisualKey /></div>
                 </div>
-                {/* Perio Chart Toolbar */}
-                <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-start bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
-                    {!readOnly && <button onClick={handleSave} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Save size={14}/> Save Chart</button>}
+                {/* Toolbar */}
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                        {!isPatientReadOnly && <button onClick={handleNewChart} className="bg-white border-2 border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2"><Plus size={14}/> New Chart</button>}
+                        {activeDate !== 'new' && !isPatientReadOnly && <button onClick={handleEditChart} className="bg-white border-2 border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2"><Edit2 size={14}/> Edit This Chart</button>}
+                        <div className="relative">
+                            <button ref={historyButtonRef} onClick={() => setIsHistoryOpen(p => !p)} className="bg-white border-2 border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2"><History size={14}/> History</button>
+                            {isHistoryOpen && (
+                                <div className="absolute top-full mt-2 w-48 bg-white border rounded-lg shadow-lg z-40 p-1">
+                                    {historicalDates.map(date => <button key={date} onClick={() => handleHistorySelect(date)} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 rounded">{formatDate(date)}</button>)}
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={() => setCompareMode(p => !p)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2 border-2 ${compareMode ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white border-slate-200 text-slate-600'}`}><ArrowRightLeft size={14}/> Compare</button>
+                        {compareMode && (
+                             <select value={comparisonDate || ''} onChange={e => setComparisonDate(e.target.value)} className="input !min-h-0 !h-auto py-2 text-xs">
+                                <option value="">Select date...</option>
+                                {historicalDates.filter(d => d !== activeDate).map(date => <option key={date} value={date}>{formatDate(date)}</option>)}
+                            </select>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase">Viewing: {activeDate === 'new' ? 'New Entry' : formatDate(activeDate)}</span>
+                        {!isPatientReadOnly && <button onClick={handleSave} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Save size={14}/> Save Chart</button>}
+                        <button onClick={() => setIsFullScreen(fs => !fs)} className="p-2.5 rounded-lg bg-slate-100 text-slate-600 border-2 border-slate-200">{isFullScreen ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}</button>
+                    </div>
                 </div>
             </div>
 
             <div className="flex-1 overflow-auto no-scrollbar">
                 <div className="p-4 min-w-max">
                     <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-t-2xl overflow-hidden shadow-sm">
-                        {TEETH_UPPER.map(tooth => {
-                            const isColumnFocused = focusedSite?.tooth === tooth;
-                            return <PerioRow key={tooth} tooth={tooth} measurement={chartData.find(m => m.toothNumber === tooth)} previousMeasurement={previousMeasurementForTooth(tooth)} dentalChart={dentalChart} focusedSite={focusedSite} onValueChange={handleValueChange} onMobilityCycle={handleMobilityCycle} onBopCycle={handleBopCycle} onPlaqueIndexCycle={handlePlaqueIndexCycle} onFurcationChange={handleFurcationChange} onFocusSite={handleFocusSite} readOnly={readOnly} compareMode={!!compareDate} inputRefs={inputRefs} isColumnFocused={isColumnFocused} />
-                        })}
+                        {TEETH_UPPER.map(tooth => <PerioRow key={tooth} tooth={tooth} measurement={chartData.find(m => m.toothNumber === tooth)} compareMeasurement={comparisonChartData?.find(m => m.toothNumber === tooth)} dentalChart={dentalChart} focusedSite={focusedSite} onValueChange={handleValueChange} onMobilityCycle={handleMobilityCycle} onBopCycle={handleBopCycle} onPlaqueIndexCycle={handlePlaqueIndexCycle} onFurcationChange={handleFurcationChange} onFocusSite={handleFocusSite} readOnly={isChartReadOnly} compareMode={compareMode} inputRefs={inputRefs} isColumnFocused={focusedSite?.tooth === tooth} />)}
                     </div>
                     <div className="h-1 bg-slate-200 dark:bg-slate-700 my-1"></div>
                     <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-b-2xl overflow-hidden shadow-sm">
-                        {TEETH_LOWER.map(tooth => {
-                            const isColumnFocused = focusedSite?.tooth === tooth;
-                            return <PerioRow key={tooth} tooth={tooth} measurement={chartData.find(m => m.toothNumber === tooth)} previousMeasurement={previousMeasurementForTooth(tooth)} dentalChart={dentalChart} focusedSite={focusedSite} onValueChange={handleValueChange} onMobilityCycle={handleMobilityCycle} onBopCycle={handleBopCycle} onPlaqueIndexCycle={handlePlaqueIndexCycle} onFurcationChange={handleFurcationChange} onFocusSite={handleFocusSite} readOnly={readOnly} compareMode={!!compareDate} inputRefs={inputRefs} isColumnFocused={isColumnFocused} />
-                        })}
+                        {TEETH_LOWER.map(tooth => <PerioRow key={tooth} tooth={tooth} measurement={chartData.find(m => m.toothNumber === tooth)} compareMeasurement={comparisonChartData?.find(m => m.toothNumber === tooth)} dentalChart={dentalChart} focusedSite={focusedSite} onValueChange={handleValueChange} onMobilityCycle={handleMobilityCycle} onBopCycle={handleBopCycle} onPlaqueIndexCycle={handlePlaqueIndexCycle} onFurcationChange={handleFurcationChange} onFocusSite={handleFocusSite} readOnly={isChartReadOnly} compareMode={compareMode} inputRefs={inputRefs} isColumnFocused={focusedSite?.tooth === tooth} />)}
                     </div>
                 </div>
             </div>
