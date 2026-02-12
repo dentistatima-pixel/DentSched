@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
@@ -54,7 +53,6 @@ export const Layout: React.FC<LayoutProps> = ({
   
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   
   const { isDocentEnabled, isPanelOpen, togglePanel } = useDocent();
@@ -122,11 +120,6 @@ export const Layout: React.FC<LayoutProps> = ({
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
     : "h-24 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-black/20 dark:border-white/10 transition-all duration-500";
 
-  const confirmDowntime = () => {
-    setSystemStatus(SystemStatus.DOWNTIME);
-    setShowDowntimeConfirm(false);
-  };
-
   const handleAddNewTask = () => {
     if (handleAddTask && newTaskText.trim()) {
       handleAddTask(newTaskText, newTaskUrgent, newTaskAssignee, newTaskPatientId || undefined);
@@ -140,7 +133,7 @@ export const Layout: React.FC<LayoutProps> = ({
   
   const openProfile = () => {
     setIsUserMenuOpen(false);
-    showModal('userProfile', { user: currentUser, onSave: handleSaveStaff });
+    navigate('profile');
   };
   
   const inboxTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id).sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0) || (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0)), [tasks, currentUser.id]);
@@ -413,7 +406,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     </button>
                 ) : (
                     <button
-                        onClick={() => setShowDowntimeConfirm(true)}
+                        onClick={() => showModal('downtimeConfirm')}
                         className="p-4 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-900/30 transition-all focus:ring-offset-2 btn-tactile"
                         title="System Status: Operational. Click to activate Emergency Protocol."
                         aria-label="System Status: Operational. Click to activate Emergency Protocol."
@@ -470,28 +463,6 @@ export const Layout: React.FC<LayoutProps> = ({
                 <Sparkles size={32} />
             </button>
         </>
-      )}
-
-
-      {/* Gap 7: Downtime Confirmation Modal */}
-      {showDowntimeConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" role="dialog" aria-modal="true" aria-labelledby="downtime-title">
-            <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border-4 border-amber-200 dark:border-amber-700 animate-in zoom-in-95">
-                <div className="text-center">
-                    <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
-                        <AlertTriangle size={40} />
-                    </div>
-                    <h2 id="downtime-title" className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">Activate Emergency Protocol?</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-4">
-                        Activating this mode will flag all new appointments as manual entries requiring later reconciliation. Only proceed if you are experiencing a network outage or system failure.
-                    </p>
-                </div>
-                <div className="flex gap-4 mt-8">
-                    <button onClick={() => setShowDowntimeConfirm(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl font-black uppercase text-sm tracking-widest">Cancel</button>
-                    <button onClick={confirmDowntime} className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-red-600/30">Confirm & Activate</button>
-                </div>
-            </div>
-        </div>
       )}
       
       <CommandBar

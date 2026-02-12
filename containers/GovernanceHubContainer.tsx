@@ -4,6 +4,7 @@ import { useModal } from '../contexts/ModalContext';
 import { useAppContext } from '../contexts/AppContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
+import { useNavigate } from '../contexts/RouterContext';
 
 const GovernanceHub = React.lazy(() => import('../components/GovernanceHub'));
 
@@ -22,6 +23,7 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { incidents } = useClinicalOps();
+    const navigate = useNavigate();
 
     return (
         <Suspense fallback={<PageLoader />}>

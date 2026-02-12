@@ -8,6 +8,7 @@ import { PatientList } from './components/PatientList';
 import AdminHubContainer from './containers/AdminHubContainer';
 import FieldManagementContainer from './containers/FieldManagementContainer';
 import PatientListLayout from './containers/PatientListLayout';
+import PersonalProfileContainer from './containers/PersonalProfileContainer';
 
 
 export interface RouteConfig {
@@ -22,6 +23,7 @@ export const routes: RouteConfig[] = [
   { path: 'dashboard', component: Dashboard },
   { path: 'schedule', component: CalendarView },
   { path: 'patients', component: PatientList, layout: PatientListLayout },
+  { path: 'profile', component: PersonalProfileContainer },
   { 
     path: 'admin', 
     component: AdminHubContainer, 

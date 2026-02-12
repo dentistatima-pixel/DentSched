@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
@@ -9,10 +10,10 @@ import {
     Scale, Layers, ArrowRight, Shield, PenTool, Fingerprint, ArrowLeft, Printer
 } from 'lucide-react';
 import { 
-    HMOClaim, Expense, PhilHealthClaim, Patient, Appointment, FieldSettings, 
+    Expense, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PayrollStatus, PhilHealthClaimStatus, HMOClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
+    CommissionDispute, PayrollStatus, PhilHealthClaim, PhilHealthClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
     ClinicalIncident 
 } from '../types';
 import Analytics from './Analytics';
@@ -105,9 +106,6 @@ export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onCl
 
 
 interface FinancialsProps {
-  claims: HMOClaim[];
-  onSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => void;
-  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => void;
   expenses: Expense[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
   philHealthClaims?: PhilHealthClaim[];
@@ -138,81 +136,6 @@ interface FinancialsProps {
   activeSubTab?: string;
   incidents: ClinicalIncident[];
 }
-
-const HMOClaimsTab: React.FC<{
-  claims: HMOClaim[],
-  patients: Patient[],
-  onSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => void;
-  onUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => void;
-}> = ({ claims, patients, onSaveHmoClaim, onUpdateHmoClaimStatus }) => {
-    const [showForm, setShowForm] = useState(false);
-    const [selectedLedgerEntry, setSelectedLedgerEntry] = useState<{patientId: string, entryId: string} | null>(null);
-
-    const eligibleEntries = useMemo(() => {
-        return patients.flatMap(p => 
-            p.ledger?.filter(l => l.type === 'Charge' && !claims.some(c => c.ledgerEntryId === l.id))
-                .map(l => ({...l, patientId: p.id, patientName: p.name})) || []
-        );
-    }, [patients, claims]);
-
-    const handleCreateClaim = () => {
-        if (!selectedLedgerEntry) return;
-        const patient = patients.find(p => p.id === selectedLedgerEntry.patientId);
-        const entry = patient?.ledger?.find(l => l.id === selectedLedgerEntry.entryId);
-        if (!patient || !entry) return;
-
-        onSaveHmoClaim({
-            patientId: patient.id,
-            ledgerEntryId: entry.id,
-            hmoProvider: patient.insuranceProvider || '',
-            procedureName: entry.description,
-            amountClaimed: entry.amount,
-            status: HMOClaimStatus.SUBMITTED,
-            dateSubmitted: new Date().toISOString().split('T')[0]
-        });
-        setShowForm(false);
-        setSelectedLedgerEntry(null);
-    };
-
-    return (
-        <div className="space-y-6">
-            <button onClick={() => setShowForm(!showForm)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Plus size={16}/> New HMO Claim</button>
-            {showForm && (
-                <div className="bg-bg-secondary p-6 rounded-2xl border border-border-primary space-y-4">
-                    <select onChange={e => setSelectedLedgerEntry(JSON.parse(e.target.value))} className="input">
-                        <option value="">Select an eligible charge...</option>
-                        {eligibleEntries.map(e => <option key={e.id} value={JSON.stringify({patientId: e.patientId, entryId: e.id})}>{e.patientName} - {e.description} (₱{e.amount})</option>)}
-                    </select>
-                    <button onClick={handleCreateClaim} className="w-full py-3 bg-teal-600 text-white rounded-lg text-xs font-black uppercase">Create Claim</button>
-                </div>
-            )}
-            <div className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
-                <table className="w-full text-sm">
-                    <thead><tr className="bg-bg-tertiary text-xs uppercase"><th className="p-3 text-left text-text-secondary">Patient</th><th className="p-3 text-left text-text-secondary">Procedure</th><th className="p-3 text-right text-text-secondary">Amount</th><th className="p-3 text-center text-text-secondary">Status</th><th className="p-3 text-center text-text-secondary">Actions</th></tr></thead>
-                    <tbody>{claims.map(claim => {
-                        const patient = patients.find(p => p.id === claim.patientId);
-                        return (
-                        <tr key={claim.id} className="border-t border-border-secondary">
-                            <td className="p-3 font-bold text-text-primary">{patient?.name}</td>
-                            <td className="p-3 text-text-primary">{claim.procedureName}</td>
-                            <td className="p-3 text-right font-mono text-text-primary">₱{claim.amountClaimed.toLocaleString()}</td>
-                            <td className="p-3 text-center"><span className="text-xs font-bold px-2 py-1 rounded bg-bg-tertiary text-text-primary">{claim.status}</span></td>
-                            <td className="p-3 text-center">
-                                {claim.status === 'Submitted' && 
-                                    <div className="flex gap-2 justify-center">
-                                        <button onClick={() => { const amt = prompt("Enter amount received:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.PAID, { amountReceived: parseFloat(amt || '0') })}} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Paid</button>
-                                        <button onClick={() => { const reason = prompt("Reason for rejection:"); onUpdateHmoClaimStatus(claim.id, HMOClaimStatus.REJECTED, { rejectionReason: reason || 'No reason provided' })}} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Reject</button>
-                                    </div>
-                                }
-                            </td>
-                        </tr>
-                    )})}</tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
 
 const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddExpense: (expense: Omit<Expense, 'id'>) => void, currentBranch: string }> = ({ expenses, categories, onAddExpense, currentBranch }) => {
     const [showForm, setShowForm] = useState(false);
@@ -285,11 +208,10 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
 export const Financials: React.FC<FinancialsProps> = (props) => {
     const { onBack, activeSubTab } = props;
     const { fieldSettings } = useSettings();
-    const [activeTab, setActiveTab] = useState(activeSubTab || 'hmo');
+    const [activeTab, setActiveTab] = useState(activeSubTab || 'expenses');
     const [showEODReport, setShowEODReport] = useState(false);
 
     const tabs = [
-        { id: 'hmo', label: 'HMO Claims', icon: Briefcase },
         { id: 'expenses', label: 'Expenses', icon: DollarSign },
         { id: 'payroll', label: 'Payroll', icon: Calculator },
         { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
@@ -307,7 +229,6 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
              <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg"><History size={16}/> EOD Report</button>
         </div>
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-            {activeTab === 'hmo' && <HMOClaimsTab claims={props.claims} patients={props.patients || []} onSaveHmoClaim={props.onSaveHmoClaim} onUpdateHmoClaimStatus={props.onUpdateHmoClaimStatus} />}
             {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
         </div>
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />

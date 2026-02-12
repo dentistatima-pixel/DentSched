@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill, HeartPulse, Book, ChevronDown } from 'lucide-react';
@@ -16,6 +15,7 @@ import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { usePatientAlerts } from '../hooks/usePatientAlerts';
+import { ErrorBoundary } from './ErrorBoundary';
 
 
 // Lazy load heavy components
@@ -577,6 +577,11 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
         <header className={`p-6 flex items-center justify-between gap-4 shrink-0 rounded-t-[2.5rem] ${headerStyle.bg}`}>
             <div className="flex items-center gap-6">
+                {onBack && (
+                    <button onClick={onBack} className="bg-white/10 text-white p-3 rounded-full hover:bg-white/20 transition-colors">
+                        <ArrowLeft size={24} />
+                    </button>
+                )}
                 <div>
                     <h2 className={`text-3xl font-black ${headerStyle.text}`}>{patient.name}</h2>
                     <div className="flex items-center gap-4 divide-x divide-white/20 mt-1">
@@ -623,125 +628,127 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
         </div>
 
         <div className="flex-1 overflow-auto no-scrollbar bg-bg-tertiary">
-            {activeTab === 'summary' && (
-                <div className="p-6 space-y-8 animate-in fade-in duration-500">
-                    {/* Section for Medical Summary */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical Summary</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className={`p-6 rounded-2xl ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
-                                <div className="flex items-center gap-2">
-                                    <Droplet size={18} className={`${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
-                                    <h5 className={`font-black text-sm uppercase tracking-widest ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Allergies</h5>
+            <ErrorBoundary>
+                {activeTab === 'summary' && (
+                    <div className="p-6 space-y-8 animate-in fade-in duration-500">
+                        {/* Section for Medical Summary */}
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical Summary</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className={`p-6 rounded-2xl ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <Droplet size={18} className={`${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
+                                        <h5 className={`font-black text-sm uppercase tracking-widest ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Allergies</h5>
+                                    </div>
+                                    <p className={`text-sm font-bold mt-3 ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
+                                        {(patient.allergies && patient.allergies.length > 0 && !patient.allergies.every(a => a.toLowerCase() === 'none')) ? patient.allergies.filter(a => a.toLowerCase() !== 'none').join(', ') : 'None Reported'}
+                                    </p>
                                 </div>
-                                <p className={`text-sm font-bold mt-3 ${patient.allergies?.some(a => a.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
-                                    {(patient.allergies && patient.allergies.length > 0 && !patient.allergies.every(a => a.toLowerCase() === 'none')) ? patient.allergies.filter(a => a.toLowerCase() !== 'none').join(', ') : 'None Reported'}
-                                </p>
-                            </div>
-                            
-                            <div className={`p-6 rounded-2xl ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
-                                <div className="flex items-center gap-2">
-                                    <Heart size={18} className={`${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
-                                    <h5 className={`font-black text-sm uppercase tracking-widest ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Medical Conditions</h5>
+                                
+                                <div className={`p-6 rounded-2xl ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'bg-red-50 border-2 border-red-200' : 'bg-slate-50 border border-slate-100'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <Heart size={18} className={`${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-600' : 'text-slate-500'}`}/>
+                                        <h5 className={`font-black text-sm uppercase tracking-widest ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-800' : 'text-slate-600'}`}>Medical Conditions</h5>
+                                    </div>
+                                    <p className={`text-sm font-bold mt-3 ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
+                                        {(patient.medicalConditions && patient.medicalConditions.length > 0 && !patient.medicalConditions.every(c => c.toLowerCase() === 'none')) ? patient.medicalConditions.filter(c => c.toLowerCase() !== 'none').join(', ') : 'None Reported'}
+                                    </p>
                                 </div>
-                                <p className={`text-sm font-bold mt-3 ${patient.medicalConditions?.some(c => c.toLowerCase() !== 'none') ? 'text-red-900' : 'text-slate-800'}`}>
-                                    {(patient.medicalConditions && patient.medicalConditions.length > 0 && !patient.medicalConditions.every(c => c.toLowerCase() === 'none')) ? patient.medicalConditions.filter(c => c.toLowerCase() !== 'none').join(', ') : 'None Reported'}
-                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical History Questionnaire</h4>
+                            <MedicalHistoryAnswers patient={patient} />
+                        </div>
+                        
+                        {/* Section for Personal & Contact Info */}
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><UserIcon size={18} className="text-blue-600"/> Personal & Contact Information</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <InfoItem themeColor="blue" label="Email" value={patient.email} icon={Mail} />
+                                <InfoItem themeColor="blue" label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} />
+                                <InfoItem themeColor="blue" label="Occupation" value={patient.occupation} icon={Briefcase} />
+                                <InfoItem themeColor="blue" label="Civil Status" value={patient.civilStatus} icon={BookUser} />
+                                <InfoItem themeColor="blue" label="Nationality" value={patient.nationality} icon={Briefcase} />
+                                <InfoItem themeColor="blue" label="Religion" value={patient.religion} icon={BookUser} />
+                                <InfoItem themeColor="blue" label="Blood Group" value={patient.bloodGroup} icon={Droplet} />
+                                <InfoItem themeColor="blue" label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
+                                {patient.guardianProfile && <InfoItem themeColor="blue" label="Guardian" value={patient.guardianProfile?.legalName} icon={Baby} isSpecial />}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-indigo-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-indigo-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Shield size={18} className="text-indigo-600"/> Insurance & Administrative</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <InfoItem themeColor="indigo" label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
+                                <InfoItem themeColor="indigo" label="Insurance Policy #" value={patient.insuranceNumber} icon={FileText} />
+                                <InfoItem themeColor="indigo" label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
+                                <InfoItem themeColor="indigo" label="PhilHealth Category" value={patient.philHealthCategory} icon={FileText} />
+                                <InfoItem themeColor="indigo" label="PhilHealth Status" value={patient.philHealthMemberStatus} icon={CheckCircle} />
+                                {referralSource && <InfoItem themeColor="indigo" label="Referred By" value={referralSource} icon={Users} isSpecial />}
+                                {familyGroup && <InfoItem themeColor="indigo" label="Family Group" value={familyGroup} icon={Users} isSpecial />}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-lilac-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-lilac-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Users size={18} className="text-lilac-600"/> Associated Health Contacts</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <div className="space-y-4">
+                                    <InfoItem themeColor="lilac" label="Primary Physician" value={patient.physicianName} icon={HeartPulse} />
+                                    <InfoItem themeColor="lilac" label="Physician's Specialty" value={patient.physicianSpecialty} icon={Stethoscope} />
+                                    <InfoItem themeColor="lilac" label="Physician's Contact" value={patient.physicianNumber} icon={Phone} />
+                                 </div>
+                                 <div className="space-y-4">
+                                    <InfoItem themeColor="lilac" label="Emergency Contact Name" value={patient.emergencyContact?.name} icon={UserIcon} isSpecial />
+                                    <InfoItem themeColor="lilac" label="Relationship" value={patient.emergencyContact?.relationship} icon={Users} isSpecial />
+                                    <InfoItem themeColor="lilac" label="Emergency Contact #" value={patient.emergencyContact?.phoneNumber} icon={Phone} isSpecial />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-orange-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-orange-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><History size={18} className="text-orange-600"/> Dental History Summary</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <InfoItem themeColor="orange" label="Previous Dentist" value={patient.previousDentist} icon={Book} />
+                                <InfoItem themeColor="orange" label="Last Dental Visit" value={formatDate(patient.lastDentalVisit)} icon={Calendar} />
+                            </div>
+                        </div>
+
+                        {/* Actions Section */}
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
+                            <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Zap size={18} className="text-blue-600"/> Quick Actions</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <button onClick={() => showModal('ePrescription', { patient, currentUser, fieldSettings, onSavePrescription: handleSavePrescription })} className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl transition-colors border border-slate-200">
+                                    <Pill size={24} className="text-teal-600"/>
+                                    <span className="text-xs font-black text-slate-700 uppercase text-center">New Prescription</span>
+                                </button>
                             </div>
                         </div>
                     </div>
-                    
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical History Questionnaire</h4>
-                        <MedicalHistoryAnswers patient={patient} />
-                    </div>
-                    
-                    {/* Section for Personal & Contact Info */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><UserIcon size={18} className="text-blue-600"/> Personal & Contact Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <InfoItem themeColor="blue" label="Email" value={patient.email} icon={Mail} />
-                            <InfoItem themeColor="blue" label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} />
-                            <InfoItem themeColor="blue" label="Occupation" value={patient.occupation} icon={Briefcase} />
-                            <InfoItem themeColor="blue" label="Civil Status" value={patient.civilStatus} icon={BookUser} />
-                            <InfoItem themeColor="blue" label="Nationality" value={patient.nationality} icon={Briefcase} />
-                            <InfoItem themeColor="blue" label="Religion" value={patient.religion} icon={BookUser} />
-                            <InfoItem themeColor="blue" label="Blood Group" value={patient.bloodGroup} icon={Droplet} />
-                            <InfoItem themeColor="blue" label="Weight" value={patient.weightKg ? `${patient.weightKg} kg` : null} icon={Weight} />
-                            {patient.guardianProfile && <InfoItem themeColor="blue" label="Guardian" value={patient.guardianProfile?.legalName} icon={Baby} isSpecial />}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-indigo-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-indigo-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Shield size={18} className="text-indigo-600"/> Insurance & Administrative</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <InfoItem themeColor="indigo" label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
-                            <InfoItem themeColor="indigo" label="Insurance Policy #" value={patient.insuranceNumber} icon={FileText} />
-                            <InfoItem themeColor="indigo" label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
-                            <InfoItem themeColor="indigo" label="PhilHealth Category" value={patient.philHealthCategory} icon={FileText} />
-                            <InfoItem themeColor="indigo" label="PhilHealth Status" value={patient.philHealthMemberStatus} icon={CheckCircle} />
-                            {referralSource && <InfoItem themeColor="indigo" label="Referred By" value={referralSource} icon={Users} isSpecial />}
-                            {familyGroup && <InfoItem themeColor="indigo" label="Family Group" value={familyGroup} icon={Users} isSpecial />}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-lilac-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-lilac-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Users size={18} className="text-lilac-600"/> Associated Health Contacts</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="space-y-4">
-                                <InfoItem themeColor="lilac" label="Primary Physician" value={patient.physicianName} icon={HeartPulse} />
-                                <InfoItem themeColor="lilac" label="Physician's Specialty" value={patient.physicianSpecialty} icon={Stethoscope} />
-                                <InfoItem themeColor="lilac" label="Physician's Contact" value={patient.physicianNumber} icon={Phone} />
-                             </div>
-                             <div className="space-y-4">
-                                <InfoItem themeColor="lilac" label="Emergency Contact Name" value={patient.emergencyContact?.name} icon={UserIcon} isSpecial />
-                                <InfoItem themeColor="lilac" label="Relationship" value={patient.emergencyContact?.relationship} icon={Users} isSpecial />
-                                <InfoItem themeColor="lilac" label="Emergency Contact #" value={patient.emergencyContact?.phoneNumber} icon={Phone} isSpecial />
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-orange-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-orange-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><History size={18} className="text-orange-600"/> Dental History Summary</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <InfoItem themeColor="orange" label="Previous Dentist" value={patient.previousDentist} icon={Book} />
-                            <InfoItem themeColor="orange" label="Last Dental Visit" value={formatDate(patient.lastDentalVisit)} icon={Calendar} />
-                        </div>
-                    </div>
-
-                    {/* Actions Section */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-blue-200 shadow-sm">
-                        <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Zap size={18} className="text-blue-600"/> Quick Actions</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <button onClick={() => showModal('ePrescription', { patient, currentUser, fieldSettings, onSavePrescription: handleSavePrescription })} className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl transition-colors border border-slate-200">
-                                <Pill size={24} className="text-teal-600"/>
-                                <span className="text-xs font-black text-slate-700 uppercase text-center">New Prescription</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
-            {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
-            {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} /></Suspense>}
-            {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
-            {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
-            {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
-                patient={patient} 
-                onUpdatePatient={onQuickUpdatePatient} 
-                readOnly={readOnly} 
-                currentUser={currentUser} 
-                logAction={logAction} 
-                featureFlags={fieldSettings.features} 
-                fieldSettings={fieldSettings}
-                onInitiateFinancialConsent={onInitiateFinancialConsent} 
-                onOpenRevocationModal={onOpenRevocationModal}
-            /></Suspense>}
-            {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
-            {activeTab === 'images' && <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />}
-            {activeTab === 'compliance' && <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />}
-            {activeTab === 'history' && <AuditTrailViewer auditLog={auditLog.filter(log => log.entityId === patient.id)} auditLogVerified={true}/>}
+                )}
+                
+                {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
+                {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
+                {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} currentUser={currentUser} /></Suspense>}
+                {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
+                {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
+                {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
+                    patient={patient} 
+                    onUpdatePatient={onQuickUpdatePatient} 
+                    readOnly={readOnly} 
+                    currentUser={currentUser} 
+                    logAction={logAction} 
+                    featureFlags={fieldSettings.features} 
+                    fieldSettings={fieldSettings}
+                    onInitiateFinancialConsent={onInitiateFinancialConsent} 
+                    onOpenRevocationModal={onOpenRevocationModal}
+                /></Suspense>}
+                {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
+                {activeTab === 'images' && <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />}
+                {activeTab === 'compliance' && <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />}
+                {activeTab === 'history' && <AuditTrailViewer auditLog={auditLog.filter(log => log.entityId === patient.id)} auditLogVerified={true}/>}
+            </ErrorBoundary>
         </div>
     </div>
   );

@@ -366,6 +366,74 @@
           .inspector-panel.open {
               transform: translateY(0);
           }
+          
+          /* Patient List Card View for Portrait */
+          .patient-list-table {
+              display: block;
+          }
+          .patient-list-table thead {
+              display: none;
+          }
+          .patient-list-table tbody {
+              display: block;
+              padding: 0.75rem;
+          }
+          .patient-list-table tr {
+              display: block;
+              padding: 1rem 1.5rem;
+              border-radius: 1.5rem;
+              margin-bottom: 0.75rem;
+              background-color: var(--bg-secondary);
+              box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+              border: 1px solid var(--border-secondary);
+              position: relative;
+          }
+          .patient-list-table td {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 0.35rem 0;
+              text-align: right;
+              border-bottom: 1px solid var(--border-secondary);
+          }
+          .patient-list-table tr:last-child {
+            margin-bottom: 0;
+          }
+          .patient-list-table td:last-child {
+            border-bottom: none;
+          }
+          .patient-list-table td::before {
+              content: attr(data-label);
+              font-weight: 700;
+              text-transform: uppercase;
+              font-size: 0.7rem;
+              color: var(--text-secondary);
+              margin-right: 1rem;
+              text-align: left;
+          }
+          .patient-list-table .patient-name-cell {
+              display: block;
+              text-align: left;
+              padding-bottom: 0.75rem;
+              margin-bottom: 0.5rem;
+          }
+          .patient-list-table .patient-name-cell::before {
+              display: none;
+          }
+          .patient-list-table .patient-indicator-cell, .patient-list-table .patient-arrow-cell {
+              display: block;
+              position: absolute;
+              padding: 0;
+          }
+          .patient-list-table .patient-indicator-cell {
+            top: 0; left: 0; bottom: 0;
+          }
+           .patient-list-table .patient-arrow-cell {
+            top: 1rem; right: 1rem;
+          }
+           .patient-list-table .patient-arrow-cell::before {
+            display: none;
+          }
       }
     </style>
   <script type="importmap">

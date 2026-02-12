@@ -28,7 +28,6 @@ function InventoryContainer() {
         onUpdateSettings={handleUpdateSettings}
         appointments={appointments}
         logAction={logAction}
-        onBack={() => navigate('admin')}
     />;
 }
 

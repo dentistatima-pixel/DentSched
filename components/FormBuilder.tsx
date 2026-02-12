@@ -5,7 +5,7 @@ import { useToast } from './ToastSystem';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
-import DynamicFieldEditor from './form-builder/DynamicFieldEditor';
+import FormFieldEditor from './form-builder/FormFieldEditor';
 import QuestionEditor from './form-builder/QuestionEditor';
 import RegistryEditor from './form-builder/RegistryEditor';
 import { generateUid } from '../constants';
@@ -253,7 +253,7 @@ const FormBuilder: React.FC = () => {
         const field = settings.identityFields.find(f => (f.patientKey && f.patientKey === fieldId) || f.id === fieldId);
 
         if (field) {
-            return <DynamicFieldEditor field={field} onUpdateField={(updates) => handleUpdateDynamicField(id, updates)} />;
+            return <FormFieldEditor field={field} onUpdateField={(updates) => handleUpdateDynamicField(id, updates)} />;
         }
         
         if (type === 'question' || type === 'dentalQuestion') {

@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { DentalChartEntry, TreatmentStatus } from '../types';
+import { DentalChartEntry, TreatmentStatus, User } from '../types';
 import { formatDate } from '../constants';
 import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole, Sparkles } from 'lucide-react';
 
@@ -8,6 +9,7 @@ interface OdontogramProps {
   readOnly?: boolean;
   onToothClick: (toothNumber: number) => void; 
   onChartUpdate?: (entry: DentalChartEntry) => void;
+  currentUser: User;
 }
 
 type ToolType = 'cursor' | 'exam' | 'restoration' | 'extraction' | 'missing' | 'endo' | 'crown';
@@ -23,11 +25,11 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
     { id: 'cursor', label: 'Select', icon: MousePointer2, procedure: '', status: 'Existing', color: 'text-slate-800' },
-    { id: 'exam', label: 'Finding', icon: Search, procedure: 'Caries', status: 'Planned', color: 'text-lilac-600' },
-    { id: 'restoration', label: 'Filling', icon: Hammer, procedure: 'Composite Restoration', status: 'Completed', color: 'text-teal-600' },
-    { id: 'endo', label: 'Endo', icon: Activity, procedure: 'Root Canal', status: 'Planned', color: 'text-purple-600' },
-    { id: 'crown', label: 'Crown', icon: Crown, procedure: 'Crown', status: 'Planned', color: 'text-amber-600' },
-    { id: 'extraction', label: 'Extract', icon: Scissors, procedure: 'Extraction', status: 'Planned', color: 'text-red-700' },
+    { id: 'exam', label: 'Finding', icon: Search, procedure: 'Caries', status: 'Condition', color: 'text-lilac-600' },
+    { id: 'restoration', label: 'Filling', icon: Hammer, procedure: 'Composite Restoration', status: 'Planned', color: 'text-teal-600' },
+    { id: 'endo', label: 'Endo', icon: Activity, procedure: 'Root Canal Therapy', status: 'Planned', color: 'text-purple-600' },
+    { id: 'crown', label: 'Crown', icon: Crown, procedure: 'Zirconia Crown', status: 'Planned', color: 'text-amber-600' },
+    { id: 'extraction', label: 'Extract', icon: Scissors, procedure: 'Simple Extraction (Uncomplicated)', status: 'Planned', color: 'text-red-700' },
     { id: 'missing', label: 'Missing', icon: Ghost, procedure: 'Missing', status: 'Existing', color: 'text-slate-500' },
 ];
 
@@ -179,7 +181,7 @@ const GeometricTooth: React.FC<{
     )
 }
 
-const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, onChartUpdate }) => {
+const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, onChartUpdate, currentUser }) => {
   const [activeToolId, setActiveToolId] = useState<ToolType>('cursor');
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null); 
   const [showBaseline, setShowBaseline] = useState(false); 
@@ -242,7 +244,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
           return;
       }
       
-      if (onChartUpdate) {
+      if (onChartUpdate && currentUser) {
           const newEntry: DentalChartEntry = {
               id: `dc_${Date.now()}`,
               toothNumber: tooth,
@@ -250,7 +252,11 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
               status: activeTool.status,
               surfaces: ['extraction', 'missing', 'crown', 'endo'].includes(activeToolId) ? undefined : surface,
               date: new Date().toISOString().split('T')[0],
-              price: 0
+              price: 0,
+              author: currentUser.name,
+              authorId: currentUser.id,
+              authorRole: currentUser.role,
+              authorPrc: currentUser.prcLicense,
           };
           onChartUpdate(newEntry);
       }

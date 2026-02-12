@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
+import { useNavigate } from '../contexts/RouterContext';
 
 const FamilyGroupManager = React.lazy(() => import('../components/FamilyGroupManager'));
 
@@ -17,6 +18,7 @@ const PageLoader: React.FC = () => (
 function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { patients } = usePatient();
+    const navigate = useNavigate();
 
     return (
         <Suspense fallback={<PageLoader />}>
@@ -24,7 +26,7 @@ function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
                 settings={fieldSettings}
                 onUpdateSettings={handleUpdateSettings}
                 patients={patients}
-                onBack={onBack}
+                onBack={() => navigate('admin')}
             />
         </Suspense>
     );

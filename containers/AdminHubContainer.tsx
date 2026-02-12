@@ -13,6 +13,7 @@ import ReferralManagerContainer from './ReferralManagerContainer';
 import RosterViewContainer from './RosterViewContainer';
 import LeaveAndShiftManagerContainer from './LeaveAndShiftManagerContainer';
 import FamilyGroupManagerContainer from './FamilyGroupManagerContainer';
+import { AdminLayout } from '../components/AdminLayout';
 
 
 const PageLoader: React.FC = () => (
@@ -27,6 +28,7 @@ const PageLoader: React.FC = () => (
 
 function AdminHubContainer({ route }: { route: { param: string | null } }) {
     const navigate = useNavigate();
+    const activePage = route.param || 'hub';
 
     const renderAdminPage = () => {
         switch (route.param) {
@@ -56,7 +58,13 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
         }
     };
     
-    return <div className="h-full w-full">{renderAdminPage()}</div>;
+    return (
+        <AdminLayout activePage={activePage}>
+            <Suspense fallback={<PageLoader />}>
+                {renderAdminPage()}
+            </Suspense>
+        </AdminLayout>
+    );
 }
 
 export default AdminHubContainer;

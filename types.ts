@@ -56,20 +56,6 @@ export interface ClinicResource {
   colorCode?: string;
 }
 
-export enum HMOClaimStatus {
-    SUBMITTED = 'Submitted',
-    PAID = 'Paid',
-    REJECTED = 'Rejected',
-    PENDING = 'Pending'
-}
-
-export enum PhilHealthClaimStatus {
-    SUBMITTED = 'Submitted',
-    PAID = 'Paid',
-    REJECTED = 'Rejected',
-    PENDING = 'Pending'
-}
-
 export enum LabStatus {
   NONE = 'None',
   PENDING = 'Pending',
@@ -351,37 +337,6 @@ export enum StockCategory {
   OFFICE = 'Office Supplies'
 }
 
-export interface HMOClaim {
-  id: string;
-  patientId: string;
-  ledgerEntryId: string;
-  hmoProvider: string;
-  procedureName: string;
-  amountClaimed: number;
-  amountReceived?: number;
-  status: HMOClaimStatus;
-  dateSubmitted?: string;
-  dateReceived?: string;
-  notes?: string;
-  rejectionReason?: string;
-}
-
-export interface PhilHealthClaim {
-    id: string;
-    patientId: string;
-    ledgerEntryId: string;
-    procedureName: string;
-    caseRateCode?: string;
-    amountClaimed: number;
-    amountReceived?: number;
-    status: PhilHealthClaimStatus;
-    dateSubmitted?: string;
-    dateReceived?: string;
-    trackingNumber?: string;
-    claimFormType: 'CF-2' | 'CF-4';
-    caseRateAmount?: number;
-}
-
 export interface StockItem {
   id: string;
   name: string;
@@ -452,6 +407,46 @@ export interface Expense {
   staffId?: string;
   receiptNumber?: string;
   supplierTIN?: string;
+}
+
+// FIX: Added missing financial types
+export enum HMOClaimStatus {
+    SUBMITTED = 'Submitted',
+    PAID = 'Paid',
+    REJECTED = 'Rejected',
+    PENDING = 'Pending'
+}
+
+export interface HMOClaim {
+    id: string;
+    patientId: string;
+    ledgerEntryId: string;
+    hmoProvider: string;
+    procedureName: string;
+    amountClaimed: number;
+    status: HMOClaimStatus;
+    dateSubmitted: string;
+    amountReceived?: number;
+    rejectionReason?: string;
+    dateReceived?: string;
+}
+
+export enum PhilHealthClaimStatus {
+    PENDING = 'Pending',
+    FILED = 'Filed',
+    PAID = 'Paid',
+    REJECTED = 'Rejected'
+}
+
+export interface PhilHealthClaim {
+    id: string;
+    patientId: string;
+    appointmentId: string;
+    claimNumber: string;
+    status: PhilHealthClaimStatus;
+    dateFiled: string;
+    amount: number;
+    notes?: string;
 }
 
 export interface AuditLogEntry {

@@ -14,6 +14,9 @@ export const useClinicalNotePermissions = (
     const isPediatricBlocked = useMemo(() => {
         if (!patient || (calculateAge(patient.dob) || 18) >= 18 || isArchitect) return false;
 
+        // Medico-legal check: Guardian profile must exist for a minor.
+        if (!patient.guardianProfile) return true;
+
         // Medico-legal check: Guardian must have full authority profile.
         const hasFullGuardian = patient.guardianProfile?.authorityLevel === AuthorityLevel.FULL;
         if (!hasFullGuardian) return true; // Block if guardian authority is not full.

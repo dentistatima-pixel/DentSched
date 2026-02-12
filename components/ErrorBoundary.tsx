@@ -10,7 +10,7 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Reverted to constructor for state initialization. This is a more robust way to ensure `this` context is correctly bound in all environments, which should resolve issues with accessing both `this.state` and `this.props`.
+  // FIX: Replaced class property state initialization with a constructor to ensure `this.props` and `this.state` are correctly typed and accessible, resolving the build errors.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -27,9 +27,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif' }}>
-          <h1>Something went wrong in this component.</h1>
-          <p>Other parts of the application may still be functional.</p>
+        <div style={{ padding: 20, textAlign: 'center', fontFamily: 'sans-serif', color: 'var(--text-primary)' }}>
+          <h1>Something went wrong.</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>An error occurred in this section of the application. Other areas may still be functional.</p>
         </div>
       );
     }

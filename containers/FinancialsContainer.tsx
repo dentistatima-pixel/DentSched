@@ -11,7 +11,6 @@ import { Financials } from '../components/Financials';
 
 function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { 
-        hmoClaims, handleSaveHmoClaim, handleUpdateHmoClaimStatus, 
         expenses, handleAddExpense, 
         philHealthClaims, handleUpdatePhilHealthClaim,
         reconciliations, handleSaveReconciliation,
@@ -29,7 +28,6 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const navigate = useNavigate();
 
     return <Financials 
-        claims={hmoClaims} onSaveHmoClaim={handleSaveHmoClaim} onUpdateHmoClaimStatus={handleUpdateHmoClaimStatus}
         expenses={expenses} onAddExpense={handleAddExpense}
         philHealthClaims={philHealthClaims || []} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim}
         reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation}
@@ -44,7 +42,6 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
         currentBranch={currentBranch}
         governanceTrack={governanceTrack}
         setGovernanceTrack={setGovernanceTrack}
-        onBack={() => navigate('admin')}
         activeSubTab={route.param || undefined}
         incidents={incidents}
     />;

@@ -1,6 +1,7 @@
 
 
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, HMOClaim, HMOClaimStatus, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
+// FIX: Imported missing financial types
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication, HMOClaim, HMOClaimStatus } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
@@ -176,12 +177,34 @@ export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = [
     { id: 'cycle_01', date: getPastDateStr(1), autoclaveName: 'Autoclave A', cycleNumber: 'C-2024-001', operator: 'John Doe', passed: true }
 ];
 
-export const MOCK_CLAIMS: HMOClaim[] = [
-    { id: 'claim_01', patientId: 'p_heavy_01', ledgerEntryId: 'l1', hmoProvider: 'Maxicare', procedureName: 'Zirconia Crown', amountClaimed: 20000, status: HMOClaimStatus.SUBMITTED, dateSubmitted: getPastDateStr(25) },
-];
-
 export const MOCK_EXPENSES: Expense[] = [
     { id: 'exp_01', date: getPastDateStr(5), category: 'Office Supplies', description: 'Bond paper and pens', amount: 1500, branch: 'Makati Main' },
+];
+
+// FIX: Added MOCK_CLAIMS to be used in FinancialContext, which was causing an import error.
+export const MOCK_CLAIMS: HMOClaim[] = [
+    {
+        id: 'hmo_c1',
+        patientId: 'p_hmo_11',
+        ledgerEntryId: 'l_hmo1',
+        hmoProvider: 'Intellicare',
+        procedureName: 'Oral Prophylaxis',
+        amountClaimed: 800,
+        status: HMOClaimStatus.PAID,
+        dateSubmitted: getPastDateStr(45),
+        amountReceived: 800,
+        dateReceived: getPastDateStr(10),
+    },
+    {
+        id: 'hmo_c2',
+        patientId: 'p_heavy_01',
+        ledgerEntryId: 'l1',
+        hmoProvider: 'Maxicare',
+        procedureName: 'Zirconia Crown',
+        amountClaimed: 10000,
+        status: HMOClaimStatus.PENDING,
+        dateSubmitted: getPastDateStr(5),
+    },
 ];
 
 export const MOCK_WAITLIST: WaitlistEntry[] = [

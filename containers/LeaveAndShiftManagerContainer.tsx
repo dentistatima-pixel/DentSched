@@ -18,7 +18,6 @@ function LeaveAndShiftManagerContainer() {
         onAddLeaveRequest={handleAddLeaveRequest}
         onApproveLeaveRequest={handleApproveLeaveRequest}
         fieldSettings={fieldSettings}
-        onBack={() => navigate('admin')}
         onUpdateStaffRoster={handleUpdateStaffRoster}
     />;
 }

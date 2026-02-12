@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
 import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus } from '../types';
@@ -131,6 +130,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   
   const generalConsent = useMemo(() => fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), [fieldSettings.consentFormTemplates]);
 
+  const initialDataId = initialData?.id;
   useEffect(() => {
     // This effect ensures the form starts on the correct step when the modal opens/reopens.
     setStep(1);
@@ -143,7 +143,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
             registrationBranch: currentBranch,
         });
     }
-  }, [initialData, currentBranch, initialFormState]);
+  }, [initialDataId, currentBranch]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -339,7 +339,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                         </div>
                     </div>
                 )}
-                {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
+                {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} handleChange={handleChange} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
                 {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} /></div>}
                 {step === 4 && <RegistrationSummary formData={formData} fieldSettings={fieldSettings} />}
                 {step === 5 && (

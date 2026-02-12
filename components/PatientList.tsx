@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useContext } from 'react';
 import { Patient, AuthorityLevel } from '../types';
 import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
@@ -97,7 +96,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
       </div>
       
       <div className="flex-1 overflow-auto no-scrollbar">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm patient-list-table">
           <thead className="sticky top-0 bg-bg-tertiary/80 dark:bg-bg-tertiary/90 backdrop-blur-sm z-10">
             <tr className="border-b border-border-primary">
               <th className="p-4 w-2"></th>
@@ -136,7 +135,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                     }`} 
                     onClick={() => onSelectPatient(p.id)}
                   >
-                    <td className="p-0 w-2">
+                    <td className="p-0 w-2 patient-indicator-cell">
                       {hasFlags ? (
                           <div className="w-2 h-full absolute top-0 left-0 bg-red-500 shadow-lg group-hover:bg-red-600 transition-colors" />
                       ) : isPwdOrMinor ? (
@@ -145,13 +144,13 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                           <div className="w-2 h-full absolute top-0 left-0 bg-blue-500 shadow-lg group-hover:bg-blue-600 transition-colors" />
                       ) : null}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 patient-name-cell" data-label="Name">
                       <div>
                         <span className="font-bold text-text-primary">{p.name}</span>
                       </div>
                       <div className="text-xs font-mono text-text-secondary">{p.id}</div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4" data-label="Alerts">
                         <div className="flex items-center gap-2.5">
                             {isPendingSync && <span title="Pending Sync"><CloudOff size={16} className="text-lilac-600 dark:text-lilac-400 animate-pulse"/></span>}
                             {hasFlags && <span title={`Critical Medical Alert: ${flags.map(f=>f.value).join(', ')}`}><ShieldAlert size={16} className="text-red-600 dark:text-red-400"/></span>}
@@ -160,17 +159,17 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                             {isProvisional && <span title="Provisional Registration"><FileBadge2 size={16} className="text-blue-600 dark:text-blue-400"/></span>}
                         </div>
                     </td>
-                    <td className="p-4 text-left font-mono text-xs font-bold">{formatDate(p.nextVisit)}</td>
-                    <td className="p-4 text-left font-mono text-xs">{formatDate(p.lastVisit)}</td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-left font-mono text-xs font-bold" data-label="Next Visit">{formatDate(p.nextVisit)}</td>
+                    <td className="p-4 text-left font-mono text-xs" data-label="Last Visit">{formatDate(p.lastVisit)}</td>
+                    <td className="p-4 text-center" data-label="Reliability">
                       <div className={`font-black text-lg ${p.reliabilityScore != null && p.reliabilityScore < 70 ? 'text-red-600' : p.reliabilityScore != null && p.reliabilityScore < 90 ? 'text-amber-600' : 'text-teal-600'}`}>
                         {p.reliabilityScore ?? 'N/A'}%
                       </div>
                     </td>
-                    <td className="p-4 text-right font-mono font-bold text-red-700">
+                    <td className="p-4 text-right font-mono font-bold text-red-700" data-label="Balance">
                       {p.currentBalance && p.currentBalance > 0 ? `₱${p.currentBalance.toLocaleString()}` : '-'}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 patient-arrow-cell">
                       <ChevronRight size={16} className="text-slate-400 group-hover:text-teal-600 transition-colors" />
                     </td>
                   </tr>

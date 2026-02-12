@@ -16,7 +16,6 @@ function ReferralManagerContainer() {
         referrals={referrals}
         onSaveReferral={handleSaveReferral}
         staff={staff}
-        onBack={() => navigate('admin')}
     />;
 }
 

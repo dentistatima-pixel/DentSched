@@ -1,4 +1,3 @@
-
 import React,
 { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { 
@@ -45,9 +44,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const [showWaitlist, setShowWaitlist] = useState(false); 
   const [activeProviderId, setActiveProviderId] = useState<string>(currentUser?.id || '');
   
-  const [peeked, setPeeked] = useState<{ apt: Appointment, patient: Patient, target: HTMLElement } | null>(null);
   const [inspected, setInspected] = useState<{ apt: Appointment, patient: Patient } | null>(null);
-  const longPressTimer = useRef<number | null>(null);
 
   const [overrideTarget, setOverrideTarget] = useState<WaitlistEntry | null>(null);
   const [selectedManagerId, setSelectedManagerId] = useState('');
@@ -63,14 +60,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
           if (firstDentist) setActiveProviderId(firstDentist.id);
       }
   }, [staff, activeProviderId]);
-  
-  useEffect(() => {
-    const handleGlobalClick = () => {
-      if (peeked) setPeeked(null);
-    };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, [peeked]);
 
   const next = () => {
     const nextDate = new Date(selectedDate);
@@ -211,24 +200,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
         existingAppointment: appointmentToEdit, 
         overrideInfo 
     });
-  };
-
-  const handleMouseDown = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    longPressTimer.current = window.setTimeout(() => {
-        setPeeked(null);
-        setInspected({ apt, patient });
-    }, 500);
-  };
-
-  const handleMouseUp = (e: React.MouseEvent, apt: Appointment, patient: Patient) => {
-      if(longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null; // Clear timer ref after use
-          if (!inspected) {
-              setPeeked({ apt, patient, target: e.currentTarget as HTMLElement });
-          }
-      }
   };
 
   const handleSlotClick = (colId: string, hour: number, dateIso: string) => {
@@ -453,15 +424,12 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                                     key={apt.id} 
                                                     draggable
                                                     onDragStart={(e) => { 
-                                                        if (longPressTimer.current) {
-                                                            clearTimeout(longPressTimer.current);
-                                                            longPressTimer.current = null;
-                                                        }
                                                         e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
                                                     }}
-                                                    onMouseDown={(e) => handleMouseDown(e, apt, patient!)} 
-                                                    onMouseUp={(e) => handleMouseUp(e, apt, patient!)}
-                                                    onClick={(e) => e.stopPropagation()}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setInspected({ apt, patient: patient! });
+                                                    }}
                                                     onDoubleClick={(e) => { e.stopPropagation(); openAppointmentModal(undefined, undefined, undefined, apt); }}
                                                     className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
                                                     <div className="flex justify-between items-center mb-2">
@@ -491,35 +459,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
             </div>
         </div>
       </div>
-
-      {/* --- PEEK POPOVER --- */}
-      {peeked && (
-          <div 
-            onClick={e => e.stopPropagation()}
-            style={{ 
-              position: 'fixed', 
-              top: peeked.target.getBoundingClientRect().bottom + 8,
-              left: peeked.target.getBoundingClientRect().left,
-            }}
-            className="z-50 w-64 bg-white rounded-3xl shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 p-5 space-y-4"
-          >
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                  <div className="w-10 h-10 bg-teal-50 rounded-xl text-teal-600 flex items-center justify-center font-black">{peeked.patient.name[0]}</div>
-                  <div>
-                    <h4 className="font-black text-sm text-slate-800 uppercase">{peeked.patient.name}</h4>
-                    <p className="text-[10px] font-mono text-slate-400">{peeked.patient.id}</p>
-                  </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 p-2 rounded-lg text-center"><div className="text-[9px] font-black text-slate-400 uppercase">Reliability</div><div className="text-lg font-black text-teal-700">{peeked.patient.reliabilityScore || 100}%</div></div>
-                  <div className="bg-slate-50 p-2 rounded-lg text-center"><div className="text-[9px] font-black text-slate-400 uppercase">Balance</div><div className="text-lg font-black text-red-700">₱{peeked.patient.currentBalance || 0}</div></div>
-              </div>
-              <div className="flex gap-2">
-                  <button onClick={() => { setInspected({ apt: peeked.apt, patient: peeked.patient }); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Inspect</button>
-                  <button onClick={() => { openAppointmentModal(undefined, undefined, undefined, peeked.apt); setPeeked(null); }} className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">Edit</button>
-              </div>
-          </div>
-      )}
 
       <InspectorPanel
           inspected={inspected}

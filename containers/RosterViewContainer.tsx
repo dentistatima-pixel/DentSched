@@ -15,7 +15,6 @@ function RosterViewContainer() {
         fieldSettings={fieldSettings}
         currentUser={currentUser!}
         onUpdateStaffRoster={handleUpdateStaffRoster}
-        onBack={() => navigate('admin')}
     />;
 }
 
