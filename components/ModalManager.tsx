@@ -24,7 +24,6 @@ const PreparationChecklistModal = React.lazy(() => import('./PreparationChecklis
 const InformedRefusalModal = React.lazy(() => import('./InformedRefusalModal'));
 const PhotoCaptureModal = React.lazy(() => import('./PhotoCaptureModal'));
 const QuickCheckInModal = React.lazy(() => import('./QuickCheckInModal'));
-const LeadDentistApprovalModal = React.lazy(() => import('./LeadDentistApprovalModal'));
 const MedicalHistoryAffirmationModal = React.lazy(() => import('./MedicalHistoryAffirmationModal'));
 const VoidNoteModal = React.lazy(() => import('./VoidNoteModal'));
 const PatientSignOffModal = React.lazy(() => import('./PatientSignOffModal'));
@@ -64,7 +63,6 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     informedRefusal: InformedRefusalModal,
     photoCapture: PhotoCaptureModal,
     quickCheckIn: QuickCheckInModal,
-    leadDentistApproval: LeadDentistApprovalModal,
     medicalHistoryAffirmation: MedicalHistoryAffirmationModal,
     voidNote: VoidNoteModal,
     patientSignOff: PatientSignOffModal,
