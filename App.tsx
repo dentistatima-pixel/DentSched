@@ -58,15 +58,19 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
         setPin(pin.slice(0, -1));
     };
 
-    useEffect(() => {
-        if (pin.length === 4) {
-            const success = onUnlockAttempt(pin);
-            if (!success) {
-                setError('Invalid PIN');
-                setTimeout(() => setPin(''), 500);
-            }
+    const handleLoginAttempt = useCallback(() => {
+        const success = onUnlockAttempt(pin);
+        if (!success) {
+            setError('Invalid PIN');
+            setTimeout(() => setPin(''), 500);
         }
     }, [pin, onUnlockAttempt]);
+
+    useEffect(() => {
+        if (pin.length === 4) {
+            handleLoginAttempt();
+        }
+    }, [pin, handleLoginAttempt]);
 
 
     return (
@@ -149,11 +153,11 @@ export const App: React.FC = () => {
   }, []);
   
   const resetIdleTimer = useCallback(() => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (isSessionLocked) return;
 
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     
     setIsLockWarningVisible(false);
 
@@ -242,11 +246,9 @@ export const App: React.FC = () => {
   const renderRoute = () => {
     const activeRoute = routes.find(r => r.path === route.path) || routes.find(r => r.path === 'dashboard')!;
     
-    const { component: Component, layout: LayoutComponent, requiredRoles, props } = activeRoute;
+    const { component: Component, requiredRoles, props } = activeRoute;
 
-    const routeContent = LayoutComponent 
-      ? <LayoutComponent route={route} {...props} /> 
-      : <Component route={route} {...props} />;
+    const routeContent = <Component route={route} {...props} />;
 
     if (requiredRoles) {
       return <ProtectedRoute requiredRoles={requiredRoles}>{routeContent}</ProtectedRoute>;

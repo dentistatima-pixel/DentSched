@@ -170,17 +170,32 @@ const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staf
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
         </div>
     );
-    
-    const FlowColumn: React.FC<{ title: string, count: number, status: AppointmentStatus, appointments: Appointment[], children: React.ReactNode, icon: React.ElementType, color: string }> = ({ title, count, status, appointments, children, icon: Icon, color }) => (
+
+    const InClinicPatientCard: React.FC<{ apt: Appointment, patient: Patient }> = ({ apt, patient }) => (
         <div 
-            onDragOver={(e) => { e.preventDefault(); setDragOverColumn(title); }}
-            onDragLeave={() => setDragOverColumn(null)}
+            draggable 
+            onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
+            className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-lilac-400 cursor-grab active:cursor-grabbing"
+            onClick={() => navigate(`patients/${patient.id}`)}
+        >
+            <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
+            <p className="text-xs font-bold text-lilac-600 dark:text-lilac-400 mt-2">{apt.status}</p>
+        </div>
+    );
+    
+    const FlowColumn: React.FC<{ title: string, count: number, onDropStatus?: AppointmentStatus, children: React.ReactNode, icon: React.ElementType, color: string }> = ({ title, count, onDropStatus, children, icon: Icon, color }) => (
+        <div 
+            onDragOver={(e) => { if (onDropStatus) { e.preventDefault(); setDragOverColumn(title); } }}
+            onDragLeave={() => { if (onDropStatus) setDragOverColumn(null); }}
             onDrop={(e) => {
-                e.preventDefault();
-                setDragOverColumn(null);
-                const data = JSON.parse(e.dataTransfer.getData('application/json'));
-                if(data.appointmentId) {
-                    onUpdateStatus(data.appointmentId, status);
+                if (onDropStatus) {
+                    e.preventDefault();
+                    setDragOverColumn(null);
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    if(data.appointmentId) {
+                        onUpdateStatus(data.appointmentId, onDropStatus);
+                    }
                 }
             }}
             className={`flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-4 transition-all ${dragOverColumn === title ? 'bg-teal-50 dark:bg-teal-900/50 ring-2 ring-teal-500' : ''}`}
@@ -203,20 +218,25 @@ const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staf
                 <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Patient Flow</h3>
             </div>
             <div className="flex flex-col md:flex-row gap-6 h-[70vh]">
-                <FlowColumn title="Waiting Room" count={patientFlow.arrived.length} status={AppointmentStatus.SEATED} appointments={patientFlow.arrived} icon={Armchair} color="text-orange-500">
+                <FlowColumn title="Waiting Room" count={patientFlow.arrived.length} icon={Armchair} color="text-orange-500">
                     {patientFlow.arrived.map((apt: Appointment) => {
                         const patient = patients.find(p => p.id === apt.patientId);
                         return patient ? <PatientCard key={apt.id} apt={apt} patient={patient}/> : null;
                     })}
                 </FlowColumn>
-                <FlowColumn title="In Clinic" count={patientFlow.inClinic.length} status={AppointmentStatus.COMPLETED} appointments={patientFlow.inClinic} icon={Activity} color="text-lilac-500">
+                <FlowColumn title="In Clinic" count={patientFlow.inClinic.length} onDropStatus={AppointmentStatus.SEATED} icon={Activity} color="text-lilac-500">
                      {patientFlow.inClinic.map((apt: Appointment) => {
                         const patient = patients.find(p => p.id === apt.patientId);
+                        return patient ? <InClinicPatientCard key={apt.id} apt={apt} patient={patient} /> : null;
+                    })}
+                </FlowColumn>
+                <FlowColumn title="Ready for Checkout" count={patientFlow.needsCheckout.length} onDropStatus={AppointmentStatus.COMPLETED} icon={ClipboardCheck} color="text-teal-500">
+                    {patientFlow.needsCheckout.map((apt: Appointment) => {
+                        const patient = patients.find(p => p.id === apt.patientId);
                         return patient ? (
-                            <div key={apt.id} className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-lilac-400">
+                            <div key={apt.id} className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-teal-400 cursor-pointer" onClick={() => navigate(`patients/${patient.id}`)}>
                                 <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
                                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
-                                <p className="text-xs font-bold text-lilac-600 dark:text-lilac-400 mt-2">{apt.status}</p>
                             </div>
                         ) : null;
                     })}
@@ -225,6 +245,7 @@ const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staf
         </div>
     )
 }
+
 
 const StatCard: React.FC<{title: string, value: string | React.ReactNode, icon: React.ElementType, color: string, onClick?: () => void}> = ({ title, value, icon: Icon, color, onClick }) => (
     <button onClick={onClick} disabled={!onClick} className={`p-6 rounded-[2rem] text-white shadow-xl hover:-translate-y-1 transition-transform w-full text-left ${color} ${!onClick ? 'cursor-default' : ''}`}>

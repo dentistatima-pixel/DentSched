@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
     Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
@@ -120,8 +121,8 @@ export const Layout: React.FC<LayoutProps> = ({
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
     : "h-24 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-black/20 dark:border-white/10 transition-all duration-500";
 
-  const handleAddNewTask = () => {
-    if (handleAddTask && newTaskText.trim()) {
+  const handleTaskSubmit = () => {
+    if (newTaskText.trim()) {
       handleAddTask(newTaskText, newTaskUrgent, newTaskAssignee, newTaskPatientId || undefined);
       setNewTaskText('');
       setNewTaskUrgent(false);
@@ -159,7 +160,7 @@ export const Layout: React.FC<LayoutProps> = ({
   }, [appointments, currentBranch]);
 
   return (
-    <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col overflow-hidden ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
+    <div className={`h-[100dvh] bg-bg-primary text-text-primary font-sans flex flex-col ${isDowntime ? 'ring-inset ring-8 ring-red-600/20' : ''}`}>
       
       {impersonatingUser && (
         <div className="bg-amber-400 text-black p-3 text-center font-black uppercase tracking-widest text-sm z-[100] flex justify-center items-center gap-4 shadow-2xl" role="alert">
@@ -366,8 +367,8 @@ export const Layout: React.FC<LayoutProps> = ({
                                 </div>
                                 <div className="p-4 border-t bg-bg-tertiary space-y-3">
                                     <div className="relative">
-                                        <input ref={taskInputRef} type="text" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddNewTask()} placeholder="Add new task..." className="input w-full"/>
-                                        <button onClick={handleAddNewTask} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
+                                        <input ref={taskInputRef} type="text" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleTaskSubmit()} placeholder="Add new task..." className="input w-full"/>
+                                        <button onClick={handleTaskSubmit} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={16}/></button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 relative">
                                         <div>
@@ -434,9 +435,9 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      <main className="flex-1 flex flex-col h-[calc(100dvh-96px)] overflow-hidden bg-bg-primary relative" role="main">
+      <main className="flex-1 flex flex-col bg-bg-primary relative overflow-auto no-scrollbar" role="main">
         <ErrorBoundary>
-            <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'overflow-hidden flex flex-col p-2' : activeTab === 'patients' ? 'overflow-hidden p-6' : 'overflow-auto p-6'} no-scrollbar`}>
+            <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'flex flex-col p-2' : 'p-6'}`}>
                 {children}
             </div>
         </ErrorBoundary>

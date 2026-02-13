@@ -12,7 +12,6 @@ import { Financials } from '../components/Financials';
 function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { 
         expenses, handleAddExpense, 
-        philHealthClaims, handleUpdatePhilHealthClaim,
         reconciliations, handleSaveReconciliation,
         cashSessions, handleStartCashSession, handleCloseCashSession,
         payrollPeriods, handleAddPayrollPeriod, handleUpdatePayrollPeriod,
@@ -29,7 +28,6 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
 
     return <Financials 
         expenses={expenses} onAddExpense={handleAddExpense}
-        philHealthClaims={philHealthClaims || []} onUpdatePhilHealthClaim={handleUpdatePhilHealthClaim}
         reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation}
         cashSessions={cashSessions} onStartCashSession={(bal) => handleStartCashSession(bal, currentBranch)} onCloseCashSession={handleCloseCashSession}
         payrollPeriods={payrollPeriods} onAddPayrollPeriod={handleAddPayrollPeriod} onUpdatePayrollPeriod={handleUpdatePayrollPeriod}

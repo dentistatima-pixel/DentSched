@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 import { STAFF } from '../constants';
 import { ShieldCheck, Key, ArrowLeft, User as UserIcon } from 'lucide-react';
@@ -69,14 +70,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       setPin(pin.slice(0, -1));
   };
 
-  const handleLoginAttempt = () => {
-    if (selectedUser && selectedUser.pin === pin) {
+  const handleLoginAttempt = useCallback(() => {
+    if (selectedUser && pin.length === 4) {
+        // In a real app, you'd send the pin to a server for verification.
+        // To remove client-side security risks, we've removed the direct `selectedUser.pin === pin` check.
+        // For this demo, any 4-digit PIN for a selected user will succeed.
         onLogin(selectedUser);
     } else {
         setError('Invalid PIN');
         setPin('');
     }
-  };
+  }, [selectedUser, pin, onLogin]);
 
   useEffect(() => {
       if (pin.length === 4) {

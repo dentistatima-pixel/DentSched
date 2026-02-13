@@ -409,46 +409,6 @@ export interface Expense {
   supplierTIN?: string;
 }
 
-// FIX: Added missing financial types
-export enum HMOClaimStatus {
-    SUBMITTED = 'Submitted',
-    PAID = 'Paid',
-    REJECTED = 'Rejected',
-    PENDING = 'Pending'
-}
-
-export interface HMOClaim {
-    id: string;
-    patientId: string;
-    ledgerEntryId: string;
-    hmoProvider: string;
-    procedureName: string;
-    amountClaimed: number;
-    status: HMOClaimStatus;
-    dateSubmitted: string;
-    amountReceived?: number;
-    rejectionReason?: string;
-    dateReceived?: string;
-}
-
-export enum PhilHealthClaimStatus {
-    PENDING = 'Pending',
-    FILED = 'Filed',
-    PAID = 'Paid',
-    REJECTED = 'Rejected'
-}
-
-export interface PhilHealthClaim {
-    id: string;
-    patientId: string;
-    appointmentId: string;
-    claimNumber: string;
-    status: PhilHealthClaimStatus;
-    dateFiled: string;
-    amount: number;
-    notes?: string;
-}
-
 export interface AuditLogEntry {
   id: string;
   timestamp: string;
@@ -505,7 +465,7 @@ export interface RegistrationField {
   id: string;
   label: string;
   type: 'text' | 'tel' | 'date' | 'email' | 'dropdown' | 'textarea' | 'boolean' | 'header' | 'checklist' | 'conditional-text';
-  section: 'IDENTITY' | 'CONTACT' | 'INSURANCE' | 'FAMILY' | 'DENTAL' | 'MEDICAL';
+  section: 'IDENTITY' | 'CONTACT' | 'FAMILY' | 'DENTAL' | 'MEDICAL';
   registryKey?: string; 
   width?: 'full' | 'half' | 'third' | 'quarter';
   isCritical?: boolean;
@@ -520,7 +480,6 @@ export interface FeatureToggles {
   enableComplianceAudit: boolean;
   enableMultiBranch: boolean;
   enableDentalAssistantFlow: boolean;
-  enableHMOClaims: boolean;
   enableInventory: boolean;
   inventoryComplexity?: 'SIMPLE' | 'ADVANCED';
   enableAnalytics: boolean;
@@ -529,7 +488,6 @@ export interface FeatureToggles {
   enableOnlineForms: boolean;
   enableEPrescription: boolean;
   enableAdvancedPermissions: boolean;
-  enablePhilHealthClaims: boolean;
   enableLabPortal: boolean;
   enableDocumentManagement: boolean;
   enableClinicalProtocolAlerts: boolean;
@@ -541,7 +499,6 @@ export interface FeatureToggles {
   enableMaterialTraceability: true; 
   enableBirComplianceMode: boolean;
   enableStatutoryBirTrack: true; 
-  enableHmoInsuranceTrack: true; 
   enableDigitalDocent: boolean;
 }
 
@@ -593,7 +550,7 @@ export interface ClinicalProtocolRule {
 export interface Vendor {
     id: string;
     name: string;
-    type: 'Lab' | 'HMO' | 'Supplier' | 'Other';
+    type: 'Lab' | 'Supplier' | 'Other';
     contactPerson: string;
     contactNumber: string;
     email: string;
@@ -927,8 +884,6 @@ export interface Patient {
   occupation?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
-  dentalInsurance?: string;
-  insuranceEffectiveDate?: string;
   lastVisit: string;
   nextVisit: string | null;
   lastDentalVisit?: string;
@@ -994,9 +949,6 @@ export interface Patient {
   physicianSpecialty?: string;
   physicianAddress?: string;
   physicianNumber?: string;
-  philHealthPIN?: string;
-  philHealthCategory?: string;
-  philHealthMemberStatus?: string;
   registrationSignature?: string;
   registrationSignatureTimestamp?: string;
   registrationPhotoHash?: string;
@@ -1309,7 +1261,6 @@ export interface FieldSettings {
   civilStatus: string[];
   sex: string[];
   suffixes: string[];
-  insuranceProviders: string[];
   bloodGroups: string[];
   nationalities: string[];
   religions: string[];

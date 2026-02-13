@@ -1,25 +1,18 @@
-
-
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { HMOClaim, Expense, ReconciliationRecord, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute, PhilHealthClaim, HMOClaimStatus } from '../types';
-import { MOCK_CLAIMS, MOCK_EXPENSES, generateUid } from '../constants';
+import { Expense, ReconciliationRecord, CashSession, PayrollPeriod, PayrollAdjustment, CommissionDispute } from '../types';
+import { MOCK_EXPENSES, generateUid } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 
 interface FinancialContextType {
-    hmoClaims: HMOClaim[];
     expenses: Expense[];
     reconciliations: ReconciliationRecord[];
     cashSessions: CashSession[];
     payrollPeriods: PayrollPeriod[];
     payrollAdjustments: PayrollAdjustment[];
     commissionDisputes: CommissionDispute[];
-    philHealthClaims: PhilHealthClaim[];
-    handleSaveHmoClaim: (claim: Omit<HMOClaim, 'id'>) => Promise<void>;
-    handleUpdateHmoClaimStatus: (claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => Promise<void>;
     handleAddExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-    handleUpdatePhilHealthClaim: (updatedClaim: PhilHealthClaim) => Promise<void>;
     handleSaveReconciliation: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => Promise<void>;
     handleStartCashSession: (openingBalance: number, currentBranch: string) => Promise<void>;
     handleCloseCashSession: (sessionId: string) => Promise<void>;
@@ -38,14 +31,12 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     const { currentUser } = useAppContext();
     const { can } = useAuthorization();
 
-    const [hmoClaims, setHmoClaims] = useState<HMOClaim[]>(MOCK_CLAIMS);
     const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES);
     const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
     const [cashSessions, setCashSessions] = useState<CashSession[]>([]);
     const [payrollPeriods, setPayrollPeriods] = useState<PayrollPeriod[]>([]);
     const [payrollAdjustments, setPayrollAdjustments] = useState<PayrollAdjustment[]>([]);
     const [commissionDisputes, setCommissionDisputes] = useState<CommissionDispute[]>([]);
-    const [philHealthClaims, setPhilHealthClaims] = useState<PhilHealthClaim[]>([]);
 
     const value: FinancialContextType = useMemo(() => {
         if (!can('view:financials')) {
@@ -54,10 +45,9 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
                 return Promise.resolve(undefined);
             };
             return {
-                hmoClaims: [], expenses: [], reconciliations: [], cashSessions: [],
-                payrollPeriods: [], payrollAdjustments: [], commissionDisputes: [], philHealthClaims: [],
-                handleSaveHmoClaim: unauthorizedAction, handleUpdateHmoClaimStatus: unauthorizedAction,
-                handleAddExpense: unauthorizedAction, handleUpdatePhilHealthClaim: unauthorizedAction,
+                expenses: [], reconciliations: [], cashSessions: [],
+                payrollPeriods: [], payrollAdjustments: [], commissionDisputes: [],
+                handleAddExpense: unauthorizedAction,
                 handleSaveReconciliation: unauthorizedAction, handleStartCashSession: unauthorizedAction,
                 handleCloseCashSession: unauthorizedAction, handleAddPayrollPeriod: unauthorizedAction,
                 handleUpdatePayrollPeriod: unauthorizedAction, handleAddPayrollAdjustment: unauthorizedAction,
@@ -83,23 +73,9 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         };
 
         return { 
-            hmoClaims, expenses, reconciliations, cashSessions, payrollPeriods, payrollAdjustments, 
-            commissionDisputes, philHealthClaims,
-            handleSaveHmoClaim: createAsyncHandler((claim: Omit<HMOClaim, 'id'>) => setHmoClaims(c => [...c, {id: generateUid('hmo'), ...claim}]), "HMO Claim filed."),
-            handleUpdateHmoClaimStatus: createAsyncHandler((claimId: string, status: HMOClaimStatus, data?: { amountReceived?: number; rejectionReason?: string }) => { 
-                setHmoClaims(c => c.map(claim => 
-                    claim.id === claimId 
-                    ? { 
-                        ...claim, 
-                        status: status, 
-                        amountReceived: data?.amountReceived ?? claim.amountReceived,
-                        rejectionReason: data?.rejectionReason ?? claim.rejectionReason,
-                        dateReceived: status === HMOClaimStatus.PAID ? new Date().toISOString().split('T')[0] : claim.dateReceived,
-                      } 
-                    : claim));
-            }, "HMO Claim status updated."),
+            expenses, reconciliations, cashSessions, payrollPeriods, payrollAdjustments, 
+            commissionDisputes,
             handleAddExpense: createAsyncHandler((expense: Omit<Expense, 'id'>) => setExpenses(e => [...e, { id: generateUid('exp'), ...expense }]), "Expense logged."),
-            handleUpdatePhilHealthClaim: async (updatedClaim: PhilHealthClaim) => setPhilHealthClaims(prev => prev.map(c => c.id === updatedClaim.id ? updatedClaim : c)),
             handleSaveReconciliation: createAsyncHandler((record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => setReconciliations(r => [...r, {id: generateUid('rec'), timestamp: new Date().toISOString(), ...record}])),
             handleStartCashSession: createAsyncHandler((openingBalance: number, currentBranch: string) => { if(!currentUser) return; setCashSessions(c => [...c, { id: generateUid('cash'), branch: currentBranch, openedBy: currentUser.id, openedByName: currentUser.name, startTime: new Date().toISOString(), openingBalance: openingBalance, status: 'Open' }]); }, "Cash session started."),
             handleCloseCashSession: createAsyncHandler((sessionId: string) => setCashSessions(c => c.map(s => s.id === sessionId ? { ...s, status: 'Closed', endTime: new Date().toISOString() } : s)), "Cash session closed."),
@@ -110,7 +86,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
             handleAddCommissionDispute: createAsyncHandler((dispute: CommissionDispute) => setCommissionDisputes(d => [...d, dispute])),
             handleResolveCommissionDispute: createAsyncHandler((id: string) => setCommissionDisputes(d => d.map(disp => disp.id === id ? { ...disp, status: 'Resolved' } : disp))),
         };
-    }, [can, currentUser, hmoClaims, expenses, reconciliations, cashSessions, payrollPeriods, payrollAdjustments, commissionDisputes, philHealthClaims, toast]);
+    }, [can, currentUser, expenses, reconciliations, cashSessions, payrollPeriods, payrollAdjustments, commissionDisputes, toast]);
     
     return <FinancialContext.Provider value={value}>{children}</FinancialContext.Provider>;
 };

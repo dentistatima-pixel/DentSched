@@ -184,6 +184,25 @@ const Inventory: React.FC<InventoryProps> = ({
       setSessionPhysicalCounts(prev => ({ ...prev, [id]: isNaN(val) ? 0 : val }));
   };
 
+  const handleFinalizeAudit = () => {
+    const today = new Date().toISOString();
+    const updatedStock = stock.map(item => {
+        if (sessionPhysicalCounts.hasOwnProperty(item.id)) {
+            const physicalCount = sessionPhysicalCounts[item.id];
+            const variance = physicalCount - item.quantity;
+            if (variance !== 0) {
+                logAction?.('AUDIT', 'StockItem', item.id, `Inventory audit variance: ${variance}. System: ${item.quantity}, Physical: ${physicalCount}`);
+            }
+            return { ...item, physicalCount, lastVerifiedAt: today, quantity: physicalCount }; // Update quantity to match physical count
+        }
+        return item;
+    });
+    onUpdateStock(updatedStock);
+    setAuditMode(false);
+    setShowVarianceReport(true);
+    toast.success("Inventory audit finalized and system levels updated.");
+  };
+
   const getExpiryStatus = (expiryDate?: string) => {
       if (!expiryDate) return { label: 'STABLE', color: 'bg-green-50 text-teal-800 border-teal-100' };
       const diff = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
@@ -287,8 +306,9 @@ const Inventory: React.FC<InventoryProps> = ({
                                 <input type="text" placeholder="Search items..." aria-label="Search items" className="input pl-12" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                             </div>
                             <div className="flex gap-3">
+                                <button onClick={() => setAuditMode(!auditMode)} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 ${auditMode ? 'bg-red-600 text-white shadow-red-600/30 animate-pulse' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-slate-400'}`}><Scale size={20}/> {auditMode ? 'Exit Audit' : 'Audit Mode'}</button>
                                 {auditMode ? (
-                                    <button onClick={() => setShowVarianceReport(true)} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Analyze Audit Variance</button>
+                                    <button onClick={handleFinalizeAudit} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Finalize Audit</button>
                                 ) : (
                                     <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
                                 )}

@@ -98,6 +98,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             }
         }
     }, [isOpen, existingAppointment, initialDate, initialTime, initialPatientId, patients, fieldSettings]);
+
+    useEffect(() => {
+        if (procedureType && fieldSettings.procedures) {
+            const selectedProcedure = fieldSettings.procedures.find(p => p.name === procedureType);
+            if (selectedProcedure) {
+                setDuration(selectedProcedure.defaultDurationMinutes.toString());
+            }
+        }
+    }, [procedureType, fieldSettings.procedures]);
     
     const operationalHours = useMemo(() => {
         const branchProfile = fieldSettings.branchProfiles.find(b => b.name === currentBranch);
@@ -220,7 +229,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 entryMode: isDowntime ? 'MANUAL' : 'AUTO',
             };
             
-            const errors = validateAppointment(appointmentData, appointments, patients, staff, existingAppointment?.id);
+            const errors = validateAppointment(appointmentData, appointments, patients, staff, fieldSettings, existingAppointment?.id);
             if (errors) {
                 Object.values(errors).forEach(errorMsg => toast.error(errorMsg, { duration: 6000 }));
                 setIsSaving(false);

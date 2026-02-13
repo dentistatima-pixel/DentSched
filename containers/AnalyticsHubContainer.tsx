@@ -4,7 +4,7 @@ import { useAppointments } from '../contexts/AppointmentContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useStaff } from '../contexts/StaffContext';
 
-const AnalyticsHub = React.lazy(() => import('../components/Analytics'));
+const Analytics = React.lazy(() => import('../components/Analytics'));
 
 const PageLoader: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
@@ -23,7 +23,7 @@ function AnalyticsHubContainer() {
 
     return (
         <Suspense fallback={<PageLoader />}>
-            <AnalyticsHub
+            <Analytics
                 patients={patients}
                 appointments={appointments}
                 fieldSettings={fieldSettings}

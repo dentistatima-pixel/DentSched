@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer } from 'react';
 import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
 import { generateUid, formatDate } from '../constants';
@@ -71,7 +72,7 @@ const PatientContext = createContext<PatientContextType | undefined>(undefined);
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction } = useAppContext();
-    const { fieldSettings, setFieldSettings, addScheduledSms } = useSettings();
+    const { fieldSettings, handleUpdateSettings, addScheduledSms } = useSettings();
     const [patients, dispatch] = useReducer(patientReducer, []);
     const [isLoading, setIsLoading] = useState(true);
     
@@ -182,7 +183,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         const nextOr = parseInt(paymentDetails.orNumber) + 1;
         if (!isNaN(nextOr)) {
             const newSettings = { ...fieldSettings, taxConfig: { ...fieldSettings.taxConfig, nextOrNumber: nextOr } };
-            setFieldSettings(newSettings); // This should be updated via its own context handler
+            await handleUpdateSettings(newSettings);
         }
         
         addScheduledSms({
@@ -230,7 +231,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             occupation: 'REDACTED',
             insuranceProvider: '',
             insuranceNumber: '',
-            dentalInsurance: '',
             guardianProfile: undefined,
             referredById: undefined,
             responsibleParty: undefined,
@@ -239,7 +239,6 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
             physicianSpecialty: 'REDACTED',
             physicianAddress: 'REDACTED',
             physicianNumber: 'REDACTED',
-            philHealthPIN: undefined,
             registrationSignature: undefined,
             registrationSignatureTimestamp: undefined,
             registrationPhotoHash: undefined,

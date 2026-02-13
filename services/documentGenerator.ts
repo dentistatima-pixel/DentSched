@@ -91,16 +91,59 @@ export const generateAdminReport = (templateContent: string, params: any, data: 
     let content = templateContent;
 
     const today = new Date();
-    const startDate = params.startDate || new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const endDate = params.endDate || today.toISOString().split('T')[0];
+    const startDateStr = params.startDate || new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const endDateStr = params.endDate || today.toISOString().split('T')[0];
+    const branchName = params.branchName || 'All Branches';
 
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+
+    const relevantAppointments = data.appointments.filter(a => {
+        const aptDate = new Date(a.date);
+        const branchMatch = branchName === 'All Branches' || a.branch === branchName;
+        return branchMatch && aptDate >= start && aptDate <= end;
+    });
+
+    const completedApts = relevantAppointments.filter(a => a.status === AppointmentStatus.COMPLETED);
+
+    const totalProduction = completedApts.reduce((sum, apt) => {
+        const proc = settings.procedures.find(p => p.name === apt.type);
+        return sum + (proc?.defaultPrice || 0);
+    }, 0);
+
+    // Simplified collections logic for demo purposes
+    const totalCollections = totalProduction * 0.9; 
+
+    const patientsSeen = new Set(completedApts.map(a => a.patientId)).size;
+    
+    const newPatientIds = new Set(data.patients.filter(p => new Date(p.lastVisit) >= start).map(p => p.id));
+    const newPatients = Array.from(new Set(relevantAppointments.filter(a => newPatientIds.has(a.patientId)).map(a => a.patientId))).length;
+
+    const noShows = relevantAppointments.filter(a => a.status === AppointmentStatus.NO_SHOW).length;
+    
     content = content.replace(/{currentDate}/g, formatDate(today.toISOString()));
-    content = content.replace(/{startDate}/g, formatDate(startDate));
-    content = content.replace(/{endDate}/g, formatDate(endDate));
-    content = content.replace(/{branchName}/g, params.branchName || 'All Branches');
+    content = content.replace(/{startDate}/g, formatDate(startDateStr));
+    content = content.replace(/{endDate}/g, formatDate(endDateStr));
+    content = content.replace(/{branchName}/g, branchName);
 
-    if (content.includes('{totalProduction}')) {
-        // This logic is incomplete in the original file, but we close the block to make it valid.
-    }
+    content = content.replace(/{totalProduction}/g, totalProduction.toLocaleString());
+    content = content.replace(/{totalCollections}/g, totalCollections.toLocaleString());
+    content = content.replace(/{patientsSeen}/g, patientsSeen.toString());
+    content = content.replace(/{newPatients}/g, newPatients.toString());
+    content = content.replace(/{noShows}/g, noShows.toString());
+
+    // Placeholder for more complex row-based data
+    content = content.replace(/{agingRows}/g, 'Aging report data not implemented.');
+    content = content.replace(/{inventoryRows}/g, 'Inventory report data not implemented.');
+    content = content.replace(/{productionItems}/g, 'Production items data not implemented.');
+    content = content.replace(/{totalAppointments}/g, relevantAppointments.length.toString());
+    content = content.replace(/{completedAppointments}/g, completedApts.length.toString());
+    content = content.replace(/{noShowCount}/g, noShows.toString());
+    content = content.replace(/{cancellationCount}/g, relevantAppointments.filter(a=> a.status === AppointmentStatus.CANCELLED).length.toString());
+    const completionRate = relevantAppointments.length > 0 ? ((completedApts.length / relevantAppointments.length) * 100).toFixed(1) : "0.0";
+    const noShowRate = relevantAppointments.length > 0 ? ((noShows / relevantAppointments.length) * 100).toFixed(1) : "0.0";
+    content = content.replace(/{completionRate}/g, completionRate);
+    content = content.replace(/{noShowRate}/g, noShowRate);
+
     return content;
 };

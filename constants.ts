@@ -1,7 +1,5 @@
-
-
 // FIX: Imported missing financial types
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication, HMOClaim, HMOClaimStatus } from './types';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
 import CryptoJS from 'crypto-js';
@@ -179,32 +177,6 @@ export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = [
 
 export const MOCK_EXPENSES: Expense[] = [
     { id: 'exp_01', date: getPastDateStr(5), category: 'Office Supplies', description: 'Bond paper and pens', amount: 1500, branch: 'Makati Main' },
-];
-
-// FIX: Added MOCK_CLAIMS to be used in FinancialContext, which was causing an import error.
-export const MOCK_CLAIMS: HMOClaim[] = [
-    {
-        id: 'hmo_c1',
-        patientId: 'p_hmo_11',
-        ledgerEntryId: 'l_hmo1',
-        hmoProvider: 'Intellicare',
-        procedureName: 'Oral Prophylaxis',
-        amountClaimed: 800,
-        status: HMOClaimStatus.PAID,
-        dateSubmitted: getPastDateStr(45),
-        amountReceived: 800,
-        dateReceived: getPastDateStr(10),
-    },
-    {
-        id: 'hmo_c2',
-        patientId: 'p_heavy_01',
-        ledgerEntryId: 'l1',
-        hmoProvider: 'Maxicare',
-        procedureName: 'Zirconia Crown',
-        amountClaimed: 10000,
-        status: HMOClaimStatus.PENDING,
-        dateSubmitted: getPastDateStr(5),
-    },
 ];
 
 export const MOCK_WAITLIST: WaitlistEntry[] = [
@@ -731,34 +703,6 @@ Payments are due on the same day each month. A late fee may be applied for payme
 **Clinic Representative:** _________________________
 `
   },
-  'hmo_claim_form': {
-    name: 'HMO/Insurance Claim Form',
-    content: `# STANDARD HMO CLAIM FORM
-
-### PART I: MEMBER/PATIENT INFORMATION
-**Member Name:** {patientName}
-**HMO Provider:** {insuranceProvider}
-**Policy Number:** {insuranceNumber}
-**Date of Service:** {appointmentDate}
-
-### PART II: PROVIDER INFORMATION
-**Clinic Name:** {clinicName}
-**Attending Dentist:** {practitionerName}
-**PRC License No:** {practitionerPrc}
-
-### PART III: SERVICES RENDERED
-**Diagnosis / Chief Complaint:**
-{chiefComplaint}
-
-**Procedures Performed:**
-{proceduresDone}
-
----
-I certify that the foregoing information is true and correct.
-
-**Dentist Signature:** _________________________
-`
-  },
   'practitioner_production_report': {
     name: 'Practitioner Production Report',
     content: `# PRACTITIONER PRODUCTION REPORT
@@ -936,8 +880,6 @@ export const PATIENTS: Patient[] = [
         occupation: 'Student',
         insuranceProvider: 'Maxicare',
         insuranceNumber: 'MAXI-MASTER-01',
-        dentalInsurance: 'Maxicare Dental Plan',
-        insuranceEffectiveDate: '2023-01-01',
         lastVisit: getPastDateStr(10),
         nextVisit: getFutureDateStr(20),
         lastDentalVisit: getPastDateStr(180),
@@ -1013,9 +955,6 @@ export const PATIENTS: Patient[] = [
             },
             mediaCapturedLogs: []
         }, thirdPartyDisclosureConsent: true, thirdPartyAttestation: true,
-        philHealthPIN: '01-234567890-1',
-        philHealthCategory: 'Dependent',
-        philHealthMemberStatus: 'Active',
         registrationSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
         registrationSignatureTimestamp: new Date().toISOString(),
         files: [
@@ -1171,9 +1110,6 @@ export const PATIENTS: Patient[] = [
         },
         thirdPartyDisclosureConsent: true,
         thirdPartyAttestation: true,
-        philHealthPIN: '01-123456789-0',
-        philHealthCategory: 'Direct Contributor',
-        philHealthMemberStatus: 'Active',
         registrationSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
         registrationSignatureTimestamp: new Date().toISOString(),
         files: [
@@ -1261,7 +1197,7 @@ export const PATIENTS: Patient[] = [
     },
     {
         id: 'p_hmo_11', name: 'Derek Hofstetler', firstName: 'Derek', surname: 'Hofstetler', dob: '1998-08-08', sex: 'Male', phone: '0933-333-7777', email: 'derek@thegood.place', lastVisit: getPastDateStr(60), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
-        insuranceProvider: 'Intellicare', philHealthPIN: '12-345678901-2', philHealthCategory: 'Direct Contributor',
+        insuranceProvider: 'Intellicare',
         attendanceStats: { totalBooked: 3, completedCount: 3, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
         registrationStatus: RegistrationStatus.COMPLETE,
     },
@@ -1380,7 +1316,6 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   civilStatus: ['Single', 'Married', 'Widowed', 'Separated'],
   sex: ['Male', 'Female'],
   suffixes: ['Jr.', 'Sr.', 'II', 'III', 'IV'],
-  insuranceProviders: ['Maxicare', 'Intellicare', 'Medicard', 'PhilCare'],
   bloodGroups: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
   nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'Korean'],
   religions: ['Roman Catholic', 'Christian', 'Muslim', 'Iglesia ni Cristo', 'Other'],
@@ -1428,10 +1363,10 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'field_header_occupation', label: 'Occupation', type: 'header', section: 'IDENTITY' },
       { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'occupation', width: 'full' },
       
-      { id: 'field_header_insurance', label: 'Dental Insurance', type: 'header', section: 'INSURANCE' },
-      { id: 'dentalInsurance', label: 'Dental Insurance', type: 'text', section: 'INSURANCE', isCore: true, patientKey: 'dentalInsurance', width: 'half' },
-      { id: 'insuranceEffectiveDate', label: 'Effective Date', type: 'date', section: 'INSURANCE', isCore: true, patientKey: 'insuranceEffectiveDate', width: 'half' },
-      
+      { id: 'field_header_insurance', label: 'Insurance', type: 'header', section: 'IDENTITY' },
+      { id: 'insuranceProvider', label: 'Insurance Provider', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceProvider', width: 'half' },
+      { id: 'insuranceNumber', label: 'Insurance No.', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceNumber', width: 'half' },
+
       // Dental Section Fields
       { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', isCore: true, patientKey: 'previousDentist' },
       { id: 'lastDentalVisit', label: 'Last Dental Visit', type: 'date', section: 'DENTAL', isCore: true, patientKey: 'lastDentalVisit' },
@@ -1460,7 +1395,8 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       'field_header_occupation',
       'core_occupation',
       'field_header_insurance',
-      'core_dentalInsurance', 'core_insuranceEffectiveDate',
+      'core_insuranceProvider',
+      'core_insuranceNumber',
   ],
   medicalLayoutOrder: [
       'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
@@ -1561,7 +1497,6 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableComplianceAudit: true,
       enableMultiBranch: true,
       enableDentalAssistantFlow: true,
-      enableHMOClaims: true,
       enableInventory: true,
       inventoryComplexity: 'ADVANCED',
       enableAnalytics: true,
@@ -1570,7 +1505,6 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableOnlineForms: true,
       enableEPrescription: true,
       enableAdvancedPermissions: true,
-      enablePhilHealthClaims: true,
       enableLabPortal: false,
       enableDocumentManagement: true,
       enableClinicalProtocolAlerts: true,
@@ -1582,7 +1516,6 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableMaterialTraceability: true,
       enableBirComplianceMode: true,
       enableStatutoryBirTrack: true, 
-      enableHmoInsuranceTrack: true, 
       enableDigitalDocent: true,
   },
   permissions: {},

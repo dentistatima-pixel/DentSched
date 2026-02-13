@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserRole } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -16,13 +17,12 @@ export interface RouteConfig {
   component: React.ComponentType<any>;
   requiredRoles?: UserRole[];
   props?: Record<string, any>;
-  layout?: React.ComponentType<any>; 
 }
 
 export const routes: RouteConfig[] = [
   { path: 'dashboard', component: Dashboard },
   { path: 'schedule', component: CalendarView },
-  { path: 'patients', component: PatientList, layout: PatientListLayout },
+  { path: 'patients', component: PatientListLayout },
   { path: 'profile', component: PersonalProfileContainer },
   { 
     path: 'admin', 

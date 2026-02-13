@@ -1,12 +1,11 @@
-
 import React, { useState, useMemo, useRef } from 'react';
-import { Patient, Medication, FieldSettings, User } from '../types';
+import { Patient, Medication, FieldSettings, User, EPrescription } from '../types';
 import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
 import { useSettings } from '../contexts/SettingsContext';
-import { calculateAge, isExpired } from '../constants';
+import { calculateAge, isExpired, generateUid } from '../constants';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -15,9 +14,10 @@ interface EPrescriptionModalProps {
     fieldSettings: FieldSettings;
     currentUser: User;
     logAction?: (action: any, entity: any, id: string, details: string) => void;
+    onSavePrescription: (prescription: EPrescription) => void;
 }
 
-const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser, logAction }) => {
+const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser, logAction, onSavePrescription }) => {
     const toast = useToast();
     const { fieldSettings: settings } = useSettings();
     const [selectedMedId, setSelectedMedId] = useState<string>('');
@@ -106,10 +106,25 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     }, [selectedMed, currentUser.s2License, currentUser.s2Expiry]);
 
     const handleLogS2 = () => {
-        if (!yellowRxSerial.trim() || !consentAcknowledged) return;
+        if (!yellowRxSerial.trim() || !consentAcknowledged || !selectedMed) return;
         if (logAction) {
             logAction('SECURITY_ALERT', 'ClinicalNote', patient.id, `PDEA S2 REGISTRY: Manual Yellow Prescription issued for ${selectedMed?.genericName}. Serial: ${yellowRxSerial}. Issued by Dr. ${currentUser.name}.`);
         }
+
+        const newPrescription: EPrescription = {
+            id: generateUid('rx'),
+            patientId: patient.id,
+            medicationId: selectedMedId,
+            dateIssued: new Date().toISOString(),
+            dosage,
+            instructions,
+            quantity: parseInt(quantity) || 0,
+            drugClassification: 'S2-Controlled',
+            dohControlNumber: yellowRxSerial,
+            dentistS2License: currentUser.s2License
+        };
+        onSavePrescription(newPrescription);
+
         toast.success("S2 Issuance committed to digital logbook.");
         setYellowRxSerial('');
         onClose();

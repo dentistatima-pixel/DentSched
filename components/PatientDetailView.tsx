@@ -573,6 +573,11 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
     return fieldSettings.familyGroups?.find(g => g.id === patient.familyGroupId)?.familyName || 'Unknown Group';
   }, [patient.familyGroupId, fieldSettings.familyGroups]);
 
+  const handleAssignToPlan = () => {
+    setActiveTab('plans');
+    toast.info('Note saved. Assign it to a treatment phase.');
+  };
+
   return (
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
         <header className={`p-6 flex items-center justify-between gap-4 shrink-0 rounded-t-[2.5rem] ${headerStyle.bg}`}>
@@ -683,9 +688,6 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <InfoItem themeColor="indigo" label="Insurance Provider" value={patient.insuranceProvider} icon={Shield} />
                                 <InfoItem themeColor="indigo" label="Insurance Policy #" value={patient.insuranceNumber} icon={FileText} />
-                                <InfoItem themeColor="indigo" label="PhilHealth PIN" value={patient.philHealthPIN} icon={ShieldCheck} />
-                                <InfoItem themeColor="indigo" label="PhilHealth Category" value={patient.philHealthCategory} icon={FileText} />
-                                <InfoItem themeColor="indigo" label="PhilHealth Status" value={patient.philHealthMemberStatus} icon={CheckCircle} />
                                 {referralSource && <InfoItem themeColor="indigo" label="Referred By" value={referralSource} icon={Users} isSpecial />}
                                 {familyGroup && <InfoItem themeColor="indigo" label="Family Group" value={familyGroup} icon={Users} isSpecial />}
                             </div>
@@ -731,7 +733,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
                 {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
                 {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} currentUser={currentUser} /></Suspense>}
-                {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onSwitchToPlanTab={() => setActiveTab('plans')} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
+                {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onAssignToPlan={handleAssignToPlan} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
                 {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
                 {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
                     patient={patient} 

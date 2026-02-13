@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Printer, Edit, FileText, Users, DollarSign, Save, X, Info, BarChart2, Search, User as UserIcon } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
@@ -44,7 +42,6 @@ const documentGroups = [
             { id: 'walkout_statement', name: 'Walkout Statement', isPatientSpecific: true },
             { id: 'official_receipt', name: 'Official Receipt (OR)', isPatientSpecific: true },
             { id: 'installment_agreement', name: 'Installment Plan Agreement', isPatientSpecific: true },
-            { id: 'hmo_claim_form', name: 'HMO/Insurance Claim Form', isPatientSpecific: true },
         ]
     },
     {

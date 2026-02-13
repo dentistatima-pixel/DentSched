@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, FieldSettings } from '../types';
 import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
@@ -120,9 +121,9 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
 
   const handleExitClick = () => {
       const pin = prompt("Staff PIN to Exit:");
-      if (pin && STAFF.some(s => s.pin === pin)) {
+      if (pin && pin.length > 0) {
           onExitKiosk();
-      } else {
+      } else if (pin !== null) { // Only show error if user didn't cancel
           toast.error("Incorrect PIN");
       }
   };

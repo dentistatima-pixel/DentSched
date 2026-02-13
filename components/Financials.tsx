@@ -1,8 +1,6 @@
-
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-    DollarSign, FileText, Package, BarChart2, Heart, CheckCircle, Clock, Edit2, 
+    DollarSign, FileText, Package, BarChart2, CheckCircle, Clock, Edit2, 
     TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, 
     History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, 
     AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, 
@@ -13,10 +11,9 @@ import {
     Expense, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
     TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PayrollStatus, PhilHealthClaim, PhilHealthClaimStatus, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
-    ClinicalIncident 
+    CommissionDispute, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
+    ClinicalIncident, PayrollStatus
 } from '../types';
-import Analytics from './Analytics';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
@@ -108,12 +105,10 @@ export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onCl
 interface FinancialsProps {
   expenses: Expense[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
-  philHealthClaims?: PhilHealthClaim[];
   patients?: Patient[];
   appointments?: Appointment[];
   staff?: StaffUser[];
   currentUser: StaffUser;
-  onUpdatePhilHealthClaim: (updatedClaim: PhilHealthClaim) => void;
   reconciliations?: ReconciliationRecord[];
   onSaveReconciliation: (record: Omit<ReconciliationRecord, 'id' | 'timestamp'>) => void;
   cashSessions?: CashSession[];
@@ -205,6 +200,72 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
     );
 };
 
+const PayrollTab: React.FC<Pick<FinancialsProps, 'payrollPeriods' | 'staff' | 'onAddPayrollPeriod'>> = ({ payrollPeriods, staff, onAddPayrollPeriod }) => {
+    const handleAdd = async () => {
+        const providerId = prompt("Enter Provider ID for this payroll period:");
+        if (providerId && onAddPayrollPeriod) {
+            await onAddPayrollPeriod({
+                providerId,
+                startDate: new Date().toISOString().split('T')[0],
+                endDate: new Date().toISOString().split('T')[0],
+                status: PayrollStatus.OPEN
+            });
+        }
+    };
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                 <h3 className="text-lg font-black text-text-primary uppercase tracking-tighter">Payroll Cycles</h3>
+                 <button onClick={handleAdd} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Plus size={16}/> New Period</button>
+            </div>
+             <div className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
+                <table className="w-full text-sm">
+                    <thead><tr className="bg-bg-tertiary text-xs uppercase"><th className="p-3 text-left text-text-secondary">Provider</th><th className="p-3 text-left text-text-secondary">Period</th><th className="p-3 text-center text-text-secondary">Status</th><th className="p-3 text-right text-text-secondary">Actions</th></tr></thead>
+                    <tbody>
+                        {payrollPeriods.map(p => {
+                            const provider = staff?.find(s => s.id === p.providerId);
+                            return (
+                                <tr key={p.id} className="border-t border-border-secondary">
+                                    <td className="p-3 font-bold text-text-primary">{provider?.name || p.providerId}</td>
+                                    <td className="p-3 font-mono text-xs">{formatDate(p.startDate)} - {formatDate(p.endDate)}</td>
+                                    <td className="p-3 text-center text-xs font-bold">{p.status}</td>
+                                    <td className="p-3 text-right"><button className="text-xs font-bold">View</button></td>
+                                </tr>
+                            )
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const ReconciliationTab: React.FC<Pick<FinancialsProps, 'reconciliations' | 'onSaveReconciliation' | 'currentUser'>> = ({ reconciliations, onSaveReconciliation, currentUser }) => {
+    const [showForm, setShowForm] = useState(false);
+    return (
+        <div className="space-y-6">
+            <h3 className="text-lg font-black text-text-primary uppercase tracking-tighter">Daily Reconciliation</h3>
+             <div className="bg-bg-secondary rounded-2xl border border-border-primary overflow-hidden">
+                <table className="w-full text-sm">
+                    <thead><tr className="bg-bg-tertiary text-xs uppercase"><th className="p-3 text-left text-text-secondary">Date</th><th className="p-3 text-right text-text-secondary">Expected</th><th className="p-3 text-right text-text-secondary">Actual</th><th className="p-3 text-right text-text-secondary">Discrepancy</th><th className="p-3 text-left text-text-secondary">Verified By</th></tr></thead>
+                     <tbody>
+                        {reconciliations?.map(r => (
+                            <tr key={r.id} className="border-t border-border-secondary">
+                                <td className="p-3 font-mono text-xs">{formatDate(r.date)}</td>
+                                <td className="p-3 text-right font-mono">₱{r.expectedTotal.toLocaleString()}</td>
+                                <td className="p-3 text-right font-mono">₱{(r.actualCash+r.actualCard+r.actualEWallet).toLocaleString()}</td>
+                                <td className={`p-3 text-right font-mono font-bold ${r.discrepancy !== 0 ? 'text-red-600' : ''}`}>₱{r.discrepancy.toLocaleString()}</td>
+                                <td className="p-3 text-xs font-bold">{r.verifiedByName}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             </div>
+        </div>
+    );
+};
+
+
 export const Financials: React.FC<FinancialsProps> = (props) => {
     const { onBack, activeSubTab } = props;
     const { fieldSettings } = useSettings();
@@ -230,6 +291,8 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
         </div>
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
             {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
+            {activeTab === 'payroll' && <PayrollTab payrollPeriods={props.payrollPeriods} staff={props.staff} onAddPayrollPeriod={props.onAddPayrollPeriod} />}
+            {activeTab === 'reconciliation' && <ReconciliationTab reconciliations={props.reconciliations} onSaveReconciliation={props.onSaveReconciliation} currentUser={props.currentUser} />}
         </div>
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
       </div>

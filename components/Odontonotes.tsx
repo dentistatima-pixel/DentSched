@@ -244,7 +244,7 @@ interface OdontonotesProps {
   readOnly?: boolean;
   procedures: ProcedureItem[];
   treatmentPlans?: TreatmentPlan[];
-  onSwitchToPlanTab?: () => void;
+  onAssignToPlan?: () => void;
   showModal: (type: string, props?: any) => void;
   logAction: (action: string, entity: string, entityId: string, details: string) => void;
   editingNote: DentalChartEntry | null;
@@ -253,7 +253,7 @@ interface OdontonotesProps {
 
 export const Odontonotes: React.FC<OdontonotesProps> = ({ 
   entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, onQuickUpdatePatient, onDeleteEntry, currentUser, readOnly, 
-  procedures, treatmentPlans = [], onSwitchToPlanTab, showModal, logAction,
+  procedures, treatmentPlans = [], onAssignToPlan, showModal, logAction,
   editingNote, setEditingNote
 }) => {
   const toast = useToast();
@@ -309,10 +309,10 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
     setEditingNote(null);
   };
 
-  const handleAssignToPlan = (noteToSave: DentalChartEntry) => {
+  const handleAssignNoteToPlan = (noteToSave: DentalChartEntry) => {
     handleSaveNote(noteToSave);
-    if (onSwitchToPlanTab) {
-        onSwitchToPlanTab();
+    if (onAssignToPlan) {
+        onAssignToPlan();
     }
   };
   
@@ -394,7 +394,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                         onSave={handleSaveNote}
                         onCancel={() => setEditingNote(null)}
                         currentUser={currentUser}
-                        onAssign={handleAssignToPlan}
+                        onAssign={handleAssignNoteToPlan}
                     />
                 )
             ) : (
