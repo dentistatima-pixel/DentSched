@@ -16,7 +16,7 @@
     "lucide-react": "^0.555.0",
     "fuse.js": "^7.0.0",
     "firebase": "^12.6.0",
-    "jspdf": "2.5.1",
+    "jspdf": "4.1.0",
     "jspdf-autotable": "3.8.2",
     "crypto-js": "4.2.0"
   },
