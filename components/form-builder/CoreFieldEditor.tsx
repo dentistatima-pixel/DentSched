@@ -1,4 +1,3 @@
-
 import React from 'react';
 import FormFieldEditor from './FormFieldEditor';
 import { RegistrationField } from '../../types';

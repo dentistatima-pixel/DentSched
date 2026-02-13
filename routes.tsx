@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserRole } from './types';
 import { Dashboard } from './components/Dashboard';

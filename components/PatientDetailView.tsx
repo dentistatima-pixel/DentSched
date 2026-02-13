@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription } from '../types';
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill, HeartPulse, Book, ChevronDown } from 'lucide-react';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription, PatientAlert } from '../types';
+import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, ClipboardCheck, UserSearch, Weight, Users, FileSignature, XCircle, FileEdit, CloudOff, Droplet, Calendar, MessageSquare, Pill, HeartPulse, Book, ChevronDown, Loader } from 'lucide-react';
 import { formatDate, generateUid, calculateAge } from '../constants';
 import ClearanceModal from './ClearanceModal';
 import { useToast } from './ToastSystem';
@@ -25,6 +26,7 @@ const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ def
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
 const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => ({ default: module.PatientLedger })));
 const PatientAppointmentsView = React.lazy(() => import('./PatientAppointmentsView').then(module => ({ default: module.PatientAppointmentsView })));
+const DiagnosticGallery = React.lazy(() => import('./DiagnosticGallery'));
 
 
 interface PatientDetailViewProps {
@@ -158,149 +160,6 @@ const InfoItem: React.FC<InfoItemProps> = ({ label, value, icon: Icon, isFlag, i
     );
 };
 
-const DiagnosticGallery: React.FC<{
-    patient: Patient,
-    onQuickUpdatePatient: (p: Partial<Patient>) => void
-}> = ({ patient, onQuickUpdatePatient }) => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-    const [editingFile, setEditingFile] = useState<PatientFile | null>(null);
-    
-    const [primaryImageId, setPrimaryImageId] = useState<string | null>(null);
-    const toast = useToast();
-
-    const images = useMemo(() => 
-        (patient.files?.filter(f => f.category === 'X-Ray') || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [patient.files]);
-
-    useEffect(() => {
-        if (images.length > 0 && !primaryImageId) {
-            setPrimaryImageId(images[0].id);
-        } else if (images.length > 0 && primaryImageId && !images.find(img => img.id === primaryImageId)) {
-            // If the selected image was deleted, select the new first one
-            setPrimaryImageId(images[0].id);
-        } else if (images.length === 0) {
-            setPrimaryImageId(null);
-        }
-    }, [images, primaryImageId]);
-
-    const primaryImage = useMemo(() => images.find(img => img.id === primaryImageId), [images, primaryImageId]);
-
-    const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        toast.info(`Uploading "${file.name}"...`);
-        const base64String = await blobToBase64(file);
-        
-        const newFile: PatientFile = { 
-            id: `file_${Date.now()}_${Math.random().toString(16).slice(2)}`, 
-            name: file.name, 
-            category: 'X-Ray', 
-            url: base64String, 
-            date: new Date().toISOString().split('T')[0] 
-        };
-        
-        onQuickUpdatePatient({ id: patient.id, files: [...(patient.files || []), newFile] });
-        setPrimaryImageId(newFile.id);
-        toast.success(`"${file.name}" uploaded successfully.`);
-
-        if(e.target) {
-            e.target.value = '';
-        }
-    };
-
-    const handleSaveEdit = (updatedFile: PatientFile) => {
-        const updatedFiles = patient.files?.map(f => f.id === updatedFile.id ? updatedFile : f) || [];
-        onQuickUpdatePatient({ id: patient.id, files: updatedFiles });
-        setEditingFile(null);
-        toast.success("Image details updated.");
-    };
-    
-    return (
-        <div className="animate-in fade-in duration-500 h-full flex flex-col gap-6">
-            <div className="bg-white p-4 rounded-[2.5rem] border border-slate-200 shadow-sm shrink-0">
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-                    <button onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 w-32 h-24 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:bg-teal-50 hover:text-teal-600 transition-colors">
-                        <Camera size={24}/>
-                        <span className="text-xs font-bold mt-1">Upload</span>
-                    </button>
-                    {images.map(img => (
-                        <div key={img.id} onClick={() => setPrimaryImageId(img.id)} className="flex-shrink-0 w-32 h-24 rounded-xl relative group overflow-hidden cursor-pointer border-4" style={{borderColor: primaryImageId === img.id ? '#14b8a6' : 'transparent'}}>
-                            <img src={img.url} alt={img.name} className="w-full h-full object-cover"/>
-                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                                <button onClick={(e) => { e.stopPropagation(); setLightboxImage(img.url); }} className="p-2 bg-black/50 text-white rounded-full text-xs" title="View"><Search size={14}/></button>
-                                <button onClick={(e) => { e.stopPropagation(); setEditingFile(img); }} className="p-2 bg-black/50 text-white rounded-full text-xs" title="Edit"><FileEdit size={14}/></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="flex-1 bg-slate-900 rounded-[2.5rem] flex items-center justify-center p-4 relative">
-                {primaryImage ? (
-                    <>
-                        <img src={primaryImage.url} alt={primaryImage.name} className="max-h-full max-w-full object-contain"/>
-                        <div className="absolute top-4 right-4 flex gap-2">
-                            <button onClick={() => setLightboxImage(primaryImage.url)} className="p-2 bg-black/30 text-white rounded-full"><Search/></button>
-                            <button onClick={() => setEditingFile(primaryImage)} className="p-2 bg-black/30 text-white rounded-full"><FileEdit/></button>
-                        </div>
-                        <div className="absolute bottom-4 left-4 right-4 bg-black/50 p-4 rounded-xl backdrop-blur-sm">
-                            <p className="font-bold text-white">{primaryImage.name}</p>
-                            <p className="text-xs text-slate-300">{formatDate(primaryImage.date)}</p>
-                            {primaryImage.notes && <p className="text-xs text-slate-200 mt-2 italic">"{primaryImage.notes}"</p>}
-                        </div>
-                    </>
-                ) : (
-                    <div className="text-center text-slate-500 flex flex-col items-center justify-center">
-                        <ImageIcon size={48} className="mx-auto mb-4"/>
-                        <h3 className="font-bold">Imaging Hub</h3>
-                        <p className="text-sm mt-1 mb-6">Upload and manage diagnostic images.</p>
-                         <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-6 py-3 bg-teal-600/20 text-teal-300 rounded-xl hover:bg-teal-600/40 transition-colors">
-                            <Camera size={16}/> Upload First Image
-                        </button>
-                    </div>
-                )}
-            </div>
-            
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
-
-            {lightboxImage && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
-                    <img src={lightboxImage} alt="Radiograph" className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
-                    <button onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }} className="absolute top-4 right-4 text-white p-2 bg-black/30 rounded-full"><X/></button>
-                </div>
-            )}
-
-            {editingFile && (
-                <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
-                        <h3 className="font-bold">Edit Image Details</h3>
-                        <div>
-                            <label className="text-xs font-bold">Label</label>
-                            <input type="text" value={editingFile.name} onChange={e => setEditingFile({...editingFile, name: e.target.value})} className="input"/>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold">Notes</label>
-                            <textarea value={editingFile.notes || ''} onChange={e => setEditingFile({...editingFile, notes: e.target.value})} className="input h-24"/>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingFile(null)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold">Cancel</button>
-                            <button onClick={() => handleSaveEdit(editingFile)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold">Save</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 export const PatientPlaceholder: React.FC = () => {
     return (
@@ -469,8 +328,24 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
   const { handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [summary, setSummary] = useState('');
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   
   const alerts = usePatientAlerts(patient);
+
+  const handleGenerateSummary = async () => {
+    if (!patient) return;
+    setIsSummaryLoading(true);
+    setSummary('');
+    try {
+        const result = await summarizePatient(patient);
+        setSummary(result);
+    } catch(e) {
+        toast.error("Failed to generate AI summary.");
+    } finally {
+        setIsSummaryLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -491,12 +366,27 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
         appointmentId: appointments.find(a => a.patientId === patient.id && a.type === prefillProcedure && a.date === new Date().toLocaleDateString('en-CA'))?.id,
         resourceId: route.query.get('prefill_resourceId') || undefined,
       };
-      setEditingNote(prefillNote as DentalChartEntry);
-      setActiveTab('notes');
+      startNewNote(prefillNote);
       // Clear query params
       navigate(`patients/${patient.id}`, { replace: true });
     }
   }, [route.query, patient?.id, navigate, appointments]);
+  
+  const startNewNote = (initialData?: Partial<DentalChartEntry>) => {
+    const newNote: DentalChartEntry = {
+      id: `note_${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      procedure: '',
+      status: 'Completed',
+      author: currentUser.name,
+      authorId: currentUser.id,
+      authorRole: currentUser.role,
+      authorPrc: currentUser.prcLicense,
+      ...initialData
+    };
+    setEditingNote(newNote);
+    setActiveTab('notes');
+  };
 
   if (!patient || !fieldSettings) {
     return <PatientPlaceholder />;
@@ -633,9 +523,32 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
         </div>
 
         <div className="flex-1 overflow-auto no-scrollbar bg-bg-tertiary">
+            {alerts.length > 0 && (
+                <div className="sticky top-0 z-10 bg-white/70 backdrop-blur-md p-4 border-b border-slate-200">
+                    <div className="flex items-center gap-4 overflow-x-auto no-scrollbar">
+                        {alerts.map((alert, i) => (
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${alert.level === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                                <alert.icon size={14} className={alert.colorClass} />
+                                {alert.message}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
             <ErrorBoundary>
                 {activeTab === 'summary' && (
                     <div className="p-6 space-y-8 animate-in fade-in duration-500">
+                        <div className="bg-white p-8 rounded-[2.5rem] border-4 border-lilac-200 shadow-sm">
+                             <div className="flex justify-between items-center mb-6">
+                                <h4 className="font-bold text-sm text-lilac-600 uppercase tracking-widest flex items-center gap-3"><Sparkles size={18} /> AI Clinical Summary</h4>
+                                <button onClick={handleGenerateSummary} disabled={isSummaryLoading} className="px-4 py-2 bg-lilac-600 text-white rounded-lg text-xs font-black uppercase flex items-center gap-2 disabled:opacity-50">
+                                    {isSummaryLoading ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>}
+                                    {isSummaryLoading ? 'Generating...' : 'Generate Summary'}
+                                </button>
+                             </div>
+                             {isSummaryLoading && <div className="text-center p-8"><Loader className="animate-spin text-lilac-500"/></div>}
+                             {summary && <div className="prose prose-sm max-w-none"><ReactMarkdown>{summary}</ReactMarkdown></div>}
+                        </div>
                         {/* Section for Medical Summary */}
                         <div className="bg-white p-8 rounded-[2.5rem] border-4 border-red-200 shadow-sm">
                             <h4 className="font-bold text-sm text-red-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><Heart size={18} className="text-red-600"/> Medical Summary</h4>
@@ -672,7 +585,9 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                             <h4 className="font-bold text-sm text-blue-600 uppercase tracking-widest mb-6 border-b border-slate-100 pb-4 flex items-center gap-3"><UserIcon size={18} className="text-blue-600"/> Personal & Contact Information</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <InfoItem themeColor="blue" label="Email" value={patient.email} icon={Mail} />
-                                <InfoItem themeColor="blue" label="Address" value={`${patient.barangay}, ${patient.city}`} icon={MapPin} />
+                                {/* FIX: The error report indicated a problem with calling patient properties. 
+    Switched to a robust method of joining address parts to prevent errors and avoid displaying 'undefined'. */}
+<InfoItem themeColor="blue" label="Address" value={[patient.barangay, patient.city].filter(Boolean).join(', ')} icon={MapPin} />
                                 <InfoItem themeColor="blue" label="Occupation" value={patient.occupation} icon={Briefcase} />
                                 <InfoItem themeColor="blue" label="Civil Status" value={patient.civilStatus} icon={BookUser} />
                                 <InfoItem themeColor="blue" label="Nationality" value={patient.nationality} icon={Briefcase} />
@@ -732,7 +647,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                 
                 {activeTab === 'appointments' && <Suspense fallback={<TabLoader/>}><PatientAppointmentsView appointments={appointments.filter(a => a.patientId === patient.id)} /></Suspense>}
                 {activeTab === 'comms' && <CommunicationLog patient={patient} onUpdatePatient={(p: Patient) => onQuickUpdatePatient(p)} />}
-                {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => console.log(tooth)} onChartUpdate={handleChartUpdate} currentUser={currentUser} /></Suspense>}
+                {activeTab === 'odontogram' && <Suspense fallback={<TabLoader/>}><Odontogram chart={patient.dentalChart || []} readOnly={readOnly} onToothClick={(tooth) => { setActiveTab('notes'); setEditingNote({ ...editingNote, toothNumber: tooth } as DentalChartEntry); }} onChartUpdate={handleChartUpdate} currentUser={currentUser} /></Suspense>}
                 {activeTab === 'notes' && <Suspense fallback={<TabLoader/>}><Odontonotes appointments={appointments} entries={patient.dentalChart || []} onAddEntry={(e) => handleNoteAction('add', e)} onUpdateEntry={(e) => handleNoteAction('update', e)} onUpdateAppointment={handleSaveAppointment} onDeleteEntry={(id) => handleNoteAction('delete', {id} as DentalChartEntry)} currentUser={currentUser!} readOnly={readOnly} procedures={fieldSettings.procedures} treatmentPlans={patient.treatmentPlans} onAssignToPlan={handleAssignToPlan} showModal={showModal} patient={patient} logAction={logAction} onQuickUpdatePatient={onQuickUpdatePatient} editingNote={editingNote} setEditingNote={setEditingNote} /></Suspense>}
                 {activeTab === 'perio' && <Suspense fallback={<TabLoader/>}><PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={handlePerioSave} readOnly={readOnly} /></Suspense>}
                 {activeTab === 'plans' && <Suspense fallback={<TabLoader/>}><TreatmentPlanModule 
@@ -747,7 +662,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({
                     onOpenRevocationModal={onOpenRevocationModal}
                 /></Suspense>}
                 {activeTab === 'ledger' && <Suspense fallback={<TabLoader/>}><PatientLedger patient={patient} onUpdatePatient={onQuickUpdatePatient} readOnly={readOnly} governanceTrack={governanceTrack} onRecordPaymentWithReceipt={onRecordPaymentWithReceipt}/></Suspense>}
-                {activeTab === 'images' && <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />}
+                {activeTab === 'images' && <Suspense fallback={<TabLoader/>}><DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} /></Suspense>}
                 {activeTab === 'compliance' && <ComplianceTab patient={patient} onOpenRevocationModal={onOpenRevocationModal} />}
                 {activeTab === 'history' && <AuditTrailViewer auditLog={auditLog.filter(log => log.entityId === patient.id)} auditLogVerified={true}/>}
             </ErrorBoundary>

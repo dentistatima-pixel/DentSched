@@ -1,4 +1,3 @@
-
 import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem } from '../types';
 import { isExpired } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';

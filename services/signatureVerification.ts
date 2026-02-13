@@ -1,4 +1,3 @@
-
 import { SignatureChainEntry } from '../types';
 import CryptoJS from 'crypto-js';
 

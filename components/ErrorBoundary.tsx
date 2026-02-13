@@ -1,3 +1,4 @@
+
 import React, { ReactNode, ErrorInfo } from 'react';
 
 interface ErrorBoundaryProps {
@@ -10,12 +11,13 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialize state as a class property. This explicitly declares the `state` property on the class,
-  // resolving TypeScript errors where `this.state` and `this.props` were not being correctly identified.
-  state: ErrorBoundaryState = { hasError: false, error: null };
+  // FIX: Added a constructor to initialize state. This ensures `this.state` is available before `render` is called, resolving errors where it was used before being defined.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // This static method updates state when an error is thrown to render the fallback UI.
     return { hasError: true, error };
   }
 
@@ -33,6 +35,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    return this.props.children || null;
+    return this.props.children;
   }
 }

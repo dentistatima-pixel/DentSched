@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
