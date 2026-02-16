@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
 import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar, Activity } from 'lucide-react';
@@ -37,29 +38,25 @@ const FormBuilder: React.FC = () => {
 
     const handleUpdateDynamicField = (id: string, updates: Partial<RegistrationField>) => {
         const fieldId = id.startsWith('core_') ? id.replace('core_', '') : id.startsWith('field_') ? id.replace('field_', '') : id;
-        
+    
+        let newFieldLabels = { ...settings.fieldLabels };
+    
         const newFields = settings.identityFields.map(f => {
             if ((f.patientKey && f.patientKey === fieldId) || f.id === fieldId) {
-                // If label is changed, update fieldLabels map as well
+                // If label is changed on a core field, update fieldLabels map as well
                 if (updates.label && f.isCore && f.patientKey) {
-                    const newFieldLabels = { ...settings.fieldLabels, [f.patientKey]: updates.label };
-                    onUpdateSettings({ ...settings, fieldLabels: newFieldLabels, identityFields: settings.identityFields.map(field => field.id === f.id ? { ...f, ...updates } : field) });
-                    return { ...f, ...updates };
+                    newFieldLabels[f.patientKey] = updates.label;
                 }
                 return { ...f, ...updates };
             }
             return f;
         });
-        
-        const finalSettings = { ...settings, identityFields: newFields };
-
-        // Also update the label in fieldLabels for core fields for consistency
-        if(updates.label && id.startsWith('core_')) {
-            const patientKey = id.replace('core_', '');
-            finalSettings.fieldLabels = { ...settings.fieldLabels, [patientKey]: updates.label };
-        }
-        
-        onUpdateSettings(finalSettings);
+    
+        onUpdateSettings({ 
+            ...settings, 
+            identityFields: newFields,
+            fieldLabels: newFieldLabels 
+        });
     };
 
     const handleUpdateQuestion = (oldQuestion: string, newQuestion: string, registryKey: keyof FieldSettings) => {

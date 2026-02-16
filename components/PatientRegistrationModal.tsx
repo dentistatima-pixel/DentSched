@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
-import { Patient, FieldSettings, DentalChartEntry, PerioMeasurement, RegistrationStatus, ClinicalMediaConsent, TreatmentStatus } from '../types';
+import { Patient, FieldSettings, RegistrationStatus } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
@@ -12,9 +13,7 @@ import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useFormPersistence } from '../hooks/useFormPersistence';
-import { ActionButton } from './ActionButton';
-import { FormStatusIndicator, FormStatus } from './FormStatusIndicator';
-import { useModal } from '../contexts/ModalContext';
+import { FormStatusIndicator } from './FormStatusIndicator';
 import CryptoJS from 'crypto-js';
 
 
@@ -113,7 +112,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   const [draftId] = useState(() => `new-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`);
 
   const initialFormState: Partial<Patient> = useMemo(() => ({
-    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: undefined, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
+    id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', insuranceProvider: '', insuranceNumber: '', insuranceEffectiveDate: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: undefined, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     isPwd: false, dentalChart: [], perioChart: [], registrationSignature: '', registrationSignatureTimestamp: '', registryAnswers: {}, customFields: {}, registrationStatus: RegistrationStatus.PROVISIONAL
   }), []);
 
@@ -130,20 +129,22 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   
   const generalConsent = useMemo(() => fieldSettings.consentFormTemplates.find(t => t.id === 'GENERAL_AUTHORIZATION'), [fieldSettings.consentFormTemplates]);
 
-  const initialDataId = initialData?.id;
   useEffect(() => {
-    // This effect ensures the form starts on the correct step when the modal opens/reopens.
     setStep(1);
     
-    // Logic to initialize form for a new patient if not editing and no draft was restored.
-    if (!initialData && !formData.id) {
+    if (initialData) {
+        // EDIT mode: Populate with initialData.
+        setFormData({ ...initialFormState, ...initialData });
+    } else {
+        // NEW mode: reset the form state to prevent showing stale data from a previous edit session.
+        // The `useFormPersistence` hook will then try to restore a draft if one exists for a new patient.
         setFormData({
             ...initialFormState,
             id: generateUid('p'),
             registrationBranch: currentBranch,
         });
     }
-  }, [initialDataId, currentBranch]);
+  }, [initialData, currentBranch, initialFormState]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -159,8 +160,8 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
                         generalConsent: true,
                         consentVersion: fieldSettings.currentPrivacyVersion,
                         consentTimestamp: new Date().toISOString(),
-                        consentSignature: '', // to be captured later
-                        permissions: { // Default permissions
+                        consentSignature: '', 
+                        permissions: { 
                             intraoralPhotos: true,
                             extraoralPhotos: true,
                             xrays: true,
@@ -224,7 +225,6 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
         clearSavedDraft();
         onClose();
     } catch (error) {
-        // Error toast is handled by dataContext
     } finally {
         setIsSaving(false);
     }
@@ -294,24 +294,41 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
     <div className={isKiosk ? "w-full h-full bg-white flex flex-col" : "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4"}>
       <div className={isKiosk ? "flex-1 flex flex-col h-full bg-white overflow-hidden" : "bg-white w-full max-w-5xl h-[90vh] rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-20 duration-300 overflow-hidden"}>
         
-        <div className={`flex flex-col p-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'rounded-t-3xl'}`}>
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black uppercase tracking-tighter">Standard Patient Information Record</h2>
-            {!isKiosk && <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={24} /></button>}
+        {/* Refactored Slim Header Stepper */}
+        <div className={`flex items-center justify-between h-14 px-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'rounded-t-3xl'}`}>
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center font-black text-[10px] shadow-inner text-teal-400">DS</div>
+             <h2 className="text-[10px] font-black uppercase tracking-widest hidden md:block opacity-60">Standard Patient Record</h2>
           </div>
-          {/* Progress Bar */}
-          <div className="flex items-center mt-4">
-            {stepsInfo.map((s, index) => (
+          
+          <div className="flex items-center gap-2">
+            {stepsInfo.map((s, index) => {
+              const isActive = step === s.id;
+              const isPast = step > s.id;
+              
+              return (
                 <React.Fragment key={s.id}>
-                    <button onClick={() => setStep(s.id)} className={`flex flex-col items-center text-center transition-all duration-500 ${step >= s.id ? 'text-white' : 'text-teal-600'}`}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 ${step > s.id ? 'bg-teal-500 border-teal-400' : step === s.id ? 'bg-white border-teal-400 scale-110 shadow-2xl' : 'bg-teal-800 border-teal-700'}`}>
-                            <s.icon size={20} className={step === s.id ? 'text-teal-900' : 'text-white'} />
+                    {index > 0 && <div className={`w-4 h-0.5 rounded-full transition-colors duration-500 ${isActive || isPast ? 'bg-teal-400' : 'bg-teal-800'}`} />}
+                    <button 
+                        onClick={() => setStep(s.id)}
+                        className={`flex items-center gap-2 transition-all duration-300 rounded-full py-1 ${isActive ? 'bg-white px-3 text-teal-900 shadow-lg scale-105' : 'text-teal-600 hover:text-teal-400'}`}
+                    >
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${isActive ? 'bg-teal-900 text-white' : isPast ? 'bg-teal-500 text-white' : 'bg-teal-800 text-teal-700'}`}>
+                            {isPast ? <CheckCircle size={12} /> : s.id}
                         </div>
-                        <p className={`text-[10px] font-black uppercase mt-2 w-24 ${step === s.id ? 'text-white' : 'text-teal-400'}`}>{s.label}</p>
+                        {isActive && <span className="text-[10px] font-black uppercase tracking-tight whitespace-nowrap">{s.label}</span>}
                     </button>
-                    {index < stepsInfo.length - 1 && <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${step > s.id ? 'bg-teal-400' : 'bg-teal-700'}`} />}
                 </React.Fragment>
-            ))}
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-4">
+             {!isKiosk && (
+                <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                    <X size={18} />
+                </button>
+             )}
           </div>
         </div>
 

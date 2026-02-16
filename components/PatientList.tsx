@@ -8,7 +8,6 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
-import DocentSparkle from './DocentSparkle';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface PatientListProps {
@@ -104,7 +103,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Alerts</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Next Visit</th>
               <th className="p-4 text-left font-bold uppercase text-text-secondary text-xs tracking-wider">Last Visit</th>
-              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider flex items-center gap-1 justify-center">Reliability <DocentSparkle elementId="reliabilityScore" context="Patient Registry Table Header" /></th>
+              <th className="p-4 text-center font-bold uppercase text-text-secondary text-xs tracking-wider flex items-center gap-1 justify-center">Reliability </th>
               <th className="p-4 text-right font-bold uppercase text-text-secondary text-xs tracking-wider">Balance</th>
               <th className="p-4"></th>
             </tr>

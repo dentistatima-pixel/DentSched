@@ -271,6 +271,27 @@
         70% { transform: scale(1.1); opacity: 1; }
         100% { transform: scale(1); opacity: 1; }
       }
+      @keyframes slide-out-up {
+        from {
+          transform: translateY(0);
+          opacity: 1;
+          max-height: 200px;
+        }
+        to {
+          transform: translateY(-50px);
+          opacity: 0;
+          max-height: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+          margin-top: 0;
+          margin-bottom: 0;
+          border-width: 0;
+          overflow: hidden;
+        }
+      }
+      .animate-slide-out-up {
+        animation: slide-out-up 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+      }
       .wizard-step-enter {
         animation: slide-in-right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
       }
@@ -307,9 +328,8 @@
         .orientation-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
         
         .dashboard-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-        .dashboard-col-1 { grid-column: span 5 / span 5; }
-        .dashboard-col-2 { grid-column: span 4 / span 4; }
-        .dashboard-col-3 { grid-column: span 3 / span 3; }
+        .dashboard-main { grid-column: span 8 / span 8; }
+        .dashboard-side { grid-column: span 4 / span 4; }
         
         .admin-hub-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         

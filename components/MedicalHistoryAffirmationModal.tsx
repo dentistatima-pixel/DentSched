@@ -93,18 +93,27 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
     }
   };
   
+  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
+
+  const prevIsOpenRef = useRef<boolean>();
   useEffect(() => {
-      if(isOpen) {
-        setStep('question');
-        setNotes('');
-      }
-      if(isOpen && step === 'details') {
-          setTimeout(setupCanvas, 50);
-      }
+    // Only run the reset logic when the modal transitions from closed to open
+    if (isOpen && !prevIsOpenRef.current) {
+      setStep('question');
+      setNotes('');
+      clearCanvas(signatureCanvasRef);
+    }
+
+    // Always update the ref to the current value for the next render cycle
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && step === 'details') {
+        setTimeout(setupCanvas, 50);
+    }
   }, [isOpen, step]);
   
-  const clearCanvas = () => { const canvas = signatureCanvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
-
   const handleNoChanges = () => {
     onConfirm({
       affirmedAt: new Date().toISOString(),
@@ -141,7 +150,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex justify-center items-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 border-4 border-amber-200">
+      <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl grid grid-rows-[auto_1fr_auto] max-h-[90vh] animate-in zoom-in-95 duration-300 border-4 border-amber-200 overflow-hidden">
         <div className="p-6 border-b border-amber-100 bg-amber-50 flex items-center gap-4">
           <HeartPulse size={28} className="text-amber-600" />
           <div>
@@ -150,7 +159,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <div className="overflow-y-auto p-8 space-y-6">
           {daysSinceUpdate && daysSinceUpdate > 180 && (
               <div className="bg-red-50 border-2 border-red-500 p-4 rounded-lg mb-4 text-center">
                   <AlertTriangle className="text-red-700 mx-auto mb-2"/>
@@ -181,7 +190,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <label className="label">Patient/Guardian Signature *</label>
-                        <button onClick={clearCanvas} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
+                        <button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                     </div>
                     <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} />
                     <p className="text-xs text-slate-400 mt-2 font-bold uppercase">This signature applies ONLY to the information shown.</p>
@@ -191,7 +200,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
         </div>
 
         {step === 'details' && (
-            <div className="p-4 border-t bg-white flex justify-end gap-3 shrink-0">
+            <div className="p-4 border-t bg-white flex justify-end gap-3">
                 <button onClick={() => setStep('question')} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Back</button>
                 <button onClick={handleConfirmChanges} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 flex items-center gap-2">
                     <CheckCircle size={20}/> Confirm & Save Update

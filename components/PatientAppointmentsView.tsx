@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Appointment, AppointmentStatus, User } from '../types';
 import { Calendar, Clock, User as UserIcon, CheckCircle, XCircle, UserX, Armchair, UserCheck } from 'lucide-react';
@@ -13,7 +12,6 @@ const statusIcons: { [key in AppointmentStatus]: React.ElementType } = {
   [AppointmentStatus.SCHEDULED]: Calendar,
   [AppointmentStatus.CONFIRMED]: Calendar,
   [AppointmentStatus.ARRIVED]: UserCheck,
-  [AppointmentStatus.SEATED]: Armchair,
   [AppointmentStatus.TREATING]: Armchair,
   [AppointmentStatus.COMPLETED]: CheckCircle,
   [AppointmentStatus.CANCELLED]: XCircle,

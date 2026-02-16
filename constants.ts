@@ -1,3 +1,5 @@
+
+
 // FIX: Imported missing financial types
 import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
@@ -89,6 +91,7 @@ export const isExpired = (dateStr?: string | null): boolean => {
 export const isWithin30Days = (dateStr?: string | null): boolean => {
     if (!dateStr) return false;
     const expiryDate = new Date(dateStr);
+    // FIX: Declared today with const to resolve "Cannot find name" error
     const today = new Date();
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(today.getDate() + 30);
@@ -99,7 +102,6 @@ export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
     AppointmentStatus.SCHEDULED,
     AppointmentStatus.CONFIRMED,
     AppointmentStatus.ARRIVED,
-    AppointmentStatus.SEATED,
     AppointmentStatus.TREATING,
     AppointmentStatus.COMPLETED,
 ];
@@ -125,11 +127,6 @@ const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, AppointmentStatusConf
         label: 'Arrived',
         icon: UserCheck,
         badgeClass: 'bg-orange-100 text-orange-700',
-    },
-    [AppointmentStatus.SEATED]: {
-        label: 'Seated',
-        icon: Armchair,
-        badgeClass: 'bg-lilac-100 text-lilac-700',
     },
     [AppointmentStatus.TREATING]: {
         label: 'Treating',
@@ -200,9 +197,9 @@ export const PROCEDURE_TO_CONSENT_MAP: Record<string, string> = {
 
 export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
     { id: 'GENERAL_AUTHORIZATION', name: 'General Authorization', content_en: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagdedentista ay hindi isang eksaktong agham at walang dentista ang makakapaggarantiya ng tumpak na mga resulta sa lahat ng oras. Pinahihintulutan ko ang sinuman sa mga doktor/dental auxiliaries na magpatuloy at isagawa ang mga dental restoration at paggamot na ipinaliwanag sa akin. Nauunawaan ko na ang mga ito ay maaaring baguhin depende sa mga hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng paggamot. Nauunawaan ko na, anuman ang aking dental insurance, ako ang may pananagutan sa pagbabayad ng mga bayarin sa ngipin, at sumasang-ayon akong bayaran ang anumang mga bayarin sa abogado, bayarin sa koleksyon, o gastos sa korte na maaaring magastos upang matugunan ang anumang obligasyon sa opisina na ito. Ang lahat ng paggamot ay ipinaliwanag nang maayos sa akin at anumang hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng pamamaraan, ang dumadating na dentista ay hindi mananagot dahil ito ay aking malayang kalooban, na may buong tiwala at kumpiyansa sa kanya, na sumailalim sa paggamot sa ngipin sa ilalim ng kanyang pangangalaga." },
-    { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anumang paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglilinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
+    { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anu-anong paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglalinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
     { id: 'DRUGS_MEDICATIONS', name: 'Drugs & Medications', content_en: "I understand that antibiotics, analgesics & other medications can cause allergic reactions like redness & swelling of tissues, pain, itching, vomiting, &/or anaphylactic shock.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang mga antibiotic, analgesic at iba pang mga gamot ay maaaring magdulot ng mga reaksiyong alerhiya tulad ng pamumula at pamamaga ng mga tisyu, sakit, pangangati, pagsusuka, at/o anaphylactic shock." },
-    { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagdagan kung kinakailangan kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
+    { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagan kung kinakailangan kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
     { id: 'RADIOGRAPH', name: 'Radiograph', content_en: "I understand that an x-ray shot or a radiograph maybe necessary as part of diagnostic aid to come up with tentative diagnosis of my dental problem and to make a good treatment plan, but, this will not give me a 100% assurance for the accuracy of the treatment since all dental treatments are subject to unpredictable complications that later on may lead to sudden change of treatment plan and subject to new charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang isang x-ray shot o radiograph ay maaaring kailanganin bilang bahagi ng tulong sa pag-diagnose upang makabuo ng pansamantalang diagnosis ng aking problema sa ngipin at gumawa ng isang mahusay na plano sa paggamot, ngunit, hindi ito magbibigay sa akin ng 100% kasiguruhan para sa katumpakan ng paggamot dahil ang lahat ng paggamot sa ngipin ay napapailalim sa hindi mahuhulaan na mga komplikasyon na sa kalaunan ay maaaring humantong sa biglaang pagbabago ng plano sa paggamot at napapailalim sa mga bagong singil." },
     { id: 'EXTRACTION', name: 'Removal of Teeth', content_en: "I understand that alternatives to tooth removal (root canal therapy, crowns & periodontal surgery, etc.) & I completely understand these alternatives, including their risk & benefits prior to authorizing the dentist to remove teeth & any other structures necessary for reasons above. I understand that removing teeth does not always remove all the infections, if present, & it may be necessary to have further treatment. I understand the risk involved in having teeth removed, such as pain, swelling, spread of infection, dry socket, fractured jaw, loss of feeling on the teeth, lips, tongue & surrounding tissue that can last for an indefinite period of time. I understand that I may need further treatment under a specialist if complications arise during or following treatment.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko ang mga alternatibo sa pagbunot ng ngipin (root canal therapy, korona at periodontal surgery, atbp.) at lubos kong nauunawaan ang mga alternatibong ito, kabilang ang kanilang mga panganib at benepisyo bago pahintulutan ang dentista na bunutin ang mga ngipin at anumang iba pang mga istraktura na kinakailangang para sa mga dahilan sa itaas. Nauunawaan ko na ang pagbunot ng mga ngipin ay hindi palaging nag-aalis ng lahat ng impeksyon, kung mayroon, at maaaring kailanganin na magkaroon ng karagdagang paggamot. Nauunawaan ko ang mga panganib na kasangkot sa pagbunot ng ngipin, tulad ng sakit, pamamaga, pagkalat ng impeksyon, dry socket, bali ng panga, pagkawala ng pakiramdam sa ngipin, labi, dila at nakapaligid na tisyu na maaaring tumagal nang walang katiyakan. Nauunawaan ko na maaaring kailanganin ko ng karagdagang paggamot sa ilalim ng isang espesyalista kung magkakaroon ng mga komplikasyon sa panahon o pagkatapos ng paggamot." },
     { id: 'CROWNS_BRIDGES', name: 'Crowns, Caps & Bridges', content_en: "Preparing a tooth may irritate the nerve tissue in the center of the tooth, leaving the tooth extra sensitive to heat, cold & pressure. Treating such irritation may involve using special toothpastes, mouth rinses or root canal therapy. I understand that sometimes it is not possible to match the color of natural teeth exactly with artificial teeth. I further understand that I may be wearing temporary crowns, which may come off easily & that I must be careful to ensure that they are kept on until the permanent crowns are delivered. It is my responsibility to return for permanent cementation within 20 days from tooth preparation, as excessive days delay may allow for tooth movement, which may necessitate a remake of the crown, bridge/ cap. I understand there will be additional charges for remakes due to my delaying of permanent cementation, & I realize that final opportunity to make changes in my new crown, bridges or cap (including shape, fit, size, & color) will be before permanent cementation.", content_tl: "[Pagsasalin sa Tagalog]: Ang paghahanda ng ngipin ay maaaring makairita sa tisyu ng nerbiyos sa gitna ng ngipin, na nag-iiwan sa ngipin na sobrang sensitibo sa init, lamig at presyon. Ang paggamot sa naturang pangangati ay maaaring kasangkot sa paggamit ng mga espesyal na toothpaste, mouth rinses o root canal therapy. Nauunawaan ko na kung minsan ay hindi posible na eksaktong tumugma sa kulay ng mga natural na ngipin sa mga artipisiyal na ngipin. Higit pa rito, nauunawaan ko na maaaring ako ay nagsusuot ng mga pansamantalang korona, na maaaring madaling matanggal at dapat akong mag-ingat upang matiyaky na mananatili ang mga ito hanggang sa maihatid ang mga permanenteng korona. Responsibilidad kong bumalik para sa permanenteng sementasyon sa loob ng 20 araw mula sa paghahanda ng ngipin, dahil ang labis na araw ng pagkaantala ay maaaring magbigay-daan para sa paggalaw ng ngipin, na maaaring mangailangan ng muling paggawa ng korona, tulay/ takip. Nauunawaan ko na magkakaroon ng mga karagdagang singil para sa muling paggawa dahil sa aking pagkaantala ng permanenteng sementasyon, at napagtanto ko na ang huling pagkakataon na gumawa ng mga pagbabago sa aking bagong korona, tulay o takip (kabilang ang hugis, sukat, laki, at kulay) ay bago ang permanenteng sementasyon." },
@@ -222,7 +219,7 @@ My signature below confirms that I have read, understood, and agree to these ter
 1.  **Layunin**: Nauunawaan ko na ang Media na ito ay mahalaga para sa diagnosis, pagpaplano ng paggamot, dokumentasyon ng aking pangangalaga, at para sa komunikasyon sa iba pang mga healthcare provider o dental laboratory kung kinakailangan.
 2.  **Pagiging Kumpidensyal**: Nauunawaan ko na ang Media na ito ay bahagi ng aking kumpidensyal na talaan ng pasyente at protektado sa ilalim ng Data Privacy Act of 2012 (R.A. 10173).
 3.  **Paggamit para sa Edukasyon (Opsyonal)**: Maaari akong magbigay ng hiwalay na pahintulot para sa hindi pagpapakilalang paggamit ng aking Media para sa propesyonal na edukasyon, mga siyentipikong publikasyon, o mga paglalahad ng kaso. Ang lahat ng aking personal na impormasyon sa pagkakakilanlan ay aalisin.
-4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman hindi nito maaapektuhan ang Media na nakuha na.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman nito maaapektuhan ang Media na nakuha na.
 
 Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ayon ako sa mga tuntuning ito.` },
     { id: 'FINANCIAL_CONSENT', name: 'Financial Consent', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
@@ -233,9 +230,9 @@ Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ay
 4.  **Patient Rights**: I have the right to ask for a detailed breakdown of costs and to discuss payment options with the clinic staff.
 5.  **Withdrawal**: I understand that withdrawing from treatment after it has commenced does not absolve me of financial responsibility for services already rendered.`, content_tl: `[Pagsasalin sa Tagalog]: Kinikilala ko na nabigyan ako ng pagtatantya ng mga gastos para sa aking iminungkahing plano sa paggamot. Nauunawaan at sumasang-ayon ako sa mga sumusunod:
 
-1.  **Tantya vs. Aktwal na Gastos**: Ang ibinigay na quote ay isang pagtatantya. Ang mga hindi inaasahang klinikal na natuklasan sa panahon ng paggamot ay maaaring mangailangan ng mga pagbabago sa plano at mga kaugnay na gastos. Ipapabatid sa akin ang anumang makabuluhang pagbabago.
+1.  **Tantya vs. Aktwal na Gastos**: Ang ibinigay na quote ay isang pagtatantya. Ang mga hindi inaasahang klinikal na natuklasan sa panahon ng paggamot ay maaaring mangailangan ng mga pagbabago sa plano at mga kaugnay na gastos. Ipapabatid sa akin ang anu-anong makabuluhang pagbabago.
 2.  **Responsibilidad sa Pinansyal**: Ako ang may buong pananagutan para sa kabuuang bayad ng lahat ng mga pamamaraang isinagawa. Sumasang-ayon akong magbayad para sa mga serbisyo sa oras na ito ay isagawa maliban kung may ibang mga kasunduan na ginawa nang maaga.
-3.  **Insurance**: Ang aking dental insurance ay isang kontrata sa pagitan ko at ng aking insurance provider. Nauunawaan ko na ako ang may pananagutan para sa anumang natitirang balanse na hindi sakop ng aking insurance. Tutulong ang klinika na ito sa pagproseso ng mga claim, ngunit ang pangunahing responsibilidad sa pagbabayad ay nasa akin.
+3.  **Insurance**: Ang aking dental insurance ay isang kontrata sa pagitan ko at ng aking insurance provider. Nauunawaan ko na ako ang may pananagutan para sa anu-anong natitirang balanse na hindi sakop ng aking insurance. Tutulong ang klinika na ito sa pagproseso ng mga claim, ngunit ang pangunahing responsibilidad sa pagbabayad ay nasa akin.
 4.  **Mga Karapatan ng Pasyente**: May karapatan akong humingi ng detalyedong breakdown ng mga gastos at talakayin ang mga opsyon sa pagbabayad sa mga kawani ng klinika.
 5.  **Pag-atras**: Nauunawaan ko na ang pag-atras mula sa paggamot matapos itong magsimula ay hindi nag-aalis sa akin ng responsibilidad sa pananalapi para sa mga serbisyong naisagawa na.` },
     { id: 'PEDIATRIC_CONSENT', name: 'Consent for Treatment of a Minor', content_en: `As the parent or legal guardian of the minor patient, **{PatientName}**, I hereby authorize **{DoctorName}** and their designated staff to perform the necessary dental procedures as have been explained to me.
@@ -250,7 +247,7 @@ My signature confirms my authority to consent for this minor and my agreement to
 1.  **May Kaalamang Pahintulot**: Kinukumpirma ko na ang likas na katangian ng iminungkahing paggamot, mga potensyal na panganib, benepisyo, at makatwirang mga alternatibo ay ipinaliwanag sa akin sa mga terminong naiintindihan ko. Nagkaroon ako ng pagkakataong magtanong, at ang aking mga tanong ay nasagot nang kasiya-siya.
 2.  **Anesthesia at mga Gamot**: Sumasang-ayon ako sa paggamit ng mga lokal na anestisya, pampakalma, o iba pang mga gamot na itinuturing na kinakailangan ng dentista para sa ligtas at epektibong paggamot ng aking anak.
 3.  **Mga Karapatan ng Tagapag-alaga**: Nauunawaan ko na may karapatan akong dumalo sa panahon ng paggamot, kung naaangkop, at gumawa ng mga desisyon para sa aking anak.
-4.  **Pagbawi**: Maaari kong bawiin ang pahintulot na ito anumang oras sa pamamagitan ng pag-abiso sa mga kawani ng ngipin, na hindi makakaapekto sa anumang paggamot na naibigay na.
+4.  **Pagbawi**: Maaari kong bawiin ang pahintulot na ito anumang oras sa pamamagitan ng pag-abiso sa mga kawani ng ngipin, na hindi makakaapekto sa anumany paggamot na naibigay na.
 
 Ang aking lagda ay nagpapatunay ng aking awtoridad na magbigay ng pahintulot para sa menor de edad na ito at ang aking pagsang-ayon sa mga tuntunin sa itaas.` }
 ];
@@ -880,6 +877,7 @@ export const PATIENTS: Patient[] = [
         occupation: 'Student',
         insuranceProvider: 'Maxicare',
         insuranceNumber: 'MAXI-MASTER-01',
+        insuranceEffectiveDate: getPastDateStr(365),
         lastVisit: getPastDateStr(10),
         nextVisit: getFutureDateStr(20),
         lastDentalVisit: getPastDateStr(180),
@@ -1031,6 +1029,7 @@ export const PATIENTS: Patient[] = [
         occupation: 'Ethics Professor',
         insuranceProvider: 'Intellicare',
         insuranceNumber: 'INTL-987654321',
+        insuranceEffectiveDate: getPastDateStr(730),
         lastVisit: getPastDateStr(90),
         nextVisit: null,
         chiefComplaint: 'Debilitating anxiety about dental procedures.',
@@ -1062,7 +1061,7 @@ export const PATIENTS: Patient[] = [
             'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
             'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
         ],
-        otherConditions: 'Perpetual Stomach Ache',
+        otherConditions: 'Perpetual專業Stomach Ache',
         registryAnswers: {
           'Are you in good health?': 'No',
           'Are you under medical treatment now?*': 'Yes',
@@ -1223,7 +1222,7 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_01', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Main', date: getTodayStr(), time: '09:00', durationMinutes: 60, type: 'Initial Consultation & Examination', status: AppointmentStatus.SCHEDULED },
     { id: 'apt_today_02', patientId: 'p_risk_02', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '10:00', durationMinutes: 60, type: 'Oral Prophylaxis (Heavy w/ Stain Removal)', status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_03', patientId: 'p_reliable_01', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '11:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CONFIRMED },
-    { id: 'apt_today_04', patientId: 'p_pediatric_05', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '14:00', durationMinutes: 45, type: 'Topical Fluoride Application', status: AppointmentStatus.SEATED },
+    { id: 'apt_today_04', patientId: 'p_pediatric_05', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '14:00', durationMinutes: 45, type: 'Topical Fluoride Application', status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.TREATING },
 
     // Past appointments
@@ -1292,7 +1291,7 @@ const DEFAULT_MEDICATIONS: Medication[] = [
     { id: 'med_11', genericName: 'Metronidazole', dosage: '500mg Tablet', instructions: 'Take 1 tablet every 8 hours for 7 days.', drugClassification: 'Rx' },
     // Steroids
     { id: 'med_12', genericName: 'Dexamethasone', dosage: '4mg Tablet', instructions: 'Take 1 tablet once a day for 3 days to manage severe inflammation.', drugClassification: 'Rx' },
-    { id: 'med_13', genericName: 'Triamcinolone Acetonide in Orabase', brandName: 'Kenalog', dosage: '0.1% Ointment', instructions: 'Apply a thin film to the affected area (e.g., mouth ulcer) after meals and at bedtime.', drugClassification: 'Rx' },
+    { id: 'med_13', genericName: 'Triamcinolone Acetonide in Orabase', brandName: 'Kenalog', dosage: '0.1% Ointment', instructions: 'Apply a thin film to the affected area (e.g., mouth ulcer) after mirrors and at bedtime.', drugClassification: 'Rx' },
     // Anxiolytics
     { id: 'med_14', genericName: 'Diazepam', dosage: '5mg Tablet', instructions: 'Take 1 tablet one hour before the dental appointment.', isS2Controlled: true, drugClassification: 'S2-Controlled' },
     // Rinses
@@ -1339,7 +1338,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'firstName', label: 'First Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'firstName', isRequired: true, width: 'third' },
       { id: 'middleName', label: 'Middle Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'middleName', width: 'third' },
       { id: 'surname', label: 'Surname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'surname', isRequired: true, width: 'third' },
-      { id: 'suffix', label: 'Suffix', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'suffix', registryKey: 'suffixes', width: 'half' },
+      { id: 'suffix', label: 'Suffix / Title', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'suffix', width: 'half' },
       { id: 'nickname', label: 'Nickname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'nickname', width: 'half' },
       
       { id: 'field_header_demographics', label: 'Demographics', type: 'header', section: 'IDENTITY' },
@@ -1364,8 +1363,9 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'occupation', width: 'full' },
       
       { id: 'field_header_insurance', label: 'Insurance', type: 'header', section: 'IDENTITY' },
-      { id: 'insuranceProvider', label: 'Insurance Provider', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceProvider', width: 'half' },
-      { id: 'insuranceNumber', label: 'Insurance No.', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceNumber', width: 'half' },
+      { id: 'insuranceProvider', label: 'Insurance Provider', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceProvider', width: 'third' },
+      { id: 'insuranceNumber', label: 'Insurance No.', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceNumber', width: 'third' },
+      { id: 'insuranceEffectiveDate', label: 'Effective Date', type: 'date', section: 'IDENTITY', isCore: true, patientKey: 'insuranceEffectiveDate', width: 'third' },
 
       // Dental Section Fields
       { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', isCore: true, patientKey: 'previousDentist' },
@@ -1397,6 +1397,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       'field_header_insurance',
       'core_insuranceProvider',
       'core_insuranceNumber',
+      'core_insuranceEffectiveDate',
   ],
   medicalLayoutOrder: [
       'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
@@ -1516,7 +1517,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       enableMaterialTraceability: true,
       enableBirComplianceMode: true,
       enableStatutoryBirTrack: true, 
-      enableDigitalDocent: true,
+      enableDigitalDocent: false,
   },
   permissions: {},
   currentPrivacyVersion: '1.2',

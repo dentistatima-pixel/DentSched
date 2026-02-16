@@ -36,7 +36,7 @@ const AppointmentContext = createContext<AppointmentContextType | undefined>(und
 export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
-    const { showModal } = useModal();
+    const { showModal, hideModal } = useModal();
     const { patients } = usePatient();
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
@@ -206,6 +206,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                             } else if (block.modal.type === 'sterilizationVerification') {
                                 updatedData = { sterilizationVerified: true, linkedInstrumentSetIds: data };
                             }
+                            hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, ...updatedData }, true);
                         }
                     };
@@ -213,12 +214,14 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     if (block.modal.type === 'protocolOverride' && block.modal.props.rule) {
                         props.onConfirm = (reason: string) => {
                             logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${block.modal.props.rule.name}. Reason: ${reason}`);
+                            hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, additionalData, true);
                         }
                     }
     
                     if (block.modal.type === 'consentCapture') {
                         props.onSave = (chain: SignatureChainEntry[]) => {
+                            hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, consentSignatureChain: chain }, true);
                         }
                     }

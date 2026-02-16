@@ -1,18 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, LicenseCategory } from '../types';
-import { Save, Edit, X, Shield, Percent, Sparkles, MapPin, Power, PowerOff } from 'lucide-react';
+import { User, UserRole, LicenseCategory, CpdEntry } from '../types';
+import { Save, Edit, X, Shield, Percent, Sparkles, MapPin, Power, PowerOff, Briefcase, GraduationCap, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { useAuthorization } from '../hooks/useAuthorization';
+import { formatDate } from '../constants';
 
 interface PersonalProfileProps {
   currentUser: User;
   onSave: (updatedUser: User) => void;
 }
 
-const ProfileField: React.FC<{ label: string; value: string | undefined; name: keyof User; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; isEditing: boolean; type?: string; placeholder?: string; }> = ({ label, value, name, onChange, isEditing, type = 'text', placeholder }) => (
+const ProfileField: React.FC<{ label: string; value: string | undefined | number; name: keyof User; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; isEditing: boolean; type?: string; placeholder?: string; step?: string; }> = ({ label, value, name, onChange, isEditing, type = 'text', placeholder, step }) => (
     <div>
         <label htmlFor={name.toString()} className="label text-xs">{label}</label>
         <input 
@@ -23,6 +25,7 @@ const ProfileField: React.FC<{ label: string; value: string | undefined; name: k
             onChange={onChange}
             disabled={!isEditing}
             placeholder={placeholder}
+            step={step}
             className="input"
         />
     </div>
@@ -34,6 +37,9 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<User>(currentUser);
   
+  const [newCpdTitle, setNewCpdTitle] = useState('');
+  const [newCpdUnits, setNewCpdUnits] = useState('');
+
   const { currentBranch, setCurrentBranch } = useAppContext();
   const { handleStartCashSession, handleCloseCashSession, cashSessions } = useFinancials();
   const { can } = useAuthorization();
@@ -43,8 +49,12 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
   }, [currentUser]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const { name, value } = e.target;
-      setFormData(prev => ({ ...prev, [name]: value }));
+      const { name, value, type } = e.target;
+      let finalValue: any = value;
+      if (type === 'number') {
+        finalValue = value === '' ? null : parseFloat(value);
+      }
+      setFormData(prev => ({ ...prev, [name]: finalValue }));
   };
 
   const handleSave = () => {
@@ -82,7 +92,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
     }
   };
   
-  const isClinicalStaff = [UserRole.DENTIST, UserRole.DENTAL_ASSISTANT].includes(formData.role);
+  const isClinicalStaff = [UserRole.DENTIST, UserRole.DENTAL_ASSISTANT, UserRole.SYSTEM_ARCHITECT].includes(formData.role);
   const isDentist = formData.role === UserRole.DENTIST;
 
   const userAllowedBranches = can('manage:admin')
@@ -90,6 +100,17 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
       : (currentUser.allowedBranches && currentUser.allowedBranches.length > 0)
           ? currentUser.allowedBranches
           : (fieldSettings.branches || []);
+
+  const totalCpd = (formData.cpdEntries || []).reduce((s, e) => s + e.units, 0);
+  const requiredCpd = formData.requiredCpdUnits || 15;
+  const cpdProgress = Math.min(100, (totalCpd / requiredCpd) * 100);
+
+  const addCpd = () => {
+      if (!newCpdTitle || !newCpdUnits) return;
+      const entry: CpdEntry = { id: `cpd_${Date.now()}`, date: new Date().toISOString().split('T')[0], title: newCpdTitle, units: parseFloat(newCpdUnits) };
+      setFormData(prev => ({ ...prev, cpdEntries: [entry, ...(prev.cpdEntries || [])] }));
+      setNewCpdTitle(''); setNewCpdUnits('');
+  };
 
   return (
     <div className="p-10 space-y-8 animate-in fade-in duration-500">
@@ -115,7 +136,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
       </div>
 
       <div className="bg-white dark:bg-slate-800 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 landscape:grid-cols-2 gap-6">
           <ProfileField label="Full Legal Name" name="name" value={formData.name} onChange={handleChange} isEditing={isEditing} />
           <div>
             <label className="label text-sm">Role</label>
@@ -127,8 +148,8 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
           <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
             <h4 className="label text-sm flex items-center gap-2"><Shield size={16}/> Professional Verification</h4>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="md:col-span-2">
+            <div className="grid grid-cols-1 landscape:grid-cols-2 gap-6">
+                 <div className="landscape:col-span-2">
                     <label htmlFor="license-category" className="label text-xs">Statutory License Category *</label>
                     <select id="license-category" name="licenseCategory" value={formData.licenseCategory || ''} onChange={handleChange} disabled={!isEditing} className="input">
                         <option value="">- SELECT SCOPE (RA 9484) -</option>
@@ -144,8 +165,8 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
                 <ProfileField label="Malpractice Policy #" name="malpracticePolicy" value={formData.malpracticePolicy} onChange={handleChange} isEditing={isEditing} placeholder="MP-2024-XXXX"/>
                 <ProfileField label="Malpractice Insurance Expiry" name="malpracticeExpiry" value={formData.malpracticeExpiry} onChange={handleChange} isEditing={isEditing} type="date" />
                 
-                {isDentist && (
-                    <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                {(isDentist || formData.role === UserRole.SYSTEM_ARCHITECT) && (
+                    <div className="landscape:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-700">
                         <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Prescriber's Information (S2)</h5>
                         <div className="grid grid-cols-2 gap-6">
                             <ProfileField label="S2 License #" name="s2License" value={formData.s2License} onChange={handleChange} isEditing={isEditing} placeholder="PDEA-S2-XXXX"/>
@@ -153,38 +174,67 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
                         </div>
                     </div>
                 )}
-                
-                {isDentist && (
-                    <div className="md:col-span-2">
-                        <label htmlFor="commissionRate" className="label text-xs flex items-center gap-1"><Percent size={10}/> Contracted Fee Split Rate</label>
-                        <input id="commissionRate" type="number" step="0.01" name="commissionRate" value={formData.commissionRate || 0} onChange={handleChange} disabled={!isEditing} className="input" placeholder="0.30"/>
-                    </div>
-                )}
             </div>
           </div>
         )}
-        
-         <div className="space-y-4 pt-8 border-t border-slate-200 dark:border-slate-700">
-            <h4 className="label text-sm flex items-center gap-2"><Sparkles size={16}/> Interface Preferences</h4>
-            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-700 p-4 rounded-xl">
-                <div>
-                    <h4 className="font-bold text-text-primary">Show Digital Docent</h4>
-                    <p className="text-xs text-text-secondary">Show AI-powered help icons and panel.</p>
-                </div>
-                <div className="relative">
-                    <input 
-                        type="checkbox" 
-                        id="user-docent-toggle"
-                        checked={formData.showDigitalDocent ?? fieldSettings.features.enableDigitalDocent}
-                        onChange={e => setFormData({...formData, showDigitalDocent: e.target.checked })}
-                        disabled={!isEditing}
-                        className="sr-only peer"
-                    />
-                    <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
-                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                </div>
+
+        <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="label text-sm flex items-center gap-2"><Briefcase size={16}/> Administrative Details</h4>
+            <div className="grid grid-cols-1 landscape:grid-cols-2 gap-6">
+                <ProfileField label="TIN (Tax Identification Number)" name="tin" value={formData.tin} onChange={handleChange} isEditing={isEditing} placeholder="XXX-XXX-XXX-000" />
+                <ProfileField label="Payout Handle" name="payoutHandle" value={formData.payoutHandle} onChange={handleChange} isEditing={isEditing} placeholder="e.g., GCash Number or Bank Account" />
+                {(isDentist || formData.role === UserRole.SYSTEM_ARCHITECT) && (
+                    <div className="landscape:col-span-2">
+                        <ProfileField 
+                            label="Contracted Fee Split Rate" 
+                            name="commissionRate" 
+                            value={formData.commissionRate} 
+                            onChange={handleChange} 
+                            isEditing={isEditing} 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="e.g., 0.40 for 40%"
+                        />
+                    </div>
+                )}
             </div>
-          </div>
+        </div>
+
+        <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+            <h4 className="label text-sm flex items-center gap-2"><GraduationCap size={16}/> CPD Tracking</h4>
+            <div className="bg-bg-secondary p-6 rounded-2xl border border-teal-100 dark:border-teal-900 shadow-sm text-center">
+                <div className="text-[10px] font-black uppercase text-text-secondary tracking-widest mb-4">PRC Renewal Readiness</div>
+                <div className="relative w-32 h-32 mx-auto">
+                    <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-700" />
+                        <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={364} strokeDashoffset={364 - (364 * cpdProgress) / 100} className={`${cpdProgress >= 100 ? 'text-teal-700' : 'text-lilac-500'} transition-all duration-1000`} />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="text-2xl font-black text-text-primary">{totalCpd}</div>
+                        <div className="text-[9px] font-bold text-text-secondary uppercase">Units of {requiredCpd}</div>
+                    </div>
+                </div>
+                {cpdProgress >= 100 && <div className="mt-4 text-xs font-bold text-teal-700 flex items-center justify-center gap-1 uppercase"><CheckCircle size={14}/> Compliant for Renewal</div>}
+            </div>
+            {isEditing && (
+                <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                    <h4 className="label text-xs flex items-center gap-2">Log Professional Education</h4>
+                    <input id="cpd-title" type="text" placeholder="Course/Seminar Title" className="input" value={newCpdTitle} onChange={e => setNewCpdTitle(e.target.value)} />
+                    <div className="flex gap-2">
+                        <input id="cpd-units" type="number" placeholder="Units" className="input flex-1" value={newCpdUnits} onChange={e => setNewCpdUnits(e.target.value)} />
+                        <button onClick={addCpd} className="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold shadow-md hover:bg-teal-700 transition-all focus:ring-offset-2">Add</button>
+                    </div>
+                </div>
+            )}
+             <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                {(formData.cpdEntries || []).map(entry => (
+                    <div key={entry.id} className="p-3 bg-bg-secondary border border-border-primary rounded-xl flex justify-between items-center group">
+                        <div><div className="font-bold text-sm text-text-primary">{entry.title}</div><div className="text-[10px] text-text-secondary font-bold uppercase">{formatDate(entry.date)}</div></div>
+                        <span className="text-sm font-black text-teal-700">+{entry.units}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm space-y-6">

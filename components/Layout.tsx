@@ -17,8 +17,6 @@ import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { usePatient } from '../contexts/PatientContext';
-import { GeminiAssistant } from './GeminiAssistant';
-import { useDocent } from '../contexts/DocentContext';
 import { CommandBar } from './CommandBar';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useFinancials } from '../contexts/FinancialContext';
@@ -56,8 +54,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   
-  const { isDocentEnabled, isPanelOpen, togglePanel } = useDocent();
-
   // New Pinboard State
   const [pinboardTab, setPinboardTab] = useState<'inbox' | 'sent'>('inbox');
   const [newTaskText, setNewTaskText] = useState('');
@@ -450,21 +446,6 @@ export const Layout: React.FC<LayoutProps> = ({
             PDA ETHICS RULE 19 VERIFIED: Practitioner retains sole clinical liability for decision support output.
           </p>
       </div>
-
-      {isDocentEnabled && (
-        <>
-            <GeminiAssistant isOpen={isPanelOpen} onClose={togglePanel} />
-            <button
-                onClick={togglePanel}
-                className="fixed bottom-12 right-10 z-50 bg-lilac-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center animate-pulse-lilac btn-tactile"
-                aria-label="Open Digital Docent"
-                aria-haspopup="dialog"
-                aria-expanded={isPanelOpen}
-            >
-                <Sparkles size={32} />
-            </button>
-        </>
-      )}
       
       <CommandBar
         isOpen={isCommandBarOpen}

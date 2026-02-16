@@ -32,7 +32,6 @@ export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
   ARRIVED = 'Arrived',
-  SEATED = 'Seated',
   TREATING = 'Treating',
   COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
@@ -884,6 +883,7 @@ export interface Patient {
   occupation?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
+  insuranceEffectiveDate?: string;
   lastVisit: string;
   nextVisit: string | null;
   lastDentalVisit?: string;

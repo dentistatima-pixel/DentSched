@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
 import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
@@ -202,6 +203,23 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
       if (id.startsWith('core_')) {
           const coreId = id.replace('core_', '');
+
+          if (coreId === 'age') {
+              const field = fieldSettings.identityFields.find(f => f.id === 'age');
+              if (!field) return null;
+              const label = getLabel('age', field.label);
+              let colSpan = "col-span-1 md:col-span-12";
+              if (field.width === 'half') colSpan = "col-span-1 md:col-span-6";
+              if (field.width === 'third') colSpan = "col-span-1 md:col-span-4";
+              if (field.width === 'quarter') colSpan = "col-span-1 md:col-span-3";
+
+              return (
+                <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
+                </DesignWrapper>
+              );
+          }
+          
           const field = fieldSettings.identityFields.find(f => f.patientKey === coreId);
           if (!field) return null;
           const label = getLabel(coreId, field.label);
@@ -238,14 +256,6 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                   break;
               default:
                   return null;
-          }
-
-          if (coreId === 'age') {
-              return (
-                <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                    <div><label className="label">{label}</label><div className="input bg-slate-50 text-slate-400 font-black">{calculateAge(formData.dob) ?? '--'}</div></div>
-                </DesignWrapper>
-              );
           }
 
           return (

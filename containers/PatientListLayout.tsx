@@ -1,7 +1,7 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
 import { PatientList } from '../components/PatientList';
 import { usePatient } from '../contexts/PatientContext';
-import { useNavigate } from '../contexts/RouterContext';
+import { useRouter } from '../contexts/RouterContext';
 import { PatientListSkeleton, PatientDetailSkeleton } from '../skeletons/PatientSkeletons';
 
 // Import all necessary hooks for PatientDetailContainer
@@ -27,7 +27,21 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-function PatientDetailContainer({ patientId, onBack }: { patientId: string | null; onBack: () => void; }) {
+// CRITICAL FIX: Component defined at module level and wrapped with React.memo
+// This prevents the component from being re-created on every parent render,
+// which was causing ALL state (including activeTab) to be reset.
+// React.memo ensures the component only re-renders when props actually change.
+const PatientDetailContainer: React.FC<{ 
+    patientId: string | null; 
+    onBack: () => void; 
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
+}> = React.memo(({ 
+    patientId, 
+    onBack,
+    activeTab,
+    setActiveTab,
+}) => {
   const { patients, isLoading: arePatientsLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
@@ -37,17 +51,13 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
   const { showModal } = useModal();
   
-  const [patient, setPatient] = useState<Patient | null>(null);
-  
-  useEffect(() => {
-    if (patientId) {
-      const fetchedPatient = patients.find(p => p.id === patientId);
-      setPatient(fetchedPatient || null);
-    } else {
-      setPatient(null);
+  const patient = useMemo(() => {
+    if (!patientId) {
+      return null;
     }
+    return patients.find(p => p.id === patientId) || null;
   }, [patientId, patients]);
-
+  
   if (arePatientsLoading) {
     return <PatientDetailSkeleton />;
   }
@@ -111,16 +121,31 @@ function PatientDetailContainer({ patientId, onBack }: { patientId: string | nul
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
         auditLog={auditLog}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
     </Suspense>
   );
-}
+});
 
 
 function PatientListLayout({ route }: { route: { param: string | null } }) {
   const { isLoading: arePatientsLoading } = usePatient();
   const selectedPatientId = route.param;
-  const navigate = useNavigate();
+  const { navigate } = useRouter();
+  const [activeTab, setActiveTab] = useState('details');
+
+  // Track the previous patient ID to detect actual changes
+  const previousPatientIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only reset to details tab when the patient ID actually changes to a different patient
+    if (selectedPatientId !== previousPatientIdRef.current) {
+      setActiveTab('details');
+      previousPatientIdRef.current = selectedPatientId;
+    }
+  }, [selectedPatientId]);
+
 
   if (arePatientsLoading) {
       return selectedPatientId 
@@ -140,7 +165,12 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
   // Full screen detail view when a patient is selected
   return (
     <div className="h-full w-full animate-in fade-in duration-500">
-      <PatientDetailContainer patientId={selectedPatientId} onBack={() => navigate('patients')} />
+      <PatientDetailContainer 
+        patientId={selectedPatientId} 
+        onBack={() => navigate('patients')} 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
     </div>
   );
 }

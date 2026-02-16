@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DentalChartEntry, TreatmentStatus, User } from '../types';
 import { formatDate } from '../constants';
@@ -39,10 +38,10 @@ const GeometricTooth: React.FC<{
     onSurfaceClick: (tooth: number, surface: string) => void;
     onToothClick: (e: React.MouseEvent, tooth: number) => void;
     readOnly?: boolean;
-    isZoomed?: boolean;
     isSelected?: boolean;
     isDeciduous?: boolean;
-}> = ({ number, entries, onSurfaceClick, onToothClick, readOnly, isZoomed, isSelected, isDeciduous }) => {
+    isPatientPerspective: boolean;
+}> = ({ number, entries, onSurfaceClick, onToothClick, readOnly, isSelected, isDeciduous, isPatientPerspective }) => {
     const quadrant = Math.floor(number / 10);
     const isUpper = quadrant === 1 || quadrant === 2 || quadrant === 5 || quadrant === 6;
     const isPatientRight = quadrant === 1 || quadrant === 4 || quadrant === 5 || quadrant === 8; 
@@ -117,7 +116,7 @@ const GeometricTooth: React.FC<{
     else { pLeft = cM; sLeft = 'M'; pRight = cD; sRight = 'D'; }
 
     const strokeColor = isSelected ? "#0d9488" : "#e2e8f0"; 
-    const strokeWidth = isSelected ? "3" : (isZoomed ? "1.5" : "1");
+    const strokeWidth = isSelected ? "3" : "1";
 
     const u_root = "M30 0 L70 0 L70 15 L30 15 Z";
     const u_top = "M0 15 L100 15 L70 38 L30 38 Z";
@@ -139,11 +138,11 @@ const GeometricTooth: React.FC<{
         <div 
             role="button"
             aria-label={`Tooth #${number}, ${toothEntries.length} clinical records`}
-            className={`flex flex-col items-center justify-center relative transition-all duration-500 touch-manipulation select-none ${!readOnly && !isZoomed ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
-            style={{ width: isZoomed ? (isDeciduous ? '72px' : '96px') : (isDeciduous ? '48px' : '64px'), height: isZoomed ? (isDeciduous ? '90px' : '120px') : (isDeciduous ? '60px' : '80px'), minWidth: isDeciduous ? '48px' : '64px' }}
+            className={`flex flex-col items-center justify-center relative transition-all duration-500 touch-manipulation select-none ${!readOnly ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
+            style={{ width: isDeciduous ? '48px' : '64px', height: isDeciduous ? '60px' : '80px', minWidth: isDeciduous ? '48px' : '64px' }}
             onClick={(e) => !readOnly && onToothClick(e, number)}
         >
-            <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? (isZoomed ? '-top-6' : '-top-3') : (isZoomed ? '-bottom-6' : '-bottom-3')} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} ${isZoomed ? 'text-lg' : 'text-sm'}`} aria-hidden="true">
+            <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? '-top-3' : '-bottom-3'} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} text-sm ${isPatientPerspective ? 'scale-x-[-1]' : ''}`} aria-hidden="true">
                 {number}
             </span>
             <div className={`w-full h-full relative transition-all duration-500 ${isSelected ? 'drop-shadow-[0_0_15px_rgba(20,184,166,0.3)]' : ''}`}>
@@ -187,7 +186,6 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const [showBaseline, setShowBaseline] = useState(false); 
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
   const [isPatientPerspective, setIsPatientPerspective] = useState(false);
-  const [activeQuadrant, setActiveQuadrant] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ tooth: number; x: number; y: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -223,7 +221,6 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const handleToothClick = (e: React.MouseEvent, tooth: number) => {
     e.stopPropagation();
     if (activeToolId !== 'cursor') {
-        // If a tool is active, the surfaces will handle it. A general click does nothing.
         return;
     }
     setSelectedTooth(tooth);
@@ -261,39 +258,10 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
           onChartUpdate(newEntry);
       }
   };
-  
-  const QuadrantContent: React.FC<{ quadrant: number }> = ({ quadrant }) => {
-      let permanentTeeth: number[] = [];
-      let deciduousTeeth: number[] = [];
-      if (quadrant === 1) { permanentTeeth = q1; deciduousTeeth = dq5; }
-      if (quadrant === 2) { permanentTeeth = q2; deciduousTeeth = dq6; }
-      if (quadrant === 3) { permanentTeeth = q3; deciduousTeeth = dq7; }
-      if (quadrant === 4) { permanentTeeth = q4; deciduousTeeth = dq8; }
-      
-      const isUpper = quadrant === 1 || quadrant === 2;
-
-      return (
-          <div className="flex flex-col items-center gap-6">
-              {isUpper && (
-                <>
-                  <div className="flex gap-2">{permanentTeeth.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isZoomed={!!activeQuadrant}/>)}</div>
-                  {dentitionMode === 'Mixed' && <div className={`flex gap-2 w-full animate-in slide-in-from-top-2 ${quadrant === 1 ? 'justify-end' : 'justify-start'}`}>{deciduousTeeth.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isZoomed={!!activeQuadrant}/>)}</div>}
-                </>
-              )}
-              {!isUpper && (
-                 <>
-                  {dentitionMode === 'Mixed' && <div className={`flex gap-2 w-full animate-in slide-in-from-bottom-2 ${quadrant === 4 ? 'justify-end' : 'justify-start'}`}>{deciduousTeeth.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isZoomed={!!activeQuadrant}/>)}</div>}
-                  <div className="flex gap-2">{permanentTeeth.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isZoomed={!!activeQuadrant}/>)}</div>
-                 </>
-              )}
-          </div>
-      );
-  };
 
   return (
     <div className="flex flex-col gap-6 relative h-full">
-        {/* Unified Tool & Perspective Bar */}
-        <div className="flex flex-wrap justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
+        <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
              {!readOnly && (
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1 py-1" role="toolbar" aria-label="Clinical charting palette">
                     {TOOLS.map(tool => (
@@ -356,22 +324,41 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                 </div>
             )}
 
-            <div className="w-full overflow-x-auto flex justify-start md:justify-center px-4">
+            <div className="w-full overflow-x-auto flex justify-center px-4">
                 <div className={`
-                    flex flex-col gap-0 items-center py-16 transition-all duration-500 min-w-max
+                    flex flex-col gap-8 items-center py-16 transition-transform duration-500
                     ${isPatientPerspective ? 'scale-x-[-1]' : ''}
-                    ${activeQuadrant ? 'opacity-30 blur-md' : ''}
                 `}>
-                    <div className="flex border-b-4 border-slate-100/50 justify-center">
-                        <div onClick={() => !activeQuadrant && setActiveQuadrant(1)} className="p-4 cursor-pointer group"><QuadrantContent quadrant={1} /></div>
-                        <div className="w-1 bg-gradient-to-b from-slate-100 to-transparent h-48 self-end mb-12 rounded-full"></div>
-                        <div onClick={() => !activeQuadrant && setActiveQuadrant(2)} className="p-4 cursor-pointer group"><QuadrantContent quadrant={2} /></div>
+                    {/* UPPER ARCH */}
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="flex justify-center items-end">
+                            {q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            <div className="w-px h-16 bg-slate-200 mx-1" />
+                            {q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                        </div>
+                        {dentitionMode === 'Mixed' && (
+                            <div className="flex justify-center items-start mt-2">
+                                {dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                <div className="w-px h-8 bg-slate-200 mx-1" />
+                                {dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex pt-0 border-t-4 border-slate-100/50 justify-center">
-                        <div onClick={() => !activeQuadrant && setActiveQuadrant(4)} className="p-4 cursor-pointer group"><QuadrantContent quadrant={4} /></div>
-                        <div className="w-1 bg-gradient-to-t from-slate-100 to-transparent h-48 self-start mt-12 rounded-full"></div>
-                        <div onClick={() => !activeQuadrant && setActiveQuadrant(3)} className="p-4 cursor-pointer group"><QuadrantContent quadrant={3} /></div>
+                    {/* LOWER ARCH */}
+                    <div className="flex flex-col items-center gap-2">
+                        {dentitionMode === 'Mixed' && (
+                            <div className="flex justify-center items-end mb-2">
+                                {dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                <div className="w-px h-8 bg-slate-200 mx-1" />
+                                {dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                            </div>
+                        )}
+                        <div className="flex justify-center items-start">
+                            {q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            <div className="w-px h-16 bg-slate-200 mx-1" />
+                            {q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -382,29 +369,10 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                   style={{ top: contextMenu.y, left: contextMenu.x, transform: 'translateX(-50%)' }}
                   role="menu"
                 >
-                    <button onClick={() => { onToothClick(contextMenu.tooth); setContextMenu(null); }} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-teal-50 w-full text-left"><FileText size={16}/> View Details</button>
-                    <button onClick={() => { setActiveQuadrant(Math.floor(contextMenu.tooth / 10)); setContextMenu(null); }} className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-teal-50 w-full text-left border-t border-slate-100"><ZoomIn size={16}/> Zoom Quadrant</button>
+                    <button onClick={() => { onToothClick(contextMenu.tooth); setContextMenu(null); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-teal-50 w-full text-left ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}><FileText size={16}/> View Details</button>
                 </div>
             )}
         </div>
-        
-        {/* Zoomed Quadrant Modal */}
-        {activeQuadrant && (
-            <>
-                <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 animate-in fade-in duration-700" onClick={() => setActiveQuadrant(null)} aria-hidden="true" />
-                <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 p-8 rounded-[3.5rem] bg-white shadow-[0_40px_100px_rgba(0,0,0,0.15)] ring-[16px] ring-teal-500/5 border-2 border-teal-100 animate-in zoom-in-95 ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}>
-                    <button 
-                        aria-label="Exit zoom mode"
-                        onClick={(e) => { e.stopPropagation(); setActiveQuadrant(null); }}
-                        className="absolute -top-6 -right-6 bg-red-600 text-white p-4 rounded-full shadow-2xl z-50 hover:bg-red-700 transition-all hover:rotate-90 active:scale-90"
-                    >
-                        <Minimize2 size={28}/>
-                    </button>
-                    <QuadrantContent quadrant={activeQuadrant} />
-                </div>
-            </>
-        )}
-
     </div>
   );
 };

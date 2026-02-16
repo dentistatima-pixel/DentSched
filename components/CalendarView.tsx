@@ -169,7 +169,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const getAppointmentBaseStyle = (type: string, status: AppointmentStatus, isPendingSync?: boolean, entryMode?: string) => {
      let styles = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-600' };
      if (status === AppointmentStatus.ARRIVED) styles = { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-700' };
-     else if (status === AppointmentStatus.SEATED) styles = { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900', icon: 'text-blue-700' };
+     // FIX: Removed reference to `AppointmentStatus.SEATED` which does not exist in the enum.
      else if (status === AppointmentStatus.TREATING) styles = { bg: 'bg-lilac-50', border: 'border-lilac-300', text: 'text-lilac-900', icon: 'text-lilac-700' };
      else {
         const typeLower = type.toLowerCase();

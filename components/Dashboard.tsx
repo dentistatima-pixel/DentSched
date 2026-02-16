@@ -4,7 +4,7 @@ import {
   StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
   History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
   FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck, UserX,
-  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee
+  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, LogIn, Play, Check
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, UserRole, Patient, 
@@ -14,32 +14,16 @@ import {
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
-import GlobalSearchModal from './GlobalSearchModal';
-
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { useInventory } from '../contexts/InventoryContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
-import { generateMorningHuddle } from '../services/geminiService';
-import ReactMarkdown from 'react-markdown';
 
 
 interface DashboardProps {}
-
-const statusTextConfig: { [key in AppointmentStatus]?: { color: string; label: string } } = {
-  [AppointmentStatus.SCHEDULED]: { color: 'text-slate-500 dark:text-slate-400', label: 'Scheduled' },
-  [AppointmentStatus.CONFIRMED]: { color: 'text-blue-500 dark:text-blue-400', label: 'Confirmed' },
-  [AppointmentStatus.ARRIVED]: { color: 'text-orange-700 dark:text-orange-400', label: 'Arrived' },
-  [AppointmentStatus.SEATED]: { color: 'text-lilac-700 dark:text-lilac-400', label: 'Seated' },
-  [AppointmentStatus.TREATING]: { color: 'text-lilac-800 dark:text-lilac-300', label: 'Treating' },
-  [AppointmentStatus.COMPLETED]: { color: 'text-teal-700 dark:text-teal-400', label: 'Completed' },
-  [AppointmentStatus.CANCELLED]: { color: 'text-red-500 dark:text-red-400', label: 'Cancelled' },
-  [AppointmentStatus.NO_SHOW]: { color: 'text-red-700 dark:text-red-400', label: 'No Show' },
-};
 
 const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ value, isCurrency }) => {
   const ref = useRef<HTMLSpanElement>(null);
@@ -92,26 +76,115 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
   return <span ref={ref}>{formatValue(0)}</span>;
 };
 
-const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[], settings?: any }> = ({ appointments, patients, settings }) => {
-    const navigate = useNavigate();
-    const { showModal } = useModal();
-    const { currentBranch } = useAppContext();
+const PIPELINE_STAGES: AppointmentStatus[] = [
+    AppointmentStatus.SCHEDULED,
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.ARRIVED,
+    AppointmentStatus.TREATING,
+];
+
+const StatusPipeline: React.FC<{ currentStatus: AppointmentStatus }> = ({ currentStatus }) => {
+    const currentIdx = PIPELINE_STAGES.indexOf(currentStatus);
+    return (
+        <div className="flex items-center w-full my-2">
+            {PIPELINE_STAGES.map((stage, idx) => {
+                const isCompleted = idx < currentIdx;
+                const isCurrent = idx === currentIdx;
+                return (
+                    <React.Fragment key={stage}>
+                        {idx > 0 && <div className={`flex-1 h-0.5 ${isCompleted || isCurrent ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+                        <div
+                            className={`w-3 h-3 rounded-full transition-all relative ${isCurrent ? 'bg-teal-500 ring-4 ring-teal-100 dark:ring-teal-900/50' : isCompleted ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                            title={stage}
+                        />
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+};
+
+const AppointmentAlerts: React.FC<{ patient: Patient; settings?: FieldSettings }> = ({ patient, settings }) => {
+    const alerts = useMemo(() => {
+        const medicalAlerts = [
+            ...(patient.allergies?.filter(a => a !== 'None') || []),
+            ...(patient.medicalConditions?.filter(c => c !== 'None') || [])
+        ];
+        const hasBalance = (patient.currentBalance || 0) > 0;
+        const isProvisional = patient.registrationStatus === RegistrationStatus.PROVISIONAL;
+        const needsClearance = patient.medicalConditions?.some(c => (settings?.criticalRiskRegistry || []).includes(c)) && !patient.clearanceRequests?.some(r => r.status === 'Approved');
+
+        const alertComponents = [];
+        if (medicalAlerts.length > 0) {
+            alertComponents.push(<div key="med" className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert: {medicalAlerts[0]}</div>);
+        }
+        if (hasBalance) {
+            alertComponents.push(<div key="fin" className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[10px] font-black uppercase tracking-widest"><DollarSign size={10}/> Unpaid Balance: ₱{patient.currentBalance?.toLocaleString()}</div>);
+        }
+        if (isProvisional) {
+            alertComponents.push(<div key="prov" className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete Forms</div>);
+        }
+         if (needsClearance) {
+            alertComponents.push(<div key="clear" className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-[10px] font-black uppercase tracking-widest"><ShieldAlert size={10}/> Needs Clearance</div>);
+        }
+        return alertComponents;
+    }, [patient, settings]);
+
+    if (alerts.length === 0) return null;
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-wrap gap-2 pt-3 mt-4 border-t border-slate-100 dark:border-slate-700/50">
+            {alerts}
+        </div>
+    )
+};
+
+const TodaysTimeline: React.FC<{ 
+  appointments: Appointment[], 
+  patients: Patient[], 
+  settings?: FieldSettings,
+  onUpdateStatus: (id: string, status: AppointmentStatus) => void,
+  disappearingApts: string[],
+}> = ({ appointments, patients, settings, onUpdateStatus, disappearingApts }) => {
+    const navigate = useNavigate();
+
+    const NextActionButton: React.FC<{apt: Appointment}> = ({ apt }) => {
+        const actions: Partial<Record<AppointmentStatus, { label: string, icon: React.ElementType, nextStatus: AppointmentStatus, color: string }>> = {
+            [AppointmentStatus.SCHEDULED]: { label: 'Confirm', icon: CheckSquare, nextStatus: AppointmentStatus.CONFIRMED, color: 'bg-blue-600 shadow-blue-900/30' },
+            [AppointmentStatus.CONFIRMED]: { label: 'Arrive', icon: LogIn, nextStatus: AppointmentStatus.ARRIVED, color: 'bg-orange-600 shadow-orange-900/30' },
+            [AppointmentStatus.ARRIVED]: { label: 'Start Treatment', icon: Play, nextStatus: AppointmentStatus.TREATING, color: 'bg-lilac-600 shadow-lilac-900/30' },
+            [AppointmentStatus.TREATING]: { label: 'Complete Session', icon: Check, nextStatus: AppointmentStatus.COMPLETED, color: 'bg-teal-600 shadow-teal-900/30' },
+        };
+        const action = actions[apt.status];
+        if (!action) return null;
+
+        const Icon = action.icon;
+        return (
+            <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, action.nextStatus); }} className={`w-full flex items-center justify-center gap-3 px-4 py-3 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg btn-tactile ${action.color}`}>
+                <Icon size={14}/> {action.label}
+            </button>
+        )
+    }
+
+    return (
+        <div className="space-y-4">
             <div className="flex items-center gap-3 px-2">
                 <Calendar size={20} className="text-teal-700 dark:text-teal-400"/>
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Today's Schedule</h3>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Today's Timeline</h3>
             </div>
-            <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-4 space-y-2 max-h-[70vh] overflow-y-auto no-scrollbar">
+            <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-4 space-y-3 max-h-[80vh] overflow-y-auto no-scrollbar">
                 {appointments.length > 0 ? appointments.map(apt => {
+                    const isDisappearing = disappearingApts.includes(apt.id);
                     const patient = apt.isBlock ? null : patients.find(p => p.id === apt.patientId);
                     
-                    if (apt.isBlock || !patient) {
+                    if (apt.isBlock) {
                          return (
                             <div key={apt.id} className="p-4 rounded-2xl flex items-center gap-4 bg-bg-tertiary">
-                                <div className="w-16 shrink-0 font-black text-text-secondary text-sm">{apt.time}</div>
-                                <div className="flex-1 min-w-0 truncate">
+                                <div className="w-16 shrink-0 text-center">
+                                    <div className="font-black text-text-secondary text-sm">{apt.time}</div>
+                                    <div className="text-xs font-bold text-slate-400">{apt.durationMinutes}m</div>
+                                </div>
+                                <div className="flex-1 min-w-0 truncate border-l-4 border-slate-400 pl-4">
                                     <span className="font-black text-blue-700 dark:text-blue-400 text-base uppercase truncate">{apt.title}</span>
                                     <span className="text-blue-500 dark:text-blue-500 text-xs font-bold uppercase truncate ml-2">({apt.type})</span>
                                 </div>
@@ -119,147 +192,42 @@ const DailySchedule: React.FC<{ appointments: Appointment[], patients: Patient[]
                         );
                     }
                     
-                    const medicalAlerts = (patient.allergies?.filter(a => a !== 'None').length || 0) + (patient.medicalConditions?.filter(c => c !== 'None').length || 0);
-                    const isProvisional = patient.registrationStatus === RegistrationStatus.PROVISIONAL;
-                    const needsClearance = patient.medicalConditions?.some(c => (settings?.criticalRiskRegistry || []).includes(c)) && !patient.clearanceRequests?.some(r => r.status === 'Approved');
+                    if (!patient) return null;
 
-                    const config = statusTextConfig[apt.status] || { color: 'text-slate-400', label: apt.status };
+                    const statusColor = {
+                        [AppointmentStatus.ARRIVED]: 'border-orange-500',
+                        [AppointmentStatus.TREATING]: 'border-lilac-500',
+                    }[apt.status] || 'border-teal-500';
 
                     return (
                         <div 
                             key={apt.id} 
-                            onClick={() => navigate(`patients/${apt.patientId}`)}
-                            className={`relative p-4 rounded-2xl flex flex-col gap-3 transition-all group cursor-pointer bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary ${apt.isLate ? 'border-red-300 bg-red-50/50 dark:bg-red-900/20 dark:border-red-700' : ''}`}
+                            className={`p-4 rounded-2xl transition-all duration-300 group cursor-pointer bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary ${isDisappearing ? 'animate-slide-out-up' : 'animate-in fade-in'}`}
                         >
-                            {apt.isLate && <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest animate-pulse"><Clock size={10}/> Late</div>}
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 shrink-0 font-black text-text-primary text-sm">{apt.time}</div>
-                                <div className="flex-1 min-w-0 truncate">
-                                    <span className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200">{patient.name}</span>
-                                    <span className="text-text-secondary text-xs font-bold uppercase truncate ml-2">({apt.type})</span>
-                                </div>
-                                <div className={`w-24 shrink-0 text-right text-sm font-black uppercase ${config.color}`}>{config.label}</div>
-                            </div>
-                            <div className="flex items-center gap-2 pl-20">
-                                {medicalAlerts > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert</div>}
-                                {(patient.currentBalance || 0) > 0 && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase tracking-widest"><DollarSign size={10}/> Balance Due</div>}
-                                {isProvisional && <button onClick={(e) => { e.stopPropagation(); showModal('patientRegistration', { initialData: patient, currentBranch })}} className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete</button>}
-                                {needsClearance && <div className="flex items-center gap-1.5 px-2.5 py-1 bg-lilac-100 text-lilac-700 rounded-full text-xs font-black uppercase tracking-widest"><ShieldAlert size={10}/> Clearance</div>}
+                            <div className="flex items-start gap-4">
+                               <div onClick={() => navigate(`patients/${apt.patientId}`)} className="w-20 shrink-0 text-center">
+                                    <div className="font-black text-text-primary text-lg">{apt.time}</div>
+                                    <div className="text-xs font-bold text-slate-400">{apt.durationMinutes} min</div>
+                               </div>
+                               <div onClick={() => navigate(`patients/${apt.patientId}`)} className={`flex-1 min-w-0 border-l-4 ${statusColor} pl-4`}>
+                                   <div className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200">{patient.name}</div>
+                                   <div className="text-text-secondary text-sm font-bold truncate">{apt.type}</div>
+                                   <StatusPipeline currentStatus={apt.status}/>
+                                   <AppointmentAlerts patient={patient} settings={settings}/>
+                               </div>
+                               <div className="w-40 shrink-0">
+                                   <NextActionButton apt={apt} />
+                               </div>
                             </div>
                         </div>
                     )
-                }) : <div className="p-10 text-center text-text-secondary italic">No appointments scheduled for today.</div>}
+                }) : <div className="p-10 text-center text-text-secondary italic">No active appointments for today.</div>}
             </div>
         </div>
     )
 }
 
-// Kanban-style Patient Flow
-const PatientFlow: React.FC<{ triageQueue: Appointment[], patientFlow: any, staff: any[], patients: Patient[], onUpdateStatus: any }> = ({ triageQueue, patientFlow, staff, patients, onUpdateStatus }) => {
-    const navigate = useNavigate();
-    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-
-    const PatientCard: React.FC<{ apt: Appointment, patient: Patient }> = ({ apt, patient }) => (
-        <div 
-            draggable 
-            onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
-            className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-orange-400 cursor-grab active:cursor-grabbing"
-            onClick={() => navigate(`patients/${patient.id}`)}
-        >
-            <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
-        </div>
-    );
-
-    const InClinicPatientCard: React.FC<{ apt: Appointment, patient: Patient }> = ({ apt, patient }) => (
-        <div 
-            draggable 
-            onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id }))}
-            className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-lilac-400 cursor-grab active:cursor-grabbing"
-            onClick={() => navigate(`patients/${patient.id}`)}
-        >
-            <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
-            <p className="text-xs font-bold text-lilac-600 dark:text-lilac-400 mt-2">{apt.status}</p>
-        </div>
-    );
-    
-    const FlowColumn: React.FC<{ title: string, count: number, onDropStatus?: AppointmentStatus, children: React.ReactNode, icon: React.ElementType, color: string }> = ({ title, count, onDropStatus, children, icon: Icon, color }) => (
-        <div 
-            onDragOver={(e) => { if (onDropStatus) { e.preventDefault(); setDragOverColumn(title); } }}
-            onDragLeave={() => { if (onDropStatus) setDragOverColumn(null); }}
-            onDrop={(e) => {
-                if (onDropStatus) {
-                    e.preventDefault();
-                    setDragOverColumn(null);
-                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
-                    if(data.appointmentId) {
-                        onUpdateStatus(data.appointmentId, onDropStatus);
-                    }
-                }
-            }}
-            className={`flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-4 transition-all ${dragOverColumn === title ? 'bg-teal-50 dark:bg-teal-900/50 ring-2 ring-teal-500' : ''}`}
-        >
-            <div className="flex items-center gap-2 mb-4 p-2">
-                <Icon size={18} className={color}/>
-                <h4 className="font-black text-sm text-slate-600 dark:text-slate-300 uppercase tracking-widest">{title}</h4>
-                <span className="ml-auto bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center">{count}</span>
-            </div>
-            <div className="space-y-3 overflow-y-auto no-scrollbar flex-1">
-                {children}
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-3 px-2">
-                <Users size={20} className="text-lilac-700 dark:text-lilac-400"/>
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Patient Flow</h3>
-            </div>
-            <div className="flex flex-col md:flex-row gap-6 h-[70vh]">
-                <FlowColumn title="Waiting Room" count={patientFlow.arrived.length} icon={Armchair} color="text-orange-500">
-                    {patientFlow.arrived.map((apt: Appointment) => {
-                        const patient = patients.find(p => p.id === apt.patientId);
-                        return patient ? <PatientCard key={apt.id} apt={apt} patient={patient}/> : null;
-                    })}
-                </FlowColumn>
-                <FlowColumn title="In Clinic" count={patientFlow.inClinic.length} onDropStatus={AppointmentStatus.SEATED} icon={Activity} color="text-lilac-500">
-                     {patientFlow.inClinic.map((apt: Appointment) => {
-                        const patient = patients.find(p => p.id === apt.patientId);
-                        return patient ? <InClinicPatientCard key={apt.id} apt={apt} patient={patient} /> : null;
-                    })}
-                </FlowColumn>
-                <FlowColumn title="Ready for Checkout" count={patientFlow.needsCheckout.length} onDropStatus={AppointmentStatus.COMPLETED} icon={ClipboardCheck} color="text-teal-500">
-                    {patientFlow.needsCheckout.map((apt: Appointment) => {
-                        const patient = patients.find(p => p.id === apt.patientId);
-                        return patient ? (
-                            <div key={apt.id} className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-md border-l-4 border-teal-400 cursor-pointer" onClick={() => navigate(`patients/${patient.id}`)}>
-                                <p className="font-black text-slate-800 dark:text-slate-100 uppercase text-sm">{patient.name}</p>
-                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{apt.type}</p>
-                            </div>
-                        ) : null;
-                    })}
-                </FlowColumn>
-            </div>
-        </div>
-    )
-}
-
-
-const StatCard: React.FC<{title: string, value: string | React.ReactNode, icon: React.ElementType, color: string, onClick?: () => void}> = ({ title, value, icon: Icon, color, onClick }) => (
-    <button onClick={onClick} disabled={!onClick} className={`p-6 rounded-[2rem] text-white shadow-xl hover:-translate-y-1 transition-transform w-full text-left ${color} ${!onClick ? 'cursor-default' : ''}`}>
-        <div className="flex justify-between items-start">
-            <div className="bg-white/20 p-3 rounded-xl"><Icon size={24}/></div>
-        </div>
-        <div className="mt-4">
-            <p className="text-4xl font-black tracking-tighter">{value}</p>
-            <p className="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">{title}</p>
-        </div>
-    </button>
-)
-
-const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, actionItems, myTasks, onToggleTask, appointments, patients }) => {
+const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, myTasks, onToggleTask, appointments, patients }) => {
     const { showModal } = useModal();
     const todayStr = new Date().toLocaleDateString('en-CA');
     const completedToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.COMPLETED);
@@ -281,28 +249,38 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
         showModal('infoDisplay', { title: "Today's No-Shows", content: patientList || 'No-shows today. Great!' });
     };
 
+    const StatWidget: React.FC<{title: string, value: React.ReactNode, icon: React.ElementType, color: string, onClick?: () => void}> = ({ title, value, icon: Icon, color, onClick }) => (
+        <button onClick={onClick} disabled={!onClick} className={`p-4 rounded-2xl text-white shadow-md hover:-translate-y-0.5 transition-transform w-full text-left flex items-center gap-3 ${color} ${!onClick ? 'cursor-default' : ''}`}>
+            <div className="bg-white/20 p-2 rounded-lg"><Icon size={18}/></div>
+            <div>
+                <p className="text-xl font-black tracking-tighter">{value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{title}</p>
+            </div>
+        </button>
+    )
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
              <div className="flex items-center gap-3 px-2">
                 <Activity size={20} className="text-red-700 dark:text-red-400"/>
                 <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Action Center</h3>
             </div>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4">
-                    <StatCard title="Today's Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
-                    <StatCard title="Patients Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
-                    <StatCard title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                    <StatWidget title="Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
+                    <StatWidget title="Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
+                    <StatWidget title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
                 </div>
                 
-                 <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-6">
-                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-4">My Tasks ({myTasks.length})</h4>
-                     <div className="space-y-2">
+                 <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2">My Tasks ({myTasks.length})</h4>
+                     <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar">
                         {myTasks.map(task => (
-                            <div key={task.id} className="flex items-start gap-3 p-3 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg group">
+                            <div key={task.id} className="flex items-start gap-3 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg group">
                                 <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 text-text-secondary hover:text-teal-700 dark:hover:text-teal-400"><CheckCircle size={16} /></button>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-bold text-text-primary leading-tight">{task.text}</div>
-                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[11px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
+                                    {task.isUrgent && <div className="mt-1 flex items-center gap-1 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase w-fit"><Flag size={10} /> Urgent</div>}
                                 </div>
                             </div>
                         ))}
@@ -314,73 +292,37 @@ const ActionCenter: React.FC<{ dailyKPIs: any, actionItems: any[], myTasks: any[
     )
 }
 
-const AIMorningHuddle: React.FC<{ appointments: Appointment[], patients: Patient[], currentUser: User }> = ({ appointments, patients, currentUser }) => {
-    const [huddle, setHuddle] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchHuddle = async () => {
-            setIsLoading(true);
-            try {
-                // Filter appointments for the current user
-                const userAppointments = appointments.filter(apt => apt.providerId === currentUser.id);
-                if (userAppointments.length > 0) {
-                    const huddleText = await generateMorningHuddle(userAppointments, patients);
-                    setHuddle(huddleText);
-                } else {
-                    setHuddle("### AI Morning Huddle\n\nYou have no appointments scheduled for today.");
-                }
-            } catch (error) {
-                console.error(error);
-                setHuddle("### AI Morning Huddle\n\nCould not generate your daily briefing at this time.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchHuddle();
-    }, [appointments, patients, currentUser]);
-
-    return (
-        <div className="bg-gradient-to-br from-lilac-700 to-teal-800 p-8 rounded-[2.5rem] shadow-2xl shadow-lilac-900/20 text-white relative overflow-hidden">
-            <Sparkles size={128} className="absolute -top-8 -right-8 text-white/5 opacity-50" />
-            <div className="relative z-10">
-                {isLoading ? (
-                    <div className="flex items-center gap-4">
-                        <Loader className="animate-spin" size={24} />
-                        <span className="font-bold text-lg">Generating your AI Morning Huddle...</span>
-                    </div>
-                ) : (
-                    <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-lilac-100 prose-strong:text-amber-300">
-                        <ReactMarkdown>{huddle || ''}</ReactMarkdown>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
 export const Dashboard: React.FC<DashboardProps> = () => {
   const { showModal } = useModal();
-  const navigate = useNavigate();
   const { appointments, handleUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
   const { staff } = useStaff();
   const { currentUser, currentBranch } = useAppContext();
   const { patients } = usePatient();
   const { fieldSettings } = useSettings();
-  const { stock } = useInventory();
-  const { tasks, handleToggleTask, incidents, handleAddToWaitlist } = useClinicalOps();
+  const { tasks, handleToggleTask, handleAddToWaitlist } = useClinicalOps();
   
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [time, setTime] = useState(new Date());
+  const [disappearingApts, setDisappearingApts] = useState<string[]>([]);
+  
+  const handleStatusUpdate = (appointmentId: string, newStatus: AppointmentStatus) => {
+    if (newStatus === AppointmentStatus.COMPLETED) {
+        setDisappearingApts(prev => [...prev, appointmentId]);
+        setTimeout(() => {
+            handleUpdateAppointmentStatus(appointmentId, newStatus);
+            // The item will naturally disappear after context update, 
+            // but we clean up the state just in case.
+            setTimeout(() => setDisappearingApts(prev => prev.filter(id => id !== appointmentId)), 500);
+        }, 500);
+    } else {
+        handleUpdateAppointmentStatus(appointmentId, newStatus);
+    }
+  };
 
   useEffect(() => {
       const timer = setInterval(() => setTime(new Date()), 1000 * 60); // Update every minute
       return () => clearInterval(timer);
   }, []);
   
-  const syncConflicts: SyncConflict[] = [];
-
   const getGreeting = () => {
       const hour = time.getHours();
       if (hour < 12) return "Good Morning";
@@ -388,74 +330,41 @@ export const Dashboard: React.FC<DashboardProps> = () => {
       return "Good Evening";
   };
   
-  const getPatient = (id: string) => patients.find(pt => pt.id === id);
-
-  const todaysFullSchedule = useMemo(() => {
+  const todaysAppointments = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('en-CA');
+    const nonTerminalStatuses = [
+      AppointmentStatus.SCHEDULED,
+      AppointmentStatus.CONFIRMED,
+      AppointmentStatus.ARRIVED,
+      AppointmentStatus.TREATING
+    ];
     return appointments
-      .filter(a => a.date === todayStr && a.branch === currentBranch)
+      .filter(a => a.date === todayStr && a.branch === currentBranch && (nonTerminalStatuses.includes(a.status) || disappearingApts.includes(a.id)))
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [appointments, currentBranch]);
+  }, [appointments, currentBranch, disappearingApts]);
   
-  const triageQueue = useMemo(() => todaysFullSchedule.filter(a => a.triageLevel && a.status === AppointmentStatus.ARRIVED), [todaysFullSchedule]);
-
-  const patientFlow = useMemo(() => {
-    const todaysApts = todaysFullSchedule.filter(a => !a.isBlock && !a.triageLevel);
-    return {
-      arrived: todaysApts.filter(a => a.status === AppointmentStatus.ARRIVED),
-      inClinic: todaysApts.filter(a => [AppointmentStatus.SEATED, AppointmentStatus.TREATING].includes(a.status)),
-      needsCheckout: todaysApts.filter(a => a.status === AppointmentStatus.COMPLETED)
-    };
-  }, [todaysFullSchedule]);
+  // This is now for the widgets, which need to see all of today's appointments
+  const allTodaysAppointments = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    return appointments.filter(a => a.date === todayStr && a.branch === currentBranch);
+  }, [appointments, currentBranch]);
 
   const dailyKPIs = useMemo(() => {
-    const completedToday = todaysFullSchedule.filter(a => a.status === AppointmentStatus.COMPLETED);
+    const completedToday = allTodaysAppointments.filter(a => a.status === AppointmentStatus.COMPLETED);
     const production = completedToday.reduce((sum, apt) => {
         const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-        const patient = getPatient(apt.patientId);
-        if (!proc || !patient) return sum;
-        let priceBookId = fieldSettings?.priceBooks?.find(pb => pb.isDefault)?.id;
-        if (!priceBookId) return sum;
-        const priceEntry = fieldSettings?.priceBookEntries?.find(
-            pbe => pbe.procedureId === proc.id && pbe.priceBookId === priceBookId
-        );
-        return sum + (priceEntry?.price || 0);
+        return sum + (proc?.defaultPrice || 0);
     }, 0);
     return {
       production: production,
       patientsSeen: completedToday.length,
-      noShows: todaysFullSchedule.filter(a => a.status === AppointmentStatus.NO_SHOW).length
+      noShows: allTodaysAppointments.filter(a => a.status === AppointmentStatus.NO_SHOW).length
     };
-  }, [todaysFullSchedule, fieldSettings, patients]);
-
-  const actionItems = useMemo(() => {
-    const items = [];
-    if(syncConflicts.length > 0) items.push({ type: 'Sync Conflicts', count: syncConflicts.length, icon: CloudOff, action: () => navigate('admin/sync') });
-    return items.sort((a,b) => b.count - a.count);
-  }, [syncConflicts, navigate]);
+  }, [allTodaysAppointments, fieldSettings]);
 
   if (!currentUser) return null;
 
   const myTasks = useMemo(() => tasks.filter(t => t.assignedTo === currentUser.id && !t.isCompleted), [tasks, currentUser.id]);
-
-  const roleBasedLayout = useMemo(() => {
-    const components = {
-        schedule: <DailySchedule appointments={todaysFullSchedule} patients={patients} settings={fieldSettings} />,
-        flow: <PatientFlow triageQueue={triageQueue} patientFlow={patientFlow} staff={staff} patients={patients} onUpdateStatus={handleUpdateAppointmentStatus} />,
-        actions: <ActionCenter dailyKPIs={dailyKPIs} actionItems={actionItems} myTasks={myTasks} onToggleTask={handleToggleTask} appointments={todaysFullSchedule} patients={patients} />,
-    };
-
-    switch (currentUser.role) {
-        case UserRole.ADMIN:
-            return [components.actions, components.flow, components.schedule];
-        case UserRole.DENTIST:
-            return [components.schedule, components.flow, components.actions];
-        case UserRole.DENTAL_ASSISTANT:
-            return [components.flow, components.schedule, components.actions];
-        default:
-            return [components.schedule, components.flow, components.actions];
-    }
-  }, [currentUser.role, todaysFullSchedule, patients, fieldSettings, triageQueue, patientFlow, staff, handleUpdateAppointmentStatus, dailyKPIs, actionItems, myTasks, handleToggleTask]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -481,14 +390,25 @@ export const Dashboard: React.FC<DashboardProps> = () => {
         </div>
       </div>
 
-      {currentUser && (currentUser.role === UserRole.DENTIST || currentUser.role === UserRole.SYSTEM_ARCHITECT) && (
-        <AIMorningHuddle appointments={todaysFullSchedule} patients={patients} currentUser={currentUser} />
-      )}
-
       <div className="grid gap-8 items-start dashboard-grid">
-        <div className="dashboard-col-1">{roleBasedLayout[0]}</div>
-        <div className="dashboard-col-2">{roleBasedLayout[1]}</div>
-        <div className="dashboard-col-3">{roleBasedLayout[2]}</div>
+        <div className="dashboard-main">
+            <TodaysTimeline 
+              appointments={todaysAppointments} 
+              patients={patients} 
+              settings={fieldSettings} 
+              onUpdateStatus={handleStatusUpdate}
+              disappearingApts={disappearingApts}
+            />
+        </div>
+        <div className="dashboard-side">
+            <ActionWidgets 
+              dailyKPIs={dailyKPIs} 
+              myTasks={myTasks} 
+              onToggleTask={handleToggleTask} 
+              appointments={allTodaysAppointments} 
+              patients={patients} 
+            />
+        </div>
       </div>
     </div>
   );

@@ -41,9 +41,8 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, onClose, onU
                           <h4 className="label text-xs">Action Bar</h4>
                           <div className="grid grid-cols-2 gap-3">
                               <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.ARRIVED)} className="bg-orange-100 text-orange-800 p-3 rounded-lg text-xs font-black uppercase">Arrived</button>
-                              <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.SEATED)} className="bg-blue-100 text-blue-800 p-3 rounded-lg text-xs font-black uppercase">Seat</button>
                               <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.TREATING)} className="bg-lilac-100 text-lilac-800 p-3 rounded-lg text-xs font-black uppercase">Treat</button>
-                              <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.COMPLETED)} className="bg-teal-100 text-teal-800 p-3 rounded-lg text-xs font-black uppercase">Complete</button>
+                              <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.COMPLETED)} className="bg-teal-100 text-teal-800 p-3 rounded-lg text-xs font-black uppercase col-span-2">Complete</button>
                           </div>
                       </div>
                        <div>
