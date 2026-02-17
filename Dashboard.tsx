@@ -146,9 +146,8 @@ const TodaysTimeline: React.FC<{
   patients: Patient[], 
   settings?: FieldSettings,
   onUpdateStatus: (id: string, status: AppointmentStatus) => void,
-  onEditAppointment: (appointment: Appointment) => void,
   disappearingApts: string[],
-}> = ({ appointments, patients, settings, onUpdateStatus, onEditAppointment, disappearingApts }) => {
+}> = ({ appointments, patients, settings, onUpdateStatus, disappearingApts }) => {
     const navigate = useNavigate();
 
     const NextActionButton: React.FC<{apt: Appointment}> = ({ apt }) => {
@@ -205,29 +204,20 @@ const TodaysTimeline: React.FC<{
                     return (
                         <div 
                             key={apt.id} 
-                            onClick={() => onEditAppointment(apt)}
                             className={`p-4 rounded-2xl transition-all duration-300 group cursor-pointer bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary ${isDisappearing ? 'animate-slide-out-up' : 'animate-in fade-in'}`}
                         >
                             <div className="flex items-start gap-4">
-                               <div className="w-20 shrink-0 text-center">
+                               <div onClick={() => navigate(`patients/${apt.patientId}`)} className="w-20 shrink-0 text-center">
                                     <div className="font-black text-text-primary text-lg">{apt.time}</div>
                                     <div className="text-xs font-bold text-slate-400">{apt.durationMinutes} min</div>
                                </div>
-                               <div className={`flex-1 min-w-0 border-l-4 ${statusColor} pl-4`}>
-                                   <div 
-                                      onClick={(e) => { e.stopPropagation(); navigate(`patients/${apt.patientId}`); }}
-                                      className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200 hover:underline"
-                                      role="link"
-                                      tabIndex={0}
-                                      onKeyPress={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(`patients/${apt.patientId}`); } }}
-                                    >
-                                      {patient.name}
-                                    </div>
+                               <div onClick={() => navigate(`patients/${apt.patientId}`)} className={`flex-1 min-w-0 border-l-4 ${statusColor} pl-4`}>
+                                   <div className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200">{patient.name}</div>
                                    <div className="text-text-secondary text-sm font-bold truncate">{apt.type}</div>
                                    <StatusPipeline currentStatus={apt.status}/>
                                    <AppointmentAlerts patient={patient} settings={settings}/>
                                </div>
-                               <div className="w-40 shrink-0" onClick={e => e.stopPropagation()}>
+                               <div className="w-40 shrink-0">
                                    <NextActionButton apt={apt} />
                                </div>
                             </div>
@@ -349,15 +339,6 @@ export const Dashboard: React.FC<DashboardProps> = () => {
     } else {
         handleUpdateAppointmentStatus(appointmentId, newStatus);
     }
-  };
-
-  const handleEditAppointment = (appointment: Appointment) => {
-    showModal('appointment', { 
-        onSave: handleSaveAppointment, 
-        onAddToWaitlist: handleAddToWaitlist,
-        currentBranch,
-        existingAppointment: appointment,
-    });
   };
 
   useEffect(() => {
@@ -487,7 +468,6 @@ export const Dashboard: React.FC<DashboardProps> = () => {
               patients={patients} 
               settings={fieldSettings} 
               onUpdateStatus={handleStatusUpdate}
-              onEditAppointment={handleEditAppointment}
               disappearingApts={disappearingApts}
             />
         </div>
