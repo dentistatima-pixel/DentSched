@@ -311,15 +311,13 @@ const VitalsCard: React.FC<{
     color: string;
     onClick: () => void;
 }> = ({ icon: Icon, title, value, color, onClick }) => (
-    <button onClick={onClick} className={`p-6 rounded-3xl text-white shadow-lg hover:-translate-y-1 transition-transform w-full text-left flex flex-col justify-between h-40 ${color}`}>
-        <div className="flex justify-between items-start">
-            <div className="bg-white/20 p-3 rounded-xl">
-                <Icon size={24}/>
-            </div>
+    <button onClick={onClick} className={`p-4 rounded-2xl text-white shadow-lg hover:-translate-y-0.5 transition-transform w-full text-left flex items-center gap-4 ${color}`}>
+        <div className="bg-white/20 p-3 rounded-lg">
+            <Icon size={20}/>
         </div>
-        <div>
-            <p className="text-4xl font-black tracking-tighter">{value}</p>
-            <p className="text-xs font-bold uppercase tracking-widest opacity-80">{title}</p>
+        <div className="flex-1">
+            <p className="text-3xl font-black tracking-tighter">{value}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{title}</p>
         </div>
     </button>
 );
