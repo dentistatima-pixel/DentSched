@@ -154,7 +154,7 @@ export const getAppointmentStatusConfig = (status: AppointmentStatus): Appointme
     return APPOINTMENT_STATUS_CONFIG[status];
 };
 
-export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'free', 'bargain', 'limited time'];
+export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'bargain', 'limited time'];
 export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
 
 export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
@@ -1252,27 +1252,27 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   { id: 'proc_sealant', name: 'Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive', defaultPrice: 1000, defaultDurationMinutes: 20 },
 
   // B. Restorative Dentistry
-  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45 },
-  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60 },
-  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75 },
-  { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30 },
+  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45, triggersPostOpSequence: true },
+  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60, triggersPostOpSequence: true },
+  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75, triggersPostOpSequence: true },
+  { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30, triggersPostOpSequence: true },
 
   // C. Endodontics (Root Canals)
-  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true },
-  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true },
-  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true },
-  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true },
+  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true },
 
   // D. Surgery & Extractions
-  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true },
-  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true },
+  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true },
 
   // E. Prosthodontics (Crowns, Bridges, Dentures)
-  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true },
-  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true },
-  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true },
-  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60 },
+  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true },
+  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60, triggersPostOpSequence: true },
 ];
 
 const DEFAULT_MEDICATIONS: Medication[] = [
@@ -1300,10 +1300,111 @@ const DEFAULT_MEDICATIONS: Medication[] = [
 ];
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
-    'appointment_reminder': { id: 'appointment_reminder', label: 'Appointment Reminder', text: 'Hi {PatientName}, this is a reminder for your appointment at {ClinicName} on {Date} at {Time}. Please reply YES to confirm or call us to reschedule.', enabled: true, category: 'Logistics', triggerDescription: '24 hours before a scheduled appointment' },
-    'post_op_checkin': { id: 'post_op_checkin', label: 'Post-Op Check-in', text: 'Hi {PatientName}, this is {ClinicName} checking in. We hope you are recovering well from your procedure. Please contact us if you have any concerns.', enabled: true, category: 'Recovery', triggerDescription: '24 hours after a surgical procedure' },
-    'recall_due': { id: 'recall_due', label: 'Recall Due', text: 'Hi {PatientName}, our records show you are due for your regular dental check-up at {ClinicName}. Please call us to book your next visit. Thank you!', enabled: true, category: 'Reputation', triggerDescription: 'When a patient\'s recall status becomes "Due"' },
-    'payment_receipt': { id: 'payment_receipt', label: 'Payment Receipt', text: 'Thank you for your payment of {Amount} at {ClinicName} on {Date}. Your new balance is {Balance}. Ref: {ORNumber}.', enabled: false, category: 'Financial', triggerDescription: 'After a payment with an official receipt is recorded' },
+    // --- Logistics ---
+    'new_appointment_confirmation': { 
+        id: 'new_appointment_confirmation', 
+        label: 'New Appointment Confirmation', 
+        text: 'Hi {PatientName}, your appointment at {ClinicName} is confirmed for {Date} at {Time}. We look forward to seeing you!', 
+        enabled: true, 
+        category: 'Logistics', 
+        triggerDescription: 'Sent immediately after an appointment is booked.' 
+    },
+    'appointment_reminder': { 
+        id: 'appointment_reminder', 
+        label: 'Appointment Reminder', 
+        text: 'Hi {PatientName}, this is a reminder for your appointment at {ClinicName} on {Date} at {Time}. If you need to reschedule, please call our office.', 
+        enabled: true, 
+        category: 'Logistics', 
+        triggerDescription: '24 hours before a scheduled appointment' 
+    },
+    'reschedule_confirmation_patient': {
+        id: 'reschedule_confirmation_patient',
+        label: 'Reschedule Confirmation (Patient)',
+        text: 'Hi {PatientName}, this confirms your appointment at {ClinicName} has been rescheduled to {Date} at {Time}. See you then!',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent after a patient successfully reschedules their appointment.'
+    },
+    'cancellation_confirmation_patient': {
+        id: 'cancellation_confirmation_patient',
+        label: 'Cancellation Confirmation (Patient)',
+        text: 'Hi {PatientName}, this confirms your appointment on {Date} at {ClinicName} has been cancelled as requested. Please call us when you\'re ready to rebook.',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent when a patient cancels their appointment.'
+    },
+    'cancellation_by_clinic': {
+        id: 'cancellation_by_clinic',
+        label: 'Appointment Cancellation (Clinic)',
+        text: 'Dear {PatientName}, we sincerely apologize but we need to reschedule your appointment at {ClinicName} on {Date}. We will call you shortly to find a new time. Thank you.',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent when the clinic needs to cancel/reschedule an appointment.'
+    },
+
+    // --- Safety ---
+    'pre_op_instructions': {
+        id: 'pre_op_instructions',
+        label: 'Pre-Operative Instructions',
+        text: 'Reminder from {ClinicName}: For your procedure tomorrow, please remember not to eat or drink for 8 hours beforehand. Call us with any questions.',
+        enabled: true,
+        category: 'Safety',
+        triggerDescription: 'Sent 24 hours before specific major procedures.'
+    },
+    
+    // --- Recovery ---
+    'post_treatment_24hr': {
+        id: 'post_treatment_24hr',
+        label: 'Post-Treatment Check-in (24 Hours)',
+        text: 'Hi {PatientName}, this is the team from {ClinicName} checking in after your visit yesterday. We hope you are recovering comfortably. If you have any immediate concerns, please call our office directly.',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 24 hours after an appointment is completed.'
+    },
+    'post_treatment_1mo': {
+        id: 'post_treatment_1mo',
+        label: 'Monthly Wellness Check',
+        text: 'Hi {PatientName}, it\'s been a month since your last visit to {ClinicName}. We\'re just checking in to see how you\'re doing. We hope everything is feeling great!',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 1 month after an appointment is completed.'
+    },
+    'post_treatment_3mo': {
+        id: 'post_treatment_3mo',
+        label: 'Quarterly Follow-Up & Recall',
+        text: 'Hi {PatientName}, a friendly follow-up from {ClinicName}. It\'s been three months since we saw you. Remember that regular check-ups are key to long-term health. You can call us anytime to schedule your next visit!',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 3 months after an appointment is completed.'
+    },
+
+    // --- Reputation ---
+    'recall_due': { 
+        id: 'recall_due', 
+        label: 'Recall Due', 
+        text: 'Hi {PatientName}, our records show you are due for your regular dental check-up at {ClinicName}. Please call us to book your next visit. Thank you!', 
+        enabled: true, 
+        category: 'Reputation', 
+        triggerDescription: 'When a patient\'s recall status becomes "Due"' 
+    },
+
+    // --- Financial ---
+    'balance_reminder': {
+        id: 'balance_reminder',
+        label: 'Outstanding Balance Reminder',
+        text: 'Hi {PatientName}, a friendly reminder from {ClinicName} that you have an outstanding balance. You can settle this at your next visit or call our office for payment options.',
+        enabled: true,
+        category: 'Financial',
+        triggerDescription: 'Sent periodically for accounts with an outstanding balance.'
+    },
+    'payment_receipt': { 
+        id: 'payment_receipt', 
+        label: 'Payment Receipt', 
+        text: 'Thank you for your payment of {Amount} at {ClinicName} on {Date}. Your new balance is {Balance}. Ref: {ORNumber}.', 
+        enabled: false, 
+        category: 'Financial', 
+        triggerDescription: 'After a payment with an official receipt is recorded' 
+    },
 };
 
 export const DEFAULT_SETTINGS: FieldSettings = {

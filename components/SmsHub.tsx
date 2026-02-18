@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { FieldSettings, SmsTemplates, SmsTemplateConfig } from '../types';
+
+import React, { useState, useMemo } from 'react';
+import { FieldSettings, SmsTemplates, SmsTemplateConfig, SmsCategory } from '../types';
 import { Smartphone, Cloud, Server, MessageSquare, Save, Zap, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
@@ -36,9 +37,42 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
         const newTemplates = { ...smsTemplates, [id]: { ...smsTemplates[id], [field]: valueToSave } };
         onUpdateSettings({ ...settings, smsTemplates: newTemplates });
     };
+    
+    const groupedTemplates = useMemo(() => {
+        const categoryOrder: SmsCategory[] = ['Logistics', 'Recovery', 'Reputation', 'Financial', 'Onboarding', 'Safety', 'Security', 'Efficiency'];
+        const groups: Record<string, SmsTemplateConfig[]> = {};
+
+        Object.values(smsTemplates).forEach((template: SmsTemplateConfig) => {
+            const category = template.category || 'Logistics';
+            if (!groups[category]) {
+                groups[category] = [];
+            }
+            groups[category].push(template);
+        });
+        
+        const orderedGroups: Record<string, SmsTemplateConfig[]> = {};
+        categoryOrder.forEach(cat => {
+            if (groups[cat]) {
+                orderedGroups[cat] = groups[cat];
+            }
+        });
+        
+        // Add any remaining categories that were not in the order list
+        Object.keys(groups).forEach(cat => {
+            if (!orderedGroups[cat]) {
+                orderedGroups[cat] = groups[cat];
+            }
+        });
+
+        return orderedGroups;
+
+    }, [smsTemplates]);
 
     const hasViolations = Object.values(smsTemplates).some(config => 
-        PDA_FORBIDDEN_COMMERCIAL_TERMS.some(term => (config as SmsTemplateConfig).text.toLowerCase().includes(term))
+        PDA_FORBIDDEN_COMMERCIAL_TERMS.some(term => {
+            const regex = new RegExp(`\\b${term}\\b`, 'i');
+            return regex.test((config as SmsTemplateConfig).text);
+        })
     );
 
     const handleSave = () => {
@@ -149,76 +183,65 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                 </div>
 
                 {/* Templates Section */}
-                <div className="bg-white p-10 rounded-[3.5rem] border border-slate-200 shadow-sm space-y-8">
-                    <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                        <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><MessageSquare size={24}/></div>
-                        <h4 className="font-black text-slate-800 uppercase text-sm">Automated Operational Narratives</h4>
-                    </div>
-                    <div className="grid grid-cols-1 gap-6">
-                        {Object.entries(smsTemplates).map(([key, config]: [string, SmsTemplateConfig]) => {
-                            const forbiddenTerm = PDA_FORBIDDEN_COMMERCIAL_TERMS.find(term => (config as SmsTemplateConfig).text.toLowerCase().includes(term));
-                            const displayText = (config as SmsTemplateConfig).text.replace(/{ClinicName}/g, clinicName);
-                            return (
-                                <div key={key} className={`p-5 rounded-3xl border transition-all group ${forbiddenTerm ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-100 hover:border-teal-500'}`}>
-                                    <div className="flex justify-between items-center mb-3">
-                                        <div>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${forbiddenTerm ? 'text-red-800' : 'text-teal-700'}`}>{config.label}</span>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{config.triggerDescription}</p>
-                                        </div>
-                                        <button onClick={() => handleTemplateChange(key, 'enabled', !config.enabled)} className={`w-10 h-5 rounded-full p-1 transition-colors flex items-center ${config.enabled ? 'bg-teal-600 justify-end' : 'bg-slate-300 justify-start'}`}><div className="w-3 h-3 bg-white rounded-full"/></button>
-                                    </div>
-                                    <textarea 
-                                        value={displayText} 
-                                        onChange={e => handleTemplateChange(key, 'text', e.target.value)}
-                                        className={`w-full p-3 text-xs font-mono text-slate-600 bg-white border rounded-2xl outline-none h-24 shadow-inner ${forbiddenTerm ? 'border-red-300' : 'border-slate-200 focus:border-teal-500'}`}
-                                    />
-                                    {forbiddenTerm && (
-                                        <div className="mt-2 p-3 bg-red-100/50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center gap-2">
-                                            <AlertTriangle size={14} /> PDA RULE 15 VIOLATION: The term "{forbiddenTerm}" is prohibited.
-                                        </div>
-                                    )}
+                <div className="bg-white p-10 rounded-[3.5rem] border border-slate-200 shadow-sm space-y-12">
+                    {Object.entries(groupedTemplates).map(([category, templatesInCategory]) => {
+                        const categoryIcon = MessageSquare;
+                        let categoryTitle = `${category} Narratives`;
+                        if (category === 'Recovery') categoryTitle = 'Post-Treatment Care';
+
+                        return (
+                            <div key={category}>
+                                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                                    <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><categoryIcon size={24}/></div>
+                                    <h4 className="font-black text-slate-800 uppercase text-sm">{categoryTitle}</h4>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <div className="grid grid-cols-1 gap-6 pt-6">
+                                    {/* FIX: Cast templatesInCategory to SmsTemplateConfig[] to resolve 'map does not exist on type unknown' error. */}
+                                    {(templatesInCategory as SmsTemplateConfig[]).map((config) => {
+                                        const key = config.id;
+                                        const forbiddenTerm = PDA_FORBIDDEN_COMMERCIAL_TERMS.find(term => {
+                                            const regex = new RegExp(`\\b${term}\\b`, 'i');
+                                            return regex.test(config.text);
+                                        });
+                                        const displayText = config.text.replace(/{ClinicName}/g, clinicName);
+                                        return (
+                                            <div key={key} className={`p-5 rounded-3xl border transition-all group ${forbiddenTerm ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-100 hover:border-teal-500'}`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${forbiddenTerm ? 'text-red-800' : 'text-teal-700'}`}>{config.label}</span>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{config.triggerDescription}</p>
+                                                    </div>
+                                                    <button onClick={() => handleTemplateChange(key, 'enabled', !config.enabled)} className={`w-10 h-5 rounded-full p-1 transition-colors flex items-center ${config.enabled ? 'bg-teal-600 justify-end' : 'bg-slate-300 justify-start'}`}><div className="w-3 h-3 bg-white rounded-full"/></button>
+                                                </div>
+                                                <textarea 
+                                                    value={displayText} 
+                                                    onChange={e => handleTemplateChange(key, 'text', e.target.value)}
+                                                    className={`w-full p-3 text-xs font-mono text-slate-600 bg-white border rounded-2xl outline-none h-24 shadow-inner ${forbiddenTerm ? 'border-red-300' : 'border-slate-200 focus:border-teal-500'}`}
+                                                />
+                                                {forbiddenTerm && (
+                                                    <div className="mt-2 p-3 bg-red-100/50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center gap-2">
+                                                        <AlertTriangle size={14} /> PDA RULE 15 VIOLATION: The term "{forbiddenTerm}" is prohibited.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
             
-            {/* Polling Toggle */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center">
-                <label htmlFor="startOnBoot" className="font-black text-slate-800 uppercase text-sm cursor-pointer">Start on Boot</label>
-                <div className="relative">
-                    <input 
-                        type="checkbox" 
-                        id="startOnBoot"
-                        name="isPollingEnabled"
-                        checked={smsConfig.isPollingEnabled}
-                        onChange={handleConfigChange}
-                        className="sr-only peer"
-                    />
-                    <div className="w-14 h-8 bg-slate-200 rounded-full peer-checked:bg-teal-600 transition-colors"></div>
-                    <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                </div>
-            </div>
-
-             <div className="pt-8 flex justify-between items-center">
-                <div className="px-8 py-4 bg-teal-100 text-teal-800 rounded-2xl font-black uppercase text-xs tracking-widest border-2 border-teal-200">
-                    Status: ONLINE
-                </div>
-                <div className="flex gap-4">
-                    <button onClick={() => toast.info("Pulse test sent.")} className="bg-white text-teal-800 px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest border-2 border-slate-200 flex items-center gap-3">
-                        <Zap size={16} />
-                        Pulse Test
-                    </button>
-                    <button 
-                        onClick={handleSave} 
-                        disabled={hasViolations}
-                        className="bg-teal-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3 disabled:bg-slate-300 disabled:shadow-none disabled:grayscale"
-                    >
-                        <Save size={16} />
-                        Save Configuration
-                    </button>
-                </div>
+             <div className="pt-8 flex justify-end items-center">
+                <button 
+                    onClick={handleSave} 
+                    disabled={hasViolations}
+                    className="bg-teal-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3 disabled:bg-slate-300 disabled:shadow-none disabled:grayscale"
+                >
+                    <Save size={16} />
+                    Save Configuration
+                </button>
             </div>
         </div>
     );

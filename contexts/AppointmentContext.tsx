@@ -38,7 +38,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
     const { showModal, hideModal } = useModal();
     const { patients } = usePatient();
-    const { fieldSettings, handleUpdateSettings } = useSettings();
+    const { fieldSettings, handleUpdateSettings, addScheduledSms, invalidateFutureRecalls } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
     const { staff } = useStaff();
     
@@ -59,6 +59,10 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setAppointments(prev => isNew ? [...prev, offlineApt] : prev.map(a => a.id === offlineApt.id ? offlineApt : a));
                 await enqueueAction(isNew ? 'CREATE_APPOINTMENT' : 'UPDATE_APPOINTMENT', offlineApt);
                 toast.info('Offline: Appointment saved locally.');
+
+                if (offlineApt.patientId !== 'ADMIN_BLOCK') {
+                    invalidateFutureRecalls(offlineApt.patientId, offlineApt.date);
+                }
                 return;
             }
             
@@ -68,6 +72,10 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             
             logAction(isNew ? 'CREATE' : 'UPDATE', 'Appointment', finalAppointment.id, generateDiff(oldApt, finalAppointment));
             toast.success(`Appointment saved.`);
+
+            if (finalAppointment.patientId !== 'ADMIN_BLOCK') {
+                invalidateFutureRecalls(finalAppointment.patientId, finalAppointment.date);
+            }
 
         } catch (e) {
             toast.error('Failed to save appointment.');
@@ -164,6 +172,9 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? offlineApt : apt));
             await enqueueAction('UPDATE_APPOINTMENT', offlineApt);
             toast.info("Offline: Appointment move saved locally.");
+            if (updatedApt.patientId !== 'ADMIN_BLOCK') {
+                invalidateFutureRecalls(updatedApt.patientId, updatedApt.date);
+            }
             return;
         }
 
@@ -172,6 +183,9 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
             toast.success("Appointment rescheduled.");
             logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
+            if (updatedApt.patientId !== 'ADMIN_BLOCK') {
+                invalidateFutureRecalls(updatedApt.patientId, updatedApt.date);
+            }
         } catch (e) {
             toast.error('Failed to move appointment.');
         }
@@ -284,6 +298,34 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             await DataService.saveAppointment(updatedApt);
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
             logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
+            
+            if (status === AppointmentStatus.COMPLETED) {
+                const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
+                
+                if (procedure?.triggersPostOpSequence) {
+                    const now = new Date();
+                    const patient = patients.find(p => p.id === aptToUpdate.patientId);
+                    if (patient) {
+                        const data = { PatientName: patient.firstName, ClinicName: fieldSettings.clinicName };
+
+                        // Schedule 24-hour check-in
+                        const date24hr = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                        addScheduledSms({ patientId: patient.id, templateId: 'post_treatment_24hr', dueDate: date24hr.toISOString(), data });
+
+                        // Schedule 1-month check-in
+                        const date1mo = new Date(now);
+                        date1mo.setMonth(now.getMonth() + 1);
+                        addScheduledSms({ patientId: patient.id, templateId: 'post_treatment_1mo', dueDate: date1mo.toISOString(), data });
+
+                        // Schedule 3-month check-in
+                        const date3mo = new Date(now);
+                        date3mo.setMonth(now.getMonth() + 3);
+                        addScheduledSms({ patientId: patient.id, templateId: 'post_treatment_3mo', dueDate: date3mo.toISOString(), data });
+
+                        toast.info("Post-treatment care sequence scheduled.");
+                    }
+                }
+            }
         } catch (e) {
             toast.error('Failed to update appointment status.');
         }

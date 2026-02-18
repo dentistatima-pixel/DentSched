@@ -448,6 +448,7 @@ export interface ProcedureItem {
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   riskAllergies?: string[];
+  triggersPostOpSequence?: boolean;
 }
 
 export interface RolePermissions {

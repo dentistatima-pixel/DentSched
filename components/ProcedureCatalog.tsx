@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FieldSettings, ProcedureItem, LicenseCategory } from '../types';
-import { Plus, Edit2, Trash2, Stethoscope, Bone, FileText, FileSignature, CheckSquare, DollarSign, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Stethoscope, Bone, FileText, FileSignature, CheckSquare, DollarSign, Clock, Send } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface ProcedureCatalogProps {
@@ -37,6 +37,7 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
             defaultDurationMinutes: editingProcedure.defaultDurationMinutes || 30,
             requiresLeadApproval: !!editingProcedure.requiresLeadApproval,
             requiresImaging: !!editingProcedure.requiresImaging,
+            triggersPostOpSequence: !!editingProcedure.triggersPostOpSequence,
         };
 
         const nextProcedures = isNew
@@ -86,6 +87,7 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                                     <div className="flex gap-2">
                                         {proc.requiresLeadApproval && <Stethoscope size={16} className="text-red-500" title="Lead Approval Required"/>}
                                         {proc.requiresImaging && <Bone size={16} className="text-blue-500" title="Imaging Required"/>}
+                                        {proc.triggersPostOpSequence && <Send size={16} className="text-green-500" title="Triggers Post-Op SMS"/>}
                                     </div>
                                 </td>
                                 <td className="p-6 text-right font-black text-slate-900">₱{proc.defaultPrice.toLocaleString()}</td>
@@ -109,10 +111,11 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                                 <div><label className="label text-[10px]">Duration (mins)</label><input type="number" step="5" value={editingProcedure.defaultDurationMinutes} onChange={e => setEditingProcedure({...editingProcedure, defaultDurationMinutes: parseInt(e.target.value) || 30})} className="input font-black text-lg" /></div>
                             </div>
                              <div className="pt-4 border-t border-slate-100">
-                                <label className="label text-[10px]">Clinical Protocols & Safety Gates</label>
-                                <div className="grid grid-cols-2 gap-3 mt-2">
+                                <label className="label text-[10px]">Clinical Protocols & Automations</label>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
                                     <CheckboxField label="Lead Dentist Approval" checked={!!editingProcedure.requiresLeadApproval} onChange={c => setEditingProcedure({...editingProcedure, requiresLeadApproval: c})} icon={Stethoscope}/>
                                     <CheckboxField label="Requires Imaging" checked={!!editingProcedure.requiresImaging} onChange={c => setEditingProcedure({...editingProcedure, requiresImaging: c})} icon={Bone}/>
+                                    <CheckboxField label="Trigger Post-Op SMS" checked={!!editingProcedure.triggersPostOpSequence} onChange={c => setEditingProcedure({...editingProcedure, triggersPostOpSequence: c})} icon={Send}/>
                                 </div>
                              </div>
                         </div>
