@@ -10,7 +10,7 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Using a constructor to initialize state. The class property syntax was causing issues where 'this.state' and 'this.props' were not being recognized on the component instance.
+  // FIX: The errors indicate that `this.state` and `this.props` are not recognized on the component. In a class component, it is essential to call `super(props)` inside the constructor to initialize `this.props`. State should also be initialized in the constructor. This change adds a proper constructor to correctly initialize the component's state and props, resolving the type errors.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer } from 'react';
-import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal } from '../types';
+import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, CommunicationLogEntry, CommunicationChannel } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
@@ -65,6 +65,7 @@ interface PatientContextType {
     handleSaveInformedRefusal: (patientId: string, refusal: Omit<InformedRefusal, 'id' | 'patientId'>) => Promise<void>;
     handleVoidNote: (patientId: string, noteId: string, reason: string) => Promise<string | null>;
     handlePatientSignOffOnNote: (patientId: string, noteId: string, signature: string) => Promise<void>;
+    addCommunicationLog: (patientId: string, channel: CommunicationChannel, content: string) => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -202,6 +203,33 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
         await handleSavePatient({ id: patient.id, treatmentPlans: updatedPlans });
         toast.success("Financial consent approved.");
+    };
+
+    const addCommunicationLog = async (patientId: string, channel: CommunicationChannel, content: string): Promise<void> => {
+        if (!currentUser) {
+            toast.error("You must be logged in to log communication.");
+            return;
+        }
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) {
+            toast.error("Patient not found.");
+            return;
+        }
+
+        const newLog: CommunicationLogEntry = {
+            id: `comm_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            channel,
+            authorId: currentUser.id,
+            authorName: currentUser.name,
+            content,
+        };
+
+        const updatedLog = [newLog, ...(patient.communicationLog || [])];
+
+        await handleSavePatient({ id: patientId, communicationLog: updatedLog });
+        
+        logAction('CREATE', 'CommunicationLog', newLog.id, `Logged ${channel} interaction for patient ${patient.name}.`);
     };
 
     const handleAnonymizePatient = async (patientId: string): Promise<void> => {
@@ -379,6 +407,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         handleSaveInformedRefusal,
         handleVoidNote,
         handlePatientSignOffOnNote,
+        addCommunicationLog,
     };
 
     return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;

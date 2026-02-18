@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Lazy load modals to improve initial load time
@@ -35,9 +36,12 @@ const ShortcutHelpModal = React.lazy(() => import('./ShortcutHelpModal'));
 const IncompleteRegistrationModal = React.lazy(() => import('./IncompleteRegistrationModal'));
 const DowntimeConfirmModal = React.lazy(() => import('./DowntimeConfirmModal'));
 const WaitlistOverrideModal = React.lazy(() => import('./WaitlistOverrideModal'));
+const LogCommunicationModal = React.lazy(() => import('./LogCommunicationModal'));
+const SendSmsModal = React.lazy(() => import('./SendSmsModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
+import { usePatient } from '../contexts/PatientContext';
 
 const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<any>> } = {
     appointment: AppointmentModal,
@@ -74,10 +78,13 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     incompleteRegistration: IncompleteRegistrationModal,
     downtimeConfirm: DowntimeConfirmModal,
     waitlistOverride: WaitlistOverrideModal,
+    logCommunication: LogCommunicationModal,
+    sendSms: SendSmsModal,
 };
 
 const ModalManager: React.FC = () => {
     const { modalState, hideModal } = useModal();
+    const { addCommunicationLog } = usePatient();
 
     if (!modalState.type) {
         return null;
@@ -90,11 +97,15 @@ const ModalManager: React.FC = () => {
         return null;
     }
     
-    const props = {
+    const props: { [key: string]: any } = {
         ...modalState.props,
         isOpen: true,
         onClose: hideModal,
     };
+
+    if (modalState.type === 'logCommunication' || modalState.type === 'sendSms') {
+        props.addCommunicationLog = addCommunicationLog;
+    }
 
     return (
         <React.Suspense fallback={<div className="fixed inset-0 bg-slate-900/50 z-[100]" />}>

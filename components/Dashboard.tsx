@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -440,7 +441,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
 
 
   const PracticeVitals = () => (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-4 gap-6">
         <VitalsCard title="Overdue Recalls" value={overdueRecalls.length} icon={History} color="bg-amber-500 shadow-amber-900/20" onClick={showOverdueRecalls} />
         <VitalsCard title="Pending Lab Cases" value={pendingLabs.length} icon={Beaker} color="bg-blue-500 shadow-blue-900/20" onClick={showPendingLabs} />
         <VitalsCard title="Unresolved Incidents" value={unresolvedIncidents.length} icon={ShieldAlert} color="bg-red-500 shadow-red-900/20" onClick={showUnresolvedIncidents} />
