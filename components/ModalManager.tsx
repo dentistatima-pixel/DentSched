@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Lazy load modals to improve initial load time
@@ -38,6 +37,7 @@ const DowntimeConfirmModal = React.lazy(() => import('./DowntimeConfirmModal'));
 const WaitlistOverrideModal = React.lazy(() => import('./WaitlistOverrideModal'));
 const LogCommunicationModal = React.lazy(() => import('./LogCommunicationModal'));
 const SendSmsModal = React.lazy(() => import('./SendSmsModal'));
+const ClinicalCheckoutModal = React.lazy(() => import('./ClinicalCheckoutModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -80,6 +80,7 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     waitlistOverride: WaitlistOverrideModal,
     logCommunication: LogCommunicationModal,
     sendSms: SendSmsModal,
+    clinicalCheckout: ClinicalCheckoutModal,
 };
 
 const ModalManager: React.FC = () => {

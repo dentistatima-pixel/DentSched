@@ -1,17 +1,17 @@
-
 import React, { useState } from 'react';
 import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw, CalendarPlus, FileText } from 'lucide-react';
-import { Appointment } from '../types';
+import { Appointment, Patient } from '../types';
 import { useToast } from './ToastSystem';
 
 interface PostOpHandoverModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (handoverData: { instructions: string; followUpDays: number }) => Promise<void>;
+    onConfirm: () => void;
     appointment: Appointment;
+    patient: Patient;
 }
 
-const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm, appointment }) => {
+const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm, appointment, patient }) => {
     const toast = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [checks, setChecks] = useState({
@@ -20,9 +20,6 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
         emergency: false,
         medication: false,
     });
-    const [instructions, setInstructions] = useState('');
-    const [followUpDays, setFollowUpDays] = useState(7);
-
 
     if (!isOpen) return null;
 
@@ -34,16 +31,12 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
             return;
         }
         setIsSaving(true);
-        try {
-            await onConfirm({ instructions, followUpDays });
-            toast.success("Post-Op Handover Verified and Logged.");
-            onClose();
-        } catch (error) {
-            toast.error("Failed to update status. Please try again.");
-            console.error(error);
-        } finally {
-            setIsSaving(false);
-        }
+        // In a real app, we might save this confirmation to the appointment record.
+        // For now, we just proceed.
+        await new Promise(res => setTimeout(res, 500));
+        onConfirm();
+        setIsSaving(false);
+        onClose();
     };
 
     return (
@@ -83,17 +76,6 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                             <span className="text-sm font-bold text-slate-700">Emergency contact protocol and when to call explained clearly.</span>
                         </label>
                     </div>
-
-                    <div className="pt-6 border-t border-slate-200 space-y-4">
-                        <div>
-                           <label className="label text-xs flex items-center gap-1.5"><FileText size={14}/> Handover Instructions</label>
-                           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} className="input h-24" placeholder="e.g., Soft diet for 3 days, no strenuous activity."/>
-                        </div>
-                        <div>
-                           <label className="label text-xs flex items-center gap-1.5"><CalendarPlus size={14}/> Schedule Follow-up (days)</label>
-                           <input type="number" value={followUpDays} onChange={e => setFollowUpDays(parseInt(e.target.value))} className="input"/>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="p-6 border-t border-slate-100 bg-white flex gap-3">
@@ -106,7 +88,7 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                         {isSaving ? (
                             <><RotateCcw size={16} className="animate-spin" /> Verifying...</>
                         ) : (
-                            <><ShieldCheck size={16}/> Verify & Complete Session</>
+                            <><ShieldCheck size={16}/> Verify & Proceed</>
                         )}
                     </button>
                 </div>

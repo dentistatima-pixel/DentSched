@@ -1,4 +1,6 @@
-import { Patient, User, FieldSettings, Appointment, AppointmentStatus, TreatmentPlan } from '../types';
+
+
+import { Patient, User, FieldSettings, Appointment, AppointmentStatus, TreatmentPlan, DentalChartEntry } from '../types';
 import { formatDate, calculateAge } from '../constants';
 
 export const generatePatientDocument = (templateContent: string, patient: Patient, practitioner: User, settings: FieldSettings, appointments: Appointment[]): string => {
@@ -31,8 +33,8 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
     content = content.replace(/{patientBalance}/g, patient.currentBalance?.toLocaleString() || '0.00');
     content = content.replace(/{insuranceProvider}/g, patient.insuranceProvider || 'N/A');
     content = content.replace(/{insuranceNumber}/g, patient.insuranceNumber || 'N/A');
-    content = content.replace(/{patientAllergies}/g, patient.allergies?.join(', ') || 'None');
-    content = content.replace(/{patientMedicalConditions}/g, patient.medicalConditions?.join(', ') || 'None');
+    content = content.replace(/{patientAllergies}/g, patient.allergies?.join(', ') || 'None reported');
+    content = content.replace(/{patientMedicalConditions}/g, patient.medicalConditions?.join(', ') || 'None reported');
     content = content.replace(/{chiefComplaint}/g, patient.chiefComplaint || 'N/A');
 
     content = content.replace(/{practitionerName}/g, practitioner.name || '');
@@ -55,7 +57,95 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
 
     content = content.replace(/{currentDate}/g, formatDate(new Date().toISOString()));
 
-    // Complex replacements
+    // Complex replacements for new consolidated templates
+    if (content.includes('{patientInfoSection}')) {
+        let infoSection = '| Field | Details |\n|---|---|\n';
+        infoSection += `| **Name** | ${patient.name} |\n`;
+        infoSection += `| **Date of Birth** | ${formatDate(patient.dob)} (${calculateAge(patient.dob)} years old) |\n`;
+        infoSection += `| **Sex** | ${patient.sex || 'N/A'} |\n`;
+        infoSection += `| **Civil Status** | ${patient.civilStatus || 'N/A'} |\n`;
+        infoSection += `| **Mobile** | ${patient.phone} |\n`;
+        infoSection += `| **Email** | ${patient.email || 'N/A'} |\n`;
+        infoSection += `| **Address** | ${[patient.homeAddress, patient.barangay, patient.city].filter(Boolean).join(', ')} |\n`;
+        infoSection += `| **Occupation** | ${patient.occupation || 'N/A'} |\n`;
+        infoSection += `| **Insurance** | ${patient.insuranceProvider || 'N/A'} - ${patient.insuranceNumber || 'N/A'} |\n`;
+        content = content.replace('{patientInfoSection}', infoSection);
+    }
+    
+    const generateQuestionnaireMarkdown = (questionKeys: string[]) => {
+      return questionKeys.map(q => {
+          const answer = patient.registryAnswers?.[q] || 'Not Answered';
+          let details = '';
+          if (answer === 'Yes') {
+              details = patient.registryAnswers?.[`${q}_details`] ? `\n  - **Details:** ${patient.registryAnswers[`${q}_details`]}` : '';
+          }
+          return `* **${q.replace('*','')}**: ${answer}${details}`;
+      }).join('\n');
+    };
+
+    if (content.includes('{medicalQuestionnaire}')) {
+      const medicalQuestions = settings.identityQuestionRegistry.concat(settings.medicalRiskRegistry, patient.sex === 'Female' ? settings.femaleQuestionRegistry : []);
+      content = content.replace('{medicalQuestionnaire}', generateQuestionnaireMarkdown(medicalQuestions));
+    }
+    
+    if (content.includes('{dentalQuestionnaire}')) {
+      content = content.replace('{dentalQuestionnaire}', generateQuestionnaireMarkdown(settings.dentalHistoryRegistry));
+    }
+    
+    if (content.includes('{consentsSection}')) {
+        let consents = '';
+        consents += `* **Data Privacy Act (RA 10173):** ${patient.dpaConsent ? 'Agreed' : 'Not Agreed'}\n`;
+        consents += `* **General Treatment Authorization:** ${patient.clinicalMediaConsent?.generalConsent ? 'Agreed' : 'Not Agreed'}\n`;
+        consents += `* **Marketing Communications:** ${patient.marketingConsent ? 'Agreed' : 'Not Agreed'}\n`;
+        content = content.replace('{consentsSection}', consents);
+    }
+
+    content = content.replace(/{patientRegistrationDate}/g, formatDate(patient.registrationSignatureTimestamp) || 'N/A');
+    content = content.replace(/{patientRegistrationSignatureTimestamp}/g, patient.registrationSignatureTimestamp ? new Date(patient.registrationSignatureTimestamp).toLocaleString() : 'N/A');
+    content = content.replace(/{patientRegistrationSignature}/g, patient.registrationSignature || '');
+
+    if (content.includes('{clinicalNotesLoop}')) {
+        let notesLoop = '';
+        const patientAppointments = appointments.filter(a => a.patientId === patient.id)
+            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const notesByAppointment = (patient.dentalChart || []).reduce((acc, note) => {
+            if (note.appointmentId) {
+                if (!acc[note.appointmentId]) acc[note.appointmentId] = [];
+                acc[note.appointmentId].push(note);
+            }
+            return acc;
+        }, {} as Record<string, DentalChartEntry[]>);
+
+        patientAppointments.forEach(apt => {
+            notesLoop += `### Appointment: ${formatDate(apt.date)} @ ${apt.time}\n`;
+            notesLoop += `**Procedure:** ${apt.type}\n`;
+            notesLoop += `**Status:** ${apt.status}\n\n`;
+            
+            const notesForApt = notesByAppointment[apt.id] || [];
+            if (notesForApt.length > 0) {
+                notesForApt.forEach(note => {
+                    notesLoop += `**SOAP Note (Tooth #${note.toothNumber || 'N/A'})**\n\n`;
+                    notesLoop += `* **S (Subjective):** ${note.subjective || 'N/A'}\n`;
+                    notesLoop += `* **O (Objective):** ${note.objective || 'N/A'}\n`;
+                    notesLoop += `* **A (Assessment):** ${note.assessment || 'N/A'}\n`;
+                    notesLoop += `* **P (Plan):** ${note.plan || 'N/A'}\n\n`;
+                    
+                    if (note.patientSignature) {
+                        notesLoop += `**Patient Sign-off:**\n`;
+                        notesLoop += `![Patient Signature](${note.patientSignature})\n`;
+                        notesLoop += `*Signed on: ${note.patientSignatureTimestamp ? new Date(note.patientSignatureTimestamp).toLocaleString() : 'N/A'}*\n\n`;
+                    }
+                });
+            } else {
+                notesLoop += `*No detailed clinical notes found for this appointment.*\n\n`;
+            }
+            notesLoop += '---\n\n';
+        });
+
+        content = content.replace('{clinicalNotesLoop}', notesLoop || 'No appointments found.');
+    }
+
     if (content.includes('{ledgerRows}')) {
         const rows = (patient.ledger || []).map(entry => 
             `| ${formatDate(entry.date)} | ${entry.description} | ${entry.type === 'Charge' ? entry.amount.toFixed(2) : ''} | ${entry.type === 'Payment' ? entry.amount.toFixed(2) : ''} | ${entry.balanceAfter.toFixed(2)} |`

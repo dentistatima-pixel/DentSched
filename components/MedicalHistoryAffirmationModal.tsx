@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Patient, Appointment } from '../types';
 import { X, HeartPulse, CheckCircle, Eraser, AlertTriangle } from 'lucide-react';
@@ -94,19 +95,6 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
   };
   
   const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
-
-  const prevIsOpenRef = useRef<boolean>();
-  useEffect(() => {
-    // Only run the reset logic when the modal transitions from closed to open
-    if (isOpen && !prevIsOpenRef.current) {
-      setStep('question');
-      setNotes('');
-      clearCanvas(signatureCanvasRef);
-    }
-
-    // Always update the ref to the current value for the next render cycle
-    prevIsOpenRef.current = isOpen;
-  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && step === 'details') {

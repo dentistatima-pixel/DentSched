@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useRef, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription, PatientAlert } from '../types';
 import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, MessageSquare, Pill, HeartPulse, Book, ChevronDown, Loader, MoreHorizontal, Image as ImageIconLucide, ChartPie, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon } from 'lucide-react';
 import { formatDate, generateUid, calculateAge } from '../constants';
@@ -318,6 +318,11 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const handleToothClick = useCallback((toothNumber: number) => {
+        setActiveTab('notes');
+        // You could add logic here to find and scroll to the note for the given tooth number.
+    }, [setActiveTab]);
+
     if (!patient || !fieldSettings) return null;
 
     const mainTabs = [
@@ -342,7 +347,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
             case 'strategy': return <TreatmentPlanModule {...props} />;
             case 'notes': return <Odontonotes {...props} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} />;
-            case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={() => {}} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
+            case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
             case 'ledger': return <PatientLedger {...props} />;

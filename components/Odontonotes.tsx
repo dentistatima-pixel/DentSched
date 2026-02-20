@@ -65,9 +65,18 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     
     const handleGenerateAiSoap = async () => {
         if (!formData.procedure) {
-            toast.error("Please select a procedure first.");
+            // AI generation is disabled, so we provide a structured template
+            setFormData(prev => ({
+                ...prev,
+                subjective: "Patient reports...",
+                objective: "Clinical examination reveals...",
+                assessment: "Diagnosis of...",
+                plan: "1. \n2. \n3. "
+            }));
+            toast.info("SOAP template applied.");
             return;
         }
+        // This part is now unused due to the user's request, but kept for future reference
         setIsSoapLoading(true);
         try {
             const result = await generateSoapNote(formData.procedure, formData.toothNumber);
@@ -151,15 +160,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         </div>
         <div className="space-y-4 pt-6 border-t border-slate-100">
             <div className="flex justify-between items-center">
-                <label className="label flex items-center gap-2"><Stethoscope size={14}/> SOAP Narrative</label>
+                <label className="label flex items-center gap-2"><Stethoscope size={14}/> Clinical Narrative</label>
                 <button 
                     type="button" 
                     onClick={handleGenerateAiSoap}
-                    disabled={isSoapLoading || isSealed || !formData.procedure}
+                    disabled={isSoapLoading || isSealed}
                     className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
                 >
-                    {isSoapLoading ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14}/>}
-                    {isSoapLoading ? 'Generating...' : 'Generate AI Note'}
+                    <Sparkles size={14}/>
+                    Apply Template
                 </button>
             </div>
             <div>
@@ -391,7 +400,10 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
                         note={editingNote}
                         procedures={procedures}
                         treatmentPlans={treatmentPlans}
-                        onSave={handleSaveNote}
+                        onSave={(note) => {
+                            setEditingNote(note); // Update local state for immediate feedback
+                            handleSaveNote(note);
+                        }}
                         onCancel={() => setEditingNote(null)}
                         currentUser={currentUser}
                         onAssign={handleAssignNoteToPlan}

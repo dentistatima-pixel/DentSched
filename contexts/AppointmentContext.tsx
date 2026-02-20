@@ -25,7 +25,7 @@ interface AppointmentContextType {
     appointments: Appointment[];
     handleSaveAppointment: (appointment: Appointment) => Promise<void>;
     handleMoveAppointment: (appointmentId: string, newDate: string, newTime: string, newProviderId: string, newResourceId?: string) => Promise<void>;
-    handleUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus, additionalData?: Partial<Appointment>) => Promise<void>;
+    handleUpdateAppointmentStatus: (appointmentId: string, status: AppointmentStatus, additionalData?: Partial<Appointment>, bypassProtocol?: boolean) => Promise<void>;
     handleVerifyDowntimeEntry: (id: string) => Promise<void>;
     handleVerifyMedHistory: (appointmentId: string) => Promise<void>;
     handleConfirmFollowUp: (appointmentId: string) => Promise<void>;
@@ -248,40 +248,11 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         // POST-OP HANDOVER & SOAP NOTE GATE
         if (status === AppointmentStatus.COMPLETED && !bypassProtocol) {
-            if (patient) {
-                const noteForAppointment = patient.dentalChart?.find(note => note.appointmentId === appointmentId);
-                const hasSoapNotes = noteForAppointment && (
-                    (noteForAppointment.subjective && noteForAppointment.subjective.trim() !== '') ||
-                    (noteForAppointment.objective && noteForAppointment.objective.trim() !== '') ||
-                    (noteForAppointment.assessment && noteForAppointment.assessment.trim() !== '') ||
-                    (noteForAppointment.plan && noteForAppointment.plan.trim() !== '')
-                );
-
-                if (!hasSoapNotes) {
-                    toast.error("Cannot complete appointment: A clinical note with SOAP details is required.");
-                    return; // Abort.
-                }
-            }
-
-            if (aptToUpdate.consentSignatureChain && aptToUpdate.consentSignatureChain.length > 0) {
-                const validation = validateSignatureChain(aptToUpdate.consentSignatureChain);
-                if (!validation.valid) {
-                    toast.error(`Signature integrity compromised: ${validation.errors.join(', ')}`, { duration: 10000 });
-                    logAction('SECURITY_ALERT', 'Appointment', appointmentId, `Signature chain validation failed: ${validation.errors.join(', ')}`);
-                    return; // Block completion
-                }
-            }
-            
-            showModal('postOpHandover', {
-                appointment: aptToUpdate,
-                onConfirm: async (handoverData: { instructions: string, followUpDays: number }) => {
-                    await handleUpdateAppointmentStatus(appointmentId, status, { 
-                        postOpVerified: true, 
-                        postOpVerifiedAt: new Date().toISOString()
-                    }, true);
-                }
-            });
-            return;
+            // This entire block is now handled by the Dashboard -> PostOpHandover -> ClinicalCheckout flow.
+            // We just need to stop the direct update here.
+            // The actual status update will be called from ClinicalCheckoutModal with bypassProtocol=true.
+             toast.error("Completion must be done via the clinical checkout workflow."); // This should not be hit if UI is correct.
+             return;
         }
     
         const updatedApt = { ...aptToUpdate, status, ...additionalData };

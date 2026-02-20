@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -37,7 +37,11 @@ export const useToast = () => {
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
-    const addToast = (message: string, type: ToastType, options: ToastOptions = {}) => {
+    const removeToast = useCallback((id: string) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+    }, []);
+
+    const addToast = useCallback((message: string, type: ToastType, options: ToastOptions = {}) => {
         const id = Math.random().toString(36).substr(2, 9);
         setToasts(prev => [...prev, { id, message, type }]);
         
@@ -46,11 +50,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setTimeout(() => {
             removeToast(id);
         }, duration);
-    };
-
-    const removeToast = (id: string) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-    };
+    }, [removeToast]);
 
     const icons: Record<ToastType, React.ElementType> = {
         success: CheckCircle,
@@ -65,8 +65,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         info: 'bg-blue-500 border-blue-600',
     };
 
+    const contextValue = useMemo(() => ({ addToast, removeToast }), [addToast, removeToast]);
+
     return (
-        <ToastContext.Provider value={{ addToast, removeToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             {/* TOAST CONTAINER */}
             <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">

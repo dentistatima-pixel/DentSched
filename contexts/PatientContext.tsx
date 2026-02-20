@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer, useRef } from 'react';
 import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, CommunicationLogEntry, CommunicationChannel } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
@@ -72,6 +72,9 @@ const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
+    const toastRef = useRef(toast);
+    useEffect(() => { toastRef.current = toast; }, [toast]);
+
     const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction } = useAppContext();
     const { fieldSettings, handleUpdateSettings, addScheduledSms } = useSettings();
     const [patients, dispatch] = useReducer(patientReducer, []);
@@ -82,10 +85,10 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         DataService.getPatients().then(data => {
             dispatch({ type: 'SET_PATIENTS', payload: data });
         }).catch(err => {
-            toast.error("Failed to load patient data.");
+            toastRef.current.error("Failed to load patient data.");
             console.error(err);
         }).finally(() => setIsLoading(false));
-    }, [toast]);
+    }, []);
 
     const canManagePatients = useMemo(() => {
         if (!currentUser) return false;

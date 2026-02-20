@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -162,6 +163,24 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
 
+    // FIX: Add local state for the identity form
+    const [localSettings, setLocalSettings] = useState(settings);
+
+    useEffect(() => {
+        setLocalSettings(settings);
+    }, [settings]);
+
+    const handleIdentitySave = () => {
+        onUpdateSettings(localSettings);
+        toast.success("Global profile updated successfully.");
+    };
+
+    const isIdentityChanged = useMemo(() => {
+        return settings.clinicName !== localSettings.clinicName ||
+               settings.clinicProfile !== localSettings.clinicProfile ||
+               settings.sessionTimeoutMinutes !== localSettings.sessionTimeoutMinutes;
+    }, [settings, localSettings]);
+
     const handleSaveBranch = (branchToSave: Branch) => {
         const isNew = !branchToSave.id || !settings.branchProfiles.some(b => b.id === branchToSave.id);
         const nextProfiles = isNew
@@ -224,15 +243,15 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                     <div className="space-y-8">
                         <div>
                             <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
-                            <input id="clinicName" type="text" value={settings.clinicName} onChange={(e) => onUpdateSettings({ ...settings, clinicName: e.target.value })} className="input text-lg font-bold"/>
+                            <input id="clinicName" type="text" value={localSettings.clinicName} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicName: e.target.value }))} className="input text-lg font-bold"/>
                         </div>
                         <div>
                             <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
-                            <select id="clinicProfile" value={settings.clinicProfile} onChange={(e) => onUpdateSettings({ ...settings, clinicProfile: e.target.value as any })} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
+                            <select id="clinicProfile" value={localSettings.clinicProfile} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicProfile: e.target.value as any }))} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
                         </div>
                         <div>
                             <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
-                            <input id="sessionTimeout" type="number" value={settings.sessionTimeoutMinutes} onChange={(e) => onUpdateSettings({ ...settings, sessionTimeoutMinutes: parseInt(e.target.value) || 30 })} className="input text-lg font-bold"/>
+                            <input id="sessionTimeout" type="number" value={localSettings.sessionTimeoutMinutes} onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: parseInt(e.target.value) || 30 }))} className="input text-lg font-bold"/>
                         </div>
                     </div>
                     <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
@@ -241,6 +260,11 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                             <button onClick={() => theme === 'dark' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'light' ? 'bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Sun size={14}/> Light</button>
                             <button onClick={() => theme === 'light' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'dark' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Moon size={14}/> Dark</button>
                         </div>
+                    </div>
+                     <div className="pt-8 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                        <button onClick={handleIdentitySave} disabled={!isIdentityChanged} className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 disabled:opacity-50 disabled:grayscale flex items-center gap-3">
+                            <Save size={16} /> Save Changes
+                        </button>
                     </div>
                 </div>
             )}

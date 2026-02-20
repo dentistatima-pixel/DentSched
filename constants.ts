@@ -199,7 +199,7 @@ export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
     { id: 'GENERAL_AUTHORIZATION', name: 'General Authorization', content_en: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagdedentista ay hindi isang eksaktong agham at walang dentista ang makakapaggarantiya ng tumpak na mga resulta sa lahat ng oras. Pinahihintulutan ko ang sinuman sa mga doktor/dental auxiliaries na magpatuloy at isagawa ang mga dental restoration at paggamot na ipinaliwanag sa akin. Nauunawaan ko na ang mga ito ay maaaring baguhin depende sa mga hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng paggamot. Nauunawaan ko na, anuman ang aking dental insurance, ako ang may pananagutan sa pagbabayad ng mga bayarin sa ngipin, at sumasang-ayon akong bayaran ang anumang mga bayarin sa abogado, bayarin sa koleksyon, o gastos sa korte na maaaring magastos upang matugunan ang anumang obligasyon sa opisina na ito. Ang lahat ng paggamot ay ipinaliwanag nang maayos sa akin at anumang hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng pamamaraan, ang dumadating na dentista ay hindi mananagot dahil ito ay aking malayang kalooban, na may buong tiwala at kumpiyansa sa kanya, na sumailalim sa paggamot sa ngipin sa ilalim ng kanyang pangangalaga." },
     { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anu-anong paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglalinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
     { id: 'DRUGS_MEDICATIONS', name: 'Drugs & Medications', content_en: "I understand that antibiotics, analgesics & other medications can cause allergic reactions like redness & swelling of tissues, pain, itching, vomiting, &/or anaphylactic shock.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang mga antibiotic, analgesic at iba pang mga gamot ay maaaring magdulot ng mga reaksiyong alerhiya tulad ng pamumula at pamamaga ng mga tisyu, sakit, pangangati, pagsusuka, at/o anaphylactic shock." },
-    { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagan kung kinakailangan kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
+    { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagan kung kinakailangang kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
     { id: 'RADIOGRAPH', name: 'Radiograph', content_en: "I understand that an x-ray shot or a radiograph maybe necessary as part of diagnostic aid to come up with tentative diagnosis of my dental problem and to make a good treatment plan, but, this will not give me a 100% assurance for the accuracy of the treatment since all dental treatments are subject to unpredictable complications that later on may lead to sudden change of treatment plan and subject to new charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang isang x-ray shot o radiograph ay maaaring kailanganin bilang bahagi ng tulong sa pag-diagnose upang makabuo ng pansamantalang diagnosis ng aking problema sa ngipin at gumawa ng isang mahusay na plano sa paggamot, ngunit, hindi ito magbibigay sa akin ng 100% kasiguruhan para sa katumpakan ng paggamot dahil ang lahat ng paggamot sa ngipin ay napapailalim sa hindi mahuhulaan na mga komplikasyon na sa kalaunan ay maaaring humantong sa biglaang pagbabago ng plano sa paggamot at napapailalim sa mga bagong singil." },
     { id: 'EXTRACTION', name: 'Removal of Teeth', content_en: "I understand that alternatives to tooth removal (root canal therapy, crowns & periodontal surgery, etc.) & I completely understand these alternatives, including their risk & benefits prior to authorizing the dentist to remove teeth & any other structures necessary for reasons above. I understand that removing teeth does not always remove all the infections, if present, & it may be necessary to have further treatment. I understand the risk involved in having teeth removed, such as pain, swelling, spread of infection, dry socket, fractured jaw, loss of feeling on the teeth, lips, tongue & surrounding tissue that can last for an indefinite period of time. I understand that I may need further treatment under a specialist if complications arise during or following treatment.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko ang mga alternatibo sa pagbunot ng ngipin (root canal therapy, korona at periodontal surgery, atbp.) at lubos kong nauunawaan ang mga alternatibong ito, kabilang ang kanilang mga panganib at benepisyo bago pahintulutan ang dentista na bunutin ang mga ngipin at anumang iba pang mga istraktura na kinakailangang para sa mga dahilan sa itaas. Nauunawaan ko na ang pagbunot ng mga ngipin ay hindi palaging nag-aalis ng lahat ng impeksyon, kung mayroon, at maaaring kailanganin na magkaroon ng karagdagang paggamot. Nauunawaan ko ang mga panganib na kasangkot sa pagbunot ng ngipin, tulad ng sakit, pamamaga, pagkalat ng impeksyon, dry socket, bali ng panga, pagkawala ng pakiramdam sa ngipin, labi, dila at nakapaligid na tisyu na maaaring tumagal nang walang katiyakan. Nauunawaan ko na maaaring kailanganin ko ng karagdagang paggamot sa ilalim ng isang espesyalista kung magkakaroon ng mga komplikasyon sa panahon o pagkatapos ng paggamot." },
     { id: 'CROWNS_BRIDGES', name: 'Crowns, Caps & Bridges', content_en: "Preparing a tooth may irritate the nerve tissue in the center of the tooth, leaving the tooth extra sensitive to heat, cold & pressure. Treating such irritation may involve using special toothpastes, mouth rinses or root canal therapy. I understand that sometimes it is not possible to match the color of natural teeth exactly with artificial teeth. I further understand that I may be wearing temporary crowns, which may come off easily & that I must be careful to ensure that they are kept on until the permanent crowns are delivered. It is my responsibility to return for permanent cementation within 20 days from tooth preparation, as excessive days delay may allow for tooth movement, which may necessitate a remake of the crown, bridge/ cap. I understand there will be additional charges for remakes due to my delaying of permanent cementation, & I realize that final opportunity to make changes in my new crown, bridges or cap (including shape, fit, size, & color) will be before permanent cementation.", content_tl: "[Pagsasalin sa Tagalog]: Ang paghahanda ng ngipin ay maaaring makairita sa tisyu ng nerbiyos sa gitna ng ngipin, na nag-iiwan sa ngipin na sobrang sensitibo sa init, lamig at presyon. Ang paggamot sa naturang pangangati ay maaaring kasangkot sa paggamit ng mga espesyal na toothpaste, mouth rinses o root canal therapy. Nauunawaan ko na kung minsan ay hindi posible na eksaktong tumugma sa kulay ng mga natural na ngipin sa mga artipisiyal na ngipin. Higit pa rito, nauunawaan ko na maaaring ako ay nagsusuot ng mga pansamantalang korona, na maaaring madaling matanggal at dapat akong mag-ingat upang matiyaky na mananatili ang mga ito hanggang sa maihatid ang mga permanenteng korona. Responsibilidad kong bumalik para sa permanenteng sementasyon sa loob ng 20 araw mula sa paghahanda ng ngipin, dahil ang labis na araw ng pagkaantala ay maaaring magbigay-daan para sa paggalaw ng ngipin, na maaaring mangailangan ng muling paggawa ng korona, tulay/ takip. Nauunawaan ko na magkakaroon ng mga karagdagang singil para sa muling paggawa dahil sa aking pagkaantala ng permanenteng sementasyon, at napagtanto ko na ang huling pagkakataon na gumawa ng mga pagbabago sa aking bagong korona, tulay o takip (kabilang ang hugis, sukat, laki, at kulay) ay bago ang permanenteng sementasyon." },
@@ -366,93 +366,71 @@ Disp: #{medicationQuantity}
 Sig: {medicationInstructions}
 `
   },
-  'patient_info': {
-    name: 'Patient Information Sheet',
-    content: `# Patient Information
+  'registration_full': {
+    name: 'Complete Registration Form',
+    content: `# COMPLETE PATIENT REGISTRATION FORM
 
-**Name:** {patientName}
-**ID:** {patientId}
-**Date of Birth:** {patientDob}
-**Age:** {patientAge}
-**Sex:** {patientSex}
+**Patient Name:** {patientName}
+**Patient ID:** {patientId}
+**Registration Date:** {patientRegistrationDate}
 
 ---
 
-### Contact Details
-**Mobile:** {patientPhone}
-**Email:** {patientEmail}
-**Address:** {patientAddress}
+## I. PERSONAL INFORMATION
+
+{patientInfoSection}
 
 ---
 
-### Insurance
-**Provider:** {insuranceProvider}
-**Policy #:** {insuranceNumber}
+## II. MEDICAL HISTORY
 
----
+### General Health Questions
+{medicalQuestionnaire}
 
-### Medical Alerts
-**Allergies:** {patientAllergies}
-**Conditions:** {patientMedicalConditions}
-`
-  },
-  'med_history': {
-    name: 'Medical & Dental History Form',
-    content: `# Medical and Dental History
-
-**Patient Name:** _________________________
-**Date:** {currentDate}
-
-Please check (✓) any of the following that apply to you.
+### Allergies
+- {patientAllergies}
 
 ### Medical Conditions
-- [ ] High Blood Pressure
-- [ ] Heart Disease
-- [ ] Diabetes
-- [ ] Allergies: _________________________
-- [ ] Other: _________________________
-
-### Dental History
-- [ ] Are you anxious about dental treatment?
-- [ ] Do your gums bleed when brushing?
-- [ ] Previous orthodontic treatment?
+- {patientMedicalConditions}
 
 ---
-I certify that the above information is correct to the best of my knowledge.
 
-**Signature:** _________________________
+## III. DENTAL HISTORY
+
+### Dental Health Questions
+{dentalQuestionnaire}
+
+### Chief Complaint
+> {chiefComplaint}
+
+---
+
+## IV. CONSENTS & AUTHORIZATIONS
+
+{consentsSection}
+
+---
+
+## V. PATIENT ATTESTATION
+
+I hereby certify that the information provided is true and correct to the best of my knowledge. I have read and understood all the consent forms provided.
+
+**Patient Signature:**
+![Patient Signature]({patientRegistrationSignature})
+**Date & Time of Signature:** {patientRegistrationSignatureTimestamp}
 `
   },
-  'consent_dpa': {
-    name: 'General Consent & DPA Form',
-    content: `# General Consent for Treatment and Data Privacy
+  'clinical_notes_summary': {
+      name: 'Clinical History & Notes',
+      content: `# CLINICAL HISTORY & NOTES
 
-I, **{patientName}**, hereby consent to undergo dental examination, treatment, and diagnostic procedures as deemed necessary by the dental professionals at **{clinicName}**.
+**Patient Name:** {patientName}
+**Patient ID:** {patientId}
+**Report Generated:** {currentDate}
 
-I understand the risks and benefits associated with dental care. I have had the opportunity to ask questions and have received satisfactory answers.
+---
 
-**Data Privacy (RA 10173):** I consent to the collection, use, and processing of my personal and medical information for the purpose of my dental treatment, billing, and for compliance with healthcare regulations.
-
-**Patient Signature:** _________________________
-**Date:** {currentDate}
-`
-  },
-  'appt_slip': {
-    name: 'Appointment Slip',
-    content: `## Your Next Appointment
-
-**Patient:** {patientName}
-
-Your next appointment is scheduled for:
-**Date:** {appointmentDate}
-**Time:** {appointmentTime}
-**With:** {practitionerName}
-**Procedure:** {appointmentType}
-
-Please arrive 15 minutes early. Thank you!
-
-**{clinicName}**
-{clinicContactNumber}
+{clinicalNotesLoop}
 `
   },
   'referral': {
@@ -484,25 +462,6 @@ Sincerely,
 
 **{practitionerName}**
 PRC License No: {practitionerPrc}
-`
-  },
-  'post_op': {
-    name: 'Post-Operative Instructions',
-    content: `# Post-Operative Care Instructions
-
-**Patient:** {patientName}
-**Procedure:** {procedureType}
-**Date:** {currentDate}
-
-Please follow these instructions carefully to ensure proper healing:
-
-1.  **Bleeding:** Bite gently on the provided gauze for 30-60 minutes.
-2.  **Pain:** Take prescribed pain medication as directed.
-3.  **Swelling:** Apply a cold pack to the area for 15 minutes on, 15 minutes off.
-4.  **Diet:** Stick to soft foods for the first 24 hours.
-5.  **Hygiene:** Do not rinse vigorously today. Tomorrow, you may gently rinse with warm salt water.
-
-**Call our office at {clinicContactNumber} if you experience excessive bleeding, pain, or swelling.**
 `
   },
   'eod_report': {
@@ -550,26 +509,6 @@ Generated by: {currentUser}
 |--------------------|-------------|-------------|---------------------|--------|
 {inventoryRows}
 
-`
-  },
-  'excuse_letter': {
-    name: 'Excuse Letter',
-    content: `# EXCUSE LETTER
-
-**Date:** {currentDate}
-**To Whom It May Concern,**
-
-This is to certify that **{patientName}** was seen and treated at our clinic, **{clinicName}**, on the date specified above.
-
-Please excuse him/her from school/work for this period.
-
-Should you have any questions, please feel free to contact our office at {clinicContactNumber}.
-
-Sincerely,
-
----
-**{practitionerName}**
-PRC License No: {practitionerPrc}
 `
   },
   'treatment_plan': {

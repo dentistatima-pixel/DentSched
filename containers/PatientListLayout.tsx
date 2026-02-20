@@ -1,4 +1,5 @@
-import React, { useState, useEffect, Suspense, useMemo, useRef } from 'react';
+
+import React, { useState, useEffect, Suspense, useMemo, useRef, useCallback } from 'react';
 import { PatientList } from '../components/PatientList';
 import { usePatient } from '../contexts/PatientContext';
 import { useRouter } from '../contexts/RouterContext';
@@ -139,13 +140,17 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
   const previousPatientIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only reset to details tab when the patient ID actually changes to a different patient
-    if (selectedPatientId !== previousPatientIdRef.current) {
-      setActiveTab('details');
-      previousPatientIdRef.current = selectedPatientId;
+    const prevId = previousPatientIdRef.current;
+    
+    // Reset to 'details' only when switching from one valid patient ID to another.
+    if (selectedPatientId && prevId && selectedPatientId !== prevId) {
+        setActiveTab('details');
     }
+    
+    previousPatientIdRef.current = selectedPatientId;
   }, [selectedPatientId]);
 
+  const handleBack = useCallback(() => navigate('patients'), [navigate]);
 
   if (arePatientsLoading) {
       return selectedPatientId 
@@ -167,7 +172,7 @@ function PatientListLayout({ route }: { route: { param: string | null } }) {
     <div className="h-full w-full animate-in fade-in duration-500">
       <PatientDetailContainer 
         patientId={selectedPatientId} 
-        onBack={() => navigate('patients')} 
+        onBack={handleBack} 
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />

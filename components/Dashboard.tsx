@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
   Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
@@ -146,13 +145,13 @@ const TodaysTimeline: React.FC<{
   appointments: Appointment[], 
   patients: Patient[], 
   settings?: FieldSettings,
-  onUpdateStatus: (id: string, status: AppointmentStatus) => void,
+  onUpdateStatus: (id: string, status: AppointmentStatus, patient: Patient) => void,
   onEditAppointment: (appointment: Appointment) => void,
   disappearingApts: string[],
 }> = ({ appointments, patients, settings, onUpdateStatus, onEditAppointment, disappearingApts }) => {
     const navigate = useNavigate();
 
-    const NextActionButton: React.FC<{apt: Appointment}> = ({ apt }) => {
+    const NextActionButton: React.FC<{apt: Appointment, patient: Patient}> = ({ apt, patient }) => {
         const actions: Partial<Record<AppointmentStatus, { label: string, icon: React.ElementType, nextStatus: AppointmentStatus, color: string }>> = {
             [AppointmentStatus.SCHEDULED]: { label: 'Confirm', icon: CheckSquare, nextStatus: AppointmentStatus.CONFIRMED, color: 'bg-blue-600 shadow-blue-900/30' },
             [AppointmentStatus.CONFIRMED]: { label: 'Arrive', icon: LogIn, nextStatus: AppointmentStatus.ARRIVED, color: 'bg-orange-600 shadow-orange-900/30' },
@@ -164,7 +163,7 @@ const TodaysTimeline: React.FC<{
 
         const Icon = action.icon;
         return (
-            <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, action.nextStatus); }} className={`w-full flex items-center justify-center gap-3 px-4 py-3 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg btn-tactile ${action.color}`}>
+            <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, action.nextStatus, patient); }} className={`w-full flex items-center justify-center gap-3 px-4 py-3 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg btn-tactile ${action.color}`}>
                 <Icon size={14}/> {action.label}
             </button>
         )
@@ -229,7 +228,7 @@ const TodaysTimeline: React.FC<{
                                    <AppointmentAlerts patient={patient} settings={settings}/>
                                </div>
                                <div className="w-40 shrink-0" onClick={e => e.stopPropagation()}>
-                                   <NextActionButton apt={apt} />
+                                   <NextActionButton apt={apt} patient={patient} />
                                </div>
                             </div>
                         </div>
@@ -312,13 +311,15 @@ const VitalsCard: React.FC<{
     color: string;
     onClick: () => void;
 }> = ({ icon: Icon, title, value, color, onClick }) => (
-    <button onClick={onClick} className={`p-4 rounded-2xl text-white shadow-lg hover:-translate-y-0.5 transition-transform w-full text-left flex items-center gap-4 ${color}`}>
-        <div className="bg-white/20 p-3 rounded-lg">
-            <Icon size={20}/>
+    <button onClick={onClick} className={`p-6 rounded-3xl text-white shadow-lg hover:-translate-y-1 transition-transform w-full text-left flex flex-col justify-between h-40 ${color}`}>
+        <div className="flex justify-between items-start">
+            <div className="bg-white/20 p-3 rounded-xl">
+                <Icon size={24}/>
+            </div>
         </div>
-        <div className="flex-1">
-            <p className="text-3xl font-black tracking-tighter">{value}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{title}</p>
+        <div>
+            <p className="text-4xl font-black tracking-tighter">{value}</p>
+            <p className="text-xs font-bold uppercase tracking-widest opacity-80">{title}</p>
         </div>
     </button>
 );
@@ -329,22 +330,36 @@ export const Dashboard: React.FC<DashboardProps> = () => {
   const { appointments, handleUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
   const { staff } = useStaff();
   const { currentUser, currentBranch } = useAppContext();
-  const { patients } = usePatient();
+  const { patients, handleSavePatient } = usePatient();
   const { fieldSettings } = useSettings();
   const { tasks, handleToggleTask, handleAddToWaitlist, incidents } = useClinicalOps();
   
   const [time, setTime] = useState(new Date());
   const [disappearingApts, setDisappearingApts] = useState<string[]>([]);
   
-  const handleStatusUpdate = (appointmentId: string, newStatus: AppointmentStatus) => {
+  const handleStatusUpdate = (appointmentId: string, newStatus: AppointmentStatus, patient: Patient) => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return;
+
     if (newStatus === AppointmentStatus.COMPLETED) {
-        setDisappearingApts(prev => [...prev, appointmentId]);
-        setTimeout(() => {
-            handleUpdateAppointmentStatus(appointmentId, newStatus);
-            // The item will naturally disappear after context update, 
-            // but we clean up the state just in case.
-            setTimeout(() => setDisappearingApts(prev => prev.filter(id => id !== appointmentId)), 500);
-        }, 500);
+      showModal('postOpHandover', {
+        appointment,
+        patient,
+        onConfirm: () => {
+            showModal('clinicalCheckout', {
+              appointment,
+              patient,
+              onSavePatient: handleSavePatient,
+              onUpdateAppointmentStatus: (aptId: string, status: AppointmentStatus, additionalData: any, bypass: boolean) => {
+                handleUpdateAppointmentStatus(aptId, status, additionalData, bypass);
+                 setDisappearingApts(prev => [...prev, aptId]);
+                  setTimeout(() => {
+                      setDisappearingApts(prev => prev.filter(id => id !== aptId));
+                  }, 1000);
+              }
+            });
+        }
+      });
     } else {
         handleUpdateAppointmentStatus(appointmentId, newStatus);
     }
@@ -441,7 +456,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
 
 
   const PracticeVitals = () => (
-    <div className="grid grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <VitalsCard title="Overdue Recalls" value={overdueRecalls.length} icon={History} color="bg-amber-500 shadow-amber-900/20" onClick={showOverdueRecalls} />
         <VitalsCard title="Pending Lab Cases" value={pendingLabs.length} icon={Beaker} color="bg-blue-500 shadow-blue-900/20" onClick={showPendingLabs} />
         <VitalsCard title="Unresolved Incidents" value={unresolvedIncidents.length} icon={ShieldAlert} color="bg-red-500 shadow-red-900/20" onClick={showUnresolvedIncidents} />

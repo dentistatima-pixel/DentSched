@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { Printer, Edit, FileText, Users, DollarSign, Save, X, Info, BarChart2, Search, User as UserIcon } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
@@ -13,11 +15,8 @@ const documentGroups = [
         icon: Users,
         color: 'text-teal-600',
         documents: [
-            { id: 'patient_info', name: 'Patient Information Sheet', isPatientSpecific: true },
-            { id: 'med_history', name: 'Medical & Dental History Form', isPatientSpecific: true },
-            { id: 'consent_dpa', name: 'General Consent & DPA Form', isPatientSpecific: true },
-            { id: 'appt_slip', name: 'Appointment Slip', isPatientSpecific: true },
-            { id: 'excuse_letter', name: 'Excuse Letter', isPatientSpecific: true },
+            { id: 'registration_full', name: 'Complete Registration Form', isPatientSpecific: true },
+            { id: 'clinical_notes_summary', name: 'Clinical History & Notes', isPatientSpecific: true },
         ]
     },
     {
@@ -29,7 +28,6 @@ const documentGroups = [
             { id: 'rx', name: 'Prescription (Rx)', isPatientSpecific: true },
             { id: 'referral', name: 'Referral Letter', isPatientSpecific: true },
             { id: 'treatment_plan', name: 'Treatment Plan', isPatientSpecific: true },
-            { id: 'post_op', name: 'Post-Operative Instructions', isPatientSpecific: true },
             { id: 'lab_order', name: 'Lab Order Form', isPatientSpecific: true },
         ]
     },
