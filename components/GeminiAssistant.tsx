@@ -69,7 +69,9 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClos
             </div>
             <div className="flex justify-start">
                 <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-xl rounded-bl-none max-w-xs">
-                     <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">{chat.response}</ReactMarkdown>
+                     <div className="prose prose-sm dark:prose-invert max-w-none">
+                         <ReactMarkdown>{chat.response}</ReactMarkdown>
+                     </div>
                 </div>
             </div>
           </div>

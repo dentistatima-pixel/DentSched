@@ -11,6 +11,7 @@ import { checkClinicalProtocols } from '../services/protocolEnforcement';
 import { useStaff } from './StaffContext';
 import { canStartTreatment } from '../services/medicolegalGuard';
 import { validateSignatureChain } from '../services/signatureVerification';
+import { sendSms, formatSmsTemplate, sanitizeSmsContent } from '../services/smsService';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -75,6 +76,21 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
 
             if (finalAppointment.patientId !== 'ADMIN_BLOCK') {
                 invalidateFutureRecalls(finalAppointment.patientId, finalAppointment.date);
+                
+                if (isNew) {
+                    const patient = patients.find(p => p.id === finalAppointment.patientId);
+                    const template = fieldSettings.smsTemplates['new_appointment_confirmation'];
+                    if (patient && template && template.enabled && patient.phone) {
+                        const data = {
+                            PatientName: patient.firstName || patient.name.split(' ')[0],
+                            ClinicName: fieldSettings.clinicName || 'Clinic',
+                            Date: finalAppointment.date,
+                            Time: finalAppointment.time
+                        };
+                        const msg = formatSmsTemplate(template.text, data);
+                        sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
+                    }
+                }
             }
 
         } catch (e) {
@@ -185,6 +201,19 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             logAction('UPDATE', 'Appointment', appointmentId, `Moved to ${newDate} @ ${newTime}`);
             if (updatedApt.patientId !== 'ADMIN_BLOCK') {
                 invalidateFutureRecalls(updatedApt.patientId, updatedApt.date);
+                
+                const patient = patients.find(p => p.id === updatedApt.patientId);
+                const template = fieldSettings.smsTemplates['reschedule_confirmation_patient'];
+                if (patient && template && template.enabled && patient.phone) {
+                    const data = {
+                        PatientName: patient.firstName || patient.name.split(' ')[0],
+                        ClinicName: fieldSettings.clinicName || 'Clinic',
+                        Date: updatedApt.date,
+                        Time: updatedApt.time
+                    };
+                    const msg = formatSmsTemplate(template.text, data);
+                    sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
+                }
             }
         } catch (e) {
             toast.error('Failed to move appointment.');
@@ -295,6 +324,23 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
 
                         toast.info("Post-treatment care sequence scheduled.");
                     }
+                }
+            } else if (status === AppointmentStatus.CANCELLED) {
+                const patient = patients.find(p => p.id === aptToUpdate.patientId);
+                const isClinicCancellation = additionalData.cancellationReason?.toLowerCase().includes('clinic') || additionalData.cancellationReason?.toLowerCase().includes('doctor');
+                const templateId = isClinicCancellation ? 'cancellation_by_clinic' : 'cancellation_confirmation_patient';
+                const template = fieldSettings.smsTemplates[templateId];
+                
+                if (patient && template && template.enabled && patient.phone) {
+                    const data = {
+                        PatientName: patient.firstName || patient.name.split(' ')[0],
+                        ClinicName: fieldSettings.clinicName || 'Clinic',
+                        Date: aptToUpdate.date,
+                        Time: aptToUpdate.time,
+                        Reason: additionalData.cancellationReason || 'Not specified'
+                    };
+                    const msg = formatSmsTemplate(template.text, data);
+                    sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
                 }
             }
         } catch (e) {

@@ -29,8 +29,8 @@ const WaitlistOverrideModal: React.FC<WaitlistOverrideModalProps> = ({ isOpen, o
     const executeOverride = () => {
         const manager = authorizedManagers.find(m => m.id === selectedManagerId);
         if (manager && manager.pin === managerPin) {
-            onConfirm({ isWaitlistOverride: true, authorizedManagerId: selectedManagerId });
             onClose();
+            onConfirm({ isWaitlistOverride: true, authorizedManagerId: selectedManagerId });
         } else {
             toast.error("Invalid Manager PIN.");
         }

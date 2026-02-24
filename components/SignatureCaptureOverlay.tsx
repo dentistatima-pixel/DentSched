@@ -52,6 +52,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   // --- START: Refactored Signature Logic ---
   const isDrawingRef = useRef(false);
   const lastDrawTime = useRef(0);
+  const lastPosRef = useRef({ x: 0, y: 0 });
 
   const getCoords = (e: PointerEvent) => {
     const canvas = canvasRef.current;
@@ -76,9 +77,14 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
           const isPen = e.pointerType === 'pen';
           const effectivePressure = isPen ? (pressure || 0.7) : 0.5;
           const baseWidth = isPen ? 3 : 5;
-          ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
+          
+          ctx.beginPath();
+          ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
           ctx.lineTo(x, y);
+          ctx.lineWidth = Math.max(2, Math.min(10, effectivePressure * baseWidth * 2));
           ctx.stroke();
+          
+          lastPosRef.current = { x, y };
           setHasInk(true);
       }
   }, []);
@@ -96,9 +102,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
       
       isDrawingRef.current = true;
       const { x, y } = getCoords(e.nativeEvent);
-      const ctx = e.currentTarget.getContext('2d');
-      ctx?.beginPath();
-      ctx?.moveTo(x, y);
+      lastPosRef.current = { x, y };
 
       window.addEventListener('pointermove', draw);
       window.addEventListener('pointerup', stopSign);

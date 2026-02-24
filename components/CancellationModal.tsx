@@ -18,8 +18,8 @@ const CancellationModal: React.FC<CancellationModalProps> = ({ isOpen, onClose, 
             setError('A reason for cancellation is required for the audit trail.');
             return;
         }
-        onConfirm(reason);
         onClose();
+        onConfirm(reason);
     };
 
     return (

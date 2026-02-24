@@ -39,6 +39,7 @@ const SterilizationVerificationModal: React.FC<SterilizationVerificationModalPro
       toast.error("Please assign a sterile set for all required items.");
       return;
     }
+    onClose();
     onConfirm(Object.values(selectedSets));
   };
 

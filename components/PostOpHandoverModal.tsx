@@ -34,9 +34,14 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
         // In a real app, we might save this confirmation to the appointment record.
         // For now, we just proceed.
         await new Promise(res => setTimeout(res, 500));
-        onConfirm();
         setIsSaving(false);
         onClose();
+        
+        // Call onConfirm after onClose so that if onConfirm opens a new modal,
+        // it doesn't get immediately closed by the onClose call.
+        if (onConfirm) {
+            onConfirm();
+        }
     };
 
     return (

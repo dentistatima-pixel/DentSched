@@ -54,9 +54,11 @@ const InfoDisplayModal: React.FC<InfoDisplayModalProps> = ({ isOpen, onClose, ti
                             </svg>
                         </div>
                     ) : (
-                        <ReactMarkdown className="prose prose-sm max-w-none">
-                            {content}
-                        </ReactMarkdown>
+                        <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown>
+                                {content}
+                            </ReactMarkdown>
+                        </div>
                     )}
                 </div>
 

@@ -88,6 +88,38 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
                 dentalChart: tempPatient.dentalChart?.map(n => n.id === sealedNote.id ? sealedNote : n)
             };
 
+            // Add to ledger if it's a completed procedure
+            if (sealedNote.status === 'Completed') {
+                const chargeAmount = sealedNote.price ?? fieldSettings.procedures.find(p => p.name === sealedNote.procedure)?.defaultPrice ?? 0;
+                
+                if (chargeAmount > 0) {
+                    const newCharge: LedgerEntry = {
+                        id: generateUid('l'),
+                        date: new Date().toISOString().split('T')[0],
+                        description: `${sealedNote.procedure}${sealedNote.toothNumber ? ` (#${sealedNote.toothNumber})` : ''}`,
+                        type: 'Charge',
+                        amount: chargeAmount,
+                        balanceAfter: (finalPatient.currentBalance || 0) + chargeAmount,
+                    };
+                    finalPatient.ledger = [...(finalPatient.ledger || []), newCharge];
+                    finalPatient.currentBalance = newCharge.balanceAfter;
+                }
+                
+                // Update treatment plan
+                if(sealedNote.planId) {
+                    finalPatient.treatmentPlans = finalPatient.treatmentPlans?.map(p => {
+                        if(p.id === sealedNote.planId) {
+                            const planItems = finalPatient.dentalChart?.filter(item => item.planId === p.id);
+                            const allCompleted = planItems?.every(item => item.status === 'Completed');
+                            if (allCompleted) {
+                                return { ...p, status: TreatmentPlanStatus.COMPLETED };
+                            }
+                        }
+                        return p;
+                    });
+                }
+            }
+
             // 4. Persist Changes
             await onSavePatient(finalPatient);
             

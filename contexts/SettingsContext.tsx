@@ -3,6 +3,8 @@ import { FieldSettings, ScheduledSms, SmsCategory } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { DataService } from '../services/dataService';
+import { database } from '../firebase';
+import { ref, onValue, push, set, remove } from 'firebase/database';
 
 interface SettingsContextType {
     fieldSettings: FieldSettings;
@@ -28,6 +30,23 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             toast.error("Failed to load practice settings.");
             console.error(err);
         }).finally(() => setIsLoading(false));
+        
+        // Listen to scheduled SMS in Firebase Realtime Database
+        const smsRef = ref(database, 'scheduled_sms');
+        const unsubscribe = onValue(smsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const smsList: ScheduledSms[] = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                }));
+                setScheduledSms(smsList);
+            } else {
+                setScheduledSms([]);
+            }
+        });
+
+        return () => unsubscribe();
     }, [toast]);
 
     const handleUpdateSettings = async (newSettings: FieldSettings) => {
@@ -42,54 +61,34 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     
     const addScheduledSms = (sms: Omit<ScheduledSms, 'id' | 'status'>) => {
-        const newSms: ScheduledSms = {
-            id: `sms_${Date.now()}`,
-            status: 'Pending',
-            ...sms
-        };
-        setScheduledSms(prev => [...prev, newSms]);
+        const smsRef = ref(database, 'scheduled_sms');
+        const newSmsRef = push(smsRef);
+        set(newSmsRef, {
+            ...sms,
+            status: 'Pending'
+        }).catch(err => {
+            console.error("Failed to schedule SMS:", err);
+            toast.error("Failed to schedule SMS.");
+        });
     };
 
     const invalidateFutureRecalls = useCallback((patientId: string, newAppointmentDate: string) => {
-        setScheduledSms(prevSmsList => {
-            const smsToKeep = prevSmsList.filter(sms => {
-                // Keep SMS if it's not for the current patient
-                if (sms.patientId !== patientId) {
-                    return true;
-                }
-
-                // Find the template for the SMS
+        scheduledSms.forEach(sms => {
+            if (sms.patientId === patientId) {
                 const template = fieldSettings.smsTemplates[sms.templateId];
-                if (!template) {
-                    // Keep if template not found
-                    return true;
+                if (template && template.category === 'Reputation') {
+                    const appointmentDate = new Date(newAppointmentDate);
+                    const smsDueDate = new Date(sms.dueDate);
+                    if (appointmentDate < smsDueDate) {
+                        const smsRef = ref(database, `scheduled_sms/${sms.id}`);
+                        remove(smsRef).then(() => {
+                            toast.info(`Cancelled recall SMS for ${new Date(sms.dueDate).toLocaleDateString()} due to new appointment.`);
+                        }).catch(console.error);
+                    }
                 }
-
-                // Only invalidate recall-type messages
-                if (template.category !== 'Reputation') {
-                    return true;
-                }
-
-                const appointmentDate = new Date(newAppointmentDate);
-                const smsDueDate = new Date(sms.dueDate);
-
-                // If appointment is on or after the SMS date, the recall might still be relevant
-                // Only cancel recalls that are scheduled *after* the new appointment date
-                if (appointmentDate >= smsDueDate) {
-                    return true;
-                }
-                
-                // Invalidate this SMS
-                toast.info(`Cancelled recall SMS for ${new Date(sms.dueDate).toLocaleDateString()} due to new appointment.`);
-                return false;
-            });
-
-            if (smsToKeep.length < prevSmsList.length) {
-                return smsToKeep;
             }
-            return prevSmsList;
         });
-    }, [fieldSettings.smsTemplates, toast]);
+    }, [scheduledSms, fieldSettings.smsTemplates, toast]);
 
     const value = { fieldSettings, setFieldSettings, isLoading, scheduledSms, addScheduledSms, handleUpdateSettings, invalidateFutureRecalls };
     

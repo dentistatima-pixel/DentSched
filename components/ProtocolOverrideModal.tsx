@@ -18,6 +18,7 @@ const ProtocolOverrideModal: React.FC<ProtocolOverrideModalProps> = ({ isOpen, r
             setError('An override reason is mandatory for the audit log.');
             return;
         }
+        onClose();
         onConfirm(reason);
     };
 

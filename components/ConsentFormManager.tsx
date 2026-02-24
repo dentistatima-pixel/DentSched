@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FieldSettings, ConsentFormTemplate } from '../types';
-import { FileSignature, Edit, Save, X, Languages, RefreshCw } from 'lucide-react';
+import { FileSignature, Save } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { translateText } from '../services/geminiService';
 
 interface ConsentFormManagerProps {
     settings: FieldSettings;
@@ -14,7 +13,6 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
     const [selectedTemplate, setSelectedTemplate] = useState<ConsentFormTemplate | null>(null);
     const [editedContentEn, setEditedContentEn] = useState('');
     const [editedContentTl, setEditedContentTl] = useState('');
-    const [isTranslating, setIsTranslating] = useState(false);
 
     useEffect(() => {
         if (selectedTemplate) {
@@ -25,20 +23,6 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
             setEditedContentTl('');
         }
     }, [selectedTemplate]);
-    
-    const handleTranslate = async () => {
-        if (!editedContentEn) return;
-        setIsTranslating(true);
-        try {
-            const translation = await translateText(editedContentEn, 'tl');
-            setEditedContentTl(translation);
-            toast.info("Mock translation generated.");
-        } catch (error) {
-            toast.error("Translation failed.");
-        } finally {
-            setIsTranslating(false);
-        }
-    };
 
     const handleSave = () => {
         if (!selectedTemplate) return;
@@ -77,10 +61,6 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
                     <>
                         <div className="p-4 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-800">{selectedTemplate.name}</h3>
-                            <button onClick={handleTranslate} disabled={isTranslating} className="bg-lilac-600 text-white px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2">
-                                {isTranslating ? <RefreshCw size={14} className="animate-spin" /> : <Languages size={14} />}
-                                {isTranslating ? 'Translating...' : 'Update Tagalog Translation'}
-                            </button>
                         </div>
                         <div className="flex-1 grid grid-cols-2 gap-4 p-4 min-h-0">
                              <div className="flex flex-col">

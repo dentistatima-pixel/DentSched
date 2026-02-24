@@ -47,7 +47,9 @@ const DocentSparkle: React.FC<DocentSparkleProps> = ({ elementId, context }) => 
                     {isLoading ? (
                         <div className="flex items-center gap-2"><Loader size={16} className="animate-spin"/> <span>Loading...</span></div>
                     ) : (
-                        <ReactMarkdown className="prose prose-sm prose-invert max-w-none">{explanation || ''}</ReactMarkdown>
+                        <div className="prose prose-sm prose-invert max-w-none">
+                            <ReactMarkdown>{explanation || ''}</ReactMarkdown>
+                        </div>
                     )}
                 </div>
             )}

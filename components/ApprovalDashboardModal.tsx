@@ -94,8 +94,8 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
         });
 
     } else {
-       onReject(plan.id, rejectionReason);
        onClose();
+       onReject(plan.id, rejectionReason);
     }
   };
 
@@ -199,7 +199,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
                     <button onClick={() => setIsRejecting(true)} disabled={!canApprove} className="px-8 py-4 bg-red-100 text-red-700 rounded-xl font-black uppercase text-sm tracking-widest flex items-center gap-2 disabled:opacity-50" title={!canApprove ? "Approval is reserved for the designated lead dentist or an administrator." : ""}>
                         <XCircle size={16}/> Reject
                     </button>
-                    <button onClick={() => onConfirm(plan.id)} disabled={!canApprove} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-600/30 flex items-center gap-2 disabled:opacity-50" title={!canApprove ? "Approval is reserved for the designated lead dentist or an administrator." : ""}>
+                    <button onClick={() => { onClose(); onConfirm(plan.id); }} disabled={!canApprove} className="px-10 py-4 bg-teal-600 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-600/30 flex items-center gap-2 disabled:opacity-50" title={!canApprove ? "Approval is reserved for the designated lead dentist or an administrator." : ""}>
                         <CheckCircle size={16}/> Approve Plan
                     </button>
                 </>

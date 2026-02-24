@@ -320,8 +320,19 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     const handleToothClick = useCallback((toothNumber: number) => {
         setActiveTab('notes');
-        // You could add logic here to find and scroll to the note for the given tooth number.
-    }, [setActiveTab]);
+        const newNote: DentalChartEntry = {
+            id: `note_${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            procedure: '',
+            toothNumber: toothNumber,
+            status: 'Completed',
+            author: currentUser.name,
+            authorId: currentUser.id,
+            authorRole: currentUser.role,
+            authorPrc: currentUser.prcLicense,
+        };
+        setEditingNote(newNote);
+    }, [setActiveTab, currentUser]);
 
     if (!patient || !fieldSettings) return null;
 

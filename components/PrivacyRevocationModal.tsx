@@ -22,6 +22,7 @@ const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen,
 
     const handleConfirm = () => {
         if (!canConfirm) return;
+        onClose();
         onConfirm(reason, notes);
     };
 

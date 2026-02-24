@@ -39,12 +39,21 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+            if (name === 'procedure') {
+                const selectedProc = procedures.find(p => p.name === value);
+                if (selectedProc && !prev.price) {
+                    newData.price = selectedProc.defaultPrice;
+                }
+            }
+            return newData;
+        });
     };
     
     const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({...prev, [name]: value === '' ? undefined : parseInt(value) }));
+        setFormData(prev => ({...prev, [name]: value === '' ? undefined : parseFloat(value) }));
     };
 
     const handleStatusChange = (status: TreatmentStatus) => {
@@ -117,8 +126,10 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                     </button>
                 </div>
                 {aiReview && (
-                    <div className="p-4 bg-white rounded-lg border border-amber-200 prose prose-sm max-w-none">
-                        <ReactMarkdown>{aiReview}</ReactMarkdown>
+                    <div className="p-4 bg-white rounded-lg border border-amber-200">
+                        <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown>{aiReview}</ReactMarkdown>
+                        </div>
                     </div>
                 )}
             </div>
@@ -133,12 +144,16 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                 <label className="label">Tooth #</label>
                 <input type="number" name="toothNumber" value={formData.toothNumber || ''} onChange={handleNumericChange} className="input" placeholder="e.g., 16" disabled={isSealed}/>
             </div>
-            <div className="md:col-span-7">
+            <div className="md:col-span-5">
                 <label className="label">Procedure *</label>
                 <select name="procedure" value={formData.procedure} onChange={handleChange} className="input font-bold" disabled={isSealed} required>
                     <option value="">Select Procedure...</option>
                     {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
+            </div>
+            <div className="md:col-span-2">
+                <label className="label">Cost (₱)</label>
+                <input type="number" name="price" value={formData.price || ''} onChange={handleNumericChange} className="input" placeholder="0.00" disabled={isSealed}/>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

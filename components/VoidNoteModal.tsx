@@ -19,8 +19,8 @@ const VoidNoteModal: React.FC<VoidNoteModalProps> = ({ isOpen, onClose, onConfir
             setError('A reason is mandatory to amend a sealed record.');
             return;
         }
-        onConfirm(reason);
         onClose();
+        onConfirm(reason);
     };
 
     return (

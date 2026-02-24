@@ -1,8 +1,6 @@
 import React from 'react';
-import { X, Droplet, Heart, Sparkles, ShieldCheck } from 'lucide-react';
+import { X, Droplet, Heart, ShieldCheck } from 'lucide-react';
 import { Appointment, Patient, AppointmentStatus } from '../types';
-import { generateSafetyBriefing } from '../services/geminiService';
-import { useModal } from '../contexts/ModalContext';
 
 interface InspectorPanelProps {
     inspected: { apt: Appointment, patient: Patient } | null;
@@ -12,7 +10,6 @@ interface InspectorPanelProps {
 }
 
 const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, onClose, onUpdateStatus, onOpenChart }) => {
-    const { showModal } = useModal();
     const hasMedicalAlerts = inspected && (
         (inspected.patient.allergies && inspected.patient.allergies.some(a => a.toLowerCase() !== 'none')) ||
         (inspected.patient.medicalConditions && inspected.patient.medicalConditions.some(c => c.toLowerCase() !== 'none'))
@@ -52,12 +49,9 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, onClose, onU
                                 {(inspected.patient.medicalConditions || []).filter(c => c !== 'None').map(c => <div key={c} className="flex items-center gap-2 text-xs font-bold text-red-800 dark:text-red-300"><Heart size={14}/> {c}</div>)}
                           </div>
                           {hasMedicalAlerts && (
-                              <button 
-                                onClick={() => showModal('infoDisplay', { title: `AI Safety Briefing for ${inspected.patient.name}`, fetcher: () => generateSafetyBriefing(inspected.patient, inspected.apt.type) })}
-                                className="w-full mt-3 bg-red-600 text-white p-3 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
-                              >
-                                <Sparkles size={14} /> AI Safety Briefing
-                              </button>
+                            <div className="w-full mt-3 bg-red-100 text-red-700 p-3 rounded-lg text-xs font-black uppercase text-center">
+                              ⚠️ Medical Alerts Present — Review Before Procedure
+                            </div>
                           )}
                        </div>
                   </div>

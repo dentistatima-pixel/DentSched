@@ -23,23 +23,82 @@ export const sanitizeSmsContent = (message: string): string => {
     return sanitized;
 };
 
-// This is a conceptual service. No actual SMS will be sent.
+export const formatSmsTemplate = (template: string, data: Record<string, string>): string => {
+    let formatted = template;
+    for (const [key, value] of Object.entries(data)) {
+        formatted = formatted.replace(new RegExp(`{${key}}`, 'g'), value);
+    }
+    return formatted;
+};
+
 export const sendSms = async (
   phoneNumber: string, 
   message: string, 
   config: SmsConfig
 ): Promise<{success: boolean; gatewayResponse?: string; error?: string}> => {
   
-  console.log(`--- SIMULATING SMS ---`);
-  console.log(`To: ${phoneNumber}`);
-  console.log(`Message: ${message}`);
-  console.log(`Using Gateway: ${config.mode}`);
-  console.log(`--------------------`);
+  try {
+    const isLocal = config.mode === 'LOCAL';
+    
+    const baseUrl = isLocal ? config.gatewayUrl : config.cloudUrl;
+    const username = isLocal ? config.local_username : config.cloud_username;
+    const password = isLocal ? config.local_password : config.cloud_password;
+    const deviceId = isLocal ? config.local_deviceId : config.cloud_deviceId;
 
-  // Simulate a successful API call
-  return new Promise(resolve => {
-      setTimeout(() => {
-          resolve({ success: true, gatewayResponse: `mock_msg_id_${Date.now()}` });
-      }, 500);
-  });
+    if (!baseUrl) {
+      return { success: false, error: `${config.mode} URL is not configured.` };
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (username || password) {
+      headers['Authorization'] = 'Basic ' + btoa(`${username || ''}:${password || ''}`);
+    }
+    
+    let endpoint = baseUrl.replace(/\/$/, '');
+    let payload: any = {};
+
+    if (isLocal) {
+      // Capcom6 Local API (Android SMS Gateway)
+      endpoint += '/message';
+      payload = {
+        phone: phoneNumber,
+        message: message
+      };
+    } else {
+      // Capcom6 Cloud API
+      endpoint += '/3rdparty/v1/message';
+      payload = {
+        phoneNumbers: [phoneNumber],
+        message: message,
+      };
+      if (deviceId) {
+        payload.deviceId = deviceId;
+      }
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `Gateway error: ${response.status} ${errorText}` };
+    }
+
+    const data = await response.json();
+    
+    return { 
+      success: true, 
+      gatewayResponse: JSON.stringify(data) 
+    };
+
+  } catch (error: any) {
+    console.error('SMS Send Error:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
 };

@@ -89,17 +89,18 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
                         <div className="flex items-center justify-center h-full"><Loader className="animate-spin text-teal-600"/></div>
                     ) : (
                         <div id="print-content" className="bg-white p-12 rounded-lg shadow-lg mx-auto" style={{ width: '210mm', minHeight: '297mm', transform: 'scale(0.8)', transformOrigin: 'top center' }}>
-                            <ReactMarkdown
-                                className="prose prose-sm max-w-none"
-                                components={{
-                                    // By default, react-markdown strips data-url images for security.
-                                    // This override tells it to render img tags as-is, which allows
-                                    // our base64-encoded SVG signatures to appear correctly.
-                                    img: ({node, ...props}) => <img style={{maxWidth: '200px', maxHeight: '100px'}} {...props} alt={props.alt || 'Signature'} />
-                                }}
-                            >
-                                {content}
-                            </ReactMarkdown>
+                            <div className="prose prose-sm max-w-none">
+                                <ReactMarkdown
+                                    components={{
+                                        // By default, react-markdown strips data-url images for security.
+                                        // This override tells it to render img tags as-is, which allows
+                                        // our base64-encoded SVG signatures to appear correctly.
+                                        img: ({node, ...props}) => <img style={{maxWidth: '200px', maxHeight: '100px'}} {...props} alt={props.alt || 'Signature'} />
+                                    }}
+                                >
+                                    {content}
+                                </ReactMarkdown>
+                            </div>
                         </div>
                     )}
                 </div>

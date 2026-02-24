@@ -72,7 +72,7 @@ const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, alerts
                     </div>
 
                     <button 
-                        onClick={onConfirm}
+                        onClick={() => { onClose(); onConfirm(); }}
                         disabled={secondsLeft > 0}
                         className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest text-lg shadow-2xl transition-all flex items-center justify-center gap-3 ${
                             secondsLeft > 0 
