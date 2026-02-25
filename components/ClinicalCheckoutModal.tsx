@@ -124,7 +124,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             await onSavePatient(finalPatient);
             
             // 5. Update Appointment Status
-            await onUpdateAppointmentStatus(appointment.id, 'Completed', {}, true);
+            await onUpdateAppointmentStatus(appointment.id, AppointmentStatus.COMPLETED, {}, true);
 
             toast.success("Session completed and record sealed.");
             onClose();

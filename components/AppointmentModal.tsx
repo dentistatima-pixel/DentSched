@@ -121,8 +121,8 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         if (!hours || hours.isClosed) return [];
 
         const slots = [];
-        const start = parseInt(hours.start.split(':')[0]);
-        const end = parseInt(hours.end.split(':')[0]);
+        const start = hours.start ? parseInt(hours.start.split(':')[0]) : 8;
+        const end = hours.end ? parseInt(hours.end.split(':')[0]) : 17;
         const appointmentDuration = parseInt(duration) || 30;
 
         for (let h = start; h < end; h++) {

@@ -4,7 +4,6 @@
 import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
 import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
 import type { ElementType } from 'react';
-import CryptoJS from 'crypto-js';
 
 // Helper for new patient ID format
 const generateRandomAlpha = (length: number): string => {
@@ -33,11 +32,6 @@ export const generateUid = (prefix = 'id') => {
 
 // --- DATE UTILITY ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
-const getTomorrowStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toLocaleDateString('en-CA');
-}
 const getPastDateStr = (days: number, date = new Date()) => {
     const d = new Date(date);
     d.setDate(d.getDate() - days);

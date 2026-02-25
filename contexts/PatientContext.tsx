@@ -344,15 +344,21 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         let newNoteId: string | null = null;
         const newChart = patient.dentalChart?.map(note => {
             if (note.id === noteId) {
-                const amendment = { ...note };
-                // Create amendment
-                delete amendment.id;
-                delete amendment.sealedAt;
-                delete amendment.sealedHash;
-                delete amendment.isVoided;
-                delete amendment.voidDetails;
-                amendment.originalNoteId = note.id;
-                amendment.id = generateUid('dca'); // amendment ID
+                // Create amendment: omit protected fields and assign new ones
+                const {
+                    id: _oldId,
+                    sealedAt: _sealedAt,
+                    sealedHash: _sealedHash,
+                    isVoided: _isVoided,
+                    voidDetails: _voidDetails,
+                    ...noteData
+                } = note;
+
+                const amendment: DentalChartEntry = {
+                    ...noteData,
+                    originalNoteId: note.id,
+                    id: generateUid('dca')
+                };
                 newNoteId = amendment.id;
 
                 // Void original

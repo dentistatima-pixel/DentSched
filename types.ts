@@ -1322,6 +1322,7 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
+  priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];
