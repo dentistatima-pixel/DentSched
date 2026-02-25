@@ -109,8 +109,6 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   const [isViewingConsent, setIsViewingConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string> | null>(null);
   
-  const [draftId] = useState(() => `new-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`);
-
   const initialFormState: Partial<Patient> = useMemo(() => ({
     id: '', sex: undefined, allergies: [], medicalConditions: [], firstName: '', middleName: '', surname: '', suffix: '', dob: '', homeAddress: '', barangay: '', city: '', occupation: '', responsibleParty: '', phone: '', email: '', previousDentist: '', lastVisit: '', notes: '', otherAllergies: '', otherConditions: '', bloodGroup: '', medicalTreatmentDetails: '', seriousIllnessDetails: '', lastHospitalizationDetails: '', lastHospitalizationDate: '', medicationDetails: '', dpaConsent: false, marketingConsent: false, practiceCommConsent: false, clinicalMediaConsent: undefined, thirdPartyDisclosureConsent: false, thirdPartyAttestation: false,
     isPwd: false, dentalChart: [], perioChart: [], registrationSignature: '', registrationSignatureTimestamp: '', registryAnswers: {}, customFields: {}, registrationStatus: RegistrationStatus.PROVISIONAL
@@ -118,7 +116,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 
   const [formData, setFormData] = useState<Partial<Patient>>(initialFormState);
 
-  const formPersistenceId = `patient-reg-${initialData?.id || draftId}`;
+  const formPersistenceId = initialData?.id ? `patient-reg-${initialData.id}` : 'patient-reg-new';
   const { formStatus, clearSavedDraft } = useFormPersistence<Partial<Patient>>(
     formPersistenceId,
     formData,
@@ -179,7 +177,11 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
                 (newData as any)[name] = checked;
             }
         } else { 
-            (newData as any)[name] = value; 
+            let finalValue = value;
+            if (typeof finalValue === 'string' && finalValue.length > 0 && type !== 'email' && name !== 'email') {
+                finalValue = finalValue.charAt(0).toUpperCase() + finalValue.slice(1);
+            }
+            (newData as any)[name] = finalValue; 
         }
         return newData;
     });
@@ -199,7 +201,11 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
                   newCustomFields[fieldName] = [...currentValues, value];
               }
           } else {
-              newCustomFields[fieldName] = value;
+              let finalValue = value;
+              if (type === 'text' && typeof finalValue === 'string' && finalValue.length > 0) {
+                  finalValue = finalValue.charAt(0).toUpperCase() + finalValue.slice(1);
+              }
+              newCustomFields[fieldName] = finalValue;
           }
           return { ...prev, customFields: newCustomFields };
       });
@@ -224,7 +230,9 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
         await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE });
         clearSavedDraft();
         onClose();
-    } catch (error) {
+    } catch (error: any) {
+        console.error("Failed to save patient record:", error);
+        toast.error(error.message || "Failed to save patient record. Please try again.");
     } finally {
         setIsSaving(false);
     }

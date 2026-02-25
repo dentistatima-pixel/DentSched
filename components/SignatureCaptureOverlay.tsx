@@ -96,8 +96,10 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   }, [draw]);
 
   const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!allAffirmed && contextSummary) return;
-      if (e.pointerType === 'touch' && e.width > 10) return;
+      if (!allAffirmed && contextSummary) {
+          toast.error("Please acknowledge all statements before signing.");
+          return;
+      }
       e.preventDefault();
       
       isDrawingRef.current = true;

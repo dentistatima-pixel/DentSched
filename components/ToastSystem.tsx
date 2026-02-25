@@ -26,12 +26,12 @@ export const useToast = () => {
     if (!context) {
         throw new Error('useToast must be used within a ToastProvider');
     }
-    return {
+    return useMemo(() => ({
         success: (msg: string, options?: ToastOptions) => context.addToast(msg, 'success', options),
         error: (msg: string, options?: ToastOptions) => context.addToast(msg, 'error', options),
         warning: (msg: string, options?: ToastOptions) => context.addToast(msg, 'warning', options),
         info: (msg: string, options?: ToastOptions) => context.addToast(msg, 'info', options),
-    };
+    }), [context]);
 };
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

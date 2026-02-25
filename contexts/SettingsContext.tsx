@@ -5,6 +5,7 @@ import { useToast } from '../components/ToastSystem';
 import { DataService } from '../services/dataService';
 import { database } from '../firebase';
 import { ref, onValue, push, set, remove } from 'firebase/database';
+import { USE_FIREBASE } from '../config';
 
 interface SettingsContextType {
     fieldSettings: FieldSettings;
@@ -31,22 +32,24 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             console.error(err);
         }).finally(() => setIsLoading(false));
         
-        // Listen to scheduled SMS in Firebase Realtime Database
-        const smsRef = ref(database, 'scheduled_sms');
-        const unsubscribe = onValue(smsRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const smsList: ScheduledSms[] = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
-                setScheduledSms(smsList);
-            } else {
-                setScheduledSms([]);
-            }
-        });
+        if (USE_FIREBASE) {
+            // Listen to scheduled SMS in Firebase Realtime Database
+            const smsRef = ref(database, 'scheduled_sms');
+            const unsubscribe = onValue(smsRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    const smsList: ScheduledSms[] = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    }));
+                    setScheduledSms(smsList);
+                } else {
+                    setScheduledSms([]);
+                }
+            });
 
-        return () => unsubscribe();
+            return () => unsubscribe();
+        }
     }, [toast]);
 
     const handleUpdateSettings = async (newSettings: FieldSettings) => {
@@ -61,6 +64,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     
     const addScheduledSms = (sms: Omit<ScheduledSms, 'id' | 'status'>) => {
+        if (!USE_FIREBASE) {
+            console.warn("Firebase is disabled. SMS scheduling is mocked.");
+            return;
+        }
         const smsRef = ref(database, 'scheduled_sms');
         const newSmsRef = push(smsRef);
         set(newSmsRef, {
@@ -73,6 +80,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     const invalidateFutureRecalls = useCallback((patientId: string, newAppointmentDate: string) => {
+        if (!USE_FIREBASE) return;
         scheduledSms.forEach(sms => {
             if (sms.patientId === patientId) {
                 const template = fieldSettings.smsTemplates[sms.templateId];
