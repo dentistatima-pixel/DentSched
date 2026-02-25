@@ -197,10 +197,10 @@ const TodaysTimeline: React.FC<{
                     
                     if (!patient) return null;
 
-                    const statusColor = {
+                    const statusColor = ({
                         [AppointmentStatus.ARRIVED]: 'border-orange-500',
                         [AppointmentStatus.TREATING]: 'border-lilac-500',
-                    }[apt.status] || 'border-teal-500';
+                    } as Record<string, string>)[apt.status] || 'border-teal-500';
 
                     return (
                         <div 
