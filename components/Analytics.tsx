@@ -31,7 +31,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
             if (!proc) return sum;
             const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
-            return sum + (priceEntry?.price || 0);
+            return sum + (priceEntry?.price || proc.defaultPrice || 0);
         }, 0);
 
         const newPatientsYtd = patients.filter(p => new Date(p.lastVisit).getFullYear() === new Date().getFullYear() && p.attendanceStats?.totalBooked === 1).length;
@@ -44,7 +44,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
             if (!proc) return;
             const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
-            const price = priceEntry?.price || 0;
+            const price = priceEntry?.price || proc.defaultPrice || 0;
             const category = proc.category || 'General';
             if (!procMix[category]) procMix[category] = { count: 0, revenue: 0 };
             procMix[category].count++;
@@ -59,7 +59,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             const revenue = staffApts.reduce((sum, apt) => {
                 const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
                 const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc?.id);
-                return sum + (priceEntry?.price || 0);
+                return sum + (priceEntry?.price || proc?.defaultPrice || 0);
             }, 0);
             practitionerProduction[s.id] = {
                 name: s.name,

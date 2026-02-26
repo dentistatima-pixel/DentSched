@@ -443,6 +443,7 @@ export interface ProcedureItem {
   requiresLeadApproval?: boolean;
   requiresImaging?: boolean;
   requiresConsent?: boolean;
+  requiresWitness?: boolean;
   allowedLicenseCategories?: LicenseCategory[];
   traySetup?: string[];
   riskDisclosures?: string[];

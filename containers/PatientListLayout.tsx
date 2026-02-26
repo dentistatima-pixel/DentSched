@@ -44,7 +44,7 @@ const PatientDetailContainer: React.FC<{
     setActiveTab,
 }) => {
   const { patients, isLoading: arePatientsLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
-  const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
+  const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus, handleConfirmFollowUp } = useAppointments();
   const { staff } = useStaff();
   const { stock, sterilizationCycles } = useInventory();
   const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
@@ -121,6 +121,7 @@ const PatientDetailContainer: React.FC<{
         onSupervisorySeal={(note) => handleSupervisorySeal(patient.id, note)}
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
+        onUpdateAppointment={handleSaveAppointment}
         auditLog={auditLog}
         activeTab={activeTab}
         setActiveTab={setActiveTab}

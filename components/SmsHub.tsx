@@ -185,14 +185,14 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                 {/* Templates Section */}
                 <div className="bg-white p-10 rounded-[3.5rem] border border-slate-200 shadow-sm space-y-12">
                     {Object.entries(groupedTemplates).map(([category, templatesInCategory]) => {
-                        const categoryIcon = MessageSquare;
+                        const CategoryIcon = MessageSquare;
                         let categoryTitle = `${category} Narratives`;
                         if (category === 'Recovery') categoryTitle = 'Post-Treatment Care';
 
                         return (
                             <div key={category}>
                                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                                    <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><categoryIcon size={24}/></div>
+                                    <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><CategoryIcon size={24}/></div>
                                     <h4 className="font-black text-slate-800 uppercase text-sm">{categoryTitle}</h4>
                                 </div>
                                 <div className="grid grid-cols-1 gap-6 pt-6">

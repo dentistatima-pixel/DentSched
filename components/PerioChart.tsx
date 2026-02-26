@@ -52,10 +52,10 @@ interface PerioRowProps {
     dentalChart: DentalChartEntry[];
     focusedSite: { tooth: number, index: number } | null;
     onValueChange: (tooth: number, field: 'pocketDepths' | 'recession', index: number, value: string) => void;
-    onMobilityCycle: (tooth: number, currentValue: number | null) => void;
-    onBopCycle: (tooth: number, currentValue: number | null) => void;
-    onPlaqueIndexCycle: (tooth: number, currentValue: number | null) => void;
-    onFurcationChange: (tooth: number, value: number | null) => void;
+    onMobilityCycle: (tooth: number, currentValue: number | null | undefined) => void;
+    onBopCycle: (tooth: number, currentValue: number | null | undefined) => void;
+    onPlaqueIndexCycle: (tooth: number, currentValue: number | null | undefined) => void;
+    onFurcationChange: (tooth: number, value: number | null | undefined) => void;
     onFocusSite: (tooth: number, index: number) => void;
     isColumnFocused?: boolean;
     readOnly?: boolean;
@@ -304,10 +304,10 @@ export const PerioChart: React.FC<PerioChartProps> = ({ data, dentalChart, onSav
         }));
     };
     
-    const handleMobilityCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, mobility: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
-    const handleBopCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, bop: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
-    const handlePlaqueIndexCycle = (tooth: number, currentValue: number | null) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, plaqueIndex: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
-    const handleFurcationChange = (tooth: number, value: number | null) => { if(isChartReadOnly) return; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, furcation: value, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleMobilityCycle = (tooth: number, currentValue: number | null | undefined) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, mobility: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleBopCycle = (tooth: number, currentValue: number | null | undefined) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, bop: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handlePlaqueIndexCycle = (tooth: number, currentValue: number | null | undefined) => { if(isChartReadOnly) return; const nextValue = currentValue === 3 ? null : (currentValue ?? 0) + 1; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, plaqueIndex: nextValue, date: new Date().toISOString().split('T')[0] } : m)); };
+    const handleFurcationChange = (tooth: number, value: number | null | undefined) => { if(isChartReadOnly) return; setChartData(prev => prev.map(m => m.toothNumber === tooth ? { ...m, furcation: value, date: new Date().toISOString().split('T')[0] } : m)); };
     const handleFocusSite = (tooth: number, index: number) => { setFocusedSite({ tooth, index }); };
 
     return (

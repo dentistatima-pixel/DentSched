@@ -9,14 +9,14 @@ const getAiInstance = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const getDocentExplanation = async (context: string, query: string): Promise<string> => {
+export const getDocentExplanation = async (context: string, query: string, userRole?: string): Promise<string> => {
   const ai = getAiInstance();
   if (!ai) return "AI features are currently unavailable.";
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Context: ${context}\n\nQuery: ${query}`,
+      contents: `Context: ${context}\n\nQuery: ${query}\n\nUser Role: ${userRole || 'Unknown'}`,
       config: {
         systemInstruction: "You are a helpful dental assistant AI named Docent. Provide clear, concise, and professional explanations.",
       }
@@ -28,14 +28,16 @@ export const getDocentExplanation = async (context: string, query: string): Prom
   }
 };
 
-export const reviewClinicalNote = async (note: string): Promise<string> => {
+export const reviewClinicalNote = async (note: any): Promise<string> => {
   const ai = getAiInstance();
   if (!ai) return "AI features are currently unavailable.";
+
+  const noteText = typeof note === 'string' ? note : JSON.stringify(note);
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Review the following clinical note for completeness, accuracy, and professional tone. Suggest improvements if necessary.\n\nNote: ${note}`,
+      contents: `Review the following clinical note for completeness, accuracy, and professional tone. Suggest improvements if necessary.\n\nNote: ${noteText}`,
       config: {
         systemInstruction: "You are an expert dental auditor. Review clinical notes to ensure they meet professional standards.",
       }
@@ -47,21 +49,31 @@ export const reviewClinicalNote = async (note: string): Promise<string> => {
   }
 };
 
-export const generateSoapNote = async (data: any): Promise<string> => {
+export const generateSoapNote = async (procedure: string, toothNumber?: number): Promise<any> => {
   const ai = getAiInstance();
-  if (!ai) return "AI features are currently unavailable.";
+  if (!ai) return null;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Generate a SOAP note based on the following data:\n\n${JSON.stringify(data)}`,
+      contents: `Generate a SOAP note for the procedure: ${procedure}${toothNumber ? ` on tooth #${toothNumber}` : ''}. Return as a JSON object with subjective, objective, assessment, and plan fields.`,
       config: {
-        systemInstruction: "You are an expert dental assistant. Generate a professional and structured SOAP note.",
+        systemInstruction: "You are an expert dental assistant AI. Generate professional and structured clinical findings in JSON format.",
       }
     });
-    return response.text || "I'm sorry, I couldn't generate the SOAP note.";
+    const text = response.text || "";
+    try {
+        // Try to extract JSON from the response
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return { plan: text };
+    } catch {
+        return { plan: text };
+    }
   } catch (error) {
     console.error("Error generating SOAP note:", error);
-    return "An error occurred while generating the SOAP note.";
+    return null;
   }
 };

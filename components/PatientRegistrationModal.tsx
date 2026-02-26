@@ -187,7 +187,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     });
   }, [readOnly, fieldSettings.currentPrivacyVersion]);
 
-  const handleCustomChange = useCallback((fieldName: string, value: any, type: 'text' | 'checklist' | 'boolean') => {
+  const handleCustomChange = useCallback((fieldName: string, value: any, type: string) => {
       if (readOnly) return;
       setErrors(null);
       setFormData(prev => {

@@ -89,8 +89,10 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         setIsSoapLoading(true);
         try {
             const result = await generateSoapNote(formData.procedure, formData.toothNumber);
-            setFormData(prev => ({ ...prev, ...result }));
-            toast.success("AI SOAP note generated.");
+            if (result && typeof result === 'object') {
+                setFormData(prev => ({ ...prev, ...result }));
+                toast.success("AI SOAP note generated.");
+            }
         } catch (error) {
             toast.error("Could not generate AI note.");
             console.error(error);

@@ -108,7 +108,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
     }
   };
   
-  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
+  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
 
   useEffect(() => {
     if (isOpen && step === 'details') {
@@ -130,7 +130,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
     });
   }, []);
 
-  const handleCustomChange = useCallback((fieldName: string, value: any, type: 'text' | 'checklist' | 'boolean') => {
+  const handleCustomChange = useCallback((fieldName: string, value: any, type: string) => {
       setFormData(prev => {
           const newCustomFields = { ...(prev.customFields || {}) };
           if (type === 'checklist') {

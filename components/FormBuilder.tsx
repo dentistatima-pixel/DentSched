@@ -325,6 +325,7 @@ const FormBuilder: React.FC = () => {
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
                                     onCustomChange={() => {}}
+                                    handleChange={() => {}}
                                 />
                             </div>
                          ) : (

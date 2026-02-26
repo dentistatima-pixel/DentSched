@@ -142,7 +142,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
     }, [step, isWitnessRequired]);
     
-    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
+    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
 
     const handleSave = () => {
         const patientCanvas = signatureCanvasRef.current;

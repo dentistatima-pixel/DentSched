@@ -6,7 +6,6 @@ import { formatDate, generateUid, calculateAge } from '../constants';
 import { useToast } from './ToastSystem';
 import ReactMarkdown from 'react-markdown';
 import { useAuthorization } from '../hooks/useAuthorization';
-import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
@@ -55,6 +54,7 @@ interface PatientDetailViewProps {
   onSupervisorySeal?: (note: DentalChartEntry) => void;
   onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
   onOpenPostOpHandover: (appointment: Appointment) => void;
+  onUpdateAppointment: (appointment: Appointment) => Promise<void>;
   auditLog: AuditLogEntry[];
   activeTab: string;
   setActiveTab: (tabId: string) => void;
@@ -302,6 +302,7 @@ const PatientDetailsTabContent: React.FC<{ patient: Patient; fieldSettings: Fiel
 
 export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     const { patient, onBookAppointment, onEditPatient, fieldSettings, currentUser, onQuickUpdatePatient, activeTab, setActiveTab } = props;
+    const { showModal } = useModal();
     const toast = useToast();
 
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -354,14 +355,31 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     ];
     
     const renderTabContent = () => {
+        if (!patient || !fieldSettings) return null;
+
         switch(activeTab) {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
-            case 'strategy': return <TreatmentPlanModule {...props} />;
-            case 'notes': return <Odontonotes {...props} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} />;
+            case 'strategy': return <TreatmentPlanModule {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
+            case 'notes': return (
+                <Odontonotes
+                    {...props}
+                    patient={patient}
+                    entries={patient.dentalChart || []}
+                    onAddEntry={async (entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })}
+                    onUpdateEntry={async (updatedEntry) => onQuickUpdatePatient({ id: patient.id, dentalChart: (patient.dentalChart || []).map(e => e.id === updatedEntry.id ? updatedEntry : e) })}
+                    onUpdateAppointment={props.onUpdateAppointment}
+                    onDeleteEntry={(id) => onQuickUpdatePatient({ id: patient.id, dentalChart: (patient.dentalChart || []).filter(e => e.id !== id) })}
+                    procedures={fieldSettings.procedures}
+                    treatmentPlans={patient.treatmentPlans || []}
+                    showModal={showModal}
+                    editingNote={editingNote}
+                    setEditingNote={setEditingNote}
+                />
+            );
             case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
-            case 'ledger': return <PatientLedger {...props} />;
+            case 'ledger': return <PatientLedger {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'appointments': return <PatientAppointmentsView appointments={props.appointments.filter(a => a.patientId === patient.id)} />;
             case 'comms': return <CommunicationLog patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'compliance': return <PatientComplianceView patient={patient} />;
