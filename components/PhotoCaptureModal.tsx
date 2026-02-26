@@ -62,7 +62,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             const consent = patient.clinicalMediaConsent;
             let canProceed = false;
 
-            if (consent && consent.generalConsent && !consent.consentRevoked) {
+            if (consent && consent.generalConsent && !consent.consentRevocation) {
                 if (consent.permissions.intraoralPhotos || consent.permissions.extraoralPhotos) {
                     canProceed = true;
                 } else {
@@ -110,7 +110,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         const hash = CryptoJS.SHA256(capturedImage).toString();
         const timestamp = new Date().toISOString();
 
-        const metadata: DentalChartEntry['imageMetadata'][0] = {
+        const metadata = {
             hash,
             fileName: `patient_${patient.id}_${Date.now()}.jpg`,
             captureTimestamp: timestamp,
@@ -119,13 +119,14 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             toothNumber: chartEntry.toothNumber,
             viewAngle: viewAngle,
             consentVerified: true,
+            purpose: purpose,
         };
 
-        const log: Patient['clinicalMediaConsent']['mediaCapturedLogs'][0] = {
+        const log = {
             sessionId: chartEntry.id,
             date: chartEntry.date,
             capturedBy: currentUser.id,
-            mediaType: 'Photo',
+            mediaType: 'Photo' as const,
             imageHashes: [hash],
             procedure: chartEntry.procedure,
             device: deviceInfo,

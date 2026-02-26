@@ -10,12 +10,14 @@ import { formatDate, calculateAge } from '../constants';
 import { useAppContext } from '../contexts/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
 
+import { useSearchPersistence } from '../hooks/useSearchPersistence';
+
 interface PatientListProps {
   selectedPatientId: string | null;
 }
 
 export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useSearchPersistence('patients');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const { showModal } = useModal();
   const { patients, handleSavePatient } = usePatient();

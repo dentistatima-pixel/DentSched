@@ -99,9 +99,9 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                                 <td className="p-3"><span className="text-[10px] font-black px-3 py-1 bg-slate-100 text-slate-600 rounded-full uppercase border border-slate-200">{abbreviateCategory(proc.category)}</span></td>
                                 <td className="p-3">
                                     <div className="flex gap-2">
-                                        {proc.requiresLeadApproval && <Stethoscope size={16} className="text-red-500" title="Lead Approval Required"/>}
-                                        {proc.requiresImaging && <Bone size={16} className="text-blue-500" title="Imaging Required"/>}
-                                        {proc.triggersPostOpSequence && <Send size={16} className="text-green-500" title="Triggers Post-Op SMS"/>}
+                                        {proc.requiresLeadApproval && <span title="Lead Approval Required"><Stethoscope size={16} className="text-red-500"/></span>}
+                                        {proc.requiresImaging && <span title="Imaging Required"><Bone size={16} className="text-blue-500"/></span>}
+                                        {proc.triggersPostOpSequence && <span title="Triggers Post-Op SMS"><Send size={16} className="text-green-500"/></span>}
                                     </div>
                                 </td>
                                 <td className="p-3 text-right font-black text-slate-900">₱{proc.defaultPrice.toLocaleString()}</td>

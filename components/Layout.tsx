@@ -1,15 +1,14 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
-    Calendar, Users, LayoutDashboard, Menu, X, PlusCircle, ChevronDown, UserCircle, 
-    Settings, Sliders, MapPin, FileText, Download, ClipboardCheck, CheckCircle, Circle, 
-    Flag, Monitor, Package, DollarSign, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
-    ShieldAlert, Shield, ShieldCheck, Lock, Bell, Smartphone, Users2, StickyNote, 
-    Send, CheckSquare, Plus, Power, PowerOff, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
-    Sparkles, Sun, Moon, Search, HelpCircle
+    Calendar, Users, LayoutDashboard, UserCircle, 
+    Sliders, Flag, Monitor, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
+    ShieldAlert, Shield, ShieldCheck, StickyNote, 
+    Send, CheckSquare, Plus, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
+    Sun, Moon, Search, HelpCircle
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
-import { UserRole, SystemStatus, AppNotification, Patient } from '../types';
+import { SystemStatus } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -39,16 +38,16 @@ export const Layout: React.FC<LayoutProps> = ({
   const { 
     currentUser, isOnline, systemStatus, setSystemStatus, originalUser: impersonatingUser, 
     handleStopImpersonating, logout: handleLogout,
-    currentBranch, setCurrentBranch, isAuthorityLocked, setIsInKioskMode,
+    currentBranch, isAuthorityLocked, setIsInKioskMode,
     theme, toggleTheme,
     syncQueueCount, isSyncing,
   } = useAppContext();
-  const { staff, handleSaveStaff } = useStaff();
+  const { staff } = useStaff();
   const { patients, handleSavePatient } = usePatient();
   const { appointments, handleSaveAppointment } = useAppointments();
   const { fieldSettings } = useSettings();
   const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks, handleAddToWaitlist } = useClinicalOps();
-  const { handleStartCashSession, handleCloseCashSession, cashSessions } = useFinancials();
+  useFinancials();
   
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -92,15 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({
   }, [patientSearch, patients]);
   
   const features = fieldSettings?.features;
-  const enableMultiBranch = features?.enableMultiBranch ?? true;
-  
   const isDowntime = systemStatus === SystemStatus.DOWNTIME;
-
-  const userAllowedBranches = can('manage:admin')
-      ? (fieldSettings?.branches || []) 
-      : (currentUser.allowedBranches && currentUser.allowedBranches.length > 0)
-          ? currentUser.allowedBranches
-          : (fieldSettings?.branches || []);
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard, visible: true },

@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, AlertTriangle, X, Save, Trash2, Edit2, Shield, CheckCircle, Boxes, Tag, Calendar, AlertCircle, FileText, ShoppingCart, Send, ArrowRight, ArrowRightLeft, MapPin, TrendingUp, Sparkles, Wrench, Clock, Activity, CalendarDays, LineChart, ChevronRight, Zap, Target, History, Scale, ShoppingBag, Download, User as UserIcon, ClipboardCheck, ArrowUpCircle, EyeOff, BarChart2, Armchair, ShieldCheck, Thermometer, ArrowLeft } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, UserRole, PurchaseOrder, PurchaseOrderItem, StockTransfer, Patient, FieldSettings, MaintenanceAsset, Appointment, AuditLogEntry, AppointmentStatus, InstrumentSet } from '../types';
+import { Package, Plus, Search, X, Save, Edit2, Shield, Boxes, ArrowRightLeft, TrendingUp, Scale, ShoppingBag, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
+import { StockItem, StockCategory, SterilizationCycle, User, StockTransfer, Patient, FieldSettings, Appointment, AuditLogEntry, AppointmentStatus } from '../types';
 import { useToast } from './ToastSystem';
-import { formatDate, STAFF } from '../constants';
+import { formatDate } from '../constants';
+
+import { useSearchPersistence } from '../hooks/useSearchPersistence';
 
 interface InventoryProps {
   stock: StockItem[];
@@ -40,7 +42,7 @@ const Inventory: React.FC<InventoryProps> = ({
   const isAdvanced = complexity === 'ADVANCED';
 
   const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'procurement' | 'sterilization'>('stock');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useSearchPersistence('inventory');
   const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
   const [auditMode, setAuditMode] = useState(false);
   
@@ -49,10 +51,8 @@ const Inventory: React.FC<InventoryProps> = ({
   const [newSetName, setNewSetName] = useState('');
 
   const [sessionPhysicalCounts, setSessionPhysicalCounts] = useState<Record<string, number>>({});
-  const [showVarianceReport, setShowVarianceReport] = useState(false);
   const [showAuditSummary, setShowAuditSummary] = useState(false);
 
-  const [showCycleModal, setShowCycleModal] = useState(false);
   const [newCycle, setNewCycle] = useState<Partial<SterilizationCycle>>({
       autoclaveName: 'Autoclave 1', cycleNumber: `C${Date.now().toString().slice(-4)}`, passed: true, instrumentSetIds: []
   });
@@ -91,10 +91,6 @@ const Inventory: React.FC<InventoryProps> = ({
   const branchStock = useMemo(() => {
       return stock.filter(s => s.branch === currentBranch || !s.branch);
   }, [stock, currentBranch]);
-
-  const branchSets = useMemo(() => {
-      return fieldSettings?.instrumentSets?.filter(s => s.branch === currentBranch) || [];
-  }, [fieldSettings, currentBranch]);
 
   const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -154,37 +150,11 @@ const Inventory: React.FC<InventoryProps> = ({
     toast.success(`Item "${updatedItem.name}" saved successfully.`);
   };
 
-  const handleAddSet = () => {
-      if (!newSetName.trim() || !onUpdateSettings || !fieldSettings) return;
-      const newSet: InstrumentSet = { id: `set_${Date.now()}`, name: newSetName, status: 'Contaminated', branch: currentBranch };
-      onUpdateSettings({ ...fieldSettings, instrumentSets: [...(fieldSettings.instrumentSets || []), newSet] });
-      setNewSetName('');
-      toast.success(`Instrument Set "${newSet.name}" added to registry.`);
+  const updatePhysicalCount = (id: string, count: string) => {
+      const val = parseInt(count);
+      const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+      setSessionPhysicalCounts(prev => ({ ...prev, [id]: finalVal }));
   };
-
-  const handleSaveCycle = () => {
-    if (!newCycle.autoclaveName || !newCycle.operator || !onUpdateSettings || !fieldSettings) return;
-    const cycle = { ...newCycle, id: `c_${Date.now()}`, date: new Date().toISOString().split('T')[0] } as SterilizationCycle;
-    
-    onAddCycle(cycle);
-
-    if (cycle.passed && cycle.instrumentSetIds && cycle.instrumentSetIds.length > 0) {
-        const updatedSets = fieldSettings.instrumentSets?.map(set => 
-            cycle.instrumentSetIds!.includes(set.id) ? { ...set, status: 'Sterile' as const, lastCycleId: cycle.id } : set
-        );
-        onUpdateSettings({ ...fieldSettings, instrumentSets: updatedSets });
-        toast.success(`Load Result: ${cycle.instrumentSetIds.length} sets marked STERILE.`);
-    }
-
-    setShowCycleModal(false);
-    setNewCycle({ autoclaveName: 'Autoclave 1', cycleNumber: `C${Date.now().toString().slice(-4)}`, passed: true, instrumentSetIds: [] });
-  };
-
-    const updatePhysicalCount = (id: string, count: string) => {
-        const val = parseInt(count);
-        const finalVal = isNaN(val) ? 0 : Math.max(0, val);
-        setSessionPhysicalCounts(prev => ({ ...prev, [id]: finalVal }));
-    };
 
   const handleFinalizeAudit = () => {
     setShowAuditSummary(true);
@@ -206,7 +176,6 @@ const Inventory: React.FC<InventoryProps> = ({
     onUpdateStock(updatedStock);
     setAuditMode(false);
     setShowAuditSummary(false);
-    setShowVarianceReport(true);
     toast.success("Inventory audit finalized and system levels updated.");
   };
 

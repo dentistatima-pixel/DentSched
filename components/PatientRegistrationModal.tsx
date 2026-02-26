@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
-import { Patient, FieldSettings, RegistrationStatus, RegistrationField } from '../types';
+import { X, Lock, FileText, Heart, CheckCircle, Scale, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
+import { Patient, RegistrationStatus, RegistrationField } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import SignatureCaptureOverlay from './SignatureCaptureOverlay';
 import { useToast } from './ToastSystem';
-import { generateUid, calculateAge, formatDate } from '../constants';
+import { generateUid, formatDate } from '../constants';
 import { validatePatient } from '../services/validationService';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -35,7 +35,7 @@ const stepsInfo = [
     { id: 5, label: "Finalize & Sign", icon: CheckCircle }
 ];
 
-const RegistrationSummary: React.FC<{ formData: Partial<Patient>, fieldSettings: FieldSettings }> = ({ formData, fieldSettings }) => {
+const RegistrationSummary: React.FC<{ formData: Partial<Patient> }> = ({ formData }) => {
     const summaryData = useMemo(() => {
         const data: { label: string, value: any, section: string }[] = [];
         
@@ -281,8 +281,19 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
         // Step 2 validation (Medical History)
         const requiredQuestions = fieldSettings.identityQuestionRegistry || [];
         const missingAnswers = requiredQuestions.filter(q => !formData.registryAnswers?.[q]);
+        
         if (missingAnswers.length > 0) {
-            toast.error("Please answer all medical history questions.");
+            toast.error("Please answer all mandatory medical history questions.");
+            return false;
+        }
+
+        // Phase 1 Fix: Ensure health history is not bypassed
+        const hasAllergies = formData.allergies && formData.allergies.length > 0;
+        const hasConditions = formData.medicalConditions && formData.medicalConditions.length > 0;
+        const markedNone = formData.registryAnswers?.['No Known Allergies'] === 'Yes' || formData.registryAnswers?.['No Known Medical Conditions'] === 'Yes';
+
+        if (!hasAllergies && !hasConditions && !markedNone) {
+            toast.warning("Please provide health history details or confirm 'None' if applicable.");
             return false;
         }
     } else if (currentStep === 3) {
@@ -403,7 +414,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 )}
                 {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} handleChange={handleChange} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
                 {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} /></div>}
-                {step === 4 && <RegistrationSummary formData={formData} fieldSettings={fieldSettings} />}
+                {step === 4 && <RegistrationSummary formData={formData} />}
                 {step === 5 && (
                     <div key={5} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
                         <SignatureCaptureOverlay 
@@ -413,7 +424,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             title="Finalize & Sign"
                             instruction="Please review the summary of your information above. Your signature below legally binds this record, including your consent to our Data Privacy Policy and terms of treatment."
                             themeColor="teal"
-                            contextSummary={<RegistrationSummary formData={formData} fieldSettings={fieldSettings} />}
+                            contextSummary={<RegistrationSummary formData={formData} />}
                         />
                     </div>
                 )}

@@ -4,11 +4,11 @@ import {
 } from 'lucide-react';
 import { 
     Expense, Patient, Appointment, FieldSettings, 
-    User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
-    ClinicalIncident, PayrollStatus, PriceBookEntry
+    User as StaffUser, AppointmentStatus, ReconciliationRecord, 
+    ClinicalIncident, PayrollStatus, PriceBookEntry, CashSession, PayrollPeriod,
+    PayrollAdjustment, CommissionDispute, GovernanceTrack
 } from '../types';
-import { formatDate, generateUid } from '../constants';
-import { useToast } from './ToastSystem';
+import { formatDate } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -233,8 +233,7 @@ const PayrollTab: React.FC<Pick<FinancialsProps, 'payrollPeriods' | 'staff' | 'o
     );
 };
 
-const ReconciliationTab: React.FC<Pick<FinancialsProps, 'reconciliations' | 'onSaveReconciliation' | 'currentUser'>> = ({ reconciliations, onSaveReconciliation, currentUser }) => {
-    const [showForm, setShowForm] = useState(false);
+const ReconciliationTab: React.FC<Pick<FinancialsProps, 'reconciliations'>> = ({ reconciliations }) => {
     return (
         <div className="space-y-6">
             <h3 className="text-lg font-black text-text-primary uppercase tracking-tighter">Daily Reconciliation</h3>
@@ -285,7 +284,7 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
             {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
             {activeTab === 'payroll' && <PayrollTab payrollPeriods={props.payrollPeriods} staff={props.staff} onAddPayrollPeriod={props.onAddPayrollPeriod} />}
-            {activeTab === 'reconciliation' && <ReconciliationTab reconciliations={props.reconciliations} onSaveReconciliation={props.onSaveReconciliation} currentUser={props.currentUser} />}
+            {activeTab === 'reconciliation' && <ReconciliationTab reconciliations={props.reconciliations} />}
         </div>
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
       </div>
