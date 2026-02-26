@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { FieldSettings, Patient, PrivacyImpactAssessment, User } from '../types';
-import { Shield, Archive, Trash2, Search, AlertTriangle, User as UserIcon, FileText } from 'lucide-react';
+import { FieldSettings, Patient, PrivacyImpactAssessment } from '../types';
+import { Archive, Trash2, Search, AlertTriangle, User as UserIcon, FileText } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { checkRetentionPolicy } from '../services/validationService';
 import { formatDate } from '../constants';
@@ -16,7 +16,7 @@ interface ComplianceCenterProps {
     initialTab?: string;
 }
 
-const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateSettings, patients, onAnonymizePatient, initialTab }) => {
+const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateSettings, patients, onAnonymizePatient }) => {
     const toast = useToast();
     const { staff } = useStaff();
     const { currentUser } = useAppContext();

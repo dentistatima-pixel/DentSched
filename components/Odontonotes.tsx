@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, ConsentCategory, Patient } from '../types';
-import { Plus, Lock, FileText, Activity, Stethoscope, ClipboardList, Sparkles, ArrowRight, RotateCcw, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
+import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, UserRole, Appointment, Patient } from '../types';
+import { Plus, Lock, FileText, Stethoscope, Sparkles, ArrowRight, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
 import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
-import { useModal } from '../contexts/ModalContext';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -29,7 +28,6 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
-    const [isSoapLoading, setIsSoapLoading] = useState(false);
     const toast = useToast();
 
     useEffect(() => {
@@ -43,7 +41,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             const newData = { ...prev, [name]: value };
             if (name === 'procedure') {
                 const selectedProc = procedures.find(p => p.name === value);
-                if (selectedProc && !prev.price) {
+                if (selectedProc) {
                     newData.price = selectedProc.defaultPrice;
                 }
             }
@@ -63,7 +61,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     const handleGetAiReview = async () => {
         setIsReviewLoading(true);
         try {
-            const feedback = await reviewClinicalNote(formData);
+            const feedback = await reviewClinicalNote(formData.objective || '');
             setAiReview(feedback);
         } catch (error) {
             setAiReview("Error getting AI review.");
@@ -73,30 +71,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     };
     
     const handleGenerateAiSoap = async () => {
-        if (!formData.procedure) {
-            // AI generation is disabled, so we provide a structured template
-            setFormData(prev => ({
-                ...prev,
-                subjective: "Patient reports...",
-                objective: "Clinical examination reveals...",
-                assessment: "Diagnosis of...",
-                plan: "1. \n2. \n3. "
-            }));
-            toast.info("SOAP template applied.");
-            return;
-        }
-        // This part is now unused due to the user's request, but kept for future reference
-        setIsSoapLoading(true);
-        try {
-            const result = await generateSoapNote(formData.procedure, formData.toothNumber);
-            setFormData(prev => ({ ...prev, ...result }));
-            toast.success("AI SOAP note generated.");
-        } catch (error) {
-            toast.error("Could not generate AI note.");
-            console.error(error);
-        } finally {
-            setIsSoapLoading(false);
-        }
+        // AI generation is disabled, so we provide a structured template
+        setFormData(prev => ({
+            ...prev,
+            subjective: "Patient reports...",
+            objective: "Clinical examination reveals...",
+            assessment: "Diagnosis of...",
+            plan: "1. \n2. \n3. "
+        }));
+        toast.info("SOAP template applied.");
     };
 
 
@@ -135,72 +118,62 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            <div className="md:col-span-3">
-                <label className="label">Date</label>
-                <input type="date" name="date" value={formData.date} onChange={handleChange} className="input" disabled={isSealed}/>
-            </div>
-            <div className="md:col-span-2">
-                <label className="label">Tooth #</label>
-                <input type="number" name="toothNumber" value={formData.toothNumber || ''} onChange={handleNumericChange} className="input" placeholder="e.g., 16" disabled={isSealed}/>
-            </div>
-            <div className="md:col-span-5">
-                <label className="label">Procedure *</label>
-                <select name="procedure" value={formData.procedure} onChange={handleChange} className="input font-bold" disabled={isSealed} required>
+        <div className="space-y-6">
+            {/* Primary Procedure Field */}
+            <div>
+                <label className="label text-xs uppercase tracking-widest text-slate-500 font-bold mb-2 block">Procedure *</label>
+                <select name="procedure" value={formData.procedure} onChange={handleChange} className="input font-black text-lg w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all" disabled={isSealed} required>
                     <option value="">Select Procedure...</option>
                     {procedures.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
             </div>
-            <div className="md:col-span-2">
-                <label className="label">Cost (₱)</label>
-                <input type="number" name="price" value={formData.price || ''} onChange={handleNumericChange} className="input" placeholder="0.00" disabled={isSealed}/>
+
+            {/* Meta Data Grid */}
+            <div className="grid grid-cols-3 gap-4">
+                <div>
+                    <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 block">Date</label>
+                    <input type="date" name="date" value={formData.date} onChange={handleChange} className="input w-full font-bold" disabled={isSealed}/>
+                </div>
+                <div>
+                    <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 block">Tooth #</label>
+                    <input type="number" name="toothNumber" value={formData.toothNumber || ''} onChange={handleNumericChange} className="input w-full font-bold" placeholder="e.g., 16" disabled={isSealed}/>
+                </div>
+                <div>
+                    <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 block">Cost (₱)</label>
+                    <input type="number" name="price" value={formData.price || ''} onChange={handleNumericChange} className="input w-full font-bold" placeholder="0.00" disabled={isSealed}/>
+                </div>
             </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Status Selection */}
             <div>
-                <label className="label">Status</label>
-                <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
+                <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Status</label>
+                <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl overflow-x-auto">
                     {(['Planned', 'Completed', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
-                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-2 text-sm font-black uppercase rounded-lg transition-all ${formData.status === status ? 'bg-white shadow' : 'opacity-60'}`}>{status}</button>
+                        <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-3 text-xs font-black uppercase rounded-lg transition-all whitespace-nowrap ${formData.status === status ? 'bg-white shadow-md text-slate-800' : 'text-slate-400 hover:bg-slate-200/50'}`}>{status}</button>
                     ))}
                 </div>
             </div>
-             <div>
-                <label className="label">Treatment Phase</label>
-                <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input text-sm font-black uppercase" disabled={isSealed}>
+
+            {/* Treatment Phase */}
+            <div>
+                <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Treatment Phase</label>
+                <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input w-full text-sm font-bold" disabled={isSealed}>
                     <option value="">- Unassigned -</option>
                     {treatmentPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
             </div>
-        </div>
-        <div className="space-y-4 pt-6 border-t border-slate-100">
-            <div className="flex justify-between items-center">
-                <label className="label flex items-center gap-2"><Stethoscope size={14}/> Clinical Narrative</label>
-                <button 
-                    type="button" 
-                    onClick={handleGenerateAiSoap}
-                    disabled={isSoapLoading || isSealed}
-                    className="flex items-center gap-2 px-4 py-2 bg-lilac-600 text-white rounded-lg text-sm font-black uppercase tracking-widest shadow-lg shadow-lilac-900/20 disabled:opacity-50 disabled:grayscale"
-                >
-                    <Sparkles size={14}/>
-                    Apply Template
-                </button>
-            </div>
-            <div>
-                <label className="label">S (Subjective)</label>
-                <textarea name="subjective" value={formData.subjective || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Patient's chief complaint and history..."/>
-            </div>
-            <div>
-                <label className="label">O (Objective)</label>
-                <textarea name="objective" value={formData.objective || ''} onChange={handleChange} className="input h-28" disabled={isSealed} placeholder="Clinical findings and observations..."/>
-            </div>
-            <div>
-                <label className="label">A (Assessment)</label>
-                <textarea name="assessment" value={formData.assessment || ''} onChange={handleChange} className="input h-20" disabled={isSealed} placeholder="Diagnosis and clinical judgment..."/>
-            </div>
-             <div>
-                <label className="label">P (Plan)</label>
-                <textarea name="plan" value={formData.plan || ''} onChange={handleChange} className="input h-24" disabled={isSealed} placeholder="Treatment plan, prescriptions, and follow-up..."/>
+
+            {/* Clinical Observations */}
+            <div className="pt-4 border-t border-slate-100">
+                <label className="label flex items-center gap-2 text-xs uppercase tracking-widest text-slate-500 font-bold mb-2"><Stethoscope size={14}/> Clinical Observations</label>
+                <textarea 
+                    name="objective" 
+                    value={formData.objective || ''} 
+                    onChange={handleChange} 
+                    className="input w-full h-96 p-4 font-medium leading-relaxed rounded-2xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none" 
+                    disabled={isSealed} 
+                    placeholder="Enter clinical observations, findings, and procedure details..."
+                />
             </div>
         </div>
         <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
@@ -276,7 +249,7 @@ interface OdontonotesProps {
 }
 
 export const Odontonotes: React.FC<OdontonotesProps> = ({ 
-  entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, onQuickUpdatePatient, onDeleteEntry, currentUser, readOnly, 
+  entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, currentUser, readOnly, 
   procedures, treatmentPlans = [], onAssignToPlan, showModal, logAction,
   editingNote, setEditingNote
 }) => {

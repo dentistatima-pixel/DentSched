@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { Patient, Appointment, TreatmentPlan } from '../types';
-import { formatDate } from '../constants';
+import { Patient } from '../types';
 import { FileSignature, ShieldCheck, DollarSign, Stethoscope, ClipboardCheck } from 'lucide-react';
 import { useAppointments } from '../contexts/AppointmentContext';
 
@@ -63,7 +62,7 @@ const ConsentTimeline: React.FC<ConsentTimelineProps> = ({ patient }) => {
             <div className="relative pl-8">
                 {/* Timeline line */}
                 <div className="absolute top-0 bottom-0 left-[21px] w-0.5 bg-slate-200"></div>
-                {timelineEvents.map((event, i) => {
+                {timelineEvents.map((event) => {
                     const Icon = event.icon;
                     return (
                         <div key={event.id} className="relative mb-8">

@@ -18,6 +18,20 @@ const CheckboxField: React.FC<{ label: string; checked: boolean; onChange: (chec
     </label>
 );
 
+const abbreviateCategory = (category: string) => {
+    const map: Record<string, string> = {
+        'Diagnostic & Preventive': 'Diag/Prev',
+        'Restorative': 'Resto',
+        'Surgery': 'Surg',
+        'Endodontics': 'Endo',
+        'Prosthodontics': 'Prosth',
+        'Orthodontics': 'Ortho',
+        'Periodontics': 'Perio',
+        'Pediatric': 'Pedia'
+    };
+    return map[category] || category;
+};
+
 const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateSettings }) => {
     const toast = useToast();
     const [editingProcedure, setEditingProcedure] = useState<Partial<ProcedureItem> | null>(null);
@@ -77,21 +91,21 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
             </div>
             <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]"><tr className="text-left"><th className="p-6">Description</th><th className="p-6">Classification</th><th className="p-6">Protocols</th><th className="p-6 text-right">Fee (₱)</th><th className="p-6 text-right">Actions</th></tr></thead>
+                    <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]"><tr className="text-left"><th className="p-3">Description</th><th className="p-3">Classification</th><th className="p-3">Protocols</th><th className="p-3 text-right">Fee (₱)</th><th className="p-3 text-right w-24">Actions</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                         {settings.procedures.map(proc => (
                             <tr key={proc.id} className="hover:bg-slate-50 transition-colors group">
-                                <td className="p-6 font-black text-slate-800 text-xs uppercase tracking-tight">{proc.name}</td>
-                                <td className="p-6"><span className="text-[10px] font-black px-3 py-1 bg-slate-100 text-slate-600 rounded-full uppercase border border-slate-200">{proc.category}</span></td>
-                                <td className="p-6">
+                                <td className="p-3 font-black text-slate-800 text-xs uppercase tracking-tight">{proc.name}</td>
+                                <td className="p-3"><span className="text-[10px] font-black px-3 py-1 bg-slate-100 text-slate-600 rounded-full uppercase border border-slate-200">{abbreviateCategory(proc.category)}</span></td>
+                                <td className="p-3">
                                     <div className="flex gap-2">
                                         {proc.requiresLeadApproval && <Stethoscope size={16} className="text-red-500" title="Lead Approval Required"/>}
                                         {proc.requiresImaging && <Bone size={16} className="text-blue-500" title="Imaging Required"/>}
                                         {proc.triggersPostOpSequence && <Send size={16} className="text-green-500" title="Triggers Post-Op SMS"/>}
                                     </div>
                                 </td>
-                                <td className="p-6 text-right font-black text-slate-900">₱{proc.defaultPrice.toLocaleString()}</td>
-                                <td className="p-6 text-right"><div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleOpenEditModal(proc)} className="p-3 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all"><Edit2 size={16}/></button><button onClick={() => handleDeleteProcedure(proc.id)} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16}/></button></div></td>
+                                <td className="p-3 text-right font-black text-slate-900">₱{proc.defaultPrice.toLocaleString()}</td>
+                                <td className="p-3 text-right"><div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleOpenEditModal(proc)} className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all"><Edit2 size={16}/></button><button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16}/></button></div></td>
                             </tr>
                         ))}
                     </tbody>
@@ -106,7 +120,7 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                         <div className="space-y-4">
                             <div><label className="label text-[10px]">Procedure Narrative</label><input type="text" value={editingProcedure.name} onChange={e => setEditingProcedure({...editingProcedure, name: e.target.value})} className="input" placeholder="e.g. Oral Prophylaxis" /></div>
                             <div className="grid grid-cols-3 gap-4">
-                                <div><label className="label text-[10px]">Classification Category</label><select value={editingProcedure.category} onChange={e => setEditingProcedure({...editingProcedure, category: e.target.value})} className="input"><option>Diagnostic & Preventive</option><option>Restorative</option><option>Surgery</option><option>Endodontics</option><option>Prosthodontics</option></select></div>
+                                <div><label className="label text-[10px]">Classification Category</label><select value={editingProcedure.category} onChange={e => setEditingProcedure({...editingProcedure, category: e.target.value as LicenseCategory})} className="input"><option>Diagnostic & Preventive</option><option>Restorative</option><option>Surgery</option><option>Endodontics</option><option>Prosthodontics</option></select></div>
                                 <div><label className="label text-[10px]">Standard Fee (₱)</label><input type="number" value={editingProcedure.defaultPrice} onChange={e => setEditingProcedure({...editingProcedure, defaultPrice: parseFloat(e.target.value) || 0})} className="input font-black text-lg" /></div>
                                 <div><label className="label text-[10px]">Duration (mins)</label><input type="number" step="5" value={editingProcedure.defaultDurationMinutes} onChange={e => setEditingProcedure({...editingProcedure, defaultDurationMinutes: parseInt(e.target.value) || 30})} className="input font-black text-lg" /></div>
                             </div>

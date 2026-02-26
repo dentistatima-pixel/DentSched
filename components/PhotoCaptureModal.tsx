@@ -8,7 +8,7 @@ import { useToast } from './ToastSystem';
 interface PhotoCaptureModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (metadata: DentalChartEntry['imageMetadata'][0], log: Patient['clinicalMediaConsent']['mediaCapturedLogs'][0]) => void;
+    onSave: (metadata: any, log: any) => void;
     patient: Patient;
     chartEntry: DentalChartEntry;
     currentUser: User;

@@ -13,7 +13,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useModal } from '../contexts/ModalContext';
-import { Patient, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Appointment, AppointmentStatus } from '../types';
+import { Patient, ConsentCategory, ClinicalProtocolRule, TreatmentPlan, Appointment, AppointmentStatus, DentalChartEntry } from '../types';
 
 
 const PatientPlaceholder = React.lazy(() => import('../components/PatientDetailView').then(module => ({ default: module.PatientPlaceholder })));
@@ -91,6 +91,9 @@ const PatientDetailContainer: React.FC<{
     });
   };
 
+  const onAddEntry = (entry: DentalChartEntry) => handleSavePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] });
+  const onUpdateEntry = (entry: DentalChartEntry) => handleSavePatient({ id: patient.id, dentalChart: (patient.dentalChart || []).map(e => e.id === entry.id ? entry : e) });
+
   return (
     <Suspense fallback={<PageLoader />}>
       <PatientDetailView 
@@ -121,6 +124,10 @@ const PatientDetailContainer: React.FC<{
         onSupervisorySeal={(note) => handleSupervisorySeal(patient.id, note)}
         onRecordPaymentWithReceipt={handleRecordPaymentWithReceipt}
         onOpenPostOpHandover={onOpenPostOpHandover}
+        onAddEntry={onAddEntry}
+        onUpdateEntry={onUpdateEntry}
+        onUpdateAppointment={handleSaveAppointment}
+        showModal={showModal}
         auditLog={auditLog}
         activeTab={activeTab}
         setActiveTab={setActiveTab}

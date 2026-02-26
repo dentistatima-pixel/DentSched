@@ -109,7 +109,12 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
 
       if (capturedThumb || capturedHash) {
           if (!finalPatient.guardianProfile) {
-              finalPatient.guardianProfile = {} as any;
+              finalPatient.guardianProfile = {
+                  legalName: '',
+                  relationship: '',
+                  mobile: '',
+                  authorityLevel: 'Full'
+              };
           }
           finalPatient.guardianProfile.visualAnchorThumb = capturedThumb || undefined;
           finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;

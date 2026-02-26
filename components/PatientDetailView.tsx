@@ -1,19 +1,12 @@
 
 import React, { useState, useRef, useEffect, useMemo, Suspense, useCallback } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, AuthorityLevel, TreatmentPlanStatus, ClearanceRequest, Referral, GovernanceTrack, ConsentCategory, PatientFile, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, AppointmentStatus, LedgerEntry, UserRole, PerioMeasurement, EPrescription, PatientAlert } from '../types';
-import { ShieldAlert, Phone, Mail, MapPin, Edit, Trash2, CalendarPlus, FileUp, Shield, BarChart, History, FileText, DollarSign, Stethoscope, Briefcase, BookUser, Baby, AlertCircle, Receipt, ClipboardList, User as UserIcon, X, ChevronRight, Sparkles, Heart, Activity, CheckCircle, ImageIcon, Plus, Zap, Camera, Search, UserCheck, ArrowLeft, ShieldCheck, Send, MessageSquare, Pill, HeartPulse, Book, ChevronDown, Loader, MoreHorizontal, Image as ImageIconLucide, ChartPie, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon } from 'lucide-react';
-import { formatDate, generateUid, calculateAge } from '../constants';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan } from '../types';
+import { Phone, Mail, MapPin, Stethoscope, Briefcase, BookUser, AlertCircle, ClipboardList, User as UserIcon, Heart, Activity, CheckCircle, ArrowLeft, ShieldCheck, MessageSquare, ChevronDown, Loader, Image as ImageIconLucide, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon, FileText, Shield, DollarSign, History } from 'lucide-react';
+import { formatDate, calculateAge } from '../constants';
 import { useToast } from './ToastSystem';
-import ReactMarkdown from 'react-markdown';
-import { useAuthorization } from '../hooks/useAuthorization';
-import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { usePatient } from '../contexts/PatientContext';
-import { useAppContext } from '../contexts/AppContext';
-import { useModal } from '../contexts/ModalContext';
 import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
-import { useAppointments } from '../contexts/AppointmentContext';
-import { usePatientAlerts } from '../hooks/usePatientAlerts';
 import { ErrorBoundary } from './ErrorBoundary';
 
 // Lazy load heavy components
@@ -55,6 +48,10 @@ interface PatientDetailViewProps {
   onSupervisorySeal?: (note: DentalChartEntry) => void;
   onRecordPaymentWithReceipt: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => Promise<void>;
   onOpenPostOpHandover: (appointment: Appointment) => void;
+  onAddEntry: (entry: DentalChartEntry) => void;
+  onUpdateEntry: (entry: DentalChartEntry) => void;
+  onUpdateAppointment: (appointment: Appointment) => Promise<void>;
+  showModal: (type: string, props?: any) => void;
   auditLog: AuditLogEntry[];
   activeTab: string;
   setActiveTab: (tabId: string) => void;
@@ -301,8 +298,8 @@ const PatientDetailsTabContent: React.FC<{ patient: Patient; fieldSettings: Fiel
 };
 
 export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-    const { patient, onBookAppointment, onEditPatient, fieldSettings, currentUser, onQuickUpdatePatient, activeTab, setActiveTab } = props;
-    const toast = useToast();
+    const { patient, onBookAppointment, onEditPatient, fieldSettings, currentUser, onQuickUpdatePatient, activeTab, setActiveTab, onUpdateAppointment } = props;
+    // const toast = useToast(); // Removed unused toast
 
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -354,14 +351,15 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
     ];
     
     const renderTabContent = () => {
+        if (!patient) return null;
         switch(activeTab) {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
-            case 'strategy': return <TreatmentPlanModule {...props} />;
-            case 'notes': return <Odontonotes {...props} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} />;
+            case 'strategy': return <TreatmentPlanModule {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
+            case 'notes': return <Odontonotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} />;
             case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
-            case 'ledger': return <PatientLedger {...props} />;
+            case 'ledger': return <PatientLedger {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'appointments': return <PatientAppointmentsView appointments={props.appointments.filter(a => a.patientId === patient.id)} />;
             case 'comms': return <CommunicationLog patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'compliance': return <PatientComplianceView patient={patient} />;
@@ -388,7 +386,9 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                 </div>
                 <div className="flex items-center gap-3">
                      <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest">New Appt</button>
-                     <button onClick={() => onEditPatient(patient)} className="px-5 py-2.5 bg-transparent border-2 border-white text-white rounded-xl text-xs font-black uppercase tracking-widest">Edit Profile</button>
+                     <button onClick={() => onEditPatient(patient)} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patient.registrationStatus === 'Provisional' ? 'bg-amber-400 text-amber-950 border-2 border-amber-400 shadow-lg shadow-amber-900/20 hover:bg-amber-300' : 'bg-transparent border-2 border-white text-white hover:bg-white/10'}`}>
+                        {patient.registrationStatus === 'Provisional' ? 'Resume Registration' : 'Edit Profile'}
+                     </button>
                 </div>
             </header>
 

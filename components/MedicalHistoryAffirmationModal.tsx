@@ -240,7 +240,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
                 <RegistrationMedical 
                     formData={formData} 
                     handleChange={handleChange} 
-                    onCustomChange={handleCustomChange} 
+                    onCustomChange={(fieldName, value) => handleCustomChange(fieldName, value, 'text')} 
                     registryAnswers={formData.registryAnswers || {}} 
                     onRegistryChange={handleRegistryChange} 
                     allergies={formData.allergies || []} 
@@ -253,7 +253,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                     <div className="flex justify-between items-center mb-4">
                         <label className="font-black text-slate-700 uppercase tracking-widest text-sm">Patient/Guardian Signature *</label>
-                        <button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={14}/> Clear</button>
+                        <button onClick={() => clearCanvas(signatureCanvasRef as React.RefObject<HTMLCanvasElement | null>)} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"><Eraser size={14}/> Clear</button>
                     </div>
                     <canvas ref={signatureCanvasRef} className="bg-white rounded-xl border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair shadow-inner" onPointerDown={startSign} />
                     <p className="text-xs text-slate-500 mt-3 font-bold uppercase text-center">I certify that the updated medical history above is true and correct to the best of my knowledge.</p>

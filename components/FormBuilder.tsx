@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
-import { Plus, X, ArrowUp, ArrowDown, MousePointer2, PlusCircle, Edit3, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar, Activity } from 'lucide-react';
+import { Plus, X, ArrowUp, ArrowDown, PlusCircle, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -324,6 +324,7 @@ const FormBuilder: React.FC = () => {
                                     designMode={!isPreviewMode}
                                     onFieldClick={handleFieldClick}
                                     selectedFieldId={selectedField?.id}
+                                    handleChange={() => {}}
                                     onCustomChange={() => {}}
                                 />
                             </div>

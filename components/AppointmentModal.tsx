@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Calendar, Clock, User, Save, Search, AlertCircle, Sparkles, Beaker, CreditCard, Activity, ArrowRight, ClipboardCheck, FileSignature, CheckCircle, Shield, Briefcase, Lock, Armchair, AlertTriangle, ShieldAlert, BadgeCheck, ShieldX, Database, PackageCheck, UserCheck, Baby, Hash, Phone, FileText, Zap, UserPlus, Key, DollarSign as FinanceIcon, RotateCcw } from 'lucide-react';
-import { Patient, User as Staff, UserRole, Appointment, AppointmentStatus, FieldSettings, LabStatus, TreatmentPlanStatus, SterilizationCycle, ClinicResource, Vendor, DaySchedule, WaitlistEntry, LedgerEntry, ResourceType, ClinicalProtocolRule, ProcedureItem, OperationalHours } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Calendar, Save, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Patient, Appointment, AppointmentStatus, WaitlistEntry } from '../types';
 import Fuse from 'fuse.js';
-import { formatDate, CRITICAL_CLEARANCE_CONDITIONS, generateUid } from '../constants';
+import { generateUid } from '../constants';
 import { useToast } from './ToastSystem';
-import { useModal } from '../contexts/ModalContext';
+
 import { validateAppointment } from '../services/validationService';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
@@ -31,10 +31,10 @@ interface AppointmentModalProps {
 const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isOpen, onClose, onSave, onAddToWaitlist,
     initialDate, initialTime, initialPatientId, existingAppointment, 
-    isDowntime, overrideInfo, isReconciliationMode, currentBranch, readOnly = false
+    isDowntime, overrideInfo,  currentBranch, readOnly = false
 }) => {
     const toast = useToast();
-    const { showModal } = useModal();
+    
     const { patients } = usePatient();
     const { staff } = useStaff();
     const { fieldSettings } = useSettings();
@@ -118,7 +118,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         
         const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof typeof operationalHours;
         const hours = operationalHours[dayOfWeek];
-        if (!hours || hours.isClosed) return [];
+        if (!hours || hours.isClosed || !hours.start || !hours.end) return [];
 
         const slots = [];
         const start = parseInt(hours.start.split(':')[0]);

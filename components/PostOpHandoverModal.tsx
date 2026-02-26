@@ -23,7 +23,7 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
 
     if (!isOpen) return null;
 
-    const allChecked = checks.oral && checks.written && checks.emergency && checks.medication;
+    const allChecked = checks.oral && checks.emergency && checks.medication;
 
     const handleConfirm = async () => {
         if (!allChecked) {
@@ -71,10 +71,6 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                         <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.medication ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
                             <input type="checkbox" checked={checks.medication} onChange={e => setChecks({...checks, medication: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
                             <span className="text-sm font-bold text-slate-700">Medication dosage, schedule, and potential side effects explained.</span>
-                        </label>
-                        <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.written ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
-                            <input type="checkbox" checked={checks.written} onChange={e => setChecks({...checks, written: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />
-                            <span className="text-sm font-bold text-slate-700">Written care card or digital equivalent provided to patient.</span>
                         </label>
                         <label className={`flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${checks.emergency ? 'bg-teal-50 border-teal-500' : 'bg-white border-slate-100'}`}>
                             <input type="checkbox" checked={checks.emergency} onChange={e => setChecks({...checks, emergency: e.target.checked})} className="w-6 h-6 accent-teal-600 rounded mt-0.5 shrink-0" />

@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { BarChart2, DollarSign, Users, Activity, Percent, UserCheck, User as UserIcon, Building2, ShieldAlert, TrendingUp, PieChart, CalendarX, UserPlus } from 'lucide-react';
-import { Patient, Appointment, FieldSettings, AppointmentStatus, User as StaffUser } from '../types';
+import React, { useMemo } from 'react';
+import { DollarSign, Users, PieChart, CalendarX, UserPlus, UserCheck } from 'lucide-react';
+import { Patient, Appointment, FieldSettings, AppointmentStatus, User as StaffUser, PriceBookEntry } from '../types';
 
 interface AnalyticsProps {
   patients: Patient[];
@@ -9,20 +9,10 @@ interface AnalyticsProps {
   staff?: StaffUser[];
 }
 
-const K_ANONYMITY_THRESHOLD = 5;
-
 const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSettings, staff = [] }) => {
-    const [filterProvider, setFilterProvider] = useState('');
-    const [filterBranch, setFilterBranch] = useState('');
-
+    
     const stats = useMemo(() => {
         let filteredAppointments = appointments;
-        if (filterProvider) {
-            filteredAppointments = filteredAppointments.filter(a => a.providerId === filterProvider);
-        }
-        if (filterBranch) {
-            filteredAppointments = filteredAppointments.filter(a => a.branch === filterBranch);
-        }
 
         const ytdAppointments = filteredAppointments.filter(a => new Date(a.date).getFullYear() === new Date().getFullYear());
         const completedYtd = ytdAppointments.filter(a => a.status === AppointmentStatus.COMPLETED);
@@ -30,7 +20,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
         const totalRevenue = completedYtd.reduce((sum, apt) => {
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
             if (!proc) return sum;
-            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
+            const priceEntry = fieldSettings?.priceBookEntries?.find((pbe: PriceBookEntry) => pbe.procedureId === proc.id);
             return sum + (priceEntry?.price || 0);
         }, 0);
 
@@ -43,7 +33,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
         completedYtd.forEach(apt => {
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
             if (!proc) return;
-            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc.id);
+            const priceEntry = fieldSettings?.priceBookEntries?.find((pbe: PriceBookEntry) => pbe.procedureId === proc.id);
             const price = priceEntry?.price || 0;
             const category = proc.category || 'General';
             if (!procMix[category]) procMix[category] = { count: 0, revenue: 0 };
@@ -58,7 +48,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             const staffApts = completedYtd.filter(a => a.providerId === s.id);
             const revenue = staffApts.reduce((sum, apt) => {
                 const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-                const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc?.id);
+                const priceEntry = fieldSettings?.priceBookEntries?.find((pbe: PriceBookEntry) => pbe.procedureId === proc?.id);
                 return sum + (priceEntry?.price || 0);
             }, 0);
             practitionerProduction[s.id] = {
@@ -78,7 +68,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             procedureMix: sortedMix,
             practitionerProduction: sortedPractitioners,
         };
-    }, [patients, appointments, fieldSettings, staff, filterProvider, filterBranch]);
+    }, [patients, appointments, fieldSettings, staff]);
 
     const StatCard = ({ title, value, icon: Icon, colorClass, unit = '' }: { title: string, value: string, icon: React.ElementType, colorClass: string, unit?: string }) => (
         <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-6 relative overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">

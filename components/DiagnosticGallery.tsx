@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Patient, PatientFile } from '../types';
 import { Camera, Search, FileEdit, X, ImageIcon } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { DataService } from '../services/dataService';
+
 import { formatDate } from '../constants';
 
 interface DiagnosticGalleryProps {

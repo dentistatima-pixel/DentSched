@@ -144,8 +144,13 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                       ) : null}
                     </td>
                     <td className="p-4 patient-name-cell" data-label="Name">
-                      <div>
+                      <div className="flex items-center gap-2">
                         <span className="font-bold text-text-primary">{p.name}</span>
+                        {isProvisional && (
+                            <span className="px-2 py-0.5 bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
+                                DRAFT
+                            </span>
+                        )}
                       </div>
                       <div className="text-xs font-mono text-text-secondary">{p.id}</div>
                     </td>

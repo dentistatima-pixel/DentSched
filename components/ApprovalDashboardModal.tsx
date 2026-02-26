@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry, User, UserRole } from '../types';
+import { Patient, TreatmentPlan as TreatmentPlanType, User, UserRole, DentalChartEntry } from '../types';
 import { X, CheckCircle, XCircle, FileText, Stethoscope, Activity, ImageIcon, Search, ArrowRight, User as UserIcon } from 'lucide-react';
 import { Odontogram } from './Odontogram';
-import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -26,6 +25,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
   const { showModal } = useModal();
   const { handleSaveInformedRefusal } = usePatient();
   const { fieldSettings } = useSettings();
+
   const { currentUser } = useAppContext();
 
   const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
@@ -54,7 +54,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
         "This rejection should be documented as an Informed Refusal. " +
         "Would you like to create the informed refusal form now?"
     )) {
-        const planItems = patient.dentalChart?.filter(item => item.planId === plan.id) || [];
+        
         const extractRisksFromPlan = (planItems: DentalChartEntry[]): string[] => {
             const risks = new Set<string>();
             planItems.forEach(item => {
@@ -144,7 +144,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="font-bold text-base text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Stethoscope size={16}/> Odontogram</h3>
                 <div className="flex justify-center items-center p-4 bg-slate-50 rounded-xl">
-                    <Odontogram chart={patient.dentalChart || []} readOnly={true} onToothClick={()=>{}}/>
+                    <Odontogram chart={patient.dentalChart || []} readOnly={true} onToothClick={()=>{}} currentUser={currentUser as User}/>
                 </div>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">

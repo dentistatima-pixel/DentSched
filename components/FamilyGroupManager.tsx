@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, Patient, FamilyGroup } from '../types';
-import { Users2, Plus, ArrowLeft, Search, User, X } from 'lucide-react';
+import { Users2, Plus, ArrowLeft, Search, X } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { useSettings } from '../contexts/SettingsContext';
 
 interface FamilyGroupManagerProps {
     settings: FieldSettings;

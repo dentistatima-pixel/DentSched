@@ -9,14 +9,14 @@ const getAiInstance = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const getDocentExplanation = async (context: string, query: string): Promise<string> => {
+export const getDocentExplanation = async (elementId: string, context: string, userRole?: string): Promise<string> => {
   const ai = getAiInstance();
   if (!ai) return "AI features are currently unavailable.";
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Context: ${context}\n\nQuery: ${query}`,
+      contents: `Element: ${elementId}\nContext: ${context}\nUser Role: ${userRole || 'Staff'}\n\nProvide a clear explanation.`,
       config: {
         systemInstruction: "You are a helpful dental assistant AI named Docent. Provide clear, concise, and professional explanations.",
       }

@@ -449,6 +449,7 @@ export interface ProcedureItem {
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   riskAllergies?: string[];
   triggersPostOpSequence?: boolean;
+  requiresWitness?: boolean;
 }
 
 export interface RolePermissions {
@@ -1082,6 +1083,7 @@ export interface DentalChartEntry {
     toothNumber?: number;
     viewAngle: 'Buccal' | 'Lingual' | 'Occlusal' | 'Lateral' | 'Intraoral' | 'Extraoral';
     consentVerified: boolean;
+    purpose: 'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing';
   }>;
   boilerplateScore?: number;
   needsProfessionalismReview?: boolean;
@@ -1322,6 +1324,7 @@ export interface FieldSettings {
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;
   priceBooks?: PriceBook[];
+  priceBookEntries?: PriceBookEntry[];
   familyGroups?: FamilyGroup[];
   clinicalProtocolRules?: ClinicalProtocolRule[];
   savedViews?: SavedView[];

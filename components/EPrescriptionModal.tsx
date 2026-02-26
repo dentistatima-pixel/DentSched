@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Patient, Medication, FieldSettings, User, EPrescription } from '../types';
-import { X, Pill, Printer, AlertTriangle, ShieldAlert, Lock, AlertCircle, ShieldOff, Baby, Activity, Calendar, Camera, Upload, CheckCircle, Fingerprint, Scale, Zap, ShieldOff as ShieldX, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
+import { X, Pill, Printer, ShieldAlert, Lock, Baby, CheckCircle, Fingerprint, Scale, Zap, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';

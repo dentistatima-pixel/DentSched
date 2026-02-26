@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
-import { Patient, CommunicationTemplate, CommunicationChannel } from '../types';
-import { Search, Printer, User, X, ArrowLeft } from 'lucide-react';
+import { Patient, CommunicationTemplate } from '../types';
+import { Printer, User, X, ArrowLeft } from 'lucide-react';
 import Fuse from 'fuse.js';
 import jsPDF from 'jspdf';
 import { useAppContext } from '../contexts/AppContext';

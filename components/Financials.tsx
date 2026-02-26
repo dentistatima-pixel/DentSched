@@ -1,18 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-    DollarSign, FileText, Package, BarChart2, CheckCircle, Clock, Edit2, 
-    TrendingUp, Award, UserCheck, Briefcase, Calculator, ShieldCheck, AlertCircle, 
-    History, Download, Receipt, User as UserIcon, Filter, PieChart, Calendar, 
-    AlertTriangle, ChevronRight, X, User as StaffIcon, ShieldAlert, CreditCard, 
-    Lock, Flag, Send, ChevronDown, CheckSquare, Save, Plus, Activity, Target, 
-    Scale, Layers, ArrowRight, Shield, PenTool, Fingerprint, ArrowLeft, Printer
+    DollarSign, X, Plus, Calculator, ShieldCheck, History, Printer, ArrowLeft
 } from 'lucide-react';
 import { 
     Expense, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, LedgerEntry, 
-    TreatmentPlanStatus, UserRole, CashSession, PayrollPeriod, PayrollAdjustment, 
-    CommissionDispute, PractitionerSignOff, AuditLogEntry, GovernanceTrack,
-    ClinicalIncident, PayrollStatus
+    ClinicalIncident, PayrollStatus, PriceBookEntry
 } from '../types';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
@@ -37,7 +30,7 @@ export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onCl
         
         const production = completedApts.reduce((sum, apt) => {
             const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
-            const priceEntry = fieldSettings?.priceBookEntries?.find(pbe => pbe.procedureId === proc?.id);
+            const priceEntry = fieldSettings?.priceBookEntries?.find((pbe: PriceBookEntry) => pbe.procedureId === proc?.id);
             return sum + (priceEntry?.price || 0);
         }, 0);
 

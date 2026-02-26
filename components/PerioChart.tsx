@@ -186,7 +186,7 @@ const PerioRow: React.FC<PerioRowProps> = React.memo(({ tooth, measurement, comp
                  <div className="flex items-center gap-2">
                      <span className="text-slate-400 dark:text-slate-500">PI</span>
                       <button
-                        onClick={() => onPlaqueIndexCycle(tooth, m.plaqueIndex)}
+                        onClick={() => onPlaqueIndexCycle(tooth, m.plaqueIndex as number | null)}
                         disabled={readOnly || isMissingOrExtracted}
                         className="w-8 h-8 flex items-center justify-center gap-1 text-sm rounded-lg border-2 border-green-100 dark:border-green-900 bg-white dark:bg-slate-800 focus:border-green-500 outline-none font-bold text-green-700 dark:text-green-400"
                      >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
 import ModalManager from './components/ModalManager';
@@ -8,11 +8,11 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAppContext } from './contexts/AppContext';
 import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
-import { routes, RouteConfig } from './routes';
+import { routes } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
 
-import { DentalChartEntry, User, UserRole } from './types';
-import { Lock, X, Key, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
+import { User } from './types';
+import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
 const FormBuilder = React.lazy(() => import('./components/FormBuilder'));

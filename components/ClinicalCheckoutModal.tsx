@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, FileText, Stethoscope, Activity, ClipboardList, Lock, Save, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Stethoscope, Activity, ClipboardList, Lock } from 'lucide-react';
 // FIX: Added missing import for `AppointmentStatus`.
-import { Patient, Appointment, DentalChartEntry, TreatmentStatus, LedgerEntry, TreatmentPlanStatus, AppointmentStatus } from '../types';
+import { Patient, Appointment, DentalChartEntry, LedgerEntry, TreatmentPlanStatus, AppointmentStatus } from '../types';
 import { useToast } from './ToastSystem';
-import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 import { generateUid } from '../constants';
@@ -42,11 +41,13 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             if (existingNote) {
                 setSessionNote(existingNote);
             } else {
+                const defaultProc = fieldSettings.procedures.find(p => p.name === appointment.type);
                 const newNote: DentalChartEntry = {
                     id: generateUid('note'),
                     appointmentId: appointment.id,
                     date: new Date().toISOString().split('T')[0],
                     procedure: appointment.type,
+                    price: defaultProc?.defaultPrice,
                     toothNumber: undefined, 
                     status: 'Completed',
                     author: currentUser?.name,
@@ -66,8 +67,8 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
         setIsSaving(true);
         try {
             // 1. Validation
-            if (!sessionNote.assessment?.trim() && !sessionNote.plan?.trim()) {
-                if (!window.confirm("Warning: The Assessment and Plan fields are empty. Are you sure you want to seal this note?")) {
+            if (!sessionNote.objective?.trim()) {
+                if (!window.confirm("Warning: The Clinical Observations field is empty. Are you sure you want to seal this note?")) {
                     setIsSaving(false);
                     return;
                 }
@@ -76,7 +77,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             // 2. Sealing
             const sealedNote = { ...sessionNote };
             const contentToHash = JSON.stringify({
-                s: sealedNote.subjective, o: sealedNote.objective, a: sealedNote.assessment, p: sealedNote.plan,
+                obs: sealedNote.objective,
                 proc: sealedNote.procedure, tooth: sealedNote.toothNumber, date: sealedNote.date
             });
             sealedNote.sealedHash = CryptoJS.SHA256(contentToHash).toString();
@@ -124,7 +125,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             await onSavePatient(finalPatient);
             
             // 5. Update Appointment Status
-            await onUpdateAppointmentStatus(appointment.id, 'Completed', {}, true);
+            await onUpdateAppointmentStatus(appointment.id, AppointmentStatus.COMPLETED, {}, true);
 
             toast.success("Session completed and record sealed.");
             onClose();

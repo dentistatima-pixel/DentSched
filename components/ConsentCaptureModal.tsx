@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, AuthorityLevel, SignatureChainEntry, SignatureType, TreatmentPlanStatus, PediatricConsent } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, AlertTriangle, Baby, ShieldCheck, Scale, CheckSquare, Square, ShieldAlert, Lock, Fingerprint, Camera, UserCheck, Languages, ArrowRight } from 'lucide-react';
+import { Patient, Appointment, User, ConsentFormTemplate, ProcedureItem, SignatureChainEntry, PediatricConsent } from '../types';
+import { X, CheckCircle, Eraser, FileSignature, ArrowRight, ShieldCheck } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 import { generateUid, calculateAge, formatDate } from '../constants';
@@ -20,8 +20,8 @@ interface ConsentCaptureModalProps {
 const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
     isOpen, onClose, onSave, patient, appointment, provider, template, procedure
 }) => {
-    const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
-    const witnessCanvasRef = useRef<HTMLCanvasElement>(null);
+    const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const witnessCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const toast = useToast();
     const { staff } = useStaff();
     
@@ -73,7 +73,8 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         window.removeEventListener('pointerup', stopSign);
     }, [draw]);
     
-    const startSign = (e: React.PointerEvent<HTMLCanvasElement>, signer: 'patient' | 'witness') => {
+    
+    const startSign = (e: React.PointerEvent<HTMLCanvasElement>) => {
         e.preventDefault();
         isDrawingRef.current = true;
         activeCanvasRef.current = e.currentTarget;
@@ -142,7 +143,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
         }
     }, [step, isWitnessRequired]);
     
-    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
+    const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>) => { const canvas = canvasRef.current; if (canvas) { const ctx = canvas.getContext('2d'); if (ctx) { ctx.clearRect(0, 0, canvas.width, canvas.height); } } };
 
     const handleSave = () => {
         const patientCanvas = signatureCanvasRef.current;
@@ -239,7 +240,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                         </div>
                         <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all border-teal-500`}>
                             <div className="flex justify-between items-center mb-2"><h4 className="font-bold text-slate-700">Patient/Guardian Signature (Required)</h4><button onClick={() => clearCanvas(signatureCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button></div>
-                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'patient')} />
+                            <canvas ref={signatureCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} />
                         </div>
                         {isWitnessRequired && (
                             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 mt-6">
@@ -254,7 +255,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                                     <label className="label text-xs">Witness Signature</label>
                                     <button onClick={() => clearCanvas(witnessCanvasRef)} className="text-xs font-bold text-slate-400 hover:text-red-500"><Eraser size={12}/> Clear</button>
                                 </div>
-                                <canvas ref={witnessCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={e => startSign(e, 'witness')} />
+                                <canvas ref={witnessCanvasRef} className="bg-white rounded-lg border-2 border-dashed border-slate-300 w-full touch-none cursor-crosshair" onPointerDown={startSign} />
                             </div>
                         )}
                     </div>

@@ -1,10 +1,8 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { AuditLogEntry, User } from '../types';
-import { Fingerprint, Search, ShieldCheck, RefreshCw, AlertTriangle, User as UserIcon } from 'lucide-react';
-import { useToast } from './ToastSystem';
-import CryptoJS from 'crypto-js';
-import { useStaff } from '../contexts/StaffContext';
+import React, { useState, useMemo } from 'react';
+import { AuditLogEntry } from '../types';
+import { Search, ShieldCheck, AlertTriangle, User as UserIcon } from 'lucide-react';
+
 
 interface AuditTrailViewerProps {
     auditLog: AuditLogEntry[];
@@ -12,12 +10,9 @@ interface AuditTrailViewerProps {
 }
 
 const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogVerified }) => {
-    const toast = useToast();
-    const { staff } = useStaff();
     const [searchTerm, setSearchTerm] = useState('');
     const [userFilter, setUserFilter] = useState('');
     const [actionFilter, setActionFilter] = useState('');
-    const [isVerifying, setIsVerifying] = useState(false);
     
     const uniqueUsers = useMemo(() => {
         const userMap = new Map<string, string>();

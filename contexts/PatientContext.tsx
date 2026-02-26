@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useReducer, useRef } from 'react';
-import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlan, TreatmentPlanStatus, InformedRefusal, CommunicationLogEntry, CommunicationChannel } from '../types';
+import { Patient, RecallStatus, ConsentCategory, DentalChartEntry, LedgerEntry, UserRole, TreatmentPlanStatus, InformedRefusal, CommunicationLogEntry, CommunicationChannel } from '../types';
 import { generateUid, formatDate } from '../constants';
 import { useAppContext } from './AppContext';
 import { useToast } from '../components/ToastSystem';
@@ -302,7 +302,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
     
-    const handleConfirmRevocation = async (patient: Patient, category: ConsentCategory, reason: string, notes: string) => {
+    const handleConfirmRevocation = async (patient: Patient, category: ConsentCategory, reason: string, _notes: string) => {
         const timestamp = new Date().toISOString();
         const updatedLogs = [...(patient.consentLogs || []), { 
             category, 
@@ -344,19 +344,17 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         let newNoteId: string | null = null;
         const newChart = patient.dentalChart?.map(note => {
             if (note.id === noteId) {
-                const amendment = { ...note };
-                // Create amendment
-                delete amendment.id;
-                delete amendment.sealedAt;
-                delete amendment.sealedHash;
-                delete amendment.isVoided;
-                delete amendment.voidDetails;
-                amendment.originalNoteId = note.id;
-                amendment.id = generateUid('dca'); // amendment ID
+                // Create amendment using destructuring to exclude protected fields
+                const { id: _id, sealedAt: _sAt, sealedHash: _sH, isVoided: _isV, voidDetails: _vD, ...amendmentData } = note;
+                const amendment: DentalChartEntry = {
+                    ...amendmentData,
+                    originalNoteId: note.id,
+                    id: generateUid('dca') // amendment ID
+                };
                 newNoteId = amendment.id;
 
                 // Void original
-                const voidedNote = {
+                const voidedNote: DentalChartEntry = {
                     ...note,
                     isVoided: true,
                     voidDetails: {

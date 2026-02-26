@@ -1,8 +1,8 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { FieldSettings, SmsTemplates, SmsTemplateConfig, SmsCategory } from '../types';
-import { Smartphone, Cloud, Server, MessageSquare, Save, Zap, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { FieldSettings, SmsTemplateConfig, SmsCategory } from '../types';
+import { Smartphone, Cloud, Server, MessageSquare, Save, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 
@@ -192,7 +192,7 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                         return (
                             <div key={category}>
                                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                                    <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><categoryIcon size={24}/></div>
+                                    <div className="p-2 bg-slate-50 text-slate-500 rounded-xl"><MessageSquare size={24}/></div>
                                     <h4 className="font-black text-slate-800 uppercase text-sm">{categoryTitle}</h4>
                                 </div>
                                 <div className="grid grid-cols-1 gap-6 pt-6">

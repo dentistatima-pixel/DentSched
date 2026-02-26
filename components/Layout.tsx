@@ -44,7 +44,7 @@ export const Layout: React.FC<LayoutProps> = ({
     syncQueueCount, isSyncing,
   } = useAppContext();
   const { staff, handleSaveStaff } = useStaff();
-  const { patients } = usePatient();
+  const { patients, handleSavePatient } = usePatient();
   const { appointments, handleSaveAppointment } = useAppointments();
   const { fieldSettings } = useSettings();
   const { tasks, handleAddTask, handleToggleTask, handleClearCompletedTasks, handleAddToWaitlist } = useClinicalOps();
@@ -142,7 +142,7 @@ export const Layout: React.FC<LayoutProps> = ({
     if (type === 'patient') {
       navigate(`patients/${payload}`);
     } else if (type === 'action' && payload === 'newPatient') {
-      showModal('patientRegistration', { currentBranch });
+      showModal('patientRegistration', { currentBranch, onSave: handleSavePatient });
     } else if (type === 'action' && payload === 'newAppointment') {
       showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch });
     }

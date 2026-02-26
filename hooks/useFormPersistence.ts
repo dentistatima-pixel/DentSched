@@ -50,7 +50,7 @@ export const useFormPersistence = <T extends object>(
     if (isReadOnly || status === 'restoring') return;
     
     const isInitial = JSON.stringify(data) === initialDataRef.current;
-    if (!isInitial) {
+    if (!isInitial && status !== 'unsaved') {
         setStatus('unsaved');
     }
 
@@ -71,7 +71,7 @@ export const useFormPersistence = <T extends object>(
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [data, formId, isReadOnly, status]);
+  }, [data, formId, isReadOnly]);
 
   // 3. Warn on leaving the page with unsaved changes
   useEffect(() => {

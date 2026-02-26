@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, CommunicationLogEntry, CommunicationChannel } from '../types';
-import { MessageSquare, Phone, StickyNote, Send, Plus } from 'lucide-react';
-import { formatDate } from '../constants';
+import { MessageSquare, Phone, StickyNote, Plus } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 
 interface CommunicationLogProps {

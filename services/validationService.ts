@@ -25,7 +25,7 @@ export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldS
             const isMissing = value === undefined || value === null || (typeof value === 'string' && value.trim() === '') || (Array.isArray(value) && value.length === 0);
 
             if (isMissing) {
-                errors[field.id] = `${field.label} is a required field.`;
+                errors[field.patientKey || field.id] = `${field.label} is a required field.`;
             }
         }
     });

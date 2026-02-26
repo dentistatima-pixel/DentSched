@@ -1,17 +1,14 @@
 
 import React,
-{ useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
+{ useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  ChevronLeft, ChevronRight, LayoutGrid, List, Clock, AlertTriangle, User as UserIcon, 
-  CheckCircle, Lock, Beaker, Move, GripHorizontal, CalendarDays, DollarSign, Layers, 
-  Users, Plus, CreditCard, ArrowRightLeft, GripVertical, Armchair, AlertCircle, 
-  CloudOff, ShieldAlert, CheckSquare, X, ShieldCheck, DollarSign as FinanceIcon, Key, Edit, Users2, Shield, Droplet, Heart, Sparkles
+  ChevronLeft, ChevronRight, LayoutGrid, AlertTriangle, 
+  Users, X, ShieldAlert, ShieldCheck, DollarSign as FinanceIcon, Key, CalendarDays, CloudOff, AlertCircle
 } from 'lucide-react';
 import { 
-  Appointment, User, UserRole, AppointmentStatus, Patient, 
-  LabStatus, WaitlistEntry, ClinicResource, DentalChartEntry
+  Appointment, UserRole, AppointmentStatus, Patient, 
+  WaitlistEntry
 } from '../types';
-import { formatDate } from '../constants';
 import { useToast } from './ToastSystem';
 import { useModal } from '../contexts/ModalContext';
 import { useAppContext } from '../contexts/AppContext';
@@ -203,7 +200,8 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
     });
   };
 
-  const handleSlotClick = (colId: string, hour: number, dateIso: string) => {
+  
+  const handleSlotClick = (hour: number, dateIso: string) => {
       openAppointmentModal(dateIso, `${hour.toString().padStart(2, '0')}:00`);
   };
 
@@ -251,7 +249,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
     e.preventDefault();
     setDragOverInfo(null);
     if (!onMoveAppointment) return;
-
     try {
         const data = JSON.parse(e.dataTransfer.getData('application/json'));
         const { appointmentId } = data;
@@ -317,7 +314,6 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
         toast.error("Could not move appointment.");
     }
   };
-  
   return (
     <div className="flex flex-row h-full bg-slate-50 gap-4 relative overflow-hidden">
       <style>{`
@@ -401,7 +397,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                                         role="gridcell" 
                                         aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
                                         className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
-                                        onDoubleClick={() => handleSlotClick(colId, hour, dateIso)}
+                                        onDoubleClick={() => handleSlotClick(hour, dateIso)}
                                         onDragOver={e => e.preventDefault()}
                                         onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
                                         onDragLeave={() => setDragOverInfo(null)}

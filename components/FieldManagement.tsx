@@ -1,28 +1,25 @@
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 import { 
-  Sliders, Settings, ChevronRight, DollarSign, Box, MapPin, User as UserIcon, Pill, 
-  ShieldCheck, Shield, Database, Archive, Layers, Receipt, Activity, 
-  Sparkles, Zap, Wrench, ClipboardList, Armchair, LayoutPanelLeft, Fingerprint, Key, Printer,
-  Smartphone, Banknote, Building2, Sun, Moon, Scale, UserCircle, FileSignature
+  Settings, ChevronRight, Box, User as UserIcon, 
+  Sparkles, Wrench, LayoutPanelLeft, FileSignature, Printer, Smartphone, Receipt
 } from 'lucide-react';
 
-import FormBuilder from './FormBuilder';
-import AuditTrailViewer from './AuditTrailViewer';
+
+
 import SmsHub from './SmsHub';
 import PracticeBranding from './PracticeBranding';
 import FinancialSettings from './FinancialSettings';
 import StaffRegistry from './StaffRegistry';
 import InfrastructureManager from './InfrastructureManager';
-import ComplianceCenter from './ComplianceCenter';
+
 import PrintoutsHub from './PrintoutsHub';
-import LegalActionHub from './LegalActionHub';
-import GovernanceHub from './GovernanceHub';
+
+
 import ConsentFormManager from './ConsentFormManager';
 import { useModal } from '../contexts/ModalContext';
-import { useAppContext } from '../contexts/AppContext';
 import ClinicalCatalogHub from './ClinicalCatalogHub';
-import PersonalProfile from './PersonalProfile';
+
 import { useStaff } from '../contexts/StaffContext';
 
 

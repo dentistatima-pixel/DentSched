@@ -39,7 +39,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
     const { showModal, hideModal } = useModal();
     const { patients } = usePatient();
-    const { fieldSettings, handleUpdateSettings, addScheduledSms, invalidateFutureRecalls } = useSettings();
+    const { fieldSettings, addScheduledSms, invalidateFutureRecalls } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
     const { staff } = useStaff();
     
@@ -239,14 +239,15 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             const block = canStartTreatment(aptToUpdate, patient, provider, fieldSettings);
             if (block.isBlocked) {
                 toast.error(block.reason, { duration: 8000 });
-                if (block.modal) {
+                const modal = block.modal;
+                if (modal) {
                     const props: any = {
-                        ...block.modal.props,
+                        ...modal.props,
                         onConfirm: (data: any) => {
                             let updatedData = {};
-                            if (block.modal.type === 'medicalHistoryAffirmation') {
+                            if (modal.type === 'medicalHistoryAffirmation') {
                                 updatedData = { medHistoryAffirmation: data };
-                            } else if (block.modal.type === 'sterilizationVerification') {
+                            } else if (modal.type === 'sterilizationVerification') {
                                 updatedData = { sterilizationVerified: true, linkedInstrumentSetIds: data };
                             }
                             hideModal();
@@ -254,22 +255,22 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                         }
                     };
                     
-                    if (block.modal.type === 'protocolOverride' && block.modal.props.rule) {
+                    if (modal.type === 'protocolOverride' && modal.props.rule) {
                         props.onConfirm = (reason: string) => {
-                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${block.modal.props.rule.name}. Reason: ${reason}`);
+                            logAction('SECURITY_ALERT', 'System', patient.id, `Protocol Override: ${modal.props.rule!.name}. Reason: ${reason}`);
                             hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, additionalData, true);
                         }
                     }
     
-                    if (block.modal.type === 'consentCapture') {
+                    if (modal.type === 'consentCapture') {
                         props.onSave = (chain: SignatureChainEntry[]) => {
                             hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, consentSignatureChain: chain }, true);
                         }
                     }
                     
-                    showModal(block.modal.type, props);
+                    showModal(modal.type, props);
                 }
                 return;
             }

@@ -11,6 +11,7 @@ import { InventoryProvider } from './contexts/InventoryContext';
 import { FinancialProvider } from './contexts/FinancialContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ClinicalOpsProvider } from './contexts/ClinicalOpsContext';
+import { DocentProvider } from './contexts/DocentContext';
 import { Router } from './contexts/RouterContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -35,9 +36,11 @@ root.render(
                                     <InventoryProvider>
                                         <FinancialProvider>
                                             <ClinicalOpsProvider>
-                                              <Router>
-                                                  <App />
-                                              </Router>
+                                              <DocentProvider>
+                                                <Router>
+                                                    <App />
+                                                </Router>
+                                              </DocentProvider>
                                             </ClinicalOpsProvider>
                                         </FinancialProvider>
                                     </InventoryProvider>

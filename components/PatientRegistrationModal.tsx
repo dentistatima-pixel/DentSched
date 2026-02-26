@@ -238,6 +238,22 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     }
   };
 
+  const saveDraftRecord = async () => {
+    setIsSaving(true);
+    try {
+        const fullName = `${formData.firstName || ''} ${formData.middleName || ''} ${formData.surname || ''}`.replace(/\s+/g, ' ').trim() || 'Unnamed Draft';
+        await onSave({ ...formData, name: fullName, registrationStatus: RegistrationStatus.PROVISIONAL });
+        clearSavedDraft();
+        toast.success("Registration draft saved.");
+        onClose();
+    } catch (error: any) {
+        console.error("Failed to save draft:", error);
+        toast.error(error.message || "Failed to save draft. Please try again.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const handleSignatureCaptured = async (sig: string, hash: string) => {
     const timestamp = new Date().toISOString();
     const photoHash = hash;
@@ -280,6 +296,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
       generalConsent, fieldSettings, patients, errors,
       handleChange, handleCustomChange, handleRegistryChange, handleArrayChange,
       handleNext, handleBack, handleSignatureCaptured,
+      saveDraftRecord,
       setStep,
   };
 };
@@ -293,7 +310,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients, errors,
       handleChange, handleCustomChange, handleRegistryChange, handleArrayChange,
-      handleNext, handleBack, handleSignatureCaptured, setStep
+      handleNext, handleBack, handleSignatureCaptured, saveDraftRecord, setStep
   } = workflow;
   
   if (!isOpen || !fieldSettings) return null;
@@ -389,13 +406,20 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 <FormStatusIndicator status={formStatus} />
             </div>
             
-            {step < stepsInfo.length ? (
-                 <button type="button" onClick={handleNext} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-                    {step === stepsInfo.length - 1 ? 'Proceed to Signature' : 'Next Step'} <ArrowRight size={16}/>
-                 </button>
-            ) : (
-                <div/>
-            )}
+            <div className="flex items-center gap-4">
+                {step < stepsInfo.length && (
+                    <button type="button" onClick={saveDraftRecord} disabled={isSaving} className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2">
+                        Save as Draft & Close
+                    </button>
+                )}
+                {step < stepsInfo.length ? (
+                     <button type="button" onClick={handleNext} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                        {step === stepsInfo.length - 1 ? 'Proceed to Signature' : 'Next Step'} <ArrowRight size={16}/>
+                     </button>
+                ) : (
+                    <div/>
+                )}
+            </div>
         </div>
       </div>
 

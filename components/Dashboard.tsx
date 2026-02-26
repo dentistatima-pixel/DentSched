@@ -1,15 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
-  Calendar, Search, UserPlus, CalendarPlus, ArrowRight, PieChart, Activity, DollarSign, 
-  StickyNote, Plus, CheckCircle, Flag, User as UserIcon, Clock, List, 
-  History, Timer, Lock, Send, Armchair, RefreshCcw, CloudOff, ShieldCheck as VerifiedIcon, 
-  FileWarning, MessageSquare, Heart, Zap, Users, CheckSquare, ShieldAlert, X, FileBadge2, AlertTriangle, FileSearch, UserCheck, UserX,
-  Sparkles, Loader, ClipboardCheck, Sun, Moon, Coffee, LogIn, Play, Check, Beaker
+  Calendar, UserPlus, CalendarPlus, Activity, DollarSign, Heart, FileBadge2, ShieldAlert, CheckSquare, LogIn, Play, Check, UserCheck, UserX, CheckCircle, Flag, History, Beaker, Clock, Zap
 } from 'lucide-react';
 import { 
-  Appointment, AppointmentStatus, UserRole, Patient, 
-  PinboardTask, SyncConflict, SystemStatus, User, FieldSettings, StockItem,
-  ClinicalIncident, 
+  Appointment, AppointmentStatus, Patient, 
+  FieldSettings,
   RegistrationStatus,
   RecallStatus,
   LabStatus
@@ -17,7 +12,6 @@ import {
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
 import { useAppointments } from '../contexts/AppointmentContext';
-import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -25,7 +19,7 @@ import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
 
 
-interface DashboardProps {}
+
 
 const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ value, isCurrency }) => {
   const ref = useRef<HTMLSpanElement>(null);
@@ -197,10 +191,10 @@ const TodaysTimeline: React.FC<{
                     
                     if (!patient) return null;
 
-                    const statusColor = {
+                    const statusColor = ({
                         [AppointmentStatus.ARRIVED]: 'border-orange-500',
                         [AppointmentStatus.TREATING]: 'border-lilac-500',
-                    }[apt.status] || 'border-teal-500';
+                    } as any)[apt.status] || 'border-teal-500';
 
                     return (
                         <div 
@@ -323,10 +317,9 @@ const VitalsCard: React.FC<{
 );
 
 
-export const Dashboard: React.FC<DashboardProps> = () => {
+export const Dashboard: React.FC = () => {
   const { showModal } = useModal();
   const { appointments, handleUpdateAppointmentStatus, handleSaveAppointment } = useAppointments();
-  const { staff } = useStaff();
   const { currentUser, currentBranch } = useAppContext();
   const { patients, handleSavePatient } = usePatient();
   const { fieldSettings } = useSettings();
@@ -455,7 +448,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
 
   const PracticeVitals = () => (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <VitalsCard title="Overdue Recalls" value={overdueRecalls.length} icon={History} color="bg-amber-500 shadow-amber-900/20" onClick={showOverdueRecalls} />
+        <VitalsCard title="Overdue Recalls" value={overdueRecalls.length} icon={Clock} color="bg-amber-500 shadow-amber-900/20" onClick={showOverdueRecalls} />
         <VitalsCard title="Pending Lab Cases" value={pendingLabs.length} icon={Beaker} color="bg-blue-500 shadow-blue-900/20" onClick={showPendingLabs} />
         <VitalsCard title="Unresolved Incidents" value={unresolvedIncidents.length} icon={ShieldAlert} color="bg-red-500 shadow-red-900/20" onClick={showUnresolvedIncidents} />
         <VitalsCard title="Outstanding Balances" value={outstandingBalances.length} icon={DollarSign} color="bg-lilac-500 shadow-lilac-900/20" onClick={showOutstandingBalances} />
@@ -478,7 +471,7 @@ export const Dashboard: React.FC<DashboardProps> = () => {
             </div>
         </div>
         <div className="flex items-center gap-3">
-            <button onClick={() => showModal('patientRegistration', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile">
+            <button onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })} className="flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile">
                 <UserPlus size={16}/> New Patient
             </button>
             <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-lilac-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile">

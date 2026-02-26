@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Patient, User, EmergencyTreatmentConsent } from '../types';
-import { X, Zap, CheckCircle } from 'lucide-react';
+import { Zap, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useStaff } from '../contexts/StaffContext';
 

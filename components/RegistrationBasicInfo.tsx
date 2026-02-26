@@ -1,7 +1,6 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Patient, FieldSettings, AuthorityLevel, RegistrationField } from '../types';
-import { Hash, MapPin, Briefcase, Users, CreditCard, Building2, Star, Search, User, Phone, Mail, Droplet, Heart, Shield, Award, Baby, FileText, Scale, Link, CheckCircle, ShieldCheck, ShieldAlert, Fingerprint, Bell, Image, Camera, RefreshCw, ShieldOff, Edit3, Lock, Check } from 'lucide-react';
+import { Patient, FieldSettings, RegistrationField } from '../types';
+import { Hash, Star, Search, User, Users, FileText, Baby, ShieldAlert, Edit3, Check } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { calculateAge } from '../constants';
 
@@ -82,7 +81,6 @@ interface RegistrationBasicInfoProps {
   readOnly?: boolean;
   fieldSettings: FieldSettings;
   patients?: Patient[]; 
-  isMasked?: boolean;
   designMode?: boolean;
   onFieldClick?: (fieldId: string, type: 'identity' | 'question') => void;
   selectedFieldId?: string;
@@ -90,7 +88,7 @@ interface RegistrationBasicInfoProps {
 }
 
 const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({ 
-    formData, handleChange, handleCustomChange, onRegistryChange, readOnly, fieldSettings, patients = [], isMasked = false,
+    formData, handleChange, handleCustomChange, onRegistryChange, readOnly, fieldSettings, patients = [],
     designMode = false, onFieldClick, selectedFieldId, errors
 }) => {
   const [refSearch, setRefSearch] = useState('');
@@ -198,6 +196,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
   const getLabel = (id: string, def: string) => fieldSettings.fieldLabels[id] || def;
 
+
   const renderFieldById = (id: string) => {
       const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(id);
 
@@ -208,10 +207,11 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
               const field = fieldSettings.identityFields.find(f => f.id === 'age');
               if (!field) return null;
               const label = getLabel('age', field.label);
-              let colSpan = "col-span-1 md:col-span-12";
-              if (field.width === 'half') colSpan = "col-span-1 md:col-span-6";
-              if (field.width === 'third') colSpan = "col-span-1 md:col-span-4";
-              if (field.width === 'quarter') colSpan = "col-span-1 md:col-span-3";
+              let widthClass = "md:col-span-12";
+              if (field.width === 'half') widthClass = "md:col-span-6";
+              if (field.width === 'third') widthClass = "md:col-span-4";
+              if (field.width === 'quarter') widthClass = "md:col-span-3";
+              const colSpan = `col-span-full ${widthClass} portrait:col-span-full`;
 
               return (
                 <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
@@ -224,12 +224,13 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           if (!field) return null;
           const label = getLabel(coreId, field.label);
           const value = (formData as any)[coreId] || '';
-          const className = `input bg-white ${errors?.[field.id] ? 'input-error' : ''}`;
+          const className = `input bg-white ${field.patientKey && errors?.[field.patientKey] ? 'input-error' : ''}`;
           
-          let colSpan = "col-span-1 md:col-span-12";
-          if (field.width === 'half') colSpan = "col-span-1 md:col-span-6";
-          if (field.width === 'third') colSpan = "col-span-1 md:col-span-4";
-          if (field.width === 'quarter') colSpan = "col-span-1 md:col-span-3";
+          let widthClass = "md:col-span-12";
+          if (field.width === 'half') widthClass = "md:col-span-6";
+          if (field.width === 'third') widthClass = "md:col-span-4";
+          if (field.width === 'quarter') widthClass = "md:col-span-3";
+          const colSpan = `col-span-full ${widthClass} portrait:col-span-full`;
 
           let inputElement;
 
@@ -263,14 +264,14 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                   <div>
                       <label className="label flex items-center gap-2">{label} {field.isRequired && '*'}</label>
                       {inputElement}
+                      {field.patientKey && errors?.[field.patientKey] && <p className="error-text">{errors[field.patientKey]}</p>}
                   </div>
              </DesignWrapper>
           );
       }
 
       if (id.startsWith('field_')) {
-          const fieldId = id.replace('field_', '');
-          const field = fieldSettings.identityFields.find(f => f.id === fieldId);
+          const field = fieldSettings.identityFields.find(f => f.id === id.replace('field_', ''));
           if (!field) return null;
           const hasError = !!errors?.[id];
 
@@ -285,8 +286,14 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
             );
           }
 
-          const val = (formData as any)[field.id];
-          const colSpan = field.width === 'full' ? 'col-span-1 md:col-span-12' : field.width === 'third' ? 'col-span-1 md:col-span-4' : field.width === 'quarter' ? 'col-span-1 md:col-span-3' : 'col-span-1 md:col-span-6';
+          const val = formData.customFields?.[field.id];
+          
+          let widthClass = "md:col-span-6";
+          if (field.width === 'full') widthClass = "md:col-span-12";
+          if (field.width === 'third') widthClass = "md:col-span-4";
+          if (field.width === 'quarter') widthClass = "md:col-span-3";
+          const colSpan = `col-span-full ${widthClass} portrait:col-span-full`;
+
           const isCriticalDyn = isCritical || field.isCritical;
           
           if (field.type === 'boolean') {
@@ -297,7 +304,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                               type="checkbox"
                               name={field.id}
                               checked={!!val}
-                              onChange={handleChange}
+                              onChange={(e) => handleCustomChange(field.id, e.target.checked, 'boolean')}
                               disabled={readOnly}
                               className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0"
                           />
@@ -319,15 +326,16 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                     {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                   </label>
                   {field.type === 'dropdown' && field.registryKey ? (
-                      <select name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} className={`input bg-white ${hasError ? 'input-error' : ''}`}>
+                      <select name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} className={`input bg-white ${hasError ? 'input-error' : ''}`}>
                           <option value="">Select {field.label}</option>
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <ControlledTextarea name={field.id} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white h-24 ${hasError ? 'input-error' : ''}`} />
+                      <ControlledTextarea name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white h-24 ${hasError ? 'input-error' : ''}`} />
                   ) : (
-                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={handleChange} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white ${hasError ? 'input-error' : ''}`} />
+                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white ${hasError ? 'input-error' : ''}`} />
                   )}
+                  {hasError && <p className="error-text">{errors[id]}</p>}
               </DesignWrapper>
           );
       }
@@ -476,9 +484,21 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                                 {designMode && <span className="text-[10px] font-black text-lilac-600 uppercase border border-lilac-200 px-2 py-0.5 rounded-full">Conditional Visibility (Minor/PWD)</span>}
                             </div>
                             <div className="orientation-grid gap-6">
-                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Full Legal Name *</label><ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Representative Name"/></div>
-                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Mobile Number *</label><ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="09XXXXXXXXX"/></div>
-                                <div className="col-span-1 md:col-span-4"><label className="label text-xs">Occupation</label><ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className="input bg-white" placeholder="Work/Trade"/></div>
+                                <div className="col-span-1 md:col-span-4">
+                                    <label className="label text-xs">Full Legal Name *</label>
+                                    <ControlledInput name="guardian_legalName" value={formData.guardianProfile?.legalName || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, legalName: e.target.value } } } as any)} disabled={readOnly} className={`input bg-white ${errors?.guardian_legalName ? 'input-error' : ''}`} placeholder="Representative Name"/>
+                                    {errors?.guardian_legalName && <p className="error-text">{errors.guardian_legalName}</p>}
+                                </div>
+                                <div className="col-span-1 md:col-span-4">
+                                    <label className="label text-xs">Mobile Number *</label>
+                                    <ControlledInput name="guardian_mobile" value={formData.guardianProfile?.mobile || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, mobile: e.target.value } } } as any)} disabled={readOnly} className={`input bg-white ${errors?.guardian_mobile ? 'input-error' : ''}`} placeholder="09XXXXXXXXX"/>
+                                    {errors?.guardian_mobile && <p className="error-text">{errors.guardian_mobile}</p>}
+                                </div>
+                                <div className="col-span-1 md:col-span-4">
+                                    <label className="label text-xs">Occupation</label>
+                                    <ControlledInput name="guardian_occupation" value={formData.guardianProfile?.occupation || ''} onChange={(e) => handleChange({ target: { name: 'guardianProfile', value: { ...formData.guardianProfile, occupation: e.target.value } } } as any)} disabled={readOnly} className={`input bg-white ${errors?.guardian_occupation ? 'input-error' : ''}`} placeholder="Work/Trade"/>
+                                    {errors?.guardian_occupation && <p className="error-text">{errors.guardian_occupation}</p>}
+                                </div>
                             </div>
                         </div>
                     </div>

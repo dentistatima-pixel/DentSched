@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, User, Calendar, Plus, Command, X, CornerDownLeft } from 'lucide-react';
+
 import { Patient, Appointment, CommandBarAction } from '../types';
 import Fuse from 'fuse.js';
+import { User, Calendar, Search, X, Command, CornerDownLeft } from 'lucide-react';
 
 interface CommandBarProps {
   isOpen: boolean;
