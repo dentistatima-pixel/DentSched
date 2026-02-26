@@ -17,18 +17,18 @@ export const useFormPersistence = <T extends object>(
   const initialDataRef = useRef<string>(JSON.stringify(data));
   const hasLoadedDraft = useRef(false);
 
-  // 1. Restore from localStorage on initial load, respecting initialData
+  // 1. Restore from sessionStorage on initial load, respecting initialData
   useEffect(() => {
     if (isReadOnly || hasLoadedDraft.current) return;
     hasLoadedDraft.current = true;
 
     // If initialData is provided (i.e., we are editing an existing record),
-    // do not attempt to restore a draft from localStorage.
+    // do not attempt to restore a draft from sessionStorage.
     if (initialData) {
         return;
     }
 
-    const savedDataString = localStorage.getItem(formId);
+    const savedDataString = sessionStorage.getItem(formId);
     if (savedDataString) {
       const savedData = JSON.parse(savedDataString);
       const isDifferent = JSON.stringify(savedData) !== initialDataRef.current;
@@ -40,12 +40,12 @@ export const useFormPersistence = <T extends object>(
         setStatus('saved');
       } else {
         // If user declines, clear the saved draft
-        localStorage.removeItem(formId);
+        sessionStorage.removeItem(formId);
       }
     }
   }, [formId, setData, isReadOnly, toast, initialData]);
 
-  // 2. Debounced save to localStorage on data change
+  // 2. Debounced save to sessionStorage on data change
   useEffect(() => {
     if (isReadOnly || status === 'restoring') return;
     
@@ -61,7 +61,7 @@ export const useFormPersistence = <T extends object>(
     saveTimeoutRef.current = window.setTimeout(() => {
       if (!isInitial) {
         setStatus('saving');
-        localStorage.setItem(formId, JSON.stringify(data));
+        sessionStorage.setItem(formId, JSON.stringify(data));
         setTimeout(() => setStatus('saved'), 500);
       }
     }, 2000); // 2-second debounce
@@ -90,7 +90,7 @@ export const useFormPersistence = <T extends object>(
 
   // Public method to clear the saved draft, e.g., on successful submission
   const clearSavedDraft = useCallback(() => {
-    localStorage.removeItem(formId);
+    sessionStorage.removeItem(formId);
     setStatus('saved');
     toast.success("Form submitted and draft cleared.");
   }, [formId, toast]);

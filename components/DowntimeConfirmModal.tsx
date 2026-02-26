@@ -22,7 +22,7 @@ const DowntimeConfirmModal: React.FC<DowntimeConfirmModalProps> = ({ isOpen, onC
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" role="dialog" aria-modal="true" aria-labelledby="downtime-title">
             <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border-4 border-amber-200 dark:border-amber-700 animate-in zoom-in-95">
                 <div className="text-center">
-                    <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
+                    <div className="w-20 h-20 bg-amber-200 dark:bg-amber-900/50 text-amber-950 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
                         <AlertTriangle size={40} />
                     </div>
                     <h2 id="downtime-title" className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">Activate Emergency Protocol?</h2>

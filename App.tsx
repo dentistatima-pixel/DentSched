@@ -4,6 +4,7 @@ import { LoginScreen } from './components/LoginScreen';
 import ModalManager from './components/ModalManager';
 import { KioskView } from './components/KioskView';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { useAppContext } from './contexts/AppContext';
 import { useSettings } from './contexts/SettingsContext';
@@ -264,7 +265,9 @@ export const App: React.FC = () => {
       {isLockWarningVisible && <SessionWarningModal onStayActive={resetIdleTimer} onLogout={logout} countdown={warningCountdown} />}
       <Layout>
         <Suspense fallback={<div>Loading Page...</div>}>
-          {renderRoute()}
+          <ErrorBoundary>
+            {renderRoute()}
+          </ErrorBoundary>
         </Suspense>
       </Layout>
       <ModalManager />

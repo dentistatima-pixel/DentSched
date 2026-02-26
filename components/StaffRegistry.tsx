@@ -69,7 +69,7 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                             key={user.id} 
                             onClick={() => onStartImpersonating(user)} 
                             disabled={user.status === 'Inactive'}
-                            className="flex items-center gap-2 p-2 pr-4 bg-amber-100 hover:bg-amber-200 rounded-full text-xs font-bold text-amber-800 transition-colors disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 p-2 pr-4 bg-amber-200 hover:bg-amber-300 rounded-full text-xs font-bold text-amber-950 transition-colors disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                         >
                             <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full"/>
                             Impersonate {user.name}

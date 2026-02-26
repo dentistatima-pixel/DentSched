@@ -210,7 +210,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
                 <p className="text-xs text-amber-700 font-bold uppercase">Mandatory Pre-Treatment Verification</p>
               </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-amber-100 rounded-full transition-colors"><X size={24} className="text-amber-700" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-amber-200 rounded-full transition-colors"><X size={24} className="text-amber-950" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-8 space-y-6">

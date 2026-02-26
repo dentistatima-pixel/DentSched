@@ -33,7 +33,7 @@ const BreachNotificationCountdown: React.FC<BreachNotificationCountdownProps> = 
     const isUrgent = hoursRemaining <= 24 && !breachDetails.npcNotifiedAt;
     const isFiled = breachDetails.npcNotifiedAt || breachDetails.npcNotificationStatus === 'Filed';
 
-    const colorClasses = isOverdue ? 'bg-red-100 border-red-600' : isUrgent ? 'bg-amber-100 border-amber-600' : 'bg-slate-100 border-slate-300';
+    const colorClasses = isOverdue ? 'bg-red-200 border-red-600 text-red-950' : isUrgent ? 'bg-amber-200 border-amber-600 text-amber-950' : 'bg-slate-100 border-slate-300 text-slate-800';
     const textClasses = isOverdue ? 'text-red-900' : isUrgent ? 'text-amber-900' : 'text-slate-900';
     const iconColor = isOverdue ? 'text-red-700' : isUrgent ? 'text-amber-700' : 'text-slate-700';
 

@@ -21,7 +21,7 @@ import { useNavigate } from '../contexts/RouterContext';
 
 
 
-const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ value, isCurrency }) => {
+const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = React.memo(({ value, isCurrency }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const valueRef = useRef(0);
 
@@ -70,7 +70,7 @@ const AnimatedCounter: React.FC<{ value: number; isCurrency?: boolean }> = ({ va
   }, [value, formatValue]);
 
   return <span ref={ref}>{formatValue(0)}</span>;
-};
+});
 
 const PIPELINE_STAGES: AppointmentStatus[] = [
     AppointmentStatus.SCHEDULED,
@@ -115,7 +115,7 @@ const AppointmentAlerts: React.FC<{ patient: Patient; settings?: FieldSettings }
             alertComponents.push(<div key="med" className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest"><Heart size={10}/> Medical Alert: {medicalAlerts[0]}</div>);
         }
         if (hasBalance) {
-            alertComponents.push(<div key="fin" className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[10px] font-black uppercase tracking-widest"><DollarSign size={10}/> Unpaid Balance: ₱{patient.currentBalance?.toLocaleString()}</div>);
+            alertComponents.push(<div key="fin" className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-200 text-amber-950 rounded-full text-[10px] font-black uppercase tracking-widest"><DollarSign size={10}/> Unpaid Balance: ₱{patient.currentBalance?.toLocaleString()}</div>);
         }
         if (isProvisional) {
             alertComponents.push(<div key="prov" className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest"><FileBadge2 size={10}/> Incomplete Forms</div>);

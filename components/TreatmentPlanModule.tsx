@@ -23,7 +23,7 @@ const PlanCard: React.FC<{
 
     const statusMap: Record<TreatmentPlanStatus, { text: string, color: string, icon: React.ElementType }> = {
         [TreatmentPlanStatus.DRAFT]: { text: 'Draft', color: 'bg-slate-100 text-slate-600', icon: Edit },
-        [TreatmentPlanStatus.PENDING_REVIEW]: { text: 'Pending Review', color: 'bg-amber-100 text-amber-800', icon: Send },
+        [TreatmentPlanStatus.PENDING_REVIEW]: { text: 'Pending Review', color: 'bg-amber-200 text-amber-950', icon: Send },
         [TreatmentPlanStatus.PENDING_FINANCIAL_CONSENT]: { text: 'Pending Financial Consent', color: 'bg-orange-100 text-orange-800', icon: Receipt },
         [TreatmentPlanStatus.APPROVED]: { text: 'Approved', color: 'bg-teal-100 text-teal-800', icon: ShieldCheck },
         [TreatmentPlanStatus.REJECTED]: { text: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },

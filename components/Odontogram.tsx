@@ -41,7 +41,7 @@ const GeometricTooth: React.FC<{
     isSelected?: boolean;
     isDeciduous?: boolean;
     isPatientPerspective: boolean;
-}> = ({ number, entries, onSurfaceClick, onToothClick, readOnly, isSelected, isDeciduous, isPatientPerspective }) => {
+}> = React.memo(({ number, entries, onSurfaceClick, onToothClick, readOnly, isSelected, isDeciduous, isPatientPerspective }) => {
     const quadrant = Math.floor(number / 10);
     const isUpper = quadrant === 1 || quadrant === 2 || quadrant === 5 || quadrant === 6;
     const isPatientRight = quadrant === 1 || quadrant === 4 || quadrant === 5 || quadrant === 8; 
@@ -178,7 +178,14 @@ const GeometricTooth: React.FC<{
             </div>
         </div>
     )
-}
+}, (prev, next) => {
+    return prev.number === next.number &&
+           prev.isSelected === next.isSelected &&
+           prev.readOnly === next.readOnly &&
+           prev.isDeciduous === next.isDeciduous &&
+           prev.isPatientPerspective === next.isPatientPerspective &&
+           JSON.stringify(prev.entries) === JSON.stringify(next.entries);
+});
 
 const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToothClick, onChartUpdate, currentUser }) => {
   const [activeToolId, setActiveToolId] = useState<ToolType>('cursor');
@@ -187,7 +194,22 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
   const [isPatientPerspective, setIsPatientPerspective] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ tooth: number; x: number; y: number } | null>(null);
+  const [scale, setScale] = useState(1);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = entry.contentRect.width;
+        // Base width for full arch is roughly 1100px
+        const newScale = Math.min(1, (width - 32) / 1100);
+        setScale(newScale);
+      }
+    });
+    observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];
 
@@ -324,11 +346,15 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                 </div>
             )}
 
-            <div className="w-full overflow-x-auto flex justify-center px-4">
-                <div className={`
-                    flex flex-col gap-8 items-center py-16 transition-transform duration-500
-                    ${isPatientPerspective ? 'scale-x-[-1]' : ''}
-                `}>
+            <div className="w-full overflow-hidden flex justify-center px-4">
+                <div 
+                  style={{ 
+                    transform: `scale(${scale}) ${isPatientPerspective ? 'scale-x(-1)' : ''}`, 
+                    transformOrigin: 'top center',
+                    marginBottom: `-${(1 - scale) * 400}px` // Compensate for scale height
+                  }}
+                  className="flex flex-col gap-8 items-center py-16 transition-all duration-500"
+                >
                     {/* UPPER ARCH */}
                     <div className="flex flex-col items-center gap-2">
                         <div className="flex justify-center items-end">

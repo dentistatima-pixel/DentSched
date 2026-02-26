@@ -344,7 +344,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </form>
 
                 <div className="p-6 border-t border-slate-100 flex justify-between items-center shrink-0">
-                    <button type="button" onClick={handleWaitlist} disabled={readOnly} className="px-6 py-3 bg-amber-100 text-amber-800 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-amber-200 transition-all disabled:opacity-50 disabled:grayscale">
+                    <button type="button" onClick={handleWaitlist} disabled={readOnly} className="px-6 py-3 bg-amber-200 text-amber-950 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-amber-300 transition-all disabled:opacity-50 disabled:grayscale">
                         Add to Waitlist
                     </button>
                     <div className="flex gap-3">

@@ -99,7 +99,7 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
                                 </td>
                                 <td className="p-6">
                                     <div className="font-black text-slate-800 text-xs uppercase tracking-tight">{log.userName}</div>
-                                    {log.impersonatingUser && <div className="text-[9px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1"><UserIcon size={10}/> via {log.impersonatingUser.name}</div>}
+                                    {log.impersonatingUser && <div className="text-[9px] font-bold text-amber-950 bg-amber-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1"><UserIcon size={10}/> via {log.impersonatingUser.name}</div>}
                                 </td>
                                 <td className="p-6"><span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border ${log.action.includes('SECURITY') || log.action.includes('IMPERSONATE') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{log.action}</span></td>
                                 <td className="p-6"><p className="text-xs font-bold text-slate-600 leading-relaxed max-w-md">{log.details}</p></td>

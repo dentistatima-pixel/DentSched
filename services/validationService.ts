@@ -1,7 +1,7 @@
 import { Patient, Appointment, User, FieldSettings, UserRole, RegistrationField } from '../types';
 
 // Valid 3-digit prefixes (after the initial '0')
-const PH_MOBILE_PREFIXES = new Set([
+export const PH_MOBILE_PREFIXES = new Set([
     // Globe/TM
     '817', '904', '905', '906', '915', '916', '917', '926', '927', '935', 
     '936', '937', '945', '953', '954', '955', '956', '957', '958', '959', 
@@ -13,6 +13,19 @@ const PH_MOBILE_PREFIXES = new Set([
     '948', '949', '950', '951', '961', '963', '964', '965', '966', '967', 
     '968', '969', '970', '971', '980', '981', '989', '992', '998', '999'
 ]);
+
+export const validateMobile = (phone?: string): string | null => {
+    if (!phone) return null;
+    const trimmed = phone.trim();
+    if (!/^09\d{9}$/.test(trimmed)) {
+        return "Please enter a valid 11-digit mobile number starting with 09.";
+    }
+    const prefix = trimmed.substring(1, 4);
+    if (!PH_MOBILE_PREFIXES.has(prefix)) {
+        return `The prefix ${prefix} is not a valid mobile number prefix.`;
+    }
+    return null;
+};
 
 export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldSettings): Record<string, string> | null => {
     const errors: Record<string, string> = {};
@@ -31,14 +44,9 @@ export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldS
     });
     
     // --- Special format validations ---
-    const phone = patient.phone?.trim();
-    if (phone && !/^09\d{9}$/.test(phone)) {
-        errors.phone = "Please enter a valid 11-digit mobile number starting with 09.";
-    } else if (phone) {
-        const prefix = phone.substring(1, 4);
-        if (!PH_MOBILE_PREFIXES.has(prefix)) {
-            errors.phone = `The prefix ${prefix} is not a valid mobile number prefix.`;
-        }
+    const phoneError = validateMobile(patient.phone);
+    if (phoneError) {
+        errors.phone = phoneError;
     }
 
     // --- Consent validation ---

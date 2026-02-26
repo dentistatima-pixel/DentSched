@@ -8,6 +8,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
 import { generateUid } from '../constants';
 import { useToast } from './ToastSystem';
+import { validateMobile } from '../services/validationService';
 
 interface QuickTriageModalProps {
     isOpen: boolean;
@@ -34,8 +35,9 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
     const handleSubmit = async () => {
         if (!name || !complaint || !currentUser) return;
 
-        if (phone && !/^09\d{9}$/.test(phone)) {
-            toast.error("Please enter a valid 11-digit mobile number starting with 09.");
+        const phoneError = validateMobile(phone);
+        if (phoneError) {
+            toast.error(phoneError);
             return;
         }
 

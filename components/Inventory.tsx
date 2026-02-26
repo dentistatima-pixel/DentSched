@@ -50,6 +50,7 @@ const Inventory: React.FC<InventoryProps> = ({
 
   const [sessionPhysicalCounts, setSessionPhysicalCounts] = useState<Record<string, number>>({});
   const [showVarianceReport, setShowVarianceReport] = useState(false);
+  const [showAuditSummary, setShowAuditSummary] = useState(false);
 
   const [showCycleModal, setShowCycleModal] = useState(false);
   const [newCycle, setNewCycle] = useState<Partial<SterilizationCycle>>({
@@ -186,6 +187,10 @@ const Inventory: React.FC<InventoryProps> = ({
     };
 
   const handleFinalizeAudit = () => {
+    setShowAuditSummary(true);
+  };
+
+  const confirmFinalizeAudit = () => {
     const today = new Date().toISOString();
     const updatedStock = stock.map(item => {
         if (sessionPhysicalCounts.hasOwnProperty(item.id)) {
@@ -200,6 +205,7 @@ const Inventory: React.FC<InventoryProps> = ({
     });
     onUpdateStock(updatedStock);
     setAuditMode(false);
+    setShowAuditSummary(false);
     setShowVarianceReport(true);
     toast.success("Inventory audit finalized and system levels updated.");
   };
@@ -503,6 +509,43 @@ const Inventory: React.FC<InventoryProps> = ({
                 </div>
             </div>
         )}
+            {showAuditSummary && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex justify-center items-center p-4">
+                    <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3"><BarChart2 className="text-lilac-600"/> Audit Summary</h2>
+                            <button onClick={() => setShowAuditSummary(false)} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">
+                                    <tr><th className="pb-3">Item</th><th className="pb-3 text-right">Expected</th><th className="pb-3 text-right">Actual</th><th className="pb-3 text-right">Variance</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {stock.filter(item => sessionPhysicalCounts.hasOwnProperty(item.id)).map(item => {
+                                        const actual = sessionPhysicalCounts[item.id];
+                                        const variance = actual - item.quantity;
+                                        return (
+                                            <tr key={item.id}>
+                                                <td className="py-3 font-bold text-slate-800">{item.name}</td>
+                                                <td className="py-3 text-right text-slate-500">{item.quantity}</td>
+                                                <td className="py-3 text-right font-bold">{actual}</td>
+                                                <td className={`py-3 text-right font-black ${variance > 0 ? 'text-teal-600' : variance < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                                                    {variance > 0 ? '+' : ''}{variance}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                            <button onClick={() => setShowAuditSummary(false)} className="px-6 py-3 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">Cancel</button>
+                            <button onClick={confirmFinalizeAudit} className="px-6 py-3 rounded-2xl font-black text-white bg-lilac-600 hover:bg-lilac-700 shadow-lg shadow-lilac-600/30 transition-all">Confirm Adjustments</button>
+                        </div>
+                    </div>
+                </div>
+            )}
     </div>
   );
 };

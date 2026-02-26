@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { SavedView } from '../types';
 import { useSettings } from './SettingsContext';
 
@@ -37,7 +37,14 @@ const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 export const SearchProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { fieldSettings, handleUpdateSettings } = useSettings();
-    const [filters, setFilters] = useState<AllFilters>({});
+    const [filters, setFilters] = useState<AllFilters>(() => {
+        const saved = sessionStorage.getItem('searchFilters');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    useEffect(() => {
+        sessionStorage.setItem('searchFilters', JSON.stringify(filters));
+    }, [filters]);
 
     const savedViews = useMemo(() => fieldSettings.savedViews || [], [fieldSettings.savedViews]);
 
