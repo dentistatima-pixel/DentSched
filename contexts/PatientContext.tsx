@@ -345,7 +345,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         const newChart = patient.dentalChart?.map(note => {
             if (note.id === noteId) {
                 // Create amendment using destructuring to exclude protected fields
-                const { id: _id, sealedAt: _sAt, sealedHash: _sH, isVoided: _isV, voidDetails: _vD, ...amendmentData } = note;
+                const { id, sealedAt, sealedHash, isVoided, voidDetails, ...amendmentData } = note;
                 const amendment: DentalChartEntry = {
                     ...amendmentData,
                     originalNoteId: note.id,

@@ -14,7 +14,7 @@ interface EmergencyConsentModalProps {
 }
 
 const EmergencyConsentModal: React.FC<EmergencyConsentModalProps> = ({
-  isOpen, onClose, onSave, patient, currentUser
+  isOpen, onClose, onSave, currentUser
 }) => {
     const { staff } = useStaff();
     const toast = useToast();

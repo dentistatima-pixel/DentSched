@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, Send, MessageSquare } from 'lucide-react';
+import { X, Send, MessageSquare, Loader2 } from 'lucide-react';
 import { Patient, CommunicationChannel, SmsTemplateConfig } from '../types';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -100,7 +100,7 @@ const SendSmsModal: React.FC<SendSmsModalProps> = ({ isOpen, onClose, patientId,
                 <div className="p-8 border-t border-slate-100 flex justify-end gap-3">
                     <button onClick={onClose} className="px-6 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
                     <button onClick={handleSend} disabled={isSending} className="px-8 py-4 bg-teal-600 text-white rounded-xl font-bold flex items-center gap-2">
-                        <Send size={16} /> {isSending ? 'Sending...' : 'Send Message'}
+                        {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {isSending ? 'Sending...' : 'Send Message'}
                     </button>
                 </div>
             </div>

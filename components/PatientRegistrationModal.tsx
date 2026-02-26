@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Save, User, Shield, Lock, FileText, Heart, Users, Award, CheckCircle, Scale, AlertTriangle, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
-import { Patient, FieldSettings, RegistrationStatus } from '../types';
+import { Patient, FieldSettings, RegistrationStatus, RegistrationField } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
@@ -187,7 +187,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     });
   }, [readOnly, fieldSettings.currentPrivacyVersion]);
 
-  const handleCustomChange = useCallback((fieldName: string, value: any, type: 'text' | 'checklist' | 'boolean') => {
+  const handleCustomChange = useCallback((fieldName: string, value: any, type: RegistrationField['type']) => {
       if (readOnly) return;
       setErrors(null);
       setFormData(prev => {
@@ -223,13 +223,18 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     setFormData(prev => ({...prev, [category]: (prev[category] as string[] || []).includes(value) ? (prev[category] as string[]).filter(item => item !== value) : [...(prev[category] as string[] || []), value]}));
   }, [readOnly]);
 
+  const [showSuccess, setShowSuccess] = useState(false);
+
   const savePatientRecord = async (data: Partial<Patient>) => {
     setIsSaving(true);
     try {
         const fullName = `${data.firstName || ''} ${data.middleName || ''} ${data.surname || ''}`.replace(/\s+/g, ' ').trim();
         await onSave({ ...data, name: fullName, registrationStatus: RegistrationStatus.COMPLETE });
         clearSavedDraft();
-        onClose();
+        setShowSuccess(true);
+        setTimeout(() => {
+            onClose();
+        }, 2500);
     } catch (error: any) {
         console.error("Failed to save patient record:", error);
         toast.error(error.message || "Failed to save patient record. Please try again.");
@@ -272,6 +277,16 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
             toast.error("Please fill in all required fields, highlighted in red.");
             return false;
         }
+    } else if (currentStep === 2) {
+        // Step 2 validation (Medical History)
+        // Add specific checks here if required by fieldSettings in the future.
+    } else if (currentStep === 3) {
+        // Step 3 validation (Dental History)
+        if (!formData.chiefComplaint || formData.chiefComplaint.trim() === '') {
+            setErrors({ chiefComplaint: "Chief complaint is required." });
+            toast.error("Please provide your chief dental complaint.");
+            return false;
+        }
     }
     setErrors(null);
     return true;
@@ -290,7 +305,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
   };
   
   return {
-      step, animationDirection, formData, isSaving, formStatus,
+      step, animationDirection, formData, isSaving, formStatus, showSuccess,
       showPrivacyPolicy, setShowPrivacyPolicy,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients, errors,
@@ -305,7 +320,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
   const workflow = useRegistrationWorkflow({ initialData, onSave, onClose, currentBranch, readOnly });
   const { 
-      step, animationDirection, formData, isSaving, formStatus,
+      step, animationDirection, formData, isSaving, formStatus, showSuccess,
       showPrivacyPolicy, setShowPrivacyPolicy,
       isViewingConsent, setIsViewingConsent,
       generalConsent, fieldSettings, patients, errors,
@@ -441,6 +456,18 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
       )}
 
       {showPrivacyPolicy && <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />}
+
+      {showSuccess && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[120] flex justify-center items-center p-4">
+              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl flex flex-col items-center p-12 text-center animate-in zoom-in-95 duration-300">
+                  <div className="w-24 h-24 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-6">
+                      <CheckCircle size={48} />
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Registration Complete</h2>
+                  <p className="text-slate-500">The patient record has been successfully saved and verified.</p>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

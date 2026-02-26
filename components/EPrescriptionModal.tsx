@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { Patient, Medication, FieldSettings, User, EPrescription } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Patient, FieldSettings, User, EPrescription } from '../types';
 import { X, Pill, Printer, ShieldAlert, Lock, Baby, CheckCircle, Fingerprint, Scale, Zap, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';

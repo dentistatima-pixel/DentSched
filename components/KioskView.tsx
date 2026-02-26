@@ -113,11 +113,13 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                   legalName: '',
                   relationship: '',
                   mobile: '',
-                  authorityLevel: 'Full'
+                  authorityLevel: AuthorityLevel.FULL
               };
           }
-          finalPatient.guardianProfile.visualAnchorThumb = capturedThumb || undefined;
-          finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
+          if (finalPatient.guardianProfile) {
+              finalPatient.guardianProfile.visualAnchorThumb = capturedThumb || undefined;
+              finalPatient.guardianProfile.visualAnchorHash = capturedHash || undefined;
+          }
       }
       
       await onUpdatePatient(finalPatient);

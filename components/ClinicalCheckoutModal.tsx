@@ -90,7 +90,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             };
 
             // Add to ledger if it's a completed procedure
-            if (sealedNote.status === 'Completed') {
+            if (sealedNote.status === AppointmentStatus.COMPLETED) {
                 const chargeAmount = sealedNote.price ?? fieldSettings.procedures.find(p => p.name === sealedNote.procedure)?.defaultPrice ?? 0;
                 
                 if (chargeAmount > 0) {

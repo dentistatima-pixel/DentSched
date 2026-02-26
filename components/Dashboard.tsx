@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
-  Calendar, UserPlus, CalendarPlus, Activity, DollarSign, Heart, FileBadge2, ShieldAlert, CheckSquare, LogIn, Play, Check, UserCheck, UserX, CheckCircle, Flag, History, Beaker, Clock, Zap
+  Calendar, UserPlus, CalendarPlus, Activity, DollarSign, Heart, FileBadge2, ShieldAlert, CheckSquare, LogIn, Play, Check, UserCheck, UserX, CheckCircle, Flag, Beaker, Clock, Zap
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, Patient, 
@@ -146,6 +146,7 @@ const TodaysTimeline: React.FC<{
     const navigate = useNavigate();
 
     const NextActionButton: React.FC<{apt: Appointment, patient: Patient}> = ({ apt, patient }) => {
+        const [showConfirm, setShowConfirm] = useState(false);
         const actions: Partial<Record<AppointmentStatus, { label: string, icon: React.ElementType, nextStatus: AppointmentStatus, color: string }>> = {
             [AppointmentStatus.SCHEDULED]: { label: 'Confirm', icon: CheckSquare, nextStatus: AppointmentStatus.CONFIRMED, color: 'bg-blue-600 shadow-blue-900/30' },
             [AppointmentStatus.CONFIRMED]: { label: 'Arrive', icon: LogIn, nextStatus: AppointmentStatus.ARRIVED, color: 'bg-orange-600 shadow-orange-900/30' },
@@ -157,9 +158,26 @@ const TodaysTimeline: React.FC<{
 
         const Icon = action.icon;
         return (
-            <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(apt.id, action.nextStatus, patient); }} className={`w-full flex items-center justify-center gap-3 px-4 py-3 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg btn-tactile ${action.color}`}>
-                <Icon size={14}/> {action.label}
-            </button>
+            <>
+                <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className={`w-full flex items-center justify-center gap-3 px-4 py-3 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg btn-tactile ${action.color}`}>
+                    <Icon size={14}/> {action.label}
+                </button>
+                {showConfirm && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex justify-center items-center p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl flex flex-col items-center p-8 text-center animate-in zoom-in-95 duration-200">
+                            <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4">
+                                <Icon size={32} />
+                            </div>
+                            <h2 className="text-xl font-black text-slate-800 mb-2">Confirm Action</h2>
+                            <p className="text-sm text-slate-500 mb-6">Are you sure you want to change the status to <span className="font-bold text-slate-800">{action.label}</span>?</p>
+                            <div className="flex gap-3 w-full">
+                                <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>
+                                <button onClick={() => { setShowConfirm(false); onUpdateStatus(apt.id, action.nextStatus, patient); }} className={`flex-1 py-3 text-white rounded-xl font-bold ${action.color}`}>Confirm</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
         )
     }
 

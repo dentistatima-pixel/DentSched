@@ -17,7 +17,6 @@ import PrintoutsHub from './PrintoutsHub';
 
 
 import ConsentFormManager from './ConsentFormManager';
-import { useModal } from '../contexts/ModalContext';
 import ClinicalCatalogHub from './ClinicalCatalogHub';
 
 import { useStaff } from '../contexts/StaffContext';
@@ -39,8 +38,10 @@ interface FieldManagementProps {
   showModal: (type: string, props: any) => void;
 }
 
+import { useAppContext } from '../contexts/AppContext';
+
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
-    const { theme, toggleTheme, setFullScreenView } = useAppContext();
+    const { setFullScreenView } = useAppContext();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
     const { handleSaveStaff } = useStaff();
 

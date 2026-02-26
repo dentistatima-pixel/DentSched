@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Patient, Appointment } from '../types';
 import { X, HeartPulse, CheckCircle, Eraser, AlertTriangle } from 'lucide-react';
 import { useToast } from './ToastSystem';
@@ -108,7 +108,7 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
     }
   };
   
-  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
+  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
 
   useEffect(() => {
     if (isOpen && step === 'details') {
