@@ -155,6 +155,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
             if (isPediatric && !patientWeight) toast.error("SAFETY BLOCK: Pediatric weight is mandatory for minor patients.");
             return;
         }
+        if (!quantity || !instructions) {
+            toast.error("Please provide quantity and instructions for the medication.");
+            return;
+        }
         if (needsJustification && !isJustificationValid) { toast.error("Narrative too short."); return; }
         if (selectedMed.isS2Controlled) {
             toast.error("Regulatory Restriction: Controlled substances require manual Yellow Prescription.");

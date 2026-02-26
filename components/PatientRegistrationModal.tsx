@@ -279,7 +279,12 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
         }
     } else if (currentStep === 2) {
         // Step 2 validation (Medical History)
-        // Add specific checks here if required by fieldSettings in the future.
+        const requiredQuestions = fieldSettings.identityQuestionRegistry || [];
+        const missingAnswers = requiredQuestions.filter(q => !formData.registryAnswers?.[q]);
+        if (missingAnswers.length > 0) {
+            toast.error("Please answer all medical history questions.");
+            return false;
+        }
     } else if (currentStep === 3) {
         // Step 3 validation (Dental History)
         if (!formData.chiefComplaint || formData.chiefComplaint.trim() === '') {

@@ -179,10 +179,11 @@ const Inventory: React.FC<InventoryProps> = ({
     setNewCycle({ autoclaveName: 'Autoclave 1', cycleNumber: `C${Date.now().toString().slice(-4)}`, passed: true, instrumentSetIds: [] });
   };
 
-  const updatePhysicalCount = (id: string, count: string) => {
-      const val = parseInt(count);
-      setSessionPhysicalCounts(prev => ({ ...prev, [id]: isNaN(val) ? 0 : val }));
-  };
+    const updatePhysicalCount = (id: string, count: string) => {
+        const val = parseInt(count);
+        const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+        setSessionPhysicalCounts(prev => ({ ...prev, [id]: finalVal }));
+    };
 
   const handleFinalizeAudit = () => {
     const today = new Date().toISOString();

@@ -355,7 +355,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
         switch(activeTab) {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
             case 'strategy': return <TreatmentPlanModule {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
-            case 'notes': return <Odontonotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} />;
+            case 'notes': return <Odontonotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} onAssignToPlan={() => setActiveTab('strategy')} />;
             case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;

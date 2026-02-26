@@ -7,6 +7,7 @@ import { useAppointments } from '../contexts/AppointmentContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppContext } from '../contexts/AppContext';
 import { generateUid } from '../constants';
+import { useToast } from './ToastSystem';
 
 interface QuickTriageModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
     const { handleSaveAppointment } = useAppointments();
     const { handleSavePatient } = usePatient();
     const { currentUser } = useAppContext();
+    const toast = useToast();
     
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -31,6 +33,11 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
 
     const handleSubmit = async () => {
         if (!name || !complaint || !currentUser) return;
+
+        if (phone && !/^09\d{9}$/.test(phone)) {
+            toast.error("Please enter a valid 11-digit mobile number starting with 09.");
+            return;
+        }
 
         const provisionalPatient: Partial<Patient> = {
             id: generateUid('p'),
