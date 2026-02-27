@@ -40,8 +40,33 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
   const [formData, setFormData] = useState<User>(user);
   
   useEffect(() => {
-    setFormData({ ...user, allowedBranches: user.allowedBranches || [] });
-    setIsEditing(false);
+    if (user) {
+        setFormData({ ...user, allowedBranches: user.allowedBranches || [] });
+    } else {
+        // Initialize with default values for a new user
+        setFormData({
+            id: '',
+            name: '',
+            role: UserRole.DENTIST, // Default role
+            status: 'Active',
+            allowedBranches: [],
+            pin: '',
+            specialization: '',
+            licenseCategory: 'DENTIST',
+            // Initialize other fields as empty strings to avoid uncontrolled input warnings
+            prcLicense: '',
+            prcExpiry: '',
+            ptrNumber: '',
+            tin: '',
+            s2License: '',
+            s2Expiry: '',
+            malpracticePolicy: '',
+            malpracticeExpiry: '',
+            payoutHandle: '',
+            commissionRate: 0,
+        } as User);
+    }
+    setIsEditing(true); // Always start in editing mode for new users or when explicitly opened for edit
   }, [user, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -84,15 +109,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
         
         <div className="bg-teal-900 text-white p-6 relative shrink-0 flex justify-between items-center">
             <div>
-                <input 
-                    id="profile-name"
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    disabled={!isEditing}
-                    className="bg-transparent text-xl font-black text-white outline-none w-full p-0 disabled:border-transparent"
-                    placeholder="Enter Full Legal Name"
-                />
+                <h2 className="text-xl font-black text-white uppercase tracking-tight">
+                    {isEditing ? (formData.id ? 'Edit Staff Profile' : 'New Staff Registration') : formData.name}
+                </h2>
                 <p className="text-teal-300 text-xs font-bold uppercase tracking-wider mt-1">{formData.role}</p>
             </div>
           <button onClick={onClose} aria-label="Close Profile" className="p-2 hover:bg-white/20 rounded-full transition-colors focus:ring-offset-2 self-start"><X size={20} /></button>
@@ -104,6 +123,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
                     <Server size={20} /> System Access
                 </div>
                 <div className="space-y-4">
+                    <div>
+                        <label htmlFor="profile-name" className="label text-xs">Full Legal Name</label>
+                        <input 
+                            id="profile-name"
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            className="input font-bold text-lg"
+                            placeholder="e.g., Dr. Juan Dela Cruz"
+                        />
+                    </div>
                     <div>
                         <label htmlFor="role" className="label text-xs">User Role</label>
                         <select

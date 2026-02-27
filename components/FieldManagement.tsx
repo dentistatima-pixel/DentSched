@@ -35,6 +35,7 @@ interface FieldManagementProps {
   currentUser: User;
   onStartImpersonating: (user: User) => void;
   onDeactivateStaff: (userId: string) => void;
+  onDeleteStaff?: (userId: string) => void;
   showModal: (type: string, props: any) => void;
 }
 
@@ -73,7 +74,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             case 'printouts_hub':
                 return <PrintoutsHub />;
             case 'staff_hub':
-                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} onDeactivateStaff={props.onDeactivateStaff} onOpenStaffModal={handleOpenStaffModal} />;
+                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} onDeactivateStaff={props.onDeactivateStaff} onDeleteStaff={props.onDeleteStaff} onOpenStaffModal={handleOpenStaffModal} />;
 
             // Clinical Catalog Hub
             case 'catalog_hub':

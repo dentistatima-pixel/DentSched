@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { User as UserIcon, Key, ShieldAlert, UserX, Plus, Edit2 } from 'lucide-react';
+import { User as UserIcon, Key, ShieldAlert, UserX, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface StaffRegistryProps {
@@ -8,10 +8,11 @@ interface StaffRegistryProps {
     onStartImpersonating: (user: User) => void;
     initialTab?: string;
     onDeactivateStaff: (userId: string) => void;
+    onDeleteStaff?: (userId: string) => void;
     onOpenStaffModal: (staffMember: Partial<User> | null) => void;
 }
 
-const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, initialTab, onDeactivateStaff, onOpenStaffModal }) => {
+const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, initialTab, onDeactivateStaff, onDeleteStaff, onOpenStaffModal }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'staff');
     
     return (
@@ -36,10 +37,10 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                                 <div className="text-xs text-slate-500">{user.role} {user.status === 'Inactive' && <span className="font-black text-red-600">(INACTIVE)</span>}</div>
                             </div>
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => onOpenStaffModal(user)} className="p-2 bg-white text-slate-500 rounded-lg hover:bg-blue-100 hover:text-blue-700">
+                                <button onClick={() => onOpenStaffModal(user)} className="p-2 bg-white text-slate-500 rounded-lg hover:bg-blue-100 hover:text-blue-700" title="Edit Profile">
                                     <Edit2 size={16} />
                                 </button>
-                                {user.status !== 'Inactive' && (
+                                {user.status !== 'Inactive' ? (
                                     <button
                                         onClick={() => {
                                             if (window.confirm(`Are you sure you want to deactivate ${user.name}'s account? They will lose all system access.`)) {
@@ -47,9 +48,24 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                                             }
                                         }}
                                         className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                                        title="Deactivate Account"
                                     >
                                         <UserX size={16} />
                                     </button>
+                                ) : (
+                                    onDeleteStaff && (
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm(`PERMANENT ACTION: Are you sure you want to DELETE ${user.name}? This cannot be undone.`)) {
+                                                    onDeleteStaff(user.id);
+                                                }
+                                            }}
+                                            className="p-2 bg-slate-300 text-slate-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
+                                            title="Permanently Delete User"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )
                                 )}
                             </div>
                         </div>
