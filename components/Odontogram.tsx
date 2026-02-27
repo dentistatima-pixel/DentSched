@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DentalChartEntry, TreatmentStatus, User } from '../types';
-import { formatDate } from '../constants';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, Check, X, ZoomIn, FileText, ArrowRight, MoreHorizontal, CheckCircle, Clock, Baby, FlipHorizontal, Maximize2, Minimize2, ShieldAlert, LockKeyhole, Sparkles } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, FileText, Clock, Baby, FlipHorizontal, LockKeyhole } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];
@@ -192,23 +191,46 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null); 
   const [showBaseline, setShowBaseline] = useState(false); 
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
-  const [isPatientPerspective, setIsPatientPerspective] = useState(false);
+  
+  // Phase 2.5: Perspective Memory
+  const [isPatientPerspective, setIsPatientPerspective] = useState(() => {
+      try {
+          return localStorage.getItem('odontogram_perspective') === 'true';
+      } catch { return false; }
+  });
+
+  useEffect(() => {
+      localStorage.setItem('odontogram_perspective', String(isPatientPerspective));
+  }, [isPatientPerspective]);
+
   const [contextMenu, setContextMenu] = useState<{ tooth: number; x: number; y: number } | null>(null);
   const [scale, setScale] = useState(1);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!chartRef.current) return;
+    
+    let animationFrameId: number;
+    
     const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const width = entry.contentRect.width;
-        // Base width for full arch is roughly 1100px
-        const newScale = Math.min(1, (width - 32) / 1100);
-        setScale(newScale);
-      }
+      // Debounce with requestAnimationFrame to prevent "ResizeObserver loop limit exceeded"
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      
+      animationFrameId = requestAnimationFrame(() => {
+        for (let entry of entries) {
+          const width = entry.contentRect.width;
+          // Base width for full arch is roughly 1100px
+          const newScale = Math.min(1, (width - 32) / 1100);
+          setScale(newScale);
+        }
+      });
     });
+    
     observer.observe(chartRef.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];

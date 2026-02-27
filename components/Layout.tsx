@@ -78,6 +78,15 @@ export const Layout: React.FC<LayoutProps> = ({
         e.preventDefault();
         showModal('shortcutHelp');
       }
+      // Phase 3.2: Global Keyboard Shortcuts
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        showModal('patientRegistration', { currentBranch, onSave: handleSavePatient });
+      }
+      if (e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        setIsCommandBarOpen(true);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -90,7 +99,6 @@ export const Layout: React.FC<LayoutProps> = ({
     return patients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase())).slice(0, 3);
   }, [patientSearch, patients]);
   
-  const features = fieldSettings?.features;
   const isDowntime = systemStatus === SystemStatus.DOWNTIME;
 
   const navItems = [

@@ -405,7 +405,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {!selectedMed?.isS2Controlled && (
                         <button 
                           onClick={handlePrint} 
-                          disabled={!selectedMedId || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked || !consentAcknowledged || s2Status.violation} 
+                          disabled={!selectedMedId || !quantity || !instructions || (needsJustification && !isJustificationValid) || isSafetyBlocked || isAuthorityLocked || !consentAcknowledged || s2Status.violation} 
                           className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked || s2Status.violation ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
                         >
                             {isAuthorityLocked ? <Lock size={16} aria-hidden="true"/> : <Printer size={16} aria-hidden="true"/>} 

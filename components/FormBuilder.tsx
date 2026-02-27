@@ -1,11 +1,12 @@
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FieldSettings, RegistrationField } from '../types';
-import { Plus, X, ArrowUp, ArrowDown, PlusCircle, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
+import { X, ArrowUp, ArrowDown, PlusCircle, Eye, Code, Trash2, GripHorizontal, Type, AlignLeft, Phone, Mail, ChevronDown, ToggleRight, CheckSquare, Heading2, HelpCircle, Calendar } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
 import RegistrationDental from './RegistrationDental';
+import PatientRegistrationModal from './PatientRegistrationModal';
 import FormFieldEditor from './form-builder/FormFieldEditor';
 import QuestionEditor from './form-builder/QuestionEditor';
 import RegistryEditor from './form-builder/RegistryEditor';
@@ -272,10 +273,10 @@ const FormBuilder: React.FC = () => {
 
 
     return (
-        <div className="relative">
+        <div className="relative flex h-full overflow-hidden">
             {/* Form Canvas Area */}
-            <div className={`p-10 bg-slate-50/20 no-scrollbar`}>
-                <div className="max-w-4xl mx-auto space-y-12 pb-32">
+            <div className={`flex-1 p-10 bg-slate-50/20 no-scrollbar overflow-y-auto transition-all duration-500 ${isPreviewMode ? 'w-1/2 pr-4' : 'w-full'}`}>
+                <div className={`mx-auto space-y-12 pb-32 ${isPreviewMode ? 'max-w-none' : 'max-w-4xl'}`}>
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Admission Design Studio</h3>
@@ -346,6 +347,29 @@ const FormBuilder: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Live Preview Panel */}
+            {isPreviewMode && (
+                <div className="w-1/2 bg-slate-100 border-l border-slate-200 relative overflow-hidden shadow-inner flex flex-col">
+                    <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center shrink-0">
+                        <h4 className="font-black text-slate-700 uppercase tracking-widest text-xs">Live Preview</h4>
+                        <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Read-Only Mode</div>
+                    </div>
+                    <div className="flex-1 relative overflow-hidden bg-slate-500/5 p-8 flex items-center justify-center">
+                         <div className="w-full h-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-200 relative transform scale-90">
+                            <div className="absolute inset-0 overflow-y-auto no-scrollbar">
+                                <PatientRegistrationModal 
+                                    isOpen={true} 
+                                    onClose={() => {}} 
+                                    onSave={async () => {}} 
+                                    readOnly={true}
+                                    initialData={null}
+                                />
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            )}
 
             {/* Floating Properties Panel */}
             <div 
