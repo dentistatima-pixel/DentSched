@@ -1390,9 +1390,9 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'nationality', label: 'Nationality', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'nationality', registryKey: 'nationalities', width: 'half' },
 
       { id: 'field_header_contact', label: 'Contact Information', type: 'header', section: 'CONTACT' },
-      { id: 'homeAddress', label: 'Home Address', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'homeAddress', width: 'full' },
-      { id: 'barangay', label: 'Barangay', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'barangay', width: 'half' },
-      { id: 'city', label: 'City', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'city', width: 'half' },
+      { id: 'homeAddress', label: 'Home Address', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'homeAddress', isRequired: true, width: 'full' },
+      { id: 'barangay', label: 'Barangay', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'barangay', isRequired: true, width: 'half' },
+      { id: 'city', label: 'City', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'city', isRequired: true, width: 'half' },
       { id: 'homeNumber', label: 'Home No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'homeNumber', width: 'third' },
       { id: 'officeNumber', label: 'Office No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'officeNumber', width: 'third' },
       { id: 'faxNumber', label: 'Fax No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'faxNumber', width: 'third' },
@@ -1410,7 +1410,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       // Dental Section Fields
       { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', isCore: true, patientKey: 'previousDentist' },
       { id: 'lastDentalVisit', label: 'Last Dental Visit', type: 'date', section: 'DENTAL', isCore: true, patientKey: 'lastDentalVisit' },
-      { id: 'chiefComplaint', label: 'Chief Complaint', type: 'textarea', section: 'DENTAL', isCore: true, patientKey: 'chiefComplaint', isRequired: true },
+      { id: 'chiefComplaint', label: 'Chief Complaint / Reason for Visit', type: 'textarea', section: 'DENTAL', isCore: true, patientKey: 'chiefComplaint', isRequired: true },
 
       // Medical Section Fields
       { id: 'physicianName', label: 'Name of Physician', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianName' },
@@ -1442,13 +1442,13 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   medicalLayoutOrder: [
       'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
       'core_bloodGroup', 'core_bloodPressure',
-      'Are you in good health?',
+      'Are you in good health?*',
       'Are you under medical treatment now?*',
       'Have you ever had serious illness or surgical operation?*',
       'Have you ever been hospitalized?*',
       'Are you taking any prescription/non-prescription medication?*',
-      'Do you use tobacco products?',
-      'Do you use alcohol, cocaine or other dangerous drugs?',
+      'Do you use tobacco products?*',
+      'Do you use alcohol, cocaine or other dangerous drugs?*',
       'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
       'Taking Bisphosphonates? (Fosamax, Zometa)',
       'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex',
@@ -1465,13 +1465,13 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       'Are you satisfied with the appearance of your teeth?'
   ],
   identityQuestionRegistry: [
-    'Are you in good health?',
+    'Are you in good health?*',
     'Are you under medical treatment now?*',
     'Have you ever had serious illness or surgical operation?*',
     'Have you ever been hospitalized?*',
     'Are you taking any prescription/non-prescription medication?*',
-    'Do you use tobacco products?',
-    'Do you use alcohol, cocaine or other dangerous drugs?',
+    'Do you use tobacco products?*',
+    'Do you use alcohol, cocaine or other dangerous drugs?*',
   ],
   femaleQuestionRegistry: [
       'Are you pregnant?',

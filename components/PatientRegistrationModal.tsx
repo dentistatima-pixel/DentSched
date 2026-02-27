@@ -279,28 +279,70 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
         }
     } else if (currentStep === 2) {
         // Step 2 validation (Medical History)
-        const requiredQuestions = fieldSettings.identityQuestionRegistry || [];
-        const missingAnswers = requiredQuestions.filter(q => !formData.registryAnswers?.[q]);
+        // 1. Validate Yes/No Questions
+        // We use medicalLayoutOrder to determine which questions are actually presented to the user
+        const presentedQuestions = fieldSettings.medicalLayoutOrder.filter(id => 
+            !id.startsWith('al_') && 
+            !id.startsWith('field_') && 
+            !id.startsWith('core_') &&
+            fieldSettings.identityQuestionRegistry.includes(id)
+        );
+
+        const missingAnswers = presentedQuestions.filter(q => !formData.registryAnswers?.[q]);
         
         if (missingAnswers.length > 0) {
-            toast.error("Please answer all mandatory medical history questions.");
+            toast.error(`Please answer all ${missingAnswers.length} mandatory medical history questions.`);
             return false;
         }
 
-        // Phase 1 Fix: Ensure health history is not bypassed
+        // 2. Validate Allergies & Conditions (Must have at least one selected OR "None" if available/implied)
+        // Since we don't have an explicit "None" toggle in the UI for these arrays, we rely on the user selecting items.
+        // However, if the user truly has none, they might leave it empty.
+        // The previous logic checked for "No Known..." in registryAnswers, but that depends on those specific questions existing.
+        // Let's check if there are specific "None" options in the lists.
+        
         const hasAllergies = formData.allergies && formData.allergies.length > 0;
         const hasConditions = formData.medicalConditions && formData.medicalConditions.length > 0;
-        const markedNone = formData.registryAnswers?.['No Known Allergies'] === 'Yes' || formData.registryAnswers?.['No Known Medical Conditions'] === 'Yes';
+        
+        // Check if "No Known Allergies" or similar is a question that was answered "Yes"
+        const noAllergiesDeclared = formData.registryAnswers?.['No Known Allergies'] === 'Yes';
+        const noConditionsDeclared = formData.registryAnswers?.['No Known Medical Conditions'] === 'Yes';
 
-        if (!hasAllergies && !hasConditions && !markedNone) {
-            toast.warning("Please provide health history details or confirm 'None' if applicable.");
-            return false;
+        // If your system requires explicit "None" selection in the array (e.g. "None" is an option in the list):
+        const allergiesNoneSelected = formData.allergies?.includes('None');
+        const conditionsNoneSelected = formData.medicalConditions?.includes('None');
+
+        if (!hasAllergies && !noAllergiesDeclared && !allergiesNoneSelected) {
+             // If "None" is an option in the allergies list, prompt to select it.
+             if (fieldSettings.allergies.includes('None')) {
+                 toast.error("Please select allergies or 'None'.");
+                 return false;
+             }
+             // If "None" is not in the list, we might assume empty means none, BUT the user complained about skipping.
+             // So we enforce at least one selection if "None" is available.
         }
+
+        if (!hasConditions && !noConditionsDeclared && !conditionsNoneSelected) {
+             if (fieldSettings.medicalConditions.includes('None')) {
+                 toast.error("Please select medical conditions or 'None'.");
+                 return false;
+             }
+        }
+
     } else if (currentStep === 3) {
         // Step 3 validation (Dental History)
         if (!formData.chiefComplaint || formData.chiefComplaint.trim() === '') {
             setErrors({ chiefComplaint: "Chief complaint is required." });
             toast.error("Please provide your chief dental complaint.");
+            return false;
+        }
+
+        // Validate Dental History Questions
+        const dentalQuestions = fieldSettings.dentalHistoryRegistry || [];
+        const missingDentalAnswers = dentalQuestions.filter(q => !formData.registryAnswers?.[q]);
+
+        if (missingDentalAnswers.length > 0) {
+            toast.error("Please answer all dental history questions.");
             return false;
         }
     }
@@ -414,7 +456,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                 )}
                 {step === 2 && <div key={2} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationMedical formData={formData} handleChange={handleChange} onCustomChange={handleCustomChange} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} allergies={formData.allergies || []} onAllergyChange={handleArrayChange} medicalConditions={formData.medicalConditions || []} onConditionChange={handleArrayChange} readOnly={readOnly} fieldSettings={fieldSettings} /></div>}
                 {step === 3 && <div key={3} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationDental formData={formData} handleChange={handleChange} readOnly={readOnly} fieldSettings={fieldSettings} registryAnswers={formData.registryAnswers || {}} onRegistryChange={handleRegistryChange} /></div>}
-                {step === 4 && <RegistrationSummary formData={formData} />}
+                {step === 4 && <div key={4} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}><RegistrationSummary formData={formData} /></div>}
                 {step === 5 && (
                     <div key={5} className={animationDirection === 'forward' ? 'wizard-step-enter' : 'wizard-step-enter-back'}>
                         <SignatureCaptureOverlay 

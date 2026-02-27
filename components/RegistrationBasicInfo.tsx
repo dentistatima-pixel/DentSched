@@ -224,7 +224,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           if (!field) return null;
           const label = getLabel(coreId, field.label);
           const value = (formData as any)[coreId] || '';
-          const className = `input bg-white ${field.patientKey && errors?.[field.patientKey] ? 'input-error' : ''}`;
+          const className = `input ${field.isRequired ? 'bg-slate-200 border-slate-300' : 'bg-white'} ${field.patientKey && errors?.[field.patientKey] ? 'input-error' : ''}`;
           
           let widthClass = "md:col-span-12";
           if (field.width === 'half') widthClass = "md:col-span-6";
@@ -262,7 +262,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           return (
              <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <div>
-                      <label className="label flex items-center gap-2">{label} {field.isRequired && '*'}</label>
+                      <label className="label flex items-center gap-2">{label}</label>
                       {inputElement}
                       {field.patientKey && errors?.[field.patientKey] && <p className="error-text">{errors[field.patientKey]}</p>}
                   </div>
@@ -299,7 +299,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
           if (field.type === 'boolean') {
               return (
                   <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                      <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${!!val ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white'} ${hasError ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'}`}>
+                      <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${!!val ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white'} ${hasError ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'} ${field.isRequired ? 'bg-slate-100' : ''}`}>
                           <input
                               type="checkbox"
                               name={field.id}
@@ -310,7 +310,7 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                           />
                           <div>
                             <span className="font-black text-teal-950 uppercase text-sm tracking-widest flex items-center gap-2">
-                                {field.label} {field.isRequired && '*'}
+                                {field.label}
                                 {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                             </span>
                           </div>
@@ -319,21 +319,23 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
               );
           }
           
+          const inputBgClass = field.isRequired ? 'bg-slate-200 border-slate-300' : 'bg-white';
+
           return (
               <DesignWrapper id={id} type="identity" className={colSpan} key={id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
                   <label className="label flex items-center gap-2">
-                    {field.label} {field.isRequired && '*'}
+                    {field.label}
                     {isCriticalDyn && <ShieldAlert size={12} className="text-red-500 animate-pulse"/>}
                   </label>
                   {field.type === 'dropdown' && field.registryKey ? (
-                      <select name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} className={`input bg-white ${hasError ? 'input-error' : ''}`}>
+                      <select name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} className={`input ${inputBgClass} ${hasError ? 'input-error' : ''}`}>
                           <option value="">Select {field.label}</option>
                           {(fieldSettings[field.registryKey as keyof FieldSettings] as string[] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                   ) : field.type === 'textarea' ? (
-                      <ControlledTextarea name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white h-24 ${hasError ? 'input-error' : ''}`} />
+                      <ControlledTextarea name={field.id} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input ${inputBgClass} h-24 ${hasError ? 'input-error' : ''}`} />
                   ) : (
-                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input bg-white ${hasError ? 'input-error' : ''}`} />
+                      <ControlledInput name={field.id} type={field.type as any} value={val || ''} onChange={(e) => handleCustomChange(field.id, e.target.value, 'text')} disabled={readOnly} placeholder={`Enter ${field.label}...`} className={`input ${inputBgClass} ${hasError ? 'input-error' : ''}`} />
                   )}
                   {hasError && <p className="error-text">{errors[id]}</p>}
               </DesignWrapper>

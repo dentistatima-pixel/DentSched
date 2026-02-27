@@ -192,17 +192,6 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const [showBaseline, setShowBaseline] = useState(false); 
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
   
-  // Phase 2.5: Perspective Memory
-  const [isPatientPerspective, setIsPatientPerspective] = useState(() => {
-      try {
-          return localStorage.getItem('odontogram_perspective') === 'true';
-      } catch { return false; }
-  });
-
-  useEffect(() => {
-      localStorage.setItem('odontogram_perspective', String(isPatientPerspective));
-  }, [isPatientPerspective]);
-
   const [contextMenu, setContextMenu] = useState<{ tooth: number; x: number; y: number } | null>(null);
   const [scale, setScale] = useState(1);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -324,14 +313,6 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
              )}
              
              <div className="flex gap-3 ml-auto items-center">
-                 <button 
-                    onClick={() => setIsPatientPerspective(!isPatientPerspective)}
-                    className={`flex items-center gap-3 px-5 py-3 rounded-2xl text-xs font-black tracking-[0.2em] transition-all duration-500 border-2 shadow-sm ${isPatientPerspective ? 'bg-lilac-50 border-lilac-200 text-lilac-700 ring-4 ring-lilac-500/5' : 'bg-white border-slate-100 text-slate-500 hover:border-lilac-200'}`}
-                    aria-label={`Perspective toggle`}
-                 >
-                     <FlipHorizontal size={14}/> {isPatientPerspective ? 'PATIENT' : 'DENTIST'}
-                 </button>
-
                  <div className="bg-slate-50 rounded-2xl p-1.5 border-2 border-slate-100 flex shadow-inner gap-1" role="group" aria-label="Arch dentition mode">
                     <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
                     <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>
@@ -371,7 +352,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
             <div className="w-full overflow-hidden flex justify-center px-4">
                 <div 
                   style={{ 
-                    transform: `scale(${scale}) ${isPatientPerspective ? 'scale-x(-1)' : ''}`, 
+                    transform: `scale(${scale})`, 
                     transformOrigin: 'top center',
                     marginBottom: `-${(1 - scale) * 400}px` // Compensate for scale height
                   }}
@@ -380,15 +361,15 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                     {/* UPPER ARCH */}
                     <div className="flex flex-col items-center gap-2">
                         <div className="flex justify-center items-end">
-                            {q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            {q1.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={false} />)}
                             <div className="w-px h-16 bg-slate-200 mx-1" />
-                            {q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            {q2.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={false} />)}
                         </div>
                         {dentitionMode === 'Mixed' && (
                             <div className="flex justify-center items-start mt-2">
-                                {dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                {dq5.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={false} />)}
                                 <div className="w-px h-8 bg-slate-200 mx-1" />
-                                {dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                {dq6.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={false} />)}
                             </div>
                         )}
                     </div>
@@ -397,15 +378,15 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                     <div className="flex flex-col items-center gap-2">
                         {dentitionMode === 'Mixed' && (
                             <div className="flex justify-center items-end mb-2">
-                                {dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                {dq8.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={false} />)}
                                 <div className="w-px h-8 bg-slate-200 mx-1" />
-                                {dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={isPatientPerspective} />)}
+                                {dq7.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={true} isPatientPerspective={false} />)}
                             </div>
                         )}
                         <div className="flex justify-center items-start">
-                            {q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            {q4.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={false} />)}
                             <div className="w-px h-16 bg-slate-200 mx-1" />
-                            {q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={isPatientPerspective} />)}
+                            {q3.map(t => <GeometricTooth key={t} number={t} entries={getToothData(t)} readOnly={readOnly} onSurfaceClick={handleSurfaceClick} onToothClick={handleToothClick} isSelected={selectedTooth === t} isDeciduous={false} isPatientPerspective={false} />)}
                         </div>
                     </div>
                 </div>
@@ -413,7 +394,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
 
             {contextMenu && (
                 <div 
-                  className={`absolute z-[70] bg-white/80 backdrop-blur-2xl rounded-2xl shadow-[0_40px_100px_rgba(0,0,0,0.18)] border border-slate-200 animate-in fade-in zoom-in-95 duration-300 overflow-hidden ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}
+                  className={`absolute z-[70] bg-white/80 backdrop-blur-2xl rounded-2xl shadow-[0_40px_100px_rgba(0,0,0,0.18)] border border-slate-200 animate-in fade-in zoom-in-95 duration-300 overflow-hidden`}
                   style={{ top: contextMenu.y, left: contextMenu.x, transform: 'translateX(-50%)' }}
                   role="menu"
                 >
