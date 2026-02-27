@@ -31,7 +31,9 @@ export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldS
     const errors: Record<string, string> = {};
 
     // --- Unified field validation ---
-    fieldSettings.identityFields.forEach(field => {
+    fieldSettings.identityFields
+    .filter(field => field.section !== 'DENTAL') // Exclude dental fields from initial validation
+    .forEach(field => {
         if (field.isRequired) {
             const value = field.patientKey ? patient[field.patientKey] : patient.customFields?.[field.id];
             
@@ -44,16 +46,22 @@ export const validatePatient = (patient: Partial<Patient>, fieldSettings: FieldS
     });
     
     // --- Special format validations ---
-    const phoneError = validateMobile(patient.phone);
-    if (phoneError) {
-        errors.phone = phoneError;
+    const phoneField = fieldSettings.identityFields.find(f => f.patientKey === 'phone');
+    if (patient.phone || (phoneField && phoneField.isRequired)) {
+        const phoneError = validateMobile(patient.phone);
+        if (phoneError) {
+            errors.phone = phoneError;
+        }
     }
 
     // --- Consent validation ---
-    if (!patient.dpaConsent) {
+    const dpaConsentField = fieldSettings.identityFields.find(f => f.patientKey === 'dpaConsent');
+    if (dpaConsentField && dpaConsentField.isRequired && !patient.dpaConsent) {
         errors.dpaConsent = "Compliance Error: Data Privacy Consent must be accepted.";
     }
-    if (!patient.clinicalMediaConsent) {
+
+    const clinicalMediaConsentField = fieldSettings.identityFields.find(f => f.patientKey === 'clinicalMediaConsent');
+    if (clinicalMediaConsentField && clinicalMediaConsentField.isRequired && !patient.clinicalMediaConsent) {
         errors.clinicalMediaConsent = "Compliance Error: General Treatment Authorization must be acknowledged.";
     }
 

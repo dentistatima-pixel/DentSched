@@ -398,7 +398,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                   style={{ top: contextMenu.y, left: contextMenu.x, transform: 'translateX(-50%)' }}
                   role="menu"
                 >
-                    <button onClick={() => { onToothClick(contextMenu.tooth); setContextMenu(null); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-teal-50 w-full text-left ${isPatientPerspective ? 'scale-x-[-1]' : ''}`}><FileText size={16}/> View Details</button>
+                    <button onClick={() => { onToothClick(contextMenu.tooth); setContextMenu(null); }} className={`flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-teal-50 w-full text-left`}><FileText size={16}/> View Details</button>
                 </div>
             )}
         </div>

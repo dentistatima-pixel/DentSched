@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { User, UserRole } from '../types';
-import { User as UserIcon, Key, ShieldAlert, UserX, Plus, Edit2, Trash2 } from 'lucide-react';
-import { useToast } from './ToastSystem';
+import { User } from '../types';
+import { ShieldAlert, UserX, Plus, Edit2, Trash2 } from 'lucide-react';
+import { useModal } from '../contexts/ModalContext';
 
 interface StaffRegistryProps {
     staff: User[];
@@ -12,8 +12,8 @@ interface StaffRegistryProps {
     onOpenStaffModal: (staffMember: Partial<User> | null) => void;
 }
 
-const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, initialTab, onDeactivateStaff, onDeleteStaff, onOpenStaffModal }) => {
-    const [activeTab, setActiveTab] = useState(initialTab || 'staff');
+const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonating, onDeactivateStaff, onDeleteStaff, onOpenStaffModal }) => {
+    const { showModal } = useModal();
     
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500">
@@ -43,9 +43,13 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                                 {user.status !== 'Inactive' ? (
                                     <button
                                         onClick={() => {
-                                            if (window.confirm(`Are you sure you want to deactivate ${user.name}'s account? They will lose all system access.`)) {
-                                                onDeactivateStaff(user.id);
-                                            }
+                                            showModal('confirm', {
+                                                title: 'Deactivate Account',
+                                                message: `Are you sure you want to deactivate ${user.name}'s account? They will lose all system access.`,
+                                                confirmText: 'Deactivate',
+                                                isDestructive: true,
+                                                onConfirm: () => onDeactivateStaff(user.id)
+                                            });
                                         }}
                                         className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
                                         title="Deactivate Account"
@@ -56,9 +60,13 @@ const StaffRegistry: React.FC<StaffRegistryProps> = ({ staff, onStartImpersonati
                                     onDeleteStaff && (
                                         <button
                                             onClick={() => {
-                                                if (window.confirm(`PERMANENT ACTION: Are you sure you want to DELETE ${user.name}? This cannot be undone.`)) {
-                                                    onDeleteStaff(user.id);
-                                                }
+                                                showModal('confirm', {
+                                                    title: 'Permanently Delete User',
+                                                    message: `PERMANENT ACTION: Are you sure you want to DELETE ${user.name}? This cannot be undone.`,
+                                                    confirmText: 'Delete Permanently',
+                                                    isDestructive: true,
+                                                    onConfirm: () => onDeleteStaff(user.id)
+                                                });
                                             }}
                                             className="p-2 bg-slate-300 text-slate-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
                                             title="Permanently Delete User"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Droplet, Heart, ShieldCheck } from 'lucide-react';
+import { X, Droplet, Heart } from 'lucide-react';
 import { Appointment, Patient, AppointmentStatus } from '../types';
 
 interface InspectorPanelProps {

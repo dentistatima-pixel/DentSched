@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { FieldSettings, Patient, FamilyGroup } from '../types';
 import { Plus, ArrowLeft, Search, X } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { useModal } from '../contexts/ModalContext';
 
 interface FamilyGroupManagerProps {
     settings: FieldSettings;
@@ -13,6 +14,7 @@ interface FamilyGroupManagerProps {
 
 const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpdateSettings, patients, onBack }) => {
     const toast = useToast();
+    const { showModal } = useModal();
     const [editingGroup, setEditingGroup] = useState<Partial<FamilyGroup> | null>(null);
     const [patientSearch, setPatientSearch] = useState('');
 
@@ -69,11 +71,17 @@ const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpd
     };
 
     const handleRemoveGroup = (groupId: string) => {
-        if (window.confirm("Are you sure you want to delete this family group?")) {
-            const nextGroups = familyGroups.filter(g => g.id !== groupId);
-            onUpdateSettings({ ...settings, familyGroups: nextGroups });
-            toast.info("Family group removed.");
-        }
+        showModal('confirm', {
+            title: 'Delete Family Group',
+            message: 'Are you sure you want to delete this family group?',
+            confirmText: 'Delete',
+            isDestructive: true,
+            onConfirm: () => {
+                const nextGroups = familyGroups.filter(g => g.id !== groupId);
+                onUpdateSettings({ ...settings, familyGroups: nextGroups });
+                toast.info("Family group removed.");
+            }
+        });
     };
 
     return (

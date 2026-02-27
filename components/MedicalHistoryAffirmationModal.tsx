@@ -17,7 +17,6 @@ interface MedicalHistoryAffirmationModalProps {
     signature?: string;
   }) => void;
   patient: Patient;
-  appointment: Appointment;
 }
 
 const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalProps> = ({
@@ -25,7 +24,6 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
   onClose,
   onConfirm,
   patient,
-  appointment,
 }) => {
   const [step, setStep] = useState<'question' | 'details'>('question');
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);

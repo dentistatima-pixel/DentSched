@@ -348,6 +348,7 @@ export interface StockItem {
   lastRestockDate?: string;
   expiryDate?: string;
   batchNumber?: string;
+  minQuantity?: number;
   branch?: string;
   isLockedForEvidence?: boolean; 
   bulkUnit?: string;         

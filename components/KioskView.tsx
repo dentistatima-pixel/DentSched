@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Patient, AuditLogEntry, FieldSettings, AuthorityLevel } from '../types';
-import { UserPlus, UserCheck, ChevronRight, LogOut, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Fingerprint, Lock, FileText, Eye, RefreshCw } from 'lucide-react';
+import { Patient, AuditLogEntry, AuthorityLevel } from '../types';
+import { UserPlus, UserCheck, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Lock } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
-import { STAFF } from '../constants';
 import { usePatient } from '../contexts/PatientContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface KioskViewProps {
   onExitKiosk: () => void;
@@ -17,6 +17,7 @@ type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affi
 
 export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
   const toast = useToast();
+  const { showModal } = useModal();
   const { patients, handleSavePatient: onUpdatePatient } = usePatient();
   const [step, setStep] = useState<KioskStep>('welcome');
   
@@ -127,12 +128,17 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
   };
 
   const handleExitClick = () => {
-      const pin = prompt("Staff PIN to Exit:");
-      if (pin && pin.length > 0) {
-          onExitKiosk();
-      } else if (pin !== null) { // Only show error if user didn't cancel
-          toast.error("Incorrect PIN");
-      }
+      showModal('prompt', {
+          title: 'Staff Exit',
+          message: 'Staff PIN to Exit:',
+          onConfirm: (pin: string) => {
+              if (pin && pin.length > 0) {
+                  onExitKiosk();
+              } else {
+                  toast.error("Incorrect PIN");
+              }
+          }
+      });
   };
 
   return (

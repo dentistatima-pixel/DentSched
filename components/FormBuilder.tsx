@@ -12,11 +12,13 @@ import QuestionEditor from './form-builder/QuestionEditor';
 import RegistryEditor from './form-builder/RegistryEditor';
 import { generateUid } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
+import { useModal } from '../contexts/ModalContext';
 
 
 const FormBuilder: React.FC = () => {
     const { fieldSettings: settings, handleUpdateSettings: onUpdateSettings } = useSettings();
     const toast = useToast();
+    const { showModal } = useModal();
     
     const [selectedField, setSelectedField] = useState<{ id: string, type: string } | null>(null);
     const [activeSection, setActiveSection] = useState<'IDENTITY' | 'MEDICAL' | 'DENTAL'>('IDENTITY');
@@ -154,21 +156,26 @@ const FormBuilder: React.FC = () => {
     };
     
     const handleAddNewDentalQuestion = () => {
-        const newQuestion = prompt("Enter the new dental history question:");
-        if (newQuestion && newQuestion.trim()) {
-            const trimmed = newQuestion.trim();
-            if (settings.dentalHistoryRegistry.includes(trimmed)) {
-                toast.error("This question already exists.");
-                return;
+        showModal('prompt', {
+            title: 'Add Dental History Question',
+            message: 'Enter the new dental history question:',
+            onConfirm: (newQuestion: string) => {
+                if (newQuestion && newQuestion.trim()) {
+                    const trimmed = newQuestion.trim();
+                    if (settings.dentalHistoryRegistry.includes(trimmed)) {
+                        toast.error("This question already exists.");
+                        return;
+                    }
+                    const newSettings = {
+                        ...settings,
+                        dentalHistoryRegistry: [...settings.dentalHistoryRegistry, trimmed],
+                        dentalLayoutOrder: [...settings.dentalLayoutOrder, trimmed]
+                    };
+                    onUpdateSettings(newSettings);
+                    setSelectedField({ id: trimmed, type: 'dentalQuestion' });
+                }
             }
-            const newSettings = {
-                ...settings,
-                dentalHistoryRegistry: [...settings.dentalHistoryRegistry, trimmed],
-                dentalLayoutOrder: [...settings.dentalLayoutOrder, trimmed]
-            };
-            onUpdateSettings(newSettings);
-            setSelectedField({ id: trimmed, type: 'dentalQuestion' });
-        }
+        });
     };
 
     // --- DRAGGING LOGIC ---

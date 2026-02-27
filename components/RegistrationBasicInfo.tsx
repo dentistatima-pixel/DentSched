@@ -108,13 +108,19 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
 
   useEffect(() => {
     const referredPatient = patients.find(p => p.id === formData.referredById);
-    setRefSearch(referredPatient ? referredPatient.name : '');
-  }, [formData.referredById, patients]);
+    const newName = referredPatient ? referredPatient.name : '';
+    if (newName !== refSearch) {
+        setRefSearch(newName);
+    }
+  }, [formData.referredById, patients, refSearch]);
 
   useEffect(() => {
     const headPatient = patients.find(p => p.id === formData.familyGroupId);
-    setHeadOfHouseholdSearch(headPatient ? headPatient.name : '');
-  }, [formData.familyGroupId, patients]);
+    const newName = headPatient ? headPatient.name : '';
+    if (newName !== headOfHouseholdSearch) {
+        setHeadOfHouseholdSearch(newName);
+    }
+  }, [formData.familyGroupId, patients, headOfHouseholdSearch]);
 
   useEffect(() => {
     const isExactMatch = patients.some(p => p.id === formData.referredById && p.name === refSearch);

@@ -9,6 +9,8 @@ interface StaffContextType {
     leaveRequests: LeaveRequest[];
     handleSaveStaff: (staffData: User) => Promise<void>;
     handleDeactivateStaff: (userId: string) => Promise<void>;
+    onDeleteStaff: (userId: string) => void;
+    onStartImpersonating: (user: User) => void;
     handleUpdateStaffRoster: (staffId: string, day: string, branch: string) => Promise<void>;
     handleAddLeaveRequest: (request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => Promise<void>;
     handleApproveLeaveRequest: (id: string, approve: boolean) => Promise<void>;
@@ -18,7 +20,7 @@ const StaffContext = createContext<StaffContextType | undefined>(undefined);
 
 export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
-    const { currentUser, setCurrentUser } = useAppContext();
+    const { currentUser, setCurrentUser, handleStartImpersonating: appContextImpersonate } = useAppContext();
     const [staff, setStaff] = useState<User[]>(STAFF);
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     
@@ -51,6 +53,16 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
     };
     
+    const onDeleteStaff = (userId: string) => {
+        setStaff(prevStaff => prevStaff.filter(user => user.id !== userId));
+        toast.success("Staff member permanently deleted.");
+    };
+
+    const onStartImpersonating = (user: User) => {
+        appContextImpersonate(user);
+        toast.info(`Impersonating ${user.name}`);
+    };
+
     const handleSaveStaff = async (staffData: User) => {
         setStaff(s => {
             const isNew = !s.some(i => i.id === staffData.id);
@@ -72,6 +84,8 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         leaveRequests,
         handleSaveStaff,
         handleDeactivateStaff: createAsyncHandler((userId: string) => setStaff(s => s.map(u => u.id === userId ? { ...u, status: 'Inactive' } : u)), "Staff deactivated."),
+        onDeleteStaff,
+        onStartImpersonating,
         handleUpdateStaffRoster: createAsyncHandler((staffId: string, day: string, branch: string) => setStaff(s => s.map(u => u.id === staffId ? { ...u, roster: { ...u.roster, [day]: branch }} : u))),
         handleAddLeaveRequest: createAsyncHandler((request: Omit<LeaveRequest, 'id' | 'staffName' | 'status'>) => { const staffName = staff.find(s => s.id === request.staffId)?.name || 'Unknown'; setLeaveRequests(l => [...l, {id: generateUid('leave'), staffName, status: 'Pending', ...request}]); }, "Leave request submitted."),
         handleApproveLeaveRequest: createAsyncHandler((id: string, approve: boolean) => setLeaveRequests(l => l.map(r => r.id === id ? { ...r, status: approve ? 'Approved' : 'Rejected' } : r))),

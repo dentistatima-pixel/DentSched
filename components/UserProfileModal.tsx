@@ -1,9 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, FieldSettings, CpdEntry, LicenseCategory } from '../types';
-import { X, Shield, Award, Calendar, Briefcase, CreditCard, Activity, Settings, MapPin, DollarSign, Lock, Server, Edit2, Save, RotateCcw, Sliders, Eye, Plus, Trash2, CheckCircle, GraduationCap, AlertCircle, Percent, UserCircle, Sparkles, Moon, Sun } from 'lucide-react';
-import { formatDate } from '../constants';
-import { useToast } from './ToastSystem';
+import { User, UserRole } from '../types';
+import { X, Shield, DollarSign, Server, Edit2 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 
@@ -32,7 +30,6 @@ const ProfileField: React.FC<{ label: string; value: string | undefined | number
 );
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClose, onSave }) => {
-  const toast = useToast();
   const { fieldSettings } = useSettings();
   const { theme, toggleTheme } = useAppContext();
 
@@ -64,7 +61,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClo
             malpracticeExpiry: '',
             payoutHandle: '',
             commissionRate: 0,
-        } as User);
+            defaultBranch: '',
+            colorPreference: '',
+    } as User);
     }
     setIsEditing(true); // Always start in editing mode for new users or when explicitly opened for edit
   }, [user, isOpen]);

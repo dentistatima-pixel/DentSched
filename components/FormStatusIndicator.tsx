@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { CheckCircle, AlertCircle, RefreshCw, Save } from 'lucide-react';
+import { CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 export type FormStatus = 'unsaved' | 'saving' | 'saved' | 'restoring';
 

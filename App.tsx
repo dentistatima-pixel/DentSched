@@ -74,7 +74,7 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 
 
     return (
-        <div className="fixed inset-0 bg-teal-950/90 backdrop-blur-xl z-[999] flex flex-col items-center justify-center text-white p-8 animate-in fade-in duration-500">
+        <div className="fixed inset-0 bg-teal-950/90 backdrop-blur-xl z-[999] grid place-items-center text-white p-8 animate-in fade-in duration-500">
             <div className="w-full max-w-sm">
                 <div className="text-center mb-10">
                     <div className="w-24 h-24 rounded-full border-4 border-teal-400 mx-auto mb-4 shadow-2xl bg-teal-800 flex items-center justify-center">

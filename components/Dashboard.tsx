@@ -7,7 +7,8 @@ import {
   FieldSettings,
   RegistrationStatus,
   RecallStatus,
-  LabStatus
+  LabStatus,
+  UserRole
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
@@ -17,6 +18,7 @@ import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useNavigate } from '../contexts/RouterContext';
+import { TrayPrepList } from './TrayPrepList';
 
 
 
@@ -505,14 +507,22 @@ export const Dashboard: React.FC = () => {
 
       <div className="grid gap-8 items-start dashboard-grid">
         <div className="dashboard-main">
-            <TodaysTimeline 
-              appointments={todaysAppointments} 
-              patients={patients} 
-              settings={fieldSettings} 
-              onUpdateStatus={handleStatusUpdate}
-              onEditAppointment={handleEditAppointment}
-              disappearingApts={disappearingApts}
-            />
+            {currentUser.role === UserRole.DENTAL_ASSISTANT ? (
+                <TrayPrepList 
+                    appointments={todaysAppointments} 
+                    patients={patients} 
+                    settings={fieldSettings} 
+                />
+            ) : (
+                <TodaysTimeline 
+                  appointments={todaysAppointments} 
+                  patients={patients} 
+                  settings={fieldSettings} 
+                  onUpdateStatus={handleStatusUpdate}
+                  onEditAppointment={handleEditAppointment}
+                  disappearingApts={disappearingApts}
+                />
+            )}
         </div>
         <div className="dashboard-side">
             <ActionWidgets 

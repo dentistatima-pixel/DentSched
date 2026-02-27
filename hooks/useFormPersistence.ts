@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useRef, useCallback, Dispatch, SetStateAction } from 'react';
 import { useToast } from '../components/ToastSystem';
+import { useModal } from '../contexts/ModalContext';
 
 type FormStatus = 'unsaved' | 'saving' | 'saved' | 'restoring';
 
@@ -13,6 +14,7 @@ export const useFormPersistence = <T extends object>(
 ) => {
   const [status, setStatus] = useState<FormStatus>('saved');
   const toast = useToast();
+  const { showModal } = useModal();
   const saveTimeoutRef = useRef<number | null>(null);
   const initialDataRef = useRef<string>(JSON.stringify(data));
   const hasLoadedDraft = useRef(false);
@@ -33,17 +35,26 @@ export const useFormPersistence = <T extends object>(
       const savedData = JSON.parse(savedDataString);
       const isDifferent = JSON.stringify(savedData) !== initialDataRef.current;
       
-      if (isDifferent && window.confirm("We found an unsaved draft from a previous session. Would you like to restore it?")) {
-        setStatus('restoring');
-        setData(savedData);
-        toast.info("Draft restored successfully.");
-        setStatus('saved');
-      } else {
-        // If user declines, clear the saved draft
-        sessionStorage.removeItem(formId);
+      if (isDifferent) {
+        showModal('confirm', {
+            title: 'Restore Draft',
+            message: "We found an unsaved draft from a previous session. Would you like to restore it?",
+            confirmText: 'Restore',
+            isDestructive: false,
+            onConfirm: () => {
+                setStatus('restoring');
+                setData(savedData);
+                toast.info("Draft restored successfully.");
+                setStatus('saved');
+            },
+            onCancel: () => {
+                // If user declines, clear the saved draft
+                sessionStorage.removeItem(formId);
+            }
+        });
       }
     }
-  }, [formId, setData, isReadOnly, toast, initialData]);
+  }, [formId, setData, isReadOnly, toast, initialData, showModal]);
 
   // 2. Debounced save to sessionStorage on data change
   useEffect(() => {

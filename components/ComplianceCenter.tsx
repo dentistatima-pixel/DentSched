@@ -7,6 +7,7 @@ import { checkRetentionPolicy } from '../services/validationService';
 import { formatDate } from '../constants';
 import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface ComplianceCenterProps {
     settings: FieldSettings;
@@ -20,6 +21,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
     const toast = useToast();
     const { staff } = useStaff();
     const { currentUser } = useAppContext();
+    const { showModal } = useModal();
     const [patientSearch, setPatientSearch] = useState('');
     const [showPiaForm, setShowPiaForm] = useState(false);
     const [newPia, setNewPia] = useState({ processName: '', description: '', risks: '', mitigation: '' });
@@ -39,10 +41,16 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
     const filteredPatients = patients.filter(p => !p.isAnonymized && p.name.toLowerCase().includes(patientSearch.toLowerCase()));
 
     const handleConfirmAnonymize = (patient: Patient) => {
-        if (window.confirm(`WARNING: This action is irreversible.\n\nAre you sure you want to permanently anonymize all personally identifiable information for "${patient.name}"?`)) {
-            onAnonymizePatient(patient.id);
-            setPatientSearch('');
-        }
+        showModal('confirm', {
+            title: 'Anonymize Patient Record',
+            message: `WARNING: This action is irreversible.\n\nAre you sure you want to permanently anonymize all personally identifiable information for "${patient.name}"?`,
+            confirmText: 'Anonymize',
+            isDestructive: true,
+            onConfirm: () => {
+                onAnonymizePatient(patient.id);
+                setPatientSearch('');
+            }
+        });
     };
 
     const handleDpoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

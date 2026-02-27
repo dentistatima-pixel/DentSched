@@ -187,15 +187,21 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
     };
 
     const handleEditPlanName = (planId: string, currentName: string) => {
-        const newName = window.prompt("Enter new plan name:", currentName);
-        if (newName && newName.trim() && newName.trim() !== currentName) {
-            const updatedPlans = allPlans.map(p => 
-                p.id === planId ? { ...p, name: newName.trim() } : p
-            );
-            onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans });
-            logAction('UPDATE', 'TreatmentPlan', planId, `Plan renamed to "${newName.trim()}"`);
-            toast.success("Plan name updated.");
-        }
+        showModal('prompt', {
+            title: 'Edit Plan Name',
+            message: 'Enter new plan name:',
+            defaultValue: currentName,
+            onConfirm: (newName: string) => {
+                if (newName && newName.trim() && newName.trim() !== currentName) {
+                    const updatedPlans = allPlans.map(p => 
+                        p.id === planId ? { ...p, name: newName.trim() } : p
+                    );
+                    onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans });
+                    logAction('UPDATE', 'TreatmentPlan', planId, `Plan renamed to "${newName.trim()}"`);
+                    toast.success("Plan name updated.");
+                }
+            }
+        });
     };
     
     const handleManageProcedures = (planId: string) => {
@@ -213,11 +219,18 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
         const plan = allPlans.find(p => p.id === planId); if (!plan) return;
         
         if (action === 'delete') {
-            if (!window.confirm(`Are you sure you want to delete the plan "${plan.name}"? This will unlink all associated procedures.`)) return;
-            const updatedPlans = allPlans.filter(p => p.id !== planId);
-            const updatedChart = patient.dentalChart?.map(item => item.planId === planId ? { ...item, planId: undefined } : item);
-            onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans, dentalChart: updatedChart });
-            toast.info(`Plan "${plan.name}" deleted.`);
+            showModal('confirm', {
+                title: 'Delete Treatment Plan',
+                message: `Are you sure you want to delete the plan "${plan.name}"? This will unlink all associated procedures.`,
+                confirmText: 'Delete Plan',
+                isDestructive: true,
+                onConfirm: () => {
+                    const updatedPlans = allPlans.filter(p => p.id !== planId);
+                    const updatedChart = patient.dentalChart?.map(item => item.planId === planId ? { ...item, planId: undefined } : item);
+                    onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans, dentalChart: updatedChart });
+                    toast.info(`Plan "${plan.name}" deleted.`);
+                }
+            });
             return;
         }
 
@@ -230,19 +243,24 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
         }
 
         if (action === 'reject') {
-            const reason = window.prompt("Reason for rejection:");
-            if (reason && reason.trim()) {
-                const updatedPlans = allPlans.map(p => 
-                    p.id === planId 
-                    ? { ...p, status: TreatmentPlanStatus.REJECTED, reviewNotes: reason, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() } 
-                    : p
-                );
-                onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans });
-                toast.info(`Plan "${plan.name}" rejected.`);
-                logAction('REJECT', 'TreatmentPlan', plan.id, `Rejected with reason: ${reason}`);
-            } else {
-                toast.warning("Rejection requires a reason.");
-            }
+            showModal('prompt', {
+                title: 'Reject Treatment Plan',
+                message: 'Reason for rejection:',
+                onConfirm: (reason: string) => {
+                    if (reason && reason.trim()) {
+                        const updatedPlans = allPlans.map(p => 
+                            p.id === planId 
+                            ? { ...p, status: TreatmentPlanStatus.REJECTED, reviewNotes: reason, reviewedBy: currentUser.name, reviewedAt: new Date().toISOString() } 
+                            : p
+                        );
+                        onUpdatePatient({ id: patient.id, treatmentPlans: updatedPlans });
+                        toast.info(`Plan "${plan.name}" rejected.`);
+                        logAction('REJECT', 'TreatmentPlan', plan.id, `Rejected with reason: ${reason}`);
+                    } else {
+                        toast.warning("Rejection requires a reason.");
+                    }
+                }
+            });
             return;
         }
 

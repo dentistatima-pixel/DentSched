@@ -6,6 +6,7 @@ import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
 import { useSettings } from '../contexts/SettingsContext';
 import { calculateAge, isExpired, generateUid } from '../constants';
+import { useModal } from '../contexts/ModalContext';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
@@ -20,6 +21,7 @@ interface EPrescriptionModalProps {
 const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser, logAction, onSavePrescription }) => {
     const toast = useToast();
     const { fieldSettings: settings } = useSettings();
+    const { showModal } = useModal();
     const [selectedMedId, setSelectedMedId] = useState<string>('');
     const [dosage, setDosage] = useState('');
     const [instructions, setInstructions] = useState('');
@@ -130,26 +132,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         onClose();
     };
 
-    const handlePrint = () => {
-        if (isPrcExpired) {
-            toast.error("CLINICAL AUTHORITY LOCK: Prescription issuance is suspended due to an expired PRC License.");
-            return;
-        }
-        if (isMalpracticeExpired) {
-            toast.error("INDEMNITY LOCK: Prescription issuance is suspended due to expired Malpractice Insurance.");
-            return;
-        }
-
-        if (!consentAcknowledged) {
-            toast.error("MANDATORY DISCLOSURE: Patient must acknowledge the Drugs & Medications warning from Page 2.");
-            return;
-        }
-
-        if (!linkedDiagnosis) {
-            const proceed = window.confirm("PDA ETHICS ALERT: You are issuing a prescription without a corresponding recorded and SEALED clinical assessment (A) for today's session. This increases your malpractice liability exposure. Proceed at your own risk?");
-            if (!proceed) return;
-        }
-
+    const performPrint = () => {
         if (!selectedMed || s2Status.violation || isSafetyBlocked) {
             if (s2Status.violation) toast.error(`S2 VIOLATION: Cannot prescribe controlled substance. Reason: ${s2Status.reason}.`);
             if (isPediatric && !patientWeight) toast.error("SAFETY BLOCK: Pediatric weight is mandatory for minor patients.");
@@ -204,6 +187,35 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         doc.text(`DIGITAL INTEGRITY TOKEN: ${integrityToken}`, 10, footerY + 8);
         doc.save(`Prescription_${patient.surname}_${selectedMed.genericName}.pdf`);
         if (logAction) logAction('EXPORT_RECORD', 'System', patient.id, `Printed E-Prescription for ${selectedMed.genericName}. RA 6675 Prominence applied.`);
+    };
+
+    const handlePrint = () => {
+        if (isPrcExpired) {
+            toast.error("CLINICAL AUTHORITY LOCK: Prescription issuance is suspended due to an expired PRC License.");
+            return;
+        }
+        if (isMalpracticeExpired) {
+            toast.error("INDEMNITY LOCK: Prescription issuance is suspended due to expired Malpractice Insurance.");
+            return;
+        }
+
+        if (!consentAcknowledged) {
+            toast.error("MANDATORY DISCLOSURE: Patient must acknowledge the Drugs & Medications warning from Page 2.");
+            return;
+        }
+
+        if (!linkedDiagnosis) {
+            showModal('confirm', {
+                title: 'PDA Ethics Alert',
+                message: "You are issuing a prescription without a corresponding recorded and SEALED clinical assessment (A) for today's session. This increases your malpractice liability exposure. Proceed at your own risk?",
+                confirmText: 'Proceed',
+                isDestructive: true,
+                onConfirm: performPrint
+            });
+            return;
+        }
+
+        performPrint();
     };
 
     if (!isOpen) return null;

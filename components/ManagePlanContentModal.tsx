@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '../types';
-import { X, Save, ArrowRight, ArrowLeft, LayoutGrid } from 'lucide-react';
+import { X, Save, ArrowLeft, ArrowRight, LayoutGrid } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface ManagePlanContentModalProps {

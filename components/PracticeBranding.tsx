@@ -5,6 +5,7 @@ import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } f
 import { useToast } from './ToastSystem';
 import { useAppContext } from '../contexts/AppContext';
 import { DataService } from '../services/dataService';
+import { useModal } from '../contexts/ModalContext';
 
 interface BranchEditorModalProps {
     branch: Partial<Branch> | null;
@@ -158,6 +159,7 @@ interface PracticeBrandingProps {
 const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateSettings }) => {
     const toast = useToast();
     const { theme, toggleTheme } = useAppContext();
+    const { showModal } = useModal();
     const [activeTab, setActiveTab] = useState('identity');
     
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
@@ -196,12 +198,18 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     
     const handleRemoveBranch = (branchId: string) => {
         const branchToRemove = settings.branchProfiles.find(b => b.id === branchId);
-        if (window.confirm(`Are you sure you want to delete the branch "${branchToRemove?.name}"?`)) {
-            const nextProfiles = settings.branchProfiles.filter(b => b.id !== branchId);
-            const nextBranchNames = nextProfiles.map(b => b.name);
-            onUpdateSettings({ ...settings, branchProfiles: nextProfiles, branches: nextBranchNames });
-            toast.info("Branch removed.");
-        }
+        showModal('confirm', {
+            title: 'Delete Branch',
+            message: `Are you sure you want to delete the branch "${branchToRemove?.name}"?`,
+            confirmText: 'Delete',
+            isDestructive: true,
+            onConfirm: () => {
+                const nextProfiles = settings.branchProfiles.filter(b => b.id !== branchId);
+                const nextBranchNames = nextProfiles.map(b => b.name);
+                onUpdateSettings({ ...settings, branchProfiles: nextProfiles, branches: nextBranchNames });
+                toast.info("Branch removed.");
+            }
+        });
     };
     
     const handleAddAffiliation = () => {

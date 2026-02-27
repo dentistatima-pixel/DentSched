@@ -142,7 +142,8 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
             registrationBranch: currentBranch,
         });
     }
-  }, [initialData, currentBranch, initialFormState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(initialData), currentBranch, initialFormState]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (readOnly) return;

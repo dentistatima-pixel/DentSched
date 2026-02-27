@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Patient, TreatmentPlan as TreatmentPlanType, DentalChartEntry } from '../types';
-import { X, CheckCircle, Eraser, FileSignature, DollarSign } from 'lucide-react';
+import { Patient, TreatmentPlan as TreatmentPlanType } from '../types';
+import { X, CheckCircle, Eraser, DollarSign } from 'lucide-react';
 import { usePatient } from '../contexts/PatientContext';
 import { useToast } from './ToastSystem';
 

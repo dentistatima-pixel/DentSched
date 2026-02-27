@@ -25,7 +25,6 @@ import { useStaff } from '../contexts/StaffContext';
 interface FieldManagementProps {
   settings: FieldSettings;
   onUpdateSettings: (newSettings: FieldSettings) => void;
-  staff: User[];
   auditLog: AuditLogEntry[];
   patients: Patient[];
   onPurgePatient: (id: string) => void;
@@ -33,9 +32,6 @@ interface FieldManagementProps {
   encryptionKey: string | null;
   appointments: Appointment[];
   currentUser: User;
-  onStartImpersonating: (user: User) => void;
-  onDeactivateStaff: (userId: string) => void;
-  onDeleteStaff?: (userId: string) => void;
   showModal: (type: string, props: any) => void;
 }
 
@@ -44,7 +40,7 @@ import { useAppContext } from '../contexts/AppContext';
 const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const { setFullScreenView } = useAppContext();
     const [activeRegistry, setActiveRegistry] = useState<string>('branding');
-    const { handleSaveStaff } = useStaff();
+    const { handleSaveStaff, staff, handleDeactivateStaff, onDeleteStaff, onStartImpersonating } = useStaff();
 
     const sidebarItems = [
         { id: 'branding', label: 'Global Profile', icon: Sparkles },
@@ -74,7 +70,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
             case 'printouts_hub':
                 return <PrintoutsHub />;
             case 'staff_hub':
-                return <StaffRegistry staff={props.staff} onStartImpersonating={props.onStartImpersonating} onDeactivateStaff={props.onDeactivateStaff} onDeleteStaff={props.onDeleteStaff} onOpenStaffModal={handleOpenStaffModal} />;
+                return <StaffRegistry staff={staff} onStartImpersonating={onStartImpersonating} onDeactivateStaff={handleDeactivateStaff} onDeleteStaff={onDeleteStaff} onOpenStaffModal={handleOpenStaffModal} />;
 
             // Clinical Catalog Hub
             case 'catalog_hub':

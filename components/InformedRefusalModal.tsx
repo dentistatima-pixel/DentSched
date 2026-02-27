@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Patient, InformedRefusal, User } from '../types';
-import { XCircle, FileSignature, AlertTriangle, ShieldCheck, Square, CheckSquare, Eraser, CheckCircle } from 'lucide-react';
+import { XCircle, AlertTriangle, Eraser, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
-import { generateUid } from '../constants';
 
 interface InformedRefusalModalProps {
     isOpen: boolean;
@@ -17,7 +16,7 @@ interface InformedRefusalModalProps {
 }
 
 const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
-    isOpen, onClose, onSave, patient, currentUser, relatedEntity, risks, alternatives, recommendation
+    isOpen, onClose, onSave, relatedEntity, risks, alternatives, recommendation
 }) => {
     const patientCanvasRef = useRef<HTMLCanvasElement>(null);
     const dentistCanvasRef = useRef<HTMLCanvasElement>(null);

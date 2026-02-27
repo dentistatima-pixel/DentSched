@@ -12,6 +12,7 @@ import { formatDate } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { useModal } from '../contexts/ModalContext';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -194,16 +195,22 @@ const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddEx
 };
 
 const PayrollTab: React.FC<Pick<FinancialsProps, 'payrollPeriods' | 'staff' | 'onAddPayrollPeriod'>> = ({ payrollPeriods, staff, onAddPayrollPeriod }) => {
+    const { showModal } = useModal();
     const handleAdd = async () => {
-        const providerId = prompt("Enter Provider ID for this payroll period:");
-        if (providerId && onAddPayrollPeriod) {
-            await onAddPayrollPeriod({
-                providerId,
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: new Date().toISOString().split('T')[0],
-                status: PayrollStatus.OPEN
-            });
-        }
+        showModal('prompt', {
+            title: 'New Payroll Period',
+            message: 'Enter Provider ID for this payroll period:',
+            onConfirm: async (providerId: string) => {
+                if (providerId && onAddPayrollPeriod) {
+                    await onAddPayrollPeriod({
+                        providerId,
+                        startDate: new Date().toISOString().split('T')[0],
+                        endDate: new Date().toISOString().split('T')[0],
+                        status: PayrollStatus.OPEN
+                    });
+                }
+            }
+        });
     };
     return (
         <div className="space-y-6">

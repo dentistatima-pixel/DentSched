@@ -1,7 +1,8 @@
 import React from 'react';
 import { FieldSettings } from '../types';
-import { Layers, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { useModal } from '../contexts/ModalContext';
 
 interface MaterialsRegistryProps {
     settings: FieldSettings;
@@ -9,15 +10,30 @@ interface MaterialsRegistryProps {
 }
 
 const ListManager: React.FC<{ title: string, items: string[], onUpdate: (newItems: string[]) => void }> = ({ title, items, onUpdate }) => {
+    const { showModal } = useModal();
+
     const handleAdd = () => {
-        const newItem = prompt(`Enter new ${title}:`);
-        if (newItem && !items.includes(newItem)) {
-            onUpdate([...items, newItem]);
-        }
+        showModal('prompt', {
+            title: `Add ${title}`,
+            message: `Enter new ${title}:`,
+            onConfirm: (newItem: string) => {
+                if (newItem && !items.includes(newItem)) {
+                    onUpdate([...items, newItem]);
+                }
+            }
+        });
     };
 
     const handleRemove = (item: string) => {
-        onUpdate(items.filter(i => i !== item));
+        showModal('confirm', {
+            title: `Delete ${title}`,
+            message: `Are you sure you want to delete "${item}"?`,
+            confirmText: 'Delete',
+            isDestructive: true,
+            onConfirm: () => {
+                onUpdate(items.filter(i => i !== item));
+            }
+        });
     };
 
     return (

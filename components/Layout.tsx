@@ -12,13 +12,14 @@ import { SystemStatus } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { useClinicalOps } from '../contexts/ClinicalOpsContext';
+
 import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { usePatient } from '../contexts/PatientContext';
 import { CommandBar } from './CommandBar';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useFinancials } from '../contexts/FinancialContext';
+import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { ErrorBoundary } from './ErrorBoundary';
 
 

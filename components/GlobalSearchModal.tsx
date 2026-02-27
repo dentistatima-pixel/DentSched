@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, User, Calendar, Plus, Command, X } from 'lucide-react';
+import { Search, User, Calendar, Command, X } from 'lucide-react';
 import { Patient, Appointment } from '../types';
 import Fuse from 'fuse.js';
 

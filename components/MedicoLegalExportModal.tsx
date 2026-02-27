@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, Shield, FileText, CheckCircle, Clock, Hash, Lock, Fingerprint, ShieldCheck, Scale, Receipt, Activity } from 'lucide-react';
-import { Patient, User, AuditLogEntry, DentalChartEntry } from '../types';
+import { X, Shield, Fingerprint, ShieldCheck, Scale, Receipt } from 'lucide-react';
+import { Patient, DentalChartEntry } from '../types';
 import { useToast } from './ToastSystem';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';

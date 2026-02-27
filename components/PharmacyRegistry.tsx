@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { FieldSettings, Medication } from '../types';
-import { Pill, Plus, Save } from 'lucide-react';
+import { Pill, Plus, Save, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { useModal } from '../contexts/ModalContext';
 
 interface PharmacyRegistryProps {
     settings: FieldSettings;
@@ -10,6 +11,7 @@ interface PharmacyRegistryProps {
 
 const PharmacyRegistry: React.FC<PharmacyRegistryProps> = ({ settings, onUpdateSettings }) => {
     const toast = useToast();
+    const { showModal } = useModal();
     const [editingMedication, setEditingMedication] = useState<Partial<Medication> | null>(null);
 
     const handleSaveMedication = () => {
@@ -20,6 +22,21 @@ const PharmacyRegistry: React.FC<PharmacyRegistryProps> = ({ settings, onUpdateS
         onUpdateSettings({ ...settings, medications: next });
         setEditingMedication(null);
         toast.success("Pharmacy registry updated.");
+    };
+
+    const handleDeleteMedication = (e: React.MouseEvent, medId: string) => {
+        e.stopPropagation(); // Prevent opening the edit modal
+        showModal('confirm', {
+            title: 'Delete Medication',
+            message: 'Are you sure you want to delete this medication from the registry?',
+            confirmText: 'Delete',
+            isDestructive: true,
+            onConfirm: () => {
+                const next = settings.medications.filter(m => m.id !== medId);
+                onUpdateSettings({ ...settings, medications: next });
+                toast.info("Medication removed.");
+            }
+        });
     };
 
     return (
@@ -35,14 +52,23 @@ const PharmacyRegistry: React.FC<PharmacyRegistryProps> = ({ settings, onUpdateS
                             <th className="p-4 text-left">Generic Name</th>
                             <th className="p-4 text-left">Brand Name</th>
                             <th className="p-4 text-left">Dosage</th>
+                            <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {settings.medications.map(med => (
-                            <tr key={med.id} onClick={() => setEditingMedication(med)} className="hover:bg-teal-50 cursor-pointer">
+                            <tr key={med.id} onClick={() => setEditingMedication(med)} className="hover:bg-teal-50 cursor-pointer group">
                                 <td className="p-4 font-bold text-slate-800">{med.genericName}</td>
                                 <td className="p-4 text-slate-600">{med.brandName}</td>
                                 <td className="p-4 text-slate-600">{med.dosage}</td>
+                                <td className="p-4 text-right">
+                                    <button 
+                                        onClick={(e) => handleDeleteMedication(e, med.id)} 
+                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <Trash2 size={16}/>
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>

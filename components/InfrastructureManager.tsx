@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { FieldSettings, ClinicResource, MaintenanceAsset, ResourceType } from '../types';
-import { Armchair, Box, Plus, Trash2, MapPin, Building2 } from 'lucide-react';
+import { Armchair, Box, Plus, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 
 interface InfrastructureManagerProps {

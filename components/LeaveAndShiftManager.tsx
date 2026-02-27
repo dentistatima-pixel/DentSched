@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
-import { Calendar, Check, X, Plus, Send, ShieldCheck, Sun, Moon, Briefcase, UserX, UserCheck, ArrowLeft, Phone, User as UserIcon } from 'lucide-react';
+import { Check, X, Plus, UserX, ArrowLeft, User as UserIcon } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface LeaveAndShiftManagerProps {

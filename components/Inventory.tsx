@@ -33,8 +33,8 @@ const TOLERANCE_MAP: Record<StockCategory, number> = {
 };
 
 const Inventory: React.FC<InventoryProps> = ({ 
-    stock, onUpdateStock, sterilizationCycles = [], onAddCycle, currentUser, 
-    currentBranch, availableBranches, transfers = [], onPerformTransfer, patients = [], fieldSettings, onUpdateSettings,
+    stock, onUpdateStock, currentUser, 
+    currentBranch, availableBranches, transfers = [], onPerformTransfer, fieldSettings,
     appointments = [], logAction, onBack
 }) => {
   const toast = useToast();
@@ -48,14 +48,9 @@ const Inventory: React.FC<InventoryProps> = ({
   
   // --- UPGRADE 1: SET MANAGEMENT STATE ---
   const [isManagingSets, setIsManagingSets] = useState(false);
-  const [newSetName, setNewSetName] = useState('');
 
   const [sessionPhysicalCounts, setSessionPhysicalCounts] = useState<Record<string, number>>({});
   const [showAuditSummary, setShowAuditSummary] = useState(false);
-
-  const [newCycle, setNewCycle] = useState<Partial<SterilizationCycle>>({
-      autoclaveName: 'Autoclave 1', cycleNumber: `C${Date.now().toString().slice(-4)}`, passed: true, instrumentSetIds: []
-  });
 
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [transferData, setTransferData] = useState({ itemId: '', quantity: 1, toBranch: '' });
@@ -294,7 +289,7 @@ const Inventory: React.FC<InventoryProps> = ({
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
                             <table className="w-full text-sm" role="table" aria-label="Inventory Table">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs font-black uppercase text-slate-500 tracking-[0.2em]">
-                                    <tr><th className="p-5 text-left">Item Narrative</th>{isAdvanced && <th className="p-5 text-left">Classification</th>}{isAdvanced && <th className="p-5 text-center">Protocol Status</th>}<th className="p-5 text-right">{auditMode ? 'Blind Forensic Count' : 'Registry Level'}</th>{isAdvanced && <th className="p-5 text-right">Limit</th>}<th className="p-5 text-right">Actions</th></tr>
+                                    <tr><th className="p-5 text-left">Item Narrative</th>{isAdvanced && <th className="p-5 text-left">Classification</th>}{isAdvanced && <th className="p-5 text-center">Protocol Status</th>}<th className="p-5 text-right">{auditMode ? 'Blind Forensic Count' : 'Registry Level'}</th><th className="p-5 text-right">Min Buffer</th>{isAdvanced && <th className="p-5 text-right">Limit</th>}<th className="p-5 text-right">Actions</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredStock.map(item => {
@@ -324,11 +319,13 @@ const Inventory: React.FC<InventoryProps> = ({
                                                         />
                                                     ) : (
                                                         <div className="flex flex-col items-end">
-                                                            <span className="text-xl font-black text-slate-800 leading-none">{item.quantity}</span>
+                                                            <span className={`text-xl font-black leading-none ${item.quantity <= (item.minQuantity || item.lowStockThreshold || 0) ? 'text-red-600' : 'text-slate-800'}`}>{item.quantity}</span>
                                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{item.dispensingUnit || 'Units'}</span>
+                                                            {item.quantity <= (item.minQuantity || item.lowStockThreshold || 0) && <span className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Reorder</span>}
                                                         </div>
                                                     )}
                                                 </td>
+                                                <td className="p-5 text-right font-mono text-slate-500 font-bold">{item.minQuantity || '-'}</td>
                                                 {isAdvanced && <td className="p-5 text-right text-slate-500 font-black text-sm uppercase">{item.lowStockThreshold}</td>}
                                                 <td className="p-5 text-right"><div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditItem(item)} className="p-3 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-2xl transition-all" aria-label={`Edit ${item.name}`}><Edit2 size={18}/></button></div></td>
                                             </tr>
@@ -452,7 +449,10 @@ const Inventory: React.FC<InventoryProps> = ({
                             <div><label className="label">Low Stock Threshold</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div><label className="label">Expiry Date</label><input type="date" value={editItem.expiryDate || ''} onChange={e => handleFormChange('expiryDate', e.target.value)} className="input" /></div>
+                            <div><label className="label">Min Buffer (Reorder Point)</label><input type="number" value={editItem.minQuantity ?? ''} onChange={e => handleFormChange('minQuantity', parseInt(e.target.value))} className="input" placeholder="Optional" /></div>
+                            <div className="md:col-span-2"><label className="label">Expiry Date</label><input type="date" value={editItem.expiryDate || ''} onChange={e => handleFormChange('expiryDate', e.target.value)} className="input" /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div><label className="label">Batch Number</label><input type="text" value={editItem.batchNumber || ''} onChange={e => handleFormChange('batchNumber', e.target.value)} className="input" /></div>
                             <div><label className="label">Supplier</label><input type="text" value={editItem.supplier || ''} onChange={e => handleFormChange('supplier', e.target.value)} className="input" /></div>
                         </div>

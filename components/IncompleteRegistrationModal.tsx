@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, AlertTriangle } from 'lucide-react';
 
 interface IncompleteRegistrationModalProps {
     isOpen: boolean;

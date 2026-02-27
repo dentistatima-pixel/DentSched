@@ -28,6 +28,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
 
   const { currentUser } = useAppContext();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
   const planTotal = useMemo(() => planItems.reduce((acc, item) => acc + (item.price || 0), 0), [planItems]);
   const involvedTeeth = useMemo(() => Array.from(new Set(planItems.map(item => item.toothNumber).filter(Boolean))) as number[], [planItems]);
@@ -50,53 +51,55 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
         return;
     }
     
-    if (window.confirm(
-        "This rejection should be documented as an Informed Refusal. " +
-        "Would you like to create the informed refusal form now?"
-    )) {
-        
-        const extractRisksFromPlan = (planItems: DentalChartEntry[]): string[] => {
-            const risks = new Set<string>();
-            planItems.forEach(item => {
-                const procedure = fieldSettings.procedures.find(p => p.name === item.procedure);
-                if (procedure?.riskDisclosures) {
-                    procedure.riskDisclosures.forEach(risk => risks.add(risk));
+    showModal('confirm', {
+        title: 'Document Informed Refusal',
+        message: "This rejection should be documented as an Informed Refusal. Would you like to create the informed refusal form now?",
+        confirmText: 'Create Form',
+        isDestructive: false,
+        onConfirm: () => {
+            const extractRisksFromPlan = (planItems: DentalChartEntry[]): string[] => {
+                const risks = new Set<string>();
+                planItems.forEach(item => {
+                    const procedure = fieldSettings.procedures.find(p => p.name === item.procedure);
+                    if (procedure?.riskDisclosures) {
+                        procedure.riskDisclosures.forEach(risk => risks.add(risk));
+                    }
+                });
+                if (risks.size === 0) {
+                    risks.add("Progression of disease");
+                    risks.add("Potential for complications");
+                    risks.add("Future treatment may be more complex or costly");
                 }
+                return Array.from(risks);
+            };
+
+            const extractAlternativesFromPlan = (planItems: DentalChartEntry[]): string[] => {
+                return ["No treatment", "Alternative conservative management", "Referral to specialist"];
+            };
+            
+            showModal('informedRefusal', {
+              patient,
+              currentUser,
+              relatedEntity: {
+                type: 'TreatmentPlan',
+                entityId: plan.id,
+                entityDescription: `Rejection of Treatment Plan: "${plan.name}"`,
+              },
+              risks: extractRisksFromPlan(planItems),
+              alternatives: extractAlternativesFromPlan(planItems),
+              recommendation: plan.clinicalRationale || `Proceed with the treatment plan "${plan.name}" as recommended.`,
+              onSave: (refusalData: any) => {
+                handleSaveInformedRefusal(patient.id, refusalData);
+                onReject(plan.id, rejectionReason);
+                onClose(); 
+              }
             });
-            if (risks.size === 0) {
-                risks.add("Progression of disease");
-                risks.add("Potential for complications");
-                risks.add("Future treatment may be more complex or costly");
-            }
-            return Array.from(risks);
-        };
-
-        const extractAlternativesFromPlan = (planItems: DentalChartEntry[]): string[] => {
-            return ["No treatment", "Alternative conservative management", "Referral to specialist"];
-        };
-        
-        showModal('informedRefusal', {
-          patient,
-          currentUser,
-          relatedEntity: {
-            type: 'TreatmentPlan',
-            entityId: plan.id,
-            entityDescription: `Rejection of Treatment Plan: "${plan.name}"`,
-          },
-          risks: extractRisksFromPlan(planItems),
-          alternatives: extractAlternativesFromPlan(planItems),
-          recommendation: plan.clinicalRationale || `Proceed with the treatment plan "${plan.name}" as recommended.`,
-          onSave: (refusalData: any) => {
-            handleSaveInformedRefusal(patient.id, refusalData);
+        },
+        onCancel: () => {
+            onClose();
             onReject(plan.id, rejectionReason);
-            onClose(); 
-          }
-        });
-
-    } else {
-       onClose();
-       onReject(plan.id, rejectionReason);
-    }
+        }
+    });
   };
 
   return (

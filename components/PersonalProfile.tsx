@@ -8,6 +8,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { formatDate } from '../constants';
+import { useModal } from '../contexts/ModalContext';
 
 interface PersonalProfileProps {
   currentUser: User;
@@ -33,6 +34,7 @@ const ProfileField: React.FC<{ label: string; value: string | undefined | number
 
 const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }) => {
   const toast = useToast();
+  const { showModal } = useModal();
   const { fieldSettings } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<User>(currentUser);
@@ -78,11 +80,16 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
   };
 
   const handleStartSession = () => {
-      const balanceStr = prompt("Enter opening cash balance for today's session:");
-      const balance = parseFloat(balanceStr || '0');
-      if (!isNaN(balance)) {
-          handleStartCashSession(balance, currentBranch);
-      }
+      showModal('prompt', {
+          title: 'Start Cash Session',
+          message: "Enter opening cash balance for today's session:",
+          onConfirm: (balanceStr: string) => {
+              const balance = parseFloat(balanceStr || '0');
+              if (!isNaN(balance)) {
+                  handleStartCashSession(balance, currentBranch);
+              }
+          }
+      });
   };
 
   const handleCloseSession = () => {

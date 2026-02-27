@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FieldSettings, PayrollAdjustmentTemplate } from '../types';
 import { Plus, Trash2, Banknote, Sliders, ClipboardList } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { useModal } from '../contexts/ModalContext';
 
 interface FinancialSettingsProps {
     settings: FieldSettings;
@@ -9,9 +10,15 @@ interface FinancialSettingsProps {
 }
 
 const ListManager: React.FC<{ title: string, items: string[], onUpdate: (newItems: string[]) => void }> = ({ title, items, onUpdate }) => {
+    const { showModal } = useModal();
     const handleAdd = () => {
-        const newItem = prompt(`Enter new ${title}:`);
-        if (newItem && !items.includes(newItem)) onUpdate([...items, newItem]);
+        showModal('prompt', {
+            title: `Add ${title}`,
+            message: `Enter new ${title}:`,
+            onConfirm: (newItem: string) => {
+                if (newItem && !items.includes(newItem)) onUpdate([...items, newItem]);
+            }
+        });
     };
     const handleRemove = (item: string) => onUpdate(items.filter(i => i !== item));
 
@@ -37,6 +44,7 @@ const ListManager: React.FC<{ title: string, items: string[], onUpdate: (newItem
 
 const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdateSettings }) => {
     const toast = useToast();
+    const { showModal } = useModal();
     const [activeTab, setActiveTab] = useState('paymentModes');
 
     const tabs = [
@@ -48,11 +56,16 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
     const payrollTemplates = settings.payrollAdjustmentTemplates || [];
     
     const handleAddPayrollTemplate = () => {
-        const label = prompt("Enter new adjustment template label:");
-        if (label) {
-            const newTemplate: PayrollAdjustmentTemplate = { id: `adj_${Date.now()}`, label, type: 'Credit', category: 'Other' };
-            onUpdateSettings({...settings, payrollAdjustmentTemplates: [...payrollTemplates, newTemplate]});
-        }
+        showModal('prompt', {
+            title: 'Add Adjustment Template',
+            message: 'Enter new adjustment template label:',
+            onConfirm: (label: string) => {
+                if (label) {
+                    const newTemplate: PayrollAdjustmentTemplate = { id: `adj_${Date.now()}`, label, type: 'Credit', category: 'Other' };
+                    onUpdateSettings({...settings, payrollAdjustmentTemplates: [...payrollTemplates, newTemplate]});
+                }
+            }
+        });
     }
     const handleRemovePayrollTemplate = (id: string) => {
         onUpdateSettings({...settings, payrollAdjustmentTemplates: payrollTemplates.filter(t => t.id !== id)});
