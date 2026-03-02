@@ -50,8 +50,19 @@ const RegistrationSummary: React.FC<{ formData: Partial<Patient> }> = ({ formDat
         data.push({ label: 'Address', value: `${formData.homeAddress}, ${formData.barangay}, ${formData.city}`, section: 'Contact' });
         
         // Medical
-        data.push({ label: 'Allergies', value: (formData.allergies || []).join(', ') || 'None', section: 'Medical' });
-        data.push({ label: 'Medical Conditions', value: (formData.medicalConditions || []).join(', ') || 'None', section: 'Medical' });
+        const allergiesList = [...(formData.allergies || [])];
+        if (allergiesList.includes('Others') && formData.otherAllergies) {
+            const index = allergiesList.indexOf('Others');
+            allergiesList[index] = `Others: ${formData.otherAllergies}`;
+        }
+        data.push({ label: 'Allergies', value: allergiesList.join(', ') || 'None', section: 'Medical' });
+
+        const conditionsList = [...(formData.medicalConditions || [])];
+        if (conditionsList.includes('Others') && formData.otherConditions) {
+            const index = conditionsList.indexOf('Others');
+            conditionsList[index] = `Others: ${formData.otherConditions}`;
+        }
+        data.push({ label: 'Medical Conditions', value: conditionsList.join(', ') || 'None', section: 'Medical' });
         
         // Registry Answers
         Object.entries(formData.registryAnswers || {}).forEach(([key, value]) => {

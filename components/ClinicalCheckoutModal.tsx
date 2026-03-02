@@ -233,12 +233,14 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
                             patient={tempPatient}
                             onAddEntry={() => {}}
                             onUpdateEntry={(note) => setSessionNote(note)}
-                            onUpdateAppointment={async () => {}}
+                            onUpdateAppointment={async (updatedApp) => {
+                                await onUpdateAppointmentStatus(updatedApp.id, updatedApp.status, updatedApp, true);
+                            }}
                             onQuickUpdatePatient={async (p) => setTempPatient(p as Patient)}
                             currentUser={currentUser!}
                             procedures={fieldSettings.procedures}
                             treatmentPlans={tempPatient.treatmentPlans}
-                            showModal={() => {}}
+                            showModal={showModal}
                             logAction={logAction}
                             editingNote={sessionNote}
                             setEditingNote={setSessionNote}

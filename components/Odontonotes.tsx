@@ -5,6 +5,7 @@ import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
 import { reviewClinicalNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
+import { useSettings } from '../contexts/SettingsContext';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
     'Planned': 'border-lilac-500 bg-lilac-50 text-lilac-800',
@@ -135,7 +136,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
             <div>
                 <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Status</label>
                 <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl overflow-x-auto">
-                    {(['Planned', 'Completed', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
+                    {(['Completed', 'Planned', 'Existing', 'Condition'] as TreatmentStatus[]).map(status => (
                         <button key={status} type="button" onClick={() => handleStatusChange(status)} className={`flex-1 py-3 text-xs font-black uppercase rounded-lg transition-all whitespace-nowrap ${formData.status === status ? 'bg-white shadow-md text-slate-800' : 'text-slate-400 hover:bg-slate-200/50'}`}>{status}</button>
                     ))}
                 </div>
@@ -241,6 +242,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   editingNote, setEditingNote
 }) => {
   const toast = useToast();
+  const { fieldSettings } = useSettings();
   const [verifiedConsentMap, setVerifiedConsentMap] = useState<Record<string, boolean>>({});
 
   const sortedEntries = useMemo(() => {
@@ -326,7 +328,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
     showModal('consentCapture', {
       patient,
       appointment: appointmentForEditingNote,
-      template: procedures.find(p => p.id === 'GENERAL_AUTHORIZATION'), // This needs better logic
+      template: fieldSettings.consentFormTemplates.find(p => p.id === 'GENERAL_AUTHORIZATION'), 
       procedure: procedureDef,
       onSave: (newChain: any) => {
           const updatedAppointment = { ...appointmentForEditingNote, consentSignatureChain: newChain };

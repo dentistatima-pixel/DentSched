@@ -1,9 +1,9 @@
 
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 // FIX: Added missing types Patient and FieldSettings from ../types
 import { Patient, FieldSettings, RegistrationField } from '../types';
-import { Check, ShieldAlert, Pill, Stethoscope, Activity, ShieldCheck, Zap, Edit3, ClipboardList, Baby, UserCircle, MapPin, Phone, Award, FileText, HeartPulse, Calendar, Droplet, AlertTriangle, Shield } from 'lucide-react';
+import { Check, ShieldAlert, Pill, Stethoscope, Activity, Edit3, HeartPulse, Calendar } from 'lucide-react';
 
 /**
  * REFACTORED: This is now a standard controlled textarea component.
@@ -100,6 +100,10 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
     const needsDetails = q.includes('*');
     const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(q);
     
+    // Tobacco and Substance use questions should NOT show the narrative box even if they have a *
+    const isTobaccoOrSubstance = q.includes('tobacco') || q.includes('alcohol') || q.includes('cocaine');
+    const shouldShowDetails = (isYes || designMode) && needsDetails && !isTobaccoOrSubstance;
+
     const resolvedType = type as 'question' | 'condition' | 'allergy' | 'physician';
 
     const handleAnswerChange = (answer: 'Yes' | 'No') => {
@@ -140,7 +144,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                         No
                     </button>
                 </div>
-                {(isYes || designMode) && needsDetails && (
+                {shouldShowDetails && (
                     <div className="animate-in slide-in-from-top-1 border-t border-slate-100 pt-4 mt-1 space-y-4">
                         {showDate && (
                             <div>
@@ -173,7 +177,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
-  onCustomChange: (fieldName: string, value: any, type: RegistrationField['type']) => void;
+  onCustomChange?: (fieldName: string, value: any, type: RegistrationField['type']) => void;
   registryAnswers: Record<string, any>;
   onRegistryChange: (newAnswers: Record<string, any>) => void;
   allergies: string[];
@@ -191,7 +195,6 @@ interface RegistrationMedicalProps {
 const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
     formData,
     handleChange,
-    onCustomChange,
     registryAnswers,
     onRegistryChange,
     allergies,
@@ -205,28 +208,8 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
     selectedFieldId
 }) => {
   
-    const renderDynamicField = (field: RegistrationField) => {
-        const value = formData.customFields?.[field.id];
-        const colSpan = field.width === 'full' ? 'md:col-span-12' : field.width === 'third' ? 'md:col-span-4' : field.width === 'quarter' ? 'md:col-span-3' : 'md:col-span-6';
-        
-        return (
-            <DesignWrapper id={`field_${field.id}`} type="identity" className={colSpan} key={field.id} selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                <label className="label">{field.label}</label>
-                {/* Simplified renderer for now; expand as needed */}
-                <input
-                    type={field.type as any}
-                    value={value || ''}
-                    onChange={(e) => onCustomChange(field.id, e.target.value, field.type)}
-                    disabled={readOnly}
-                    className="input"
-                />
-            </DesignWrapper>
-        )
-    };
-  
     const mainMedicalOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => !id.startsWith('al_') && !id.startsWith('field_') && !id.startsWith('core_')), [fieldSettings.medicalLayoutOrder]);
     const allergiesOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => id.startsWith('al_') || id === 'field_otherAllergies'), [fieldSettings.medicalLayoutOrder]);
-    const physicianOrder = useMemo(() => fieldSettings.medicalLayoutOrder.filter(id => id.startsWith('core_')), [fieldSettings.medicalLayoutOrder]);
 
     const dynamicRedFlags = useMemo(() => {
         const flags: { label: string; details?: string; icon: any }[] = [];
@@ -311,11 +294,28 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                          if (id.startsWith('al_')) {
                             const allergy = id.replace('al_', '');
                             const isSelected = (allergies || []).includes(allergy);
+                            const isNone = allergy.toLowerCase() === 'none';
+                            
+                            let buttonClass = "";
+                            let checkColor = "";
+                            
+                            if (isSelected) {
+                                if (isNone) {
+                                    buttonClass = "bg-slate-600 border-slate-600 text-white shadow-lg scale-105";
+                                    checkColor = "text-slate-600";
+                                } else {
+                                    buttonClass = "bg-red-600 border-red-600 text-white shadow-lg scale-105";
+                                    checkColor = "text-red-600";
+                                }
+                            } else {
+                                buttonClass = "bg-white border-slate-100 hover:border-red-200";
+                            }
+
                             return (
                                 <DesignWrapper key={id} id={id} type="allergy" className="md:col-span-4" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
-                                    <button type="button" onClick={() => !readOnly && onAllergyChange('allergies', allergy)} className={`w-full p-3 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${isSelected ? 'bg-red-600 border-red-600 text-white shadow-lg scale-105' : 'bg-white border-slate-100 hover:border-red-200'}`}>
+                                    <button type="button" onClick={() => !readOnly && onAllergyChange('allergies', allergy)} className={`w-full p-3 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${buttonClass}`}>
                                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
-                                            {isSelected && <Check size={12} className="text-red-600"/>}
+                                            {isSelected && <Check size={12} className={checkColor}/>}
                                         </div>
                                         <span className={`text-[10px] font-black uppercase tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-600'}`}>{allergy}</span>
                                     </button>
@@ -324,16 +324,60 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                         }
                         return null;
                     })}
+                    
+                    {/* Others Option for Allergies */}
+                    <DesignWrapper id="field_otherAllergies" type="allergy" className="md:col-span-12" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                        <div className="space-y-4">
+                            <button 
+                                type="button" 
+                                onClick={() => !readOnly && onAllergyChange('allergies', 'Others')} 
+                                className={`w-full p-3 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${(allergies || []).includes('Others') ? 'bg-red-600 border-red-600 text-white shadow-lg' : 'bg-white border-slate-100 hover:border-red-200'}`}
+                            >
+                                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${(allergies || []).includes('Others') ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
+                                    {(allergies || []).includes('Others') && <Check size={12} className="text-red-600"/>}
+                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-tight leading-none ${(allergies || []).includes('Others') ? 'text-white' : 'text-slate-600'}`}>Others (Please Specify)</span>
+                            </button>
+                            
+                            {((allergies || []).includes('Others') || designMode) && (
+                                <div className="animate-in slide-in-from-top-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Specify Other Allergies *</label>
+                                    <ControlledInput 
+                                        name="otherAllergies" 
+                                        value={formData.otherAllergies || ''} 
+                                        onChange={handleChange} 
+                                        disabled={readOnly} 
+                                        placeholder="Type other allergies here..."
+                                        className="w-full p-4 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 shadow-inner" 
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </DesignWrapper>
                 </div>
             </div>
 
             <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
                 <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
-                    <div className="p-3 bg-slate-50 text-slate-700 rounded-2xl"><ClipboardList size={24}/></div>
+                    <div className="p-3 bg-slate-50 text-slate-700 rounded-2xl"><Activity size={24}/></div>
                     <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight">Diagnostic Conditions Registry</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {fieldSettings.medicalConditions.map(condition => {
+                    {/* Explicit None Option for Medical Conditions */}
+                    <DesignWrapper id="condition_none" type="condition" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                        <button 
+                            type="button" 
+                            onClick={() => !readOnly && onConditionChange('medicalConditions', 'None')} 
+                            className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${(medicalConditions || []).includes('None') ? 'bg-slate-600 border-slate-600 text-white shadow-lg scale-105' : 'bg-white border-slate-100 hover:border-teal-200'}`}
+                        >
+                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${(medicalConditions || []).includes('None') ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
+                                {(medicalConditions || []).includes('None') && <Check size={12} className="text-slate-600"/>}
+                            </div>
+                            <span className={`text-xs font-black uppercase tracking-tight leading-none ${(medicalConditions || []).includes('None') ? 'text-white' : 'text-slate-600'}`}>None</span>
+                        </button>
+                    </DesignWrapper>
+
+                    {fieldSettings.medicalConditions.filter(c => c !== 'None').map(condition => {
                         const isSelected = (medicalConditions || []).includes(condition);
                         const isCritical = (fieldSettings.criticalRiskRegistry || []).includes(condition);
                         return (
@@ -350,6 +394,36 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
                             </DesignWrapper>
                         );
                     })}
+
+                    {/* Others Option for Medical Conditions */}
+                    <DesignWrapper id="condition_others" type="condition" className="md:col-span-2 lg:col-span-3" selectedFieldId={selectedFieldId} onFieldClick={onFieldClick} designMode={designMode}>
+                        <div className="space-y-4">
+                            <button 
+                                type="button" 
+                                onClick={() => !readOnly && onConditionChange('medicalConditions', 'Others')} 
+                                className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all ${(medicalConditions || []).includes('Others') ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'bg-white border-slate-100 hover:border-teal-200'}`}
+                            >
+                                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${(medicalConditions || []).includes('Others') ? 'bg-white border-white' : 'bg-slate-50 border-slate-200'}`}>
+                                    {(medicalConditions || []).includes('Others') && <Check size={12} className="text-teal-600"/>}
+                                </div>
+                                <span className={`text-xs font-black uppercase tracking-tight leading-none ${(medicalConditions || []).includes('Others') ? 'text-white' : 'text-slate-600'}`}>Others (Please Specify)</span>
+                            </button>
+                            
+                            {((medicalConditions || []).includes('Others') || designMode) && (
+                                <div className="animate-in slide-in-from-top-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Specify Other Medical Conditions *</label>
+                                    <ControlledInput 
+                                        name="otherConditions" 
+                                        value={formData.otherConditions || ''} 
+                                        onChange={handleChange} 
+                                        disabled={readOnly} 
+                                        placeholder="Type other medical conditions here..."
+                                        className="w-full p-4 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500 shadow-inner" 
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </DesignWrapper>
                 </div>
             </div>
             

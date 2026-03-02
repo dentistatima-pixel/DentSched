@@ -37,11 +37,13 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
         setIsSaving(false);
         onClose();
         
-        // Call onConfirm after onClose so that if onConfirm opens a new modal,
-        // it doesn't get immediately closed by the onClose call.
-        if (onConfirm) {
-            onConfirm();
-        }
+        // Use setTimeout to let React flush the onClose state update first
+        // before showModal('clinicalCheckout') replaces it
+        setTimeout(() => {
+            if (onConfirm) {
+                onConfirm();
+            }
+        }, 50);
     };
 
     return (

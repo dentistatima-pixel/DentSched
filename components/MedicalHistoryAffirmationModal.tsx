@@ -49,7 +49,11 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
         const canvas = signatureCanvasRef.current;
         if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
         const rect = canvas.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: e.pressure };
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+            pressure: e.pressure
+        };
     };
 
     const draw = useCallback((e: PointerEvent) => {
@@ -95,23 +99,47 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
   const setupCanvas = () => {
     const canvas = signatureCanvasRef.current;
     if (canvas && canvas.parentElement) {
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = 150;
-      const ctx = canvas.getContext('2d', { desynchronized: true });
-      if (ctx) {
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-      }
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        
+        // Only update if dimensions actually changed to avoid infinite loops
+        if (canvas.width === Math.floor(rect.width * dpr) && canvas.height === Math.floor(150 * dpr)) {
+            return;
+        }
+
+        canvas.width = rect.width * dpr;
+        canvas.height = 150 * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = '150px';
+        
+        const ctx = canvas.getContext('2d', { desynchronized: true });
+        if (ctx) {
+            ctx.scale(dpr, dpr);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
     }
   };
   
   const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>) => { const canvas = canvasRef.current; if(canvas){const ctx = canvas.getContext('2d'); if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);} };
 
   useEffect(() => {
-    if (isOpen && step === 'details') {
-        setTimeout(setupCanvas, 50);
-    }
+    if (!isOpen || step !== 'details') return;
+
+    const canvas = signatureCanvasRef.current;
+    if (!canvas || !canvas.parentElement) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+        setupCanvas();
+    });
+
+    resizeObserver.observe(canvas.parentElement);
+
+    return () => {
+        resizeObserver.disconnect();
+    };
   }, [isOpen, step]);
   
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
