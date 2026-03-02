@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
-import { Appointment, AppointmentStatus, Patient, ProcedureItem, FieldSettings } from '../types';
-import { ClipboardList, CheckSquare, Clock, AlertCircle, Package } from 'lucide-react';
-import { formatDate } from '../constants';
+import { Appointment, AppointmentStatus, Patient, FieldSettings, StockCategory } from '../types';
+import { ClipboardList, CheckSquare, AlertCircle, Package, PenTool } from 'lucide-react';
 import { useInventory } from '../contexts/InventoryContext';
 
 interface TrayPrepListProps {
@@ -29,7 +28,6 @@ export const TrayPrepList: React.FC<TrayPrepListProps> = ({ appointments, patien
                 patientName: patient?.name || 'Unknown Patient',
                 procedureName: apt.type,
                 status: apt.status,
-                traySetup: procedure?.traySetup || [],
                 billOfMaterials: procedure?.billOfMaterials || [],
                 notes: apt.notes
             };
@@ -83,51 +81,74 @@ export const TrayPrepList: React.FC<TrayPrepListProps> = ({ appointments, patien
                         
                         <div className="p-6 space-y-6">
                             {/* Tools / Tray Setup */}
-                            {item.traySetup.length > 0 ? (
-                                <div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <CheckSquare size={14} /> Required Instruments (Tools)
-                                    </h4>
-                                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {item.traySetup.map((tool, idx) => (
-                                            <li key={idx} className="flex items-start gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                <div className="w-5 h-5 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
-                                                <span className="font-medium">{tool}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-xl border border-amber-100">
-                                    <AlertCircle size={20} />
-                                    <span className="text-sm font-bold">No standard instrument setup defined.</span>
-                                </div>
-                            )}
+                            {(() => {
+                                const bomInstruments = item.billOfMaterials.filter(bom => {
+                                    const s = stock.find(st => st.id === bom.stockItemId);
+                                    return s?.category === StockCategory.INSTRUMENTS;
+                                });
+                                const hasInstruments = bomInstruments.length > 0;
+
+                                return hasInstruments ? (
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <PenTool size={14} /> Required Instruments (Tools)
+                                        </h4>
+                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {bomInstruments.map((bom, idx) => {
+                                                const stockItem = stock.find(s => s.id === bom.stockItemId);
+                                                return (
+                                                    <li key={`bom-inst-${idx}`} className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-5 h-5 rounded-full bg-lilac-100 border-2 border-lilac-200 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-lilac-700">
+                                                                {bom.quantity}
+                                                            </div>
+                                                            <span className="font-medium">{stockItem?.name || 'Unknown Item'}</span>
+                                                        </div>
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">{stockItem?.dispensingUnit || 'units'}</span>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                        <AlertCircle size={20} />
+                                        <span className="text-sm font-bold">No standard instrument setup defined.</span>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Consumables / BOM */}
-                            {item.billOfMaterials.length > 0 && (
-                                <div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <Package size={14} /> Required Consumables
-                                    </h4>
-                                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {item.billOfMaterials.map((bom, idx) => {
-                                            const stockItem = stock.find(s => s.id === bom.stockItemId);
-                                            return (
-                                                <li key={idx} className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-5 h-5 rounded-full bg-teal-100 border-2 border-teal-200 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-teal-700">
-                                                            {bom.quantity}
+                            {(() => {
+                                const bomConsumables = item.billOfMaterials.filter(bom => {
+                                    const s = stock.find(st => st.id === bom.stockItemId);
+                                    return s?.category !== StockCategory.INSTRUMENTS;
+                                });
+
+                                return bomConsumables.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <Package size={14} /> Required Consumables
+                                        </h4>
+                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {bomConsumables.map((bom, idx) => {
+                                                const stockItem = stock.find(s => s.id === bom.stockItemId);
+                                                return (
+                                                    <li key={`bom-cons-${idx}`} className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-5 h-5 rounded-full bg-teal-100 border-2 border-teal-200 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-teal-700">
+                                                                {bom.quantity}
+                                                            </div>
+                                                            <span className="font-medium">{stockItem?.name || 'Unknown Item'}</span>
                                                         </div>
-                                                        <span className="font-medium">{stockItem?.name || 'Unknown Item'}</span>
-                                                    </div>
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">{stockItem?.dispensingUnit || 'units'}</span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            )}
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">{stockItem?.dispensingUnit || 'units'}</span>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                );
+                            })()}
                             
                             {item.notes && (
                                 <div className="pt-6 border-t border-slate-100">

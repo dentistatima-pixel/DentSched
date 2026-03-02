@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DentalChartEntry, TreatmentStatus, User } from '../types';
-import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, FileText, Clock, Baby, FlipHorizontal, LockKeyhole } from 'lucide-react';
+import { MousePointer2, Hammer, Scissors, Ghost, Activity, Crown, Search, FileText, Clock, Baby, LockKeyhole } from 'lucide-react';
 
 interface OdontogramProps {
   chart: DentalChartEntry[];

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FieldSettings, ProcedureItem, LicenseCategory } from '../types';
-import { Plus, Edit2, Trash2, Stethoscope, Bone, FileText, FileSignature, CheckSquare, DollarSign, Clock, Send, Package } from 'lucide-react';
+import { FieldSettings, ProcedureItem, LicenseCategory, StockCategory } from '../types';
+import { Plus, Edit2, Trash2, Stethoscope, Bone, Send, Package, PenTool } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useModal } from '../contexts/ModalContext';
 import { useInventory } from '../contexts/InventoryContext';
@@ -40,10 +40,12 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
     const { stock } = useInventory();
     const [editingProcedure, setEditingProcedure] = useState<Partial<ProcedureItem> | null>(null);
     const [newBomItem, setNewBomItem] = useState<{stockItemId: string, quantity: number}>({stockItemId: '', quantity: 1});
+    const [bomItemType, setBomItemType] = useState<'instrument' | 'consumable'>('instrument');
 
     useEffect(() => {
         if (!editingProcedure) {
             setNewBomItem({stockItemId: '', quantity: 1});
+            setBomItemType('instrument');
         }
     }, [editingProcedure]);
 
@@ -63,7 +65,6 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
             requiresLeadApproval: !!editingProcedure.requiresLeadApproval,
             requiresImaging: !!editingProcedure.requiresImaging,
             triggersPostOpSequence: !!editingProcedure.triggersPostOpSequence,
-            traySetup: editingProcedure.traySetup || [],
             billOfMaterials: editingProcedure.billOfMaterials || [],
         };
 
@@ -86,7 +87,6 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
             category: 'Diagnostic & Preventive',
             defaultPrice: 0,
             defaultDurationMinutes: 30,
-            traySetup: [],
             billOfMaterials: []
         });
     };
@@ -180,69 +180,115 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                              </div>
                              
                              <div className="pt-4 border-t border-slate-100">
-                                <label className="label text-[10px]">Bill of Materials (Consumables)</label>
-                                <div className="space-y-2 mt-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                    {editingProcedure.billOfMaterials && editingProcedure.billOfMaterials.length > 0 ? (
-                                        <div className="space-y-2 mb-4">
-                                            {editingProcedure.billOfMaterials.map(item => {
-                                                const stockItem = stock.find(s => s.id === item.stockItemId);
-                                                return (
-                                                    <div key={item.stockItemId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="bg-amber-100 text-amber-700 p-2 rounded-lg"><Package size={16}/></div>
-                                                            <div>
-                                                                <div className="text-sm font-bold text-slate-800">{stockItem?.name || 'Unknown Item'}</div>
-                                                                <div className="text-[10px] text-slate-500 uppercase tracking-wider">{stockItem?.category}</div>
+                                <label className="label text-[10px]">Bill of Materials</label>
+                                <div className="mt-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    {/* Instruments Section */}
+                                    <div className="mb-6">
+                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <PenTool size={14} /> Tray Setup (Instruments)
+                                        </h4>
+                                        {editingProcedure.billOfMaterials && editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category === StockCategory.INSTRUMENTS).length > 0 ? (
+                                            <div className="space-y-2">
+                                                {editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category === StockCategory.INSTRUMENTS).map(item => {
+                                                    const stockItem = stock.find(s => s.id === item.stockItemId);
+                                                    return (
+                                                        <div key={item.stockItemId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="bg-lilac-100 text-lilac-700 p-2 rounded-lg"><PenTool size={16}/></div>
+                                                                <div>
+                                                                    <div className="text-sm font-bold text-slate-800">{stockItem?.name || 'Unknown Item'}</div>
+                                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">{stockItem?.category}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{item.quantity} {stockItem?.dispensingUnit || 'units'}</span>
+                                                                <button onClick={() => handleRemoveBomItem(item.stockItemId)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{item.quantity} {stockItem?.dispensingUnit || 'units'}</span>
-                                                            <button onClick={() => handleRemoveBomItem(item.stockItemId)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-3 bg-white rounded-xl border border-slate-200 text-slate-400 text-xs italic">No instruments linked to this procedure.</div>
+                                        )}
+                                    </div>
+
+                                    {/* Consumables Section */}
+                                    <div className="mb-6">
+                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <Package size={14} /> Required Materials (Consumables)
+                                        </h4>
+                                        {editingProcedure.billOfMaterials && editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category !== StockCategory.INSTRUMENTS).length > 0 ? (
+                                            <div className="space-y-2">
+                                                {editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category !== StockCategory.INSTRUMENTS).map(item => {
+                                                    const stockItem = stock.find(s => s.id === item.stockItemId);
+                                                    return (
+                                                        <div key={item.stockItemId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="bg-teal-100 text-teal-700 p-2 rounded-lg"><Package size={16}/></div>
+                                                                <div>
+                                                                    <div className="text-sm font-bold text-slate-800">{stockItem?.name || 'Unknown Item'}</div>
+                                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">{stockItem?.category}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{item.quantity} {stockItem?.dispensingUnit || 'units'}</span>
+                                                                <button onClick={() => handleRemoveBomItem(item.stockItemId)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-4 text-slate-400 text-xs italic">No consumables linked to this procedure.</div>
-                                    )}
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-3 bg-white rounded-xl border border-slate-200 text-slate-400 text-xs italic">No consumables linked to this procedure.</div>
+                                        )}
+                                    </div>
                                     
-                                    <div className="flex gap-2 items-end">
-                                        <div className="flex-1">
-                                            <label className="label text-[10px] mb-1">Add Stock Item</label>
-                                            <select 
-                                                value={newBomItem.stockItemId} 
-                                                onChange={e => setNewBomItem({...newBomItem, stockItemId: e.target.value})}
-                                                className="input text-xs"
+                                    <div className="pt-4 border-t border-slate-200">
+                                        <div className="flex gap-2 mb-3">
+                                            <button 
+                                                onClick={() => { setBomItemType('instrument'); setNewBomItem({...newBomItem, quantity: 1}); }}
+                                                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${bomItemType === 'instrument' ? 'bg-lilac-100 text-lilac-800' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
                                             >
-                                                <option value="">Select Item...</option>
-                                                {stock.map(s => <option key={s.id} value={s.id}>{s.name} ({s.quantity} {s.dispensingUnit} avail)</option>)}
-                                            </select>
+                                                Browse Instruments
+                                            </button>
+                                            <button 
+                                                onClick={() => { setBomItemType('consumable'); setNewBomItem({...newBomItem, quantity: 1}); }}
+                                                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${bomItemType === 'consumable' ? 'bg-teal-100 text-teal-800' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                                            >
+                                                Browse Consumables
+                                            </button>
                                         </div>
-                                        <div className="w-24">
-                                            <label className="label text-[10px] mb-1">Qty</label>
-                                            <input 
-                                                type="number" 
-                                                value={newBomItem.quantity} 
-                                                onChange={e => setNewBomItem({...newBomItem, quantity: parseFloat(e.target.value)})}
-                                                className="input text-xs"
-                                                min="0.1"
-                                                step="0.1"
-                                            />
+                                        <div className="flex gap-2 items-end">
+                                            <div className="flex-1">
+                                                <label className="label text-[10px] mb-1">Add {bomItemType === 'instrument' ? 'Instrument' : 'Consumable'}</label>
+                                                <select 
+                                                    value={newBomItem.stockItemId} 
+                                                    onChange={e => setNewBomItem({...newBomItem, stockItemId: e.target.value})}
+                                                    className="input text-xs"
+                                                >
+                                                    <option value="">Select Item...</option>
+                                                    {stock
+                                                        .filter(s => bomItemType === 'instrument' ? s.category === StockCategory.INSTRUMENTS : s.category !== StockCategory.INSTRUMENTS)
+                                                        .map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div className="w-24">
+                                                <label className="label text-[10px] mb-1">Qty</label>
+                                                <input 
+                                                    type="number" 
+                                                    value={newBomItem.quantity} 
+                                                    onChange={e => setNewBomItem({...newBomItem, quantity: parseFloat(e.target.value)})}
+                                                    className="input text-xs"
+                                                    min="0.1"
+                                                    step="0.1"
+                                                />
+                                            </div>
+                                            <button onClick={handleAddBomItem} disabled={!newBomItem.stockItemId} className="bg-slate-800 text-white p-3 rounded-xl hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-800/20"><Plus size={20}/></button>
                                         </div>
-                                        <button onClick={handleAddBomItem} disabled={!newBomItem.stockItemId} className="bg-teal-600 text-white p-3 rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-600/20"><Plus size={20}/></button>
                                     </div>
                                 </div>
-                             </div>
-
-                             <div className="pt-4 border-t border-slate-100">
-                                <label className="label text-[10px]">Tray Setup / Tools (Non-Consumable)</label>
-                                <textarea 
-                                    value={editingProcedure.traySetup?.join('\n') || ''} 
-                                    onChange={e => setEditingProcedure({...editingProcedure, traySetup: e.target.value.split('\n').filter(item => item.trim() !== '')})} 
-                                    className="input min-h-[100px] text-sm" 
-                                    placeholder="e.g. Basic Examination Kit&#10;Local Anesthetic Setup&#10;Rubber Dam" 
-                                />
                              </div>
                         </div>
                         <div className="flex gap-3 pt-4"><button onClick={() => setEditingProcedure(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 font-black uppercase text-xs rounded-2xl">Cancel</button><button onClick={handleSaveProcedure} className="flex-[2] py-4 bg-teal-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-teal-600/20">Save to Catalog</button></div>

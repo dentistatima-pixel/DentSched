@@ -1,17 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent, InstrumentSet } from '../types';
-import { APPOINTMENTS, generateUid, PROCEDURE_TO_CONSENT_MAP, isExpired } from '../constants';
+import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent } from '../types';
+import { APPOINTMENTS, PROCEDURE_TO_CONSENT_MAP } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
 import { useModal } from './ModalContext';
 import { usePatient } from './PatientContext';
 import { useSettings } from './SettingsContext';
 import { DataService } from '../services/dataService';
-import { checkClinicalProtocols } from '../services/protocolEnforcement';
 import { useStaff } from './StaffContext';
 import { canStartTreatment } from '../services/medicolegalGuard';
-import { validateSignatureChain } from '../services/signatureVerification';
 import { sendSms, formatSmsTemplate, sanitizeSmsContent } from '../services/smsService';
+import { useInventory } from './InventoryContext';
 
 const generateDiff = (oldObj: any, newObj: any): string => {
     if (!oldObj) return 'Created record';
@@ -42,6 +41,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const { fieldSettings, addScheduledSms, invalidateFutureRecalls } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
     const { staff } = useStaff();
+    const { deductStockForProcedure } = useInventory();
     
     const canManageAppointments = useMemo(() => {
         if (!currentUser) return false;
@@ -247,8 +247,6 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                             let updatedData = {};
                             if (modal.type === 'medicalHistoryAffirmation') {
                                 updatedData = { medHistoryAffirmation: data };
-                            } else if (modal.type === 'sterilizationVerification') {
-                                updatedData = { sterilizationVerified: true, linkedInstrumentSetIds: data };
                             }
                             hideModal();
                             handleUpdateAppointmentStatus(appointmentId, status, { ...additionalData, ...updatedData }, true);
@@ -300,9 +298,13 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
             logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
             
-            if (status === AppointmentStatus.COMPLETED) {
+            if (status === AppointmentStatus.COMPLETED && aptToUpdate.status !== AppointmentStatus.COMPLETED) {
                 const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
                 
+                if (procedure) {
+                    deductStockForProcedure(procedure);
+                }
+
                 if (procedure?.triggersPostOpSequence) {
                     const now = new Date();
                     const patient = patients.find(p => p.id === aptToUpdate.patientId);

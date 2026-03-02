@@ -1,10 +1,9 @@
 
 
 // FIX: Imported missing financial types
-import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, SterilizationCycle, Vendor, SmsTemplates, ResourceType, ClinicResource, InstrumentSet, MaintenanceAsset, OperationalHours, SmsConfig, AuthorityLevel, PatientFile, ClearanceRequest, VerificationMethod, ProcedureItem, LicenseCategory, WaitlistEntry, FamilyGroup, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication } from './types';
-import { Calendar, CheckCircle, UserCheck, Armchair, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX, Droplet } from 'lucide-react';
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, ProcedureItem, WaitlistEntry, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication, AuthorityLevel, VerificationMethod, SmsTemplates, ResourceType } from './types';
+import { Calendar, CheckCircle, UserCheck, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX } from 'lucide-react';
 import type { ElementType } from 'react';
-import CryptoJS from 'crypto-js';
 
 // Helper for new patient ID format
 const generateRandomAlpha = (length: number): string => {
@@ -33,11 +32,6 @@ export const generateUid = (prefix = 'id') => {
 
 // --- DATE UTILITY ---
 const getTodayStr = () => new Date().toLocaleDateString('en-CA');
-const getTomorrowStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toLocaleDateString('en-CA');
-}
 const getPastDateStr = (days: number, date = new Date()) => {
     const d = new Date(date);
     d.setDate(d.getDate() - days);
@@ -163,13 +157,170 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
 ];
 
 export const MOCK_STOCK: StockItem[] = [
-    { id: 'item_01', name: 'Anesthetic Cartridge', category: StockCategory.CONSUMABLES, quantity: 200, lowStockThreshold: 50, branch: 'Makati Main' },
-    { id: 'item_02', name: 'Composite Resin A2', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, branch: 'Makati Main' },
-    { id: 'item_03', name: 'Examination Set', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, branch: 'Makati Main' },
-];
+    // --- INSTRUMENTS (Reusable) ---
+    // Diagnostic
+    { id: 'inst_mirror', name: 'Mouth Mirror (Front Surface)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_explorer', name: 'Explorer (Shepherd\'s Hook / 23)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_cotton_pliers', name: 'Cotton Pliers (Locking)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_perio_probe', name: 'Periodontal Probe (UNC-15)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_art_forceps', name: 'Articulating Paper Forceps', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
 
-export const MOCK_STERILIZATION_CYCLES_INITIALIZED: SterilizationCycle[] = [
-    { id: 'cycle_01', date: getPastDateStr(1), autoclaveName: 'Autoclave A', cycleNumber: 'C-2024-001', operator: 'John Doe', passed: true }
+    // Hygiene
+    { id: 'inst_scaler_ant', name: 'Hand Scaler (Sickle - Anterior)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_scaler_post', name: 'Hand Scaler (Sickle - Posterior)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ultrasonic_hp', name: 'Ultrasonic Scaler Handpiece', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Operatory' },
+    { id: 'inst_ultrasonic_tip', name: 'Ultrasonic Scaler Tip (Universal)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_prophy_angle_metal', name: 'Prophy Angle (Metal/Reusable)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+
+    // Restorative
+    { id: 'inst_hp_high', name: 'High-Speed Handpiece', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Operatory' },
+    { id: 'inst_hp_low', name: 'Low-Speed Handpiece (Contra-Angle)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Operatory' },
+    { id: 'inst_composite_placement', name: 'Composite Placement Instrument', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_condenser', name: 'Condenser / Plugger', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_burnisher', name: 'Burnisher (Ball/Football)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_carver', name: 'Carver (Hollenback)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_spoon', name: 'Spoon Excavator', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_tofflemire', name: 'Matrix Band Retainer (Tofflemire)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_curing_light', name: 'Curing Light', category: StockCategory.INSTRUMENTS, quantity: 4, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Operatory' },
+
+    // Surgical
+    { id: 'inst_scalpel_handle', name: 'Scalpel Handle (No. 3)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_elevator_periosteal', name: 'Periosteal Elevator (Molt 9)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_elevator_straight', name: 'Straight Elevator (Medium)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_elevator_cryer', name: 'Cryer Elevator (East/West)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_root_pick', name: 'Root Tip Pick', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_luxator', name: 'Luxator (Straight)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_forceps_150', name: 'Forceps - Upper Universal (150)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_forceps_151', name: 'Forceps - Lower Universal (151)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_forceps_17', name: 'Forceps - Lower Molars (17)', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_forceps_23', name: 'Forceps - Lower Molars (23 Cowhorn)', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_curette_surg', name: 'Surgical Curette (Lucas)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_bone_file', name: 'Bone File', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_needle_holder', name: 'Needle Holder (Mayo-Hegar)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_hemostat', name: 'Hemostat (Mosquito - Curved)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_tissue_forceps', name: 'Tissue Forceps (Adson)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rongeur', name: 'Bone Rongeur', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_scissors_surg', name: 'Surgical Scissors (Iris)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_retractor_minn', name: 'Cheek Retractor (Minnesota)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_mouth_prop', name: 'Mouth Prop (Bite Block)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+
+    // --- CONSUMABLES (Disposable) ---
+    // PPE & Day-to-Day
+    { id: 'cons_bib', name: 'Patient Bibs', category: StockCategory.PPE, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 500, location: 'Stock Room' },
+    { id: 'cons_saliva_ejector', name: 'Saliva Ejectors (Low Vol)', category: StockCategory.CONSUMABLES, quantity: 300, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_hve_tip', name: 'HVE Suction Tips', category: StockCategory.CONSUMABLES, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_gloves_s', name: 'Exam Gloves (Small)', category: StockCategory.PPE, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_m', name: 'Exam Gloves (Medium)', category: StockCategory.PPE, quantity: 1500, lowStockThreshold: 300, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_l', name: 'Exam Gloves (Large)', category: StockCategory.PPE, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_surg', name: 'Surgical Gloves (Sterile)', category: StockCategory.PPE, quantity: 50, lowStockThreshold: 20, dispensingUnit: 'Pair', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_mask_l2', name: 'Face Masks (Level 2)', category: StockCategory.PPE, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_headcap', name: 'Head Caps (Bouffant)', category: StockCategory.PPE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_shoecover', name: 'Shoe Covers', category: StockCategory.PPE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Pair', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_cup', name: 'Paper Cups', category: StockCategory.CONSUMABLES, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Sleeve', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_tissue', name: 'Facial Tissues', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_cotton_roll', name: 'Cotton Rolls (Size 2)', category: StockCategory.CONSUMABLES, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Roll', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_cotton_ball', name: 'Cotton Balls', category: StockCategory.CONSUMABLES, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 500, location: 'Stock Room' },
+    { id: 'cons_gauze_2x2', name: 'Gauze Sponges (2x2)', category: StockCategory.CONSUMABLES, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Sleeve', conversionFactor: 200, location: 'Stock Room' },
+    { id: 'cons_alcohol', name: 'Alcohol (70% Ethyl)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Bottle', location: 'Stock Room' },
+
+    // Hygiene
+    { id: 'cons_prophy_paste', name: 'Prophy Paste (Medium Mint)', category: StockCategory.PREVENTIVE, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Cup', bulkUnit: 'Box', conversionFactor: 200, location: 'Stock Room' },
+    { id: 'cons_prophy_brush', name: 'Prophy Brushes', category: StockCategory.PREVENTIVE, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 144, location: 'Stock Room' },
+    { id: 'cons_pumice', name: 'Pumice Powder', category: StockCategory.PREVENTIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Jar', location: 'Lab' },
+    { id: 'cons_h2o2', name: 'Hydrogen Peroxide 3%', category: StockCategory.PREVENTIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_fluoride', name: 'Fluoride Varnish', category: StockCategory.PREVENTIVE, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Dose', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+
+    // Restorative
+    { id: 'cons_comp_a2', name: 'Composite Resin (Shade A2)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_comp_a3', name: 'Composite Resin (Shade A3)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_bond', name: 'Bonding Agent (Adhesive)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Cold Storage' },
+    { id: 'cons_etch', name: 'Etchant Gel', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_flowable', name: 'Flowable Composite (A2)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_sealant', name: 'Pit & Fissure Sealant', category: StockCategory.PREVENTIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_art_paper', name: 'Articulating Paper (Blue)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Booklet', location: 'Stock Room' },
+    { id: 'cons_mylar', name: 'Mylar Strips', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_polishing_strip', name: 'Polishing Strips', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_matrix_band', name: 'Matrix Bands (Universal)', category: StockCategory.RESTORATIVE, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 12, location: 'Stock Room' },
+    { id: 'cons_wedges', name: 'Wooden Wedges (Assorted)', category: StockCategory.RESTORATIVE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 400, location: 'Stock Room' },
+    { id: 'cons_teflon', name: 'Teflon Tape', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Roll', location: 'Stock Room' },
+    { id: 'cons_microbrush', name: 'Microbrushes', category: StockCategory.RESTORATIVE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Tube', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_bur_diamond_round', name: 'Bur - Diamond Round (High Speed)', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 5, location: 'Stock Room' },
+    { id: 'cons_bur_fissure', name: 'Bur - Fissure (High Speed)', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 5, location: 'Stock Room' },
+
+    // Surgical
+    { id: 'cons_lido', name: 'Lidocaine 2% w/ Epi', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Carpule', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_topical', name: 'Topical Anesthetic Gel', category: StockCategory.SURGICAL, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Jar', location: 'Stock Room' },
+    { id: 'cons_needle_short', name: 'Dental Needles (27G Short)', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_needle_long', name: 'Dental Needles (30G Long)', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_blade_15', name: 'Surgical Blade #15', category: StockCategory.SURGICAL, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_suture_silk', name: 'Suture Silk 3-0', category: StockCategory.SURGICAL, quantity: 24, lowStockThreshold: 6, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 12, location: 'Stock Room' },
+    { id: 'cons_saline', name: 'Sterile Saline Solution', category: StockCategory.SURGICAL, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_betadine', name: 'Betadine Gargle', category: StockCategory.SURGICAL, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_syringe_irr', name: 'Disposable Syringe 10cc', category: StockCategory.SURGICAL, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+
+    // --- NEW INSTRUMENTS (General & Ortho) ---
+    { id: 'inst_rd_punch', name: 'Rubber Dam Punch', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rd_forceps', name: 'Rubber Dam Forceps', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rd_clamps', name: 'Rubber Dam Clamps (Assorted)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_explorer', name: 'Endo Explorer (DG16)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_excavator', name: 'Endo Excavator', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_spreader', name: 'Root Canal Spreader', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_plugger', name: 'Root Canal Plugger', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_imp_tray', name: 'Metal Impression Trays (Assorted)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_cement_spatula', name: 'Cement Spatula', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_alginate_spatula', name: 'Alginate Spatula', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_plaster_bowl', name: 'Plaster Bowl', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_crown_remover', name: 'Crown Remover', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_dappen_dish', name: 'Dappen Dish (Glass/Metal)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_syr_aspirator', name: 'Syringe Aspirator', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_distal_cutter', name: 'Distal End Cutter', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_lig_cutter', name: 'Pin & Ligature Cutter', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_weingart', name: 'Weingart Utility Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_mathieu', name: 'Mathieu Needle Holder', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_howe', name: 'Howe Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bird_beak', name: 'Bird Beak Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bracket_tweezer', name: 'Bracket Placement Tweezers', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_band_pusher', name: 'Band Pusher/Seater', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bracket_remover', name: 'Bracket Remover Pliers', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_adhesive_remover', name: 'Adhesive Removing Pliers', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+
+    // --- NEW CONSUMABLES (General & Ortho) ---
+    { id: 'cons_endo_kfile', name: 'K-Files (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_hfile', name: 'H-Files (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_rotary', name: 'Rotary NiTi Files', category: StockCategory.CONSUMABLES, quantity: 15, lowStockThreshold: 4, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_paper_pts', name: 'Paper Points (Assorted)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_gp_pts', name: 'Gutta-Percha Points', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_sealer', name: 'Root Canal Sealer', category: StockCategory.CONSUMABLES, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_rd_sheets', name: 'Rubber Dam Sheets', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_naocl', name: 'Sodium Hypochlorite (NaOCl)', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_endo_edta', name: 'EDTA Solution', category: StockCategory.CONSUMABLES, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_imp_alginate', name: 'Alginate Powder', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Bag', location: 'Stock Room' },
+    { id: 'cons_imp_pvs_putty', name: 'PVS Putty (Base/Catalyst)', category: StockCategory.CONSUMABLES, quantity: 4, lowStockThreshold: 1, dispensingUnit: 'Tub', location: 'Stock Room' },
+    { id: 'cons_imp_pvs_light', name: 'PVS Light Body (Wash)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Cartridge', location: 'Stock Room' },
+    { id: 'cons_imp_bite_reg', name: 'Bite Registration Paste', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Cartridge', location: 'Stock Room' },
+    { id: 'cons_imp_mix_tips', name: 'Disposable Mixing Tips', category: StockCategory.CONSUMABLES, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_cem_gic', name: 'Glass Ionomer Cement (GIC)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_cem_dycal', name: 'Calcium Hydroxide (Dycal)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_cem_temp', name: 'Temporary Cement (Temp-Bond)', category: StockCategory.RESTORATIVE, quantity: 4, lowStockThreshold: 1, dispensingUnit: 'Tube', location: 'Stock Room' },
+    { id: 'cons_cem_irm', name: 'IRM (Intermediate Restorative)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_inf_pouches', name: 'Autoclave Pouches (Assorted)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_inf_ind_tape', name: 'Sterilization Indicator Tape', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Roll', location: 'Stock Room' },
+    { id: 'cons_inf_wipes', name: 'Surface Disinfectant Wipes', category: StockCategory.CONSUMABLES, quantity: 12, lowStockThreshold: 4, dispensingUnit: 'Tub', location: 'Stock Room' },
+    { id: 'cons_inf_enzymatic', name: 'Ultrasonic Enzymatic Solution', category: StockCategory.CONSUMABLES, quantity: 4, lowStockThreshold: 1, dispensingUnit: 'Gallon', location: 'Stock Room' },
+    { id: 'cons_surg_gelfoam', name: 'Hemostatic Agent (Gelfoam)', category: StockCategory.SURGICAL, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_ortho_brackets', name: 'Metal Brackets (MBT/Roth)', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_ortho_bands', name: 'Molar Bands (Assorted)', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_ortho_tubes', name: 'Buccal Tubes', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_ortho_niti', name: 'NiTi Archwires (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_ortho_ss', name: 'SS Archwires (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_ortho_elastics_tie', name: 'Elastomeric Ligature Ties', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Stick', location: 'Stock Room' },
+    { id: 'cons_ortho_powerchain', name: 'Power Chain (Spool)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Spool', location: 'Stock Room' },
+    { id: 'cons_ortho_elastics_io', name: 'Intraoral Elastics (Rubber Bands)', category: StockCategory.CONSUMABLES, quantity: 30, lowStockThreshold: 10, dispensingUnit: 'Bag', location: 'Stock Room' },
+    { id: 'cons_ortho_lig_wire', name: 'Steel Ligature Wire', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Tube', location: 'Stock Room' },
+    { id: 'cons_ortho_adhesive', name: 'Orthodontic Adhesive (LC)', category: StockCategory.CONSUMABLES, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_ortho_primer', name: 'Orthodontic Primer', category: StockCategory.CONSUMABLES, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_ortho_band_cem', name: 'Band Cement (GIC)', category: StockCategory.CONSUMABLES, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_ortho_wax', name: 'Orthodontic Patient Wax', category: StockCategory.CONSUMABLES, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Pack', location: 'Stock Room' }
 ];
 
 export const MOCK_EXPENSES: Expense[] = [
@@ -1182,36 +1333,344 @@ export const APPOINTMENTS: Appointment[] = [
 // All procedures offered by the practice are defined here.
 export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   // A. Diagnostic & Preventive
-  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 30, traySetup: ['Basic Examination Kit (Mirror, Explorer, Cotton Pliers)', 'Patient Bib & Clip', 'Disposable Cup', 'Saliva Ejector', 'Gauze (2x2)'] },
-  { id: 'proc_xray_pa', name: 'Periapical X-Ray (Single)', category: 'Diagnostic & Preventive', defaultPrice: 500, defaultDurationMinutes: 10, requiresImaging: true, traySetup: ['X-Ray Sensor/Film', 'Sensor Holder (Rinn)', 'Lead Apron with Thyroid Collar'] },
-  { id: 'proc_xray_pano', name: 'Panoramic X-Ray', category: 'Diagnostic & Preventive', defaultPrice: 1500, defaultDurationMinutes: 15, requiresImaging: true, traySetup: ['Panoramic Bite Block', 'Lead Apron (No Thyroid Collar)', 'Disinfectant Wipes'] },
-  { id: 'proc_prophy_light', name: 'Oral Prophylaxis (Light to Moderate)', category: 'Diagnostic & Preventive', defaultPrice: 1200, defaultDurationMinutes: 45, traySetup: ['Basic Examination Kit', 'Ultrasonic Scaler Tip', 'Prophy Angle & Paste', 'High-Volume Evacuator (HVE)', 'Saliva Ejector', 'Patient Bib'] },
-  { id: 'proc_prophy_heavy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diagnostic & Preventive', defaultPrice: 1800, defaultDurationMinutes: 60, traySetup: ['Basic Examination Kit', 'Ultrasonic Scaler Tips (Heavy & Fine)', 'Hand Scalers/Curettes', 'Prophy Angle & Paste', 'HVE', 'Saliva Ejector', 'Topical Anesthetic (Optional)'] },
-  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 15, traySetup: ['Basic Examination Kit', 'Fluoride Varnish or Gel', 'Applicator Brushes', 'Cotton Rolls', 'Saliva Ejector'] },
-  { id: 'proc_sealant', name: 'Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive', defaultPrice: 1000, defaultDurationMinutes: 20, traySetup: ['Basic Examination Kit', 'Etchant Gel', 'Sealant Material', 'Curing Light', 'Cotton Rolls/Dry Angles', 'Articulating Paper', 'Low-Speed Handpiece with Round Bur (Optional)'] },
+  { id: 'proc_consult', name: 'Initial Consultation & Examination', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_cotton_pliers', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cup', quantity: 1 },
+    { stockItemId: 'cons_saliva_ejector', quantity: 1 },
+    { stockItemId: 'cons_gauze_2x2', quantity: 2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 }
+  ]},
+  { id: 'proc_xray_pa', name: 'Periapical X-Ray (Single)', category: 'Diagnostic & Preventive', defaultPrice: 500, defaultDurationMinutes: 10, requiresImaging: true, billOfMaterials: [
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_inf_wipes', quantity: 2 }
+  ]},
+  { id: 'proc_xray_pano', name: 'Panoramic X-Ray', category: 'Diagnostic & Preventive', defaultPrice: 1500, defaultDurationMinutes: 15, requiresImaging: true, billOfMaterials: [
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_inf_wipes', quantity: 2 }
+  ]},
+  { id: 'proc_prophy_light', name: 'Oral Prophylaxis (Light to Moderate)', category: 'Diagnostic & Preventive', defaultPrice: 1200, defaultDurationMinutes: 45, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_ultrasonic_hp', quantity: 1 },
+    { stockItemId: 'inst_ultrasonic_tip', quantity: 1 },
+    { stockItemId: 'inst_prophy_angle_metal', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cup', quantity: 1 },
+    { stockItemId: 'cons_saliva_ejector', quantity: 1 },
+    { stockItemId: 'cons_hve_tip', quantity: 1 },
+    { stockItemId: 'cons_prophy_paste', quantity: 1 },
+    { stockItemId: 'cons_prophy_brush', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 }
+  ]},
+  { id: 'proc_prophy_heavy', name: 'Oral Prophylaxis (Heavy w/ Stain Removal)', category: 'Diagnostic & Preventive', defaultPrice: 1800, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_ultrasonic_hp', quantity: 1 },
+    { stockItemId: 'inst_ultrasonic_tip', quantity: 1 },
+    { stockItemId: 'inst_scaler_ant', quantity: 1 },
+    { stockItemId: 'inst_scaler_post', quantity: 1 },
+    { stockItemId: 'inst_prophy_angle_metal', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cup', quantity: 1 },
+    { stockItemId: 'cons_saliva_ejector', quantity: 1 },
+    { stockItemId: 'cons_hve_tip', quantity: 1 },
+    { stockItemId: 'cons_prophy_paste', quantity: 1 },
+    { stockItemId: 'cons_prophy_brush', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_topical', quantity: 0.1 }
+  ]},
+  { id: 'proc_fluoride', name: 'Topical Fluoride Application', category: 'Diagnostic & Preventive', defaultPrice: 800, defaultDurationMinutes: 15, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_fluoride', quantity: 1 },
+    { stockItemId: 'cons_microbrush', quantity: 1 },
+    { stockItemId: 'cons_cotton_roll', quantity: 4 },
+    { stockItemId: 'cons_saliva_ejector', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_sealant', name: 'Fissure Sealant (per tooth)', category: 'Diagnostic & Preventive', defaultPrice: 1000, defaultDurationMinutes: 20, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_sealant', quantity: 0.1 },
+    { stockItemId: 'cons_microbrush', quantity: 2 },
+    { stockItemId: 'cons_cotton_roll', quantity: 4 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
 
   // B. Restorative Dentistry
-  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup (Syringe, Needle, Carpule)', 'High & Low-Speed Handpieces', 'Burs (Diamond & Carbide)', 'Rubber Dam Setup or Isolite', 'Etchant, Primer, Bond', 'Composite Resin (Shade Guide)', 'Curing Light', 'Finishing & Polishing Kit', 'Articulating Paper'] },
-  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Handpieces & Burs', 'Rubber Dam Setup', 'Sectional Matrix System (Band, Wedge, Ring)', 'Etchant, Primer, Bond', 'Composite Resin', 'Curing Light', 'Finishing Kit', 'Articulating Paper'] },
-  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Handpieces & Burs', 'Rubber Dam Setup', 'Matrix System (Tofflemire or Sectional)', 'Etchant, Primer, Bond', 'Composite Resin', 'Curing Light', 'Finishing Kit', 'Articulating Paper'] },
-  { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Handpieces & Burs', 'Spoon Excavator', 'Temporary Filling Material (e.g., Cavit, IRM)', 'Plastic Instrument', 'Cotton Pellets', 'Articulating Paper'] },
+  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'inst_composite_placement', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_bur_diamond_round', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_comp_a2', quantity: 0.1 },
+    { stockItemId: 'cons_microbrush', quantity: 2 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'inst_composite_placement', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_bur_diamond_round', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_comp_a2', quantity: 0.2 },
+    { stockItemId: 'cons_matrix_band', quantity: 1 },
+    { stockItemId: 'cons_wedges', quantity: 1 },
+    { stockItemId: 'cons_microbrush', quantity: 2 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'inst_composite_placement', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_bur_diamond_round', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_comp_a2', quantity: 0.3 },
+    { stockItemId: 'cons_matrix_band', quantity: 2 },
+    { stockItemId: 'cons_wedges', quantity: 2 },
+    { stockItemId: 'cons_microbrush', quantity: 3 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_spoon', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_cotton_ball', quantity: 2 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
 
   // C. Endodontics (Root Canals)
-  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Rubber Dam Setup (Mandatory)', 'High & Low-Speed Handpieces', 'Endo Access Burs', 'Endodontic Explorer (DG16)', 'Apex Locator', 'Rotary/Hand Files', 'Irrigating Syringes (NaOCl, EDTA)', 'Paper Points', 'Gutta Percha Points', 'Endo Sealer', 'Heated Plugger/Touch & Heat', 'Temporary Filling Material'] },
-  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Rubber Dam Setup', 'Handpieces & Endo Burs', 'DG16 Explorer', 'Apex Locator', 'Rotary/Hand Files', 'Irrigants (NaOCl, EDTA)', 'Paper Points', 'Gutta Percha', 'Endo Sealer', 'Heated Plugger', 'Temporary Filling'] },
-  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup (Extra Carpules)', 'Rubber Dam Setup', 'Handpieces & Endo Burs', 'DG16 Explorer', 'Apex Locator', 'Rotary/Hand Files (Extra lengths)', 'Irrigants (NaOCl, EDTA)', 'Paper Points', 'Gutta Percha', 'Endo Sealer', 'Heated Plugger', 'Temporary Filling'] },
-  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Rubber Dam Setup', 'Handpieces & Burs', 'Spoon Excavator', 'Formocresol or Ferric Sulfate', 'Cotton Pellets', 'ZOE or MTA Base', 'Stainless Steel Crown Setup (Optional)'] },
+  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_endo_explorer', quantity: 1 },
+    { stockItemId: 'inst_rd_forceps', quantity: 1 },
+    { stockItemId: 'inst_rd_punch', quantity: 1 },
+    { stockItemId: 'inst_rd_clamps', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
+    { stockItemId: 'cons_endo_kfile', quantity: 1 },
+    { stockItemId: 'cons_endo_naocl', quantity: 0.2 },
+    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_endo_explorer', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
+    { stockItemId: 'cons_endo_kfile', quantity: 1 },
+    { stockItemId: 'cons_endo_naocl', quantity: 0.2 },
+    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_endo_explorer', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 3 },
+    { stockItemId: 'cons_needle_short', quantity: 3 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
+    { stockItemId: 'cons_endo_kfile', quantity: 1 },
+    { stockItemId: 'cons_endo_naocl', quantity: 0.3 },
+    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_spoon', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_cotton_ball', quantity: 2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
 
   // D. Surgery & Extractions
-  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Topical Anesthetic', 'Elevators (Straight, Cryer)', 'Extraction Forceps (Specific to tooth)', 'Surgical Curette', 'Gauze (2x2)', 'Post-Op Instructions'] },
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Scalpel (Blade #15)', 'Periosteal Elevator', 'Surgical Handpiece & Surgical Burs', 'Sterile Saline Irrigation', 'Elevators & Forceps', 'Surgical Curette', 'Bone File', 'Sutures (Silk or Vicryl)', 'Needle Holder & Scissors', 'Gauze'] },
-  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup (Multiple Carpules)', 'Scalpel (#15)', 'Periosteal Elevator', 'Surgical Handpiece & Burs', 'Sterile Saline', 'Elevators (Straight, Cryer, Cogswell B)', 'Forceps', 'Surgical Curette', 'Bone File', 'Hemostat', 'Sutures', 'Needle Holder & Scissors', 'Gauze', 'Ice Pack'] },
+  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_elevator_straight', quantity: 1 },
+    { stockItemId: 'inst_forceps_150', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_topical', quantity: 0.1 },
+    { stockItemId: 'cons_gauze_2x2', quantity: 4 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'inst_elevator_periosteal', quantity: 1 },
+    { stockItemId: 'inst_elevator_straight', quantity: 1 },
+    { stockItemId: 'inst_forceps_150', quantity: 1 },
+    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_saline', quantity: 0.2 },
+    { stockItemId: 'cons_gauze_2x2', quantity: 6 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ]},
+  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'inst_elevator_periosteal', quantity: 1 },
+    { stockItemId: 'inst_elevator_straight', quantity: 1 },
+    { stockItemId: 'inst_forceps_150', quantity: 1 },
+    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'inst_hemostat', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 4 },
+    { stockItemId: 'cons_needle_short', quantity: 4 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_saline', quantity: 0.5 },
+    { stockItemId: 'cons_gauze_2x2', quantity: 10 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ]},
 
   // E. Prosthodontics (Crowns, Bridges, Dentures)
-  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'High & Low-Speed Handpieces', 'Crown Prep Burs (Diamond)', 'Retraction Cord & Hemostatic Agent', 'Impression Trays & Material (PVS) or Intraoral Scanner', 'Bite Registration Material', 'Temporary Crown Material (Bis-Acryl)', 'Temporary Cement', 'Shade Guide'] },
-  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Handpieces & Crown Prep Burs', 'Retraction Cord & Hemostatic Agent', 'Intraoral Scanner (Preferred) or PVS', 'Bite Registration', 'Temporary Crown Material', 'Temporary Cement', 'Shade Guide (Zirconia specific)'] },
-  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Local Anesthetic Setup', 'Handpieces & Crown Prep Burs', 'Retraction Cord & Hemostatic Agent', 'Impression Trays (Full Arch) & PVS', 'Bite Registration', 'Temporary Bridge Material', 'Temporary Cement', 'Shade Guide'] },
-  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60, triggersPostOpSequence: true, traySetup: ['Basic Examination Kit', 'Custom Impression Trays', 'Border Molding Material (Green Stick Compound)', 'Final Impression Material (Light Body PVS or Polyether)', 'Bite Registration/Wax Rims', 'Fox Plane Guide', 'Shade & Mold Guide', 'Lab Prescription Form'] },
+  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
+    { stockItemId: 'cons_imp_mix_tips', quantity: 2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.4 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 1 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+
+  // F. Orthodontics
+  { id: 'proc_ortho_consult', name: 'Orthodontic Consultation & Records', category: 'Orthodontics', defaultPrice: 2500, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_cotton_pliers', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cup', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_imp_bite_reg', quantity: 0.2 }
+  ]},
+  { id: 'proc_ortho_bond', name: 'Full Arch Brackets Bonding', category: 'Orthodontics', defaultPrice: 35000, defaultDurationMinutes: 90, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_bracket_tweezer', quantity: 1 },
+    { stockItemId: 'inst_ortho_mathieu', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'inst_retractor_minn', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_ortho_brackets', quantity: 1 },
+    { stockItemId: 'cons_ortho_niti', quantity: 1 },
+    { stockItemId: 'cons_ortho_adhesive', quantity: 0.5 },
+    { stockItemId: 'cons_ortho_primer', quantity: 0.2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_microbrush', quantity: 4 }
+  ]},
+  { id: 'proc_ortho_adj', name: 'Orthodontic Adjustment / Wire Change', category: 'Orthodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_distal_cutter', quantity: 1 },
+    { stockItemId: 'inst_ortho_lig_cutter', quantity: 1 },
+    { stockItemId: 'inst_ortho_weingart', quantity: 1 },
+    { stockItemId: 'inst_ortho_mathieu', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 },
+    { stockItemId: 'cons_mask_l2', quantity: 1 },
+    { stockItemId: 'cons_ortho_niti', quantity: 1 },
+    { stockItemId: 'cons_ortho_elastics_tie', quantity: 1 }
+  ]},
 ];
 
 const DEFAULT_MEDICATIONS: Medication[] = [
@@ -1568,8 +2027,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'set1', name: 'Basic Exam Set', status: 'Sterile', branch: 'Makati Main' },
       { id: 'set2', name: 'Surgical Set', status: 'Used', branch: 'Makati Main' },
   ],
-  sterilizationCycles: MOCK_STERILIZATION_CYCLES_INITIALIZED,
-  stockItems: [],
+  stockItems: MOCK_STOCK,
   payrollAdjustmentTemplates: [
       { id: 'adj1', label: 'Perfect Attendance Bonus', type: 'Credit', category: 'Incentives', defaultAmount: 500 },
       { id: 'adj2', label: 'Tardiness Deduction', type: 'Debit', category: 'Attendance' },

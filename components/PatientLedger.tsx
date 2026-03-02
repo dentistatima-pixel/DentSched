@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LedgerEntry, Patient, FieldSettings, InstallmentPlan, GovernanceTrack } from '../types';
-import { DollarSign, Plus, ArrowUpRight, Receipt, Shield, CreditCard, ShieldAlert, FileText, CheckCircle2, TrendingUp, Calendar, AlertTriangle, Layers, Percent, Hash, Activity } from 'lucide-react';
+import { LedgerEntry, Patient, InstallmentPlan, GovernanceTrack } from '../types';
+import { DollarSign, Receipt, Calendar, Hash, Activity } from 'lucide-react';
 import { formatDate, generateUid } from '../constants';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';

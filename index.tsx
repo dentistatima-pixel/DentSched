@@ -32,8 +32,8 @@ root.render(
                       <ModalProvider>
                         <PatientProvider>
                             <StaffProvider>
-                                <AppointmentProvider>
-                                    <InventoryProvider>
+                                <InventoryProvider>
+                                    <AppointmentProvider>
                                         <FinancialProvider>
                                             <ClinicalOpsProvider>
                                               <DocentProvider>
@@ -43,8 +43,8 @@ root.render(
                                               </DocentProvider>
                                             </ClinicalOpsProvider>
                                         </FinancialProvider>
-                                    </InventoryProvider>
-                                </AppointmentProvider>
+                                    </AppointmentProvider>
+                                </InventoryProvider>
                             </StaffProvider>
                         </PatientProvider>
                       </ModalProvider>

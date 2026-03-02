@@ -161,7 +161,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             let y = 35;
             const entries = [...(patient.dentalChart || [])].sort((a,b) => new Date(a.date||'').getTime() - new Date(b.date||'').getTime());
             
-            entries.forEach((entry, i) => {
+            entries.forEach((entry) => {
                 if (y > 250) { doc.addPage(); y = 20; }
                 
                 const clinician = staff.find(s => s.name.includes(entry.author || ''));

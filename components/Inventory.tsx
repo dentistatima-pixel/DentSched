@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, X, Save, Edit2, Shield, Boxes, ArrowRightLeft, TrendingUp, Scale, ShoppingBag, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
-import { StockItem, StockCategory, SterilizationCycle, User, StockTransfer, Patient, FieldSettings, Appointment, AuditLogEntry, AppointmentStatus } from '../types';
+import { Package, Plus, Search, X, Save, Edit2, Boxes, ArrowRightLeft, TrendingUp, Scale, ShoppingBag, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
+import { StockItem, StockCategory, User, StockTransfer, Patient, FieldSettings, Appointment, AuditLogEntry, AppointmentStatus } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 
@@ -9,8 +9,6 @@ import { useSearchPersistence } from '../hooks/useSearchPersistence';
 interface InventoryProps {
   stock: StockItem[];
   onUpdateStock: (updatedStock: StockItem[]) => void;
-  sterilizationCycles?: SterilizationCycle[];
-  onAddCycle: (cycle: SterilizationCycle) => void;
   currentUser: User;
   currentBranch: string;
   availableBranches: string[];
@@ -29,7 +27,11 @@ const TOLERANCE_MAP: Record<StockCategory, number> = {
     [StockCategory.RESTORATIVE]: 0.05,
     [StockCategory.INSTRUMENTS]: 0,
     [StockCategory.PROSTHODONTIC]: 0,
-    [StockCategory.OFFICE]: 0.10
+    [StockCategory.OFFICE]: 0.10,
+    [StockCategory.SURGICAL]: 0.05,
+    [StockCategory.ENDODONTIC]: 0.05,
+    [StockCategory.PREVENTIVE]: 0.10,
+    [StockCategory.PPE]: 0.10
 };
 
 const Inventory: React.FC<InventoryProps> = ({ 
@@ -41,7 +43,7 @@ const Inventory: React.FC<InventoryProps> = ({
   const complexity = fieldSettings?.features.inventoryComplexity || 'SIMPLE';
   const isAdvanced = complexity === 'ADVANCED';
 
-  const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'procurement' | 'sterilization'>('stock');
+  const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'procurement'>('stock');
   const [searchTerm, setSearchTerm] = useSearchPersistence('inventory');
   const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
   const [auditMode, setAuditMode] = useState(false);
@@ -87,7 +89,11 @@ const Inventory: React.FC<InventoryProps> = ({
       return stock.filter(s => s.branch === currentBranch || !s.branch);
   }, [stock, currentBranch]);
 
-  const filteredStock = branchStock.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredStock = branchStock.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const isInstrument = s.category === StockCategory.INSTRUMENTS;
+      return isManagingSets ? (matchesSearch && isInstrument) : (matchesSearch && !isInstrument);
+  });
 
   const predictiveMetrics = useMemo(() => {
     const metrics: Record<string, { burnRate: number, daysLeft: number, isAtRisk: boolean }> = {};
@@ -174,16 +180,8 @@ const Inventory: React.FC<InventoryProps> = ({
     toast.success("Inventory audit finalized and system levels updated.");
   };
 
-  const getExpiryStatus = (expiryDate?: string) => {
-      if (!expiryDate) return { label: 'STABLE', color: 'bg-green-50 text-teal-800 border-teal-100' };
-      const diff = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-      if (diff < 0) return { label: 'EXPIRED', color: 'bg-red-600 text-white border-red-700 shadow-md' };
-      if (diff <= 30) return { label: `EXPIRING: ${diff}D`, color: 'bg-orange-100 text-orange-900 border-orange-200' };
-      return { label: 'OK', color: 'bg-green-50 text-teal-800 border-teal-100' };
-  };
-
   return (
-    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20" role="main" aria-label="Supply Chain and Sterilization System">
+    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20" role="main" aria-label="Supply Chain System">
         <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4">
                 {onBack && (
@@ -234,10 +232,10 @@ const Inventory: React.FC<InventoryProps> = ({
                             <button 
                                 role="tab"
                                 aria-selected={activeTab === 'stock' && isManagingSets}
-                                onClick={() => { setActiveTab('stock'); setIsManagingSets(true); }} 
+                                onClick={() => { setActiveTab('stock'); setIsManagingSets(true); setAuditMode(false); }} 
                                 className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' && isManagingSets ? 'border-lilac-600 text-lilac-900 bg-white' : 'border-transparent text-slate-500 hover:text-lilac-700 hover:bg-white/50'}`}
                             >
-                                <Armchair size={18} aria-hidden="true"/> Set Management
+                                <Armchair size={18} aria-hidden="true"/> Instruments
                             </button>
                              <button 
                                 role="tab"
@@ -255,21 +253,13 @@ const Inventory: React.FC<InventoryProps> = ({
                             >
                                 <ShoppingBag size={18} aria-hidden="true"/> Procurement
                             </button>
-                            <button 
-                                role="tab"
-                                aria-selected={activeTab === 'sterilization'}
-                                onClick={() => setActiveTab('sterilization')} 
-                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'sterilization' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
-                            >
-                                <Shield size={18} aria-hidden="true"/> Sterilization
-                            </button>
                         </>
                     )}
                 </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 no-scrollbar">
-                {activeTab === 'stock' && !isManagingSets && (
+                {activeTab === 'stock' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         <div className="flex flex-col md:flex-row justify-between gap-6">
                             <div className="relative w-full md:w-96 group">
@@ -277,11 +267,13 @@ const Inventory: React.FC<InventoryProps> = ({
                                 <input type="text" placeholder="Search items..." aria-label="Search items" className="input pl-12" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                             </div>
                             <div className="flex gap-3">
-                                <button onClick={() => setAuditMode(!auditMode)} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 ${auditMode ? 'bg-red-600 text-white shadow-red-600/30 animate-pulse' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-slate-400'}`}><Scale size={20}/> {auditMode ? 'Exit Audit' : 'Audit Mode'}</button>
-                                {auditMode ? (
+                                {!isManagingSets && (
+                                    <button onClick={() => setAuditMode(!auditMode)} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 ${auditMode ? 'bg-red-600 text-white shadow-red-600/30 animate-pulse' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-slate-400'}`}><Scale size={20}/> {auditMode ? 'Exit Audit' : 'Audit Mode'}</button>
+                                )}
+                                {auditMode && !isManagingSets ? (
                                     <button onClick={handleFinalizeAudit} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Finalize Audit</button>
                                 ) : (
-                                    <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
+                                    <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: isManagingSets ? StockCategory.INSTRUMENTS : StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
                                 )}
                             </div>
                         </div>
@@ -289,45 +281,44 @@ const Inventory: React.FC<InventoryProps> = ({
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
                             <table className="w-full text-sm" role="table" aria-label="Inventory Table">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs font-black uppercase text-slate-500 tracking-[0.2em]">
-                                    <tr><th className="p-5 text-left">Item Narrative</th>{isAdvanced && <th className="p-5 text-left">Classification</th>}{isAdvanced && <th className="p-5 text-center">Protocol Status</th>}<th className="p-5 text-right">{auditMode ? 'Blind Forensic Count' : 'Registry Level'}</th><th className="p-5 text-right">Min Buffer</th>{isAdvanced && <th className="p-5 text-right">Limit</th>}<th className="p-5 text-right">Actions</th></tr>
+                                    <tr>
+                                        <th className="p-3 text-left">Items</th>
+                                        {isAdvanced && !isManagingSets && <th className="p-3 text-left">Classification</th>}
+                                        {!isManagingSets && <th className="p-3 text-right">{auditMode ? 'Blind Forensic Count' : 'Stock'}</th>}
+                                        {!isManagingSets && <th className="p-3 text-right">Min Buffer</th>}
+                                        {isAdvanced && !isManagingSets && <th className="p-3 text-right">Limit</th>}
+                                        <th className="p-3 text-right">Actions</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredStock.map(item => {
-                                        const expiry = getExpiryStatus(item.expiryDate);
-                                        const isPredictiveAtRisk = predictiveMetrics[item.id]?.isAtRisk;
                                         return (
                                             <tr key={item.id} className="hover:bg-slate-50/50 group transition-colors">
-                                                <td className="p-5"><div className="font-black text-slate-800 uppercase tracking-tight">{item.name}</div><div className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">UID: {item.id}</div></td>
-                                                {isAdvanced && (<td className="p-5"><span className="text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter border border-slate-200">{item.category}</span></td>)}
-                                                {isAdvanced && (
-                                                    <td className="p-5 text-center">
-                                                        <div className="flex flex-col items-center gap-1.5">
-                                                            <span className={`text-[11px] font-black px-3 py-1 rounded-full border shadow-sm uppercase tracking-widest ${expiry.color}`}>{expiry.label}</span>
-                                                            {isPredictiveAtRisk && <span className="bg-lilac-100 text-lilac-800 px-2 py-0.5 rounded-full text-[11px] font-black uppercase border-2 border-lilac-200 animate-pulse tracking-tighter">Supply-Chain Risk</span>}
-                                                        </div>
+                                                <td className="p-3"><div className="font-black text-slate-800 uppercase tracking-tight">{item.name}</div></td>
+                                                {isAdvanced && !isManagingSets && (<td className="p-3"><span className="text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter border border-slate-200">{item.category}</span></td>)}
+                                                {!isManagingSets && (
+                                                    <td className="p-3 text-right">
+                                                        {auditMode ? (
+                                                            <input 
+                                                                type="number" 
+                                                                aria-label={`Audit count for ${item.name}`}
+                                                                value={sessionPhysicalCounts[item.id] ?? ''} 
+                                                                onChange={e => updatePhysicalCount(item.id, e.target.value)}
+                                                                className="w-28 p-2 text-right border-2 border-lilac-200 rounded-xl font-black text-xl text-lilac-900 focus:border-lilac-500 outline-none shadow-inner"
+                                                                placeholder="0"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex flex-col items-end">
+                                                                <span className={`text-xl font-black leading-none ${item.quantity <= (item.lowStockThreshold || 0) ? 'text-red-600' : 'text-slate-800'}`}>{item.quantity}</span>
+                                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{item.dispensingUnit || 'Units'}</span>
+                                                                {item.quantity <= (item.lowStockThreshold || 0) && <span className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Reorder</span>}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 )}
-                                                <td className="p-5 text-right">
-                                                    {auditMode ? (
-                                                        <input 
-                                                            type="number" 
-                                                            aria-label={`Audit count for ${item.name}`}
-                                                            value={sessionPhysicalCounts[item.id] ?? ''} 
-                                                            onChange={e => updatePhysicalCount(item.id, e.target.value)}
-                                                            className="w-28 p-3 text-right border-2 border-lilac-200 rounded-xl font-black text-xl text-lilac-900 focus:border-lilac-500 outline-none shadow-inner"
-                                                            placeholder="0"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex flex-col items-end">
-                                                            <span className={`text-xl font-black leading-none ${item.quantity <= (item.minQuantity || item.lowStockThreshold || 0) ? 'text-red-600' : 'text-slate-800'}`}>{item.quantity}</span>
-                                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{item.dispensingUnit || 'Units'}</span>
-                                                            {item.quantity <= (item.minQuantity || item.lowStockThreshold || 0) && <span className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Reorder</span>}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="p-5 text-right font-mono text-slate-500 font-bold">{item.minQuantity || '-'}</td>
-                                                {isAdvanced && <td className="p-5 text-right text-slate-500 font-black text-sm uppercase">{item.lowStockThreshold}</td>}
-                                                <td className="p-5 text-right"><div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditItem(item)} className="p-3 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-2xl transition-all" aria-label={`Edit ${item.name}`}><Edit2 size={18}/></button></div></td>
+                                                {!isManagingSets && <td className="p-3 text-right font-mono text-slate-500 font-bold">{item.lowStockThreshold || '-'}</td>}
+                                                {isAdvanced && !isManagingSets && <td className="p-3 text-right text-slate-500 font-black text-sm uppercase">{item.lowStockThreshold}</td>}
+                                                <td className="p-3 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditItem(item)} className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all" aria-label={`Edit ${item.name}`}><Edit2 size={18}/></button></div></td>
                                             </tr>
                                         );
                                     })}
@@ -449,7 +440,7 @@ const Inventory: React.FC<InventoryProps> = ({
                             <div><label className="label">Low Stock Threshold</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div><label className="label">Min Buffer (Reorder Point)</label><input type="number" value={editItem.minQuantity ?? ''} onChange={e => handleFormChange('minQuantity', parseInt(e.target.value))} className="input" placeholder="Optional" /></div>
+                            <div><label className="label">Min Buffer (Reorder Point)</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" placeholder="Optional" /></div>
                             <div className="md:col-span-2"><label className="label">Expiry Date</label><input type="date" value={editItem.expiryDate || ''} onChange={e => handleFormChange('expiryDate', e.target.value)} className="input" /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

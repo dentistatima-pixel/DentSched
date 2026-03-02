@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, Save, Phone } from 'lucide-react';
-import { Patient, CommunicationChannel } from '../types';
+import { CommunicationChannel } from '../types';
 import { usePatient } from '../contexts/PatientContext';
 import { useToast } from './ToastSystem';
 

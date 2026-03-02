@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useContext } from 'react';
-import { Patient, AuthorityLevel } from '../types';
-import { Search, UserPlus, ShieldAlert, ChevronRight, Baby, UserCircle, ArrowLeft, FileBadge2, CloudOff } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Patient } from '../types';
+import { Search, ShieldAlert, ChevronRight, Baby, UserCircle, FileBadge2, CloudOff } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { useModal } from '../contexts/ModalContext';
 import { usePatient } from '../contexts/PatientContext';

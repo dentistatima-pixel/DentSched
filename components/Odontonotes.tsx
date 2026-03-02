@@ -3,7 +3,7 @@ import { DentalChartEntry, ProcedureItem, TreatmentPlan, User, TreatmentStatus, 
 import { Plus, Lock, FileText, Stethoscope, Sparkles, ArrowRight, ShieldCheck, FileSignature, AlertTriangle } from 'lucide-react';
 import { formatDate, isExpired } from '../constants';
 import { useToast } from './ToastSystem';
-import { reviewClinicalNote, generateSoapNote } from '../services/geminiService';
+import { reviewClinicalNote } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
 const statusColors: { [key in TreatmentStatus]: string } = {
@@ -28,7 +28,6 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
     const [formData, setFormData] = useState<DentalChartEntry>(note);
     const [aiReview, setAiReview] = useState<string | null>(null);
     const [isReviewLoading, setIsReviewLoading] = useState(false);
-    const toast = useToast();
 
     useEffect(() => {
         setFormData(note);
@@ -68,18 +67,6 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         } finally {
             setIsReviewLoading(false);
         }
-    };
-    
-    const handleGenerateAiSoap = async () => {
-        // AI generation is disabled, so we provide a structured template
-        setFormData(prev => ({
-            ...prev,
-            subjective: "Patient reports...",
-            objective: "Clinical examination reveals...",
-            assessment: "Diagnosis of...",
-            plan: "1. \n2. \n3. "
-        }));
-        toast.info("SOAP template applied.");
     };
 
 

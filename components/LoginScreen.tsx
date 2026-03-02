@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 import { STAFF } from '../constants';
-import { ShieldCheck, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, User as UserIcon } from 'lucide-react';
 
 /**
  * @interface LoginScreenProps

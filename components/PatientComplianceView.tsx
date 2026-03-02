@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Patient, ConsentCategory, ClearanceRequest, InformedRefusal } from '../types';
+import { Patient } from '../types';
 import { ShieldCheck, FileText, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { formatDate } from '../constants';
 

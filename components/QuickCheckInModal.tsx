@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { X, UserCheck, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, UserCheck, Search, CheckCircle } from 'lucide-react';
 import { Patient, Appointment, AppointmentStatus } from '../types';
 import { useToast } from './ToastSystem';
 

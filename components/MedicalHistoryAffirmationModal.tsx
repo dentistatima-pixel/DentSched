@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Patient, Appointment } from '../types';
+import { Patient } from '../types';
 import { X, HeartPulse, CheckCircle, Eraser, AlertTriangle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import RegistrationMedical from './RegistrationMedical';

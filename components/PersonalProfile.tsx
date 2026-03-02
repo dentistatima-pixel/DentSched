@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, LicenseCategory, CpdEntry } from '../types';
-import { Save, Edit, X, Shield, Percent, Sparkles, MapPin, Power, PowerOff, Briefcase, GraduationCap, CheckCircle } from 'lucide-react';
+import { User, UserRole, CpdEntry } from '../types';
+import { Save, Edit, X, Shield, MapPin, Power, PowerOff, Briefcase, GraduationCap, CheckCircle } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';

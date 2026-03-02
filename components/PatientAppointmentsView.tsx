@@ -1,6 +1,6 @@
 import React from 'react';
-import { Appointment, AppointmentStatus, User } from '../types';
-import { Calendar, Clock, User as UserIcon, CheckCircle, XCircle, UserX, Armchair, UserCheck } from 'lucide-react';
+import { Appointment, AppointmentStatus } from '../types';
+import { Calendar, CheckCircle, XCircle, UserX, Armchair, UserCheck } from 'lucide-react';
 import { formatDate } from '../constants';
 import { useStaff } from '../contexts/StaffContext';
 

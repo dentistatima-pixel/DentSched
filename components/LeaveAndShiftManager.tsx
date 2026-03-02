@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
 import { Check, X, Plus, UserX, ArrowLeft, User as UserIcon } from 'lucide-react';
 import { formatDate } from '../constants';
@@ -15,26 +15,10 @@ interface LeaveAndShiftManagerProps {
     onUpdateStaffRoster?: (staffId: string, day: string, branch: string) => void; // For Roster management
 }
 
-const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onAddLeaveRequest, onApproveLeaveRequest, fieldSettings, onBack, onUpdateStaffRoster }) => {
-    const [showRequestForm, setShowRequestForm] = useState(false);
-    const [newRequest, setNewRequest] = useState({
-        type: 'Vacation' as LeaveRequest['type'],
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        reason: ''
-    });
-
+const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onApproveLeaveRequest, fieldSettings, onBack, onUpdateStaffRoster }) => {
     const isAdmin = currentUser.role === UserRole.ADMIN;
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dentists = staff.filter(s => s.role === UserRole.DENTIST);
-
-    const handleSubmitRequest = () => {
-        onAddLeaveRequest({
-            ...newRequest,
-            staffId: currentUser.id
-        });
-        setShowRequestForm(false);
-    };
 
     return (
         <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 pb-24">
@@ -56,7 +40,7 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                     <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Pending Leave Requests</h3>
-                            {!isAdmin && <button onClick={() => setShowRequestForm(true)} className="bg-teal-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center gap-2"><Plus size={16}/> Submit Request</button>}
+                            {!isAdmin && <button onClick={() => {}} className="bg-teal-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center gap-2"><Plus size={16}/> Submit Request</button>}
                         </div>
                         <div className="space-y-3">
                             {leaveRequests.filter(r => r.status === 'Pending').map(req => (

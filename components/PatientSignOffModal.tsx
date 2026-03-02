@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { DentalChartEntry } from '../types';
-import { X, CheckCircle, Eraser, FileSignature } from 'lucide-react';
+import { CheckCircle, Eraser, FileSignature } from 'lucide-react';
 import { formatDate } from '../constants';
 
 interface PatientSignOffModalProps {

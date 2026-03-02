@@ -3,7 +3,7 @@ import { X, Printer, FileText, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { Patient, User, Appointment } from '../types';
+import { Patient } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -58,7 +58,6 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
 
     const handlePrint = () => {
         const doc = new jsPDF();
-        const finalY = (doc as any).lastAutoTable.finalY || 10;
         doc.html(document.getElementById('print-content')!, {
             callback: function (doc) {
                 doc.save(`${templateId}_${patient?.name || 'report'}.pdf`);

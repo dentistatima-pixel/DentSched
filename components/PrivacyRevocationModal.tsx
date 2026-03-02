@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ShieldAlert, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import { Patient, ConsentCategory, User } from '../types';
+import { ShieldAlert, X, AlertTriangle } from 'lucide-react';
+import { Patient, ConsentCategory } from '../types';
 
 interface PrivacyRevocationModalProps {
     isOpen: boolean;
@@ -10,7 +10,7 @@ interface PrivacyRevocationModalProps {
     category: ConsentCategory;
 }
 
-const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen, onClose, onConfirm, patient, category }) => {
+const PrivacyRevocationModal: React.FC<PrivacyRevocationModalProps> = ({ isOpen, onClose, onConfirm, category }) => {
     const [reason, setReason] = useState('Patient Request');
     const [notes, setNotes] = useState('');
     const [confirmationText, setConfirmationText] = useState('');

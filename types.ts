@@ -44,7 +44,9 @@ export enum ResourceType {
   CHAIR = 'Dental Chair',
   XRAY = 'Imaging Unit',
   CONSULTATION = 'Consultation Room',
-  RECOVERY = 'Recovery Bay'
+  RECOVERY = 'Recovery Bay',
+  LASER = 'Laser Unit',
+  SCANNER = 'Intraoral Scanner'
 }
 
 export interface ClinicResource {
@@ -333,7 +335,11 @@ export enum StockCategory {
   INSTRUMENTS = 'Instruments',
   RESTORATIVE = 'Restorative',
   PROSTHODONTIC = 'Prosthodontic',
-  OFFICE = 'Office Supplies'
+  OFFICE = 'Office Supplies',
+  SURGICAL = 'Surgical',
+  ENDODONTIC = 'Endodontic',
+  PREVENTIVE = 'Preventive',
+  PPE = 'PPE'
 }
 
 export interface StockItem {
@@ -348,13 +354,13 @@ export interface StockItem {
   lastRestockDate?: string;
   expiryDate?: string;
   batchNumber?: string;
-  minQuantity?: number;
   branch?: string;
   isLockedForEvidence?: boolean; 
   bulkUnit?: string;         
   dispensingUnit?: string;   
   conversionFactor?: number; 
   leadTimeDays?: number;
+  location?: string;
 }
 
 export interface InstrumentSet {
@@ -363,18 +369,6 @@ export interface InstrumentSet {
     status: 'Sterile' | 'Used' | 'Contaminated';
     lastCycleId?: string;
     branch: string;
-}
-
-export interface SterilizationCycle {
-    id: string;
-    date: string;
-    autoclaveName: string;
-    cycleNumber: string;
-    operator: string;
-    passed: boolean;
-    sterilizationCapacity?: number;
-    restockedItemId?: string;
-    instrumentSetIds?: string[];
 }
 
 export interface LeaveRequest {
@@ -445,7 +439,6 @@ export interface ProcedureItem {
   requiresImaging?: boolean;
   requiresConsent?: boolean;
   allowedLicenseCategories?: LicenseCategory[];
-  traySetup?: string[];
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
   riskAllergies?: string[];
@@ -1320,7 +1313,6 @@ export interface FieldSettings {
   };
   instrumentSets?: InstrumentSet[];
   stockItems?: StockItem[];
-  sterilizationCycles?: SterilizationCycle[];
   payrollAdjustmentTemplates: PayrollAdjustmentTemplate[];
   expenseCategories: string[];
   practitionerDelays?: Record<string, number>;

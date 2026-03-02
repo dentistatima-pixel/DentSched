@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle, X, ClipboardList, AlertTriangle, RotateCcw, CalendarPlus, FileText } from 'lucide-react';
+import { ShieldCheck, ClipboardList, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Appointment, Patient } from '../types';
 import { useToast } from './ToastSystem';
 
@@ -11,7 +11,7 @@ interface PostOpHandoverModalProps {
     patient: Patient;
 }
 
-const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm, appointment, patient }) => {
+const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClose, onConfirm }) => {
     const toast = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [checks, setChecks] = useState({

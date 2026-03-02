@@ -5,7 +5,6 @@ import { Patient, Appointment, DentalChartEntry, LedgerEntry, TreatmentPlanStatu
 import { useToast } from './ToastSystem';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
-import { useInventory } from '../contexts/InventoryContext';
 import { generateUid } from '../constants';
 import { Odontogram } from './Odontogram';
 import { Odontonotes } from './Odontonotes';
@@ -26,7 +25,6 @@ interface ClinicalCheckoutModalProps {
 const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, onClose, patient, appointment, onSavePatient, onUpdateAppointmentStatus }) => {
     const { currentUser, logAction } = useAppContext();
     const { fieldSettings } = useSettings();
-    const { stock, onUpdateStock } = useInventory();
     const toast = useToast();
     const { showModal } = useModal();
 
@@ -119,41 +117,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             // 4. Persist Changes
             await onSavePatient(finalPatient);
             
-            // 5. Inventory Deduction
-            const procedure = fieldSettings.procedures.find(p => p.name === appointment.type);
-            if (procedure && procedure.billOfMaterials && procedure.billOfMaterials.length > 0) {
-                const updatedStock = [...stock];
-                let stockChanged = false;
-                const lowStockItems: string[] = [];
-
-                procedure.billOfMaterials.forEach(bomItem => {
-                    const stockItemIndex = updatedStock.findIndex(s => s.id === bomItem.stockItemId);
-                    if (stockItemIndex !== -1) {
-                        const currentQty = updatedStock[stockItemIndex].quantity;
-                        // Deduct
-                        updatedStock[stockItemIndex] = {
-                            ...updatedStock[stockItemIndex],
-                            quantity: Math.max(0, currentQty - bomItem.quantity)
-                        };
-                        stockChanged = true;
-                        
-                        // Check for low stock alert (using minQuantity as Reorder Point)
-                        const reorderPoint = updatedStock[stockItemIndex].minQuantity || updatedStock[stockItemIndex].lowStockThreshold || 0;
-                        if (updatedStock[stockItemIndex].quantity <= reorderPoint) {
-                             lowStockItems.push(updatedStock[stockItemIndex].name);
-                        }
-                    }
-                });
-
-                if (stockChanged) {
-                    onUpdateStock(updatedStock);
-                    if (lowStockItems.length > 0) {
-                        toast.warning(`Low Stock Alert: ${lowStockItems.join(', ')}. Please reorder.`);
-                    }
-                }
-            }
-
-            // 6. Update Appointment Status
+            // 5. Update Appointment Status
             await onUpdateAppointmentStatus(appointment.id, AppointmentStatus.COMPLETED, {}, true);
 
             toast.success("Session completed and record sealed.");

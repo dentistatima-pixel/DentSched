@@ -73,7 +73,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
                 return Array.from(risks);
             };
 
-            const extractAlternativesFromPlan = (planItems: DentalChartEntry[]): string[] => {
+            const extractAlternativesFromPlan = (): string[] => {
                 return ["No treatment", "Alternative conservative management", "Referral to specialist"];
             };
             
@@ -86,7 +86,7 @@ const ApprovalDashboardModal: React.FC<ApprovalDashboardModalProps> = ({ isOpen,
                 entityDescription: `Rejection of Treatment Plan: "${plan.name}"`,
               },
               risks: extractRisksFromPlan(planItems),
-              alternatives: extractAlternativesFromPlan(planItems),
+              alternatives: extractAlternativesFromPlan(),
               recommendation: plan.clinicalRationale || `Proceed with the treatment plan "${plan.name}" as recommended.`,
               onSave: (refusalData: any) => {
                 handleSaveInformedRefusal(patient.id, refusalData);

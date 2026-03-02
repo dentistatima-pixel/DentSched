@@ -1,9 +1,8 @@
 
 import React, { useState, useRef, useEffect, useMemo, Suspense, useCallback } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, SterilizationCycle, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan } from '../types';
 import { Phone, Mail, MapPin, Stethoscope, Briefcase, BookUser, AlertCircle, ClipboardList, User as UserIcon, Heart, Activity, CheckCircle, ArrowLeft, ShieldCheck, MessageSquare, ChevronDown, Loader, Image as ImageIconLucide, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon, FileText, Shield, DollarSign, History } from 'lucide-react';
 import { formatDate, calculateAge } from '../constants';
-import { useToast } from './ToastSystem';
 import { usePatient } from '../contexts/PatientContext';
 import AuditTrailViewer from './AuditTrailViewer';
 import CommunicationLog from './CommunicationLog';
@@ -40,7 +39,6 @@ interface PatientDetailViewProps {
   governanceTrack: GovernanceTrack;
   onOpenRevocationModal: (patient: Patient, category: ConsentCategory) => void;
   readOnly?: boolean;
-  sterilizationCycles?: SterilizationCycle[];
   onUpdateSettings?: (settings: FieldSettings) => void;
   onRequestProtocolOverride: (rule: ClinicalProtocolRule, continuation: () => void) => void;
   onDeleteClinicalNote?: (patientId: string, noteId: string) => void;

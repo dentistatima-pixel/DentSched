@@ -1,16 +1,15 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { StockItem, SterilizationCycle, StockTransfer } from '../types';
-import { MOCK_STOCK, MOCK_STERILIZATION_CYCLES_INITIALIZED } from '../constants';
+import { StockItem, StockTransfer, ProcedureItem, StockCategory } from '../types';
+import { MOCK_STOCK } from '../constants';
 import { useToast } from '../components/ToastSystem';
 
 interface InventoryContextType {
     stock: StockItem[];
-    sterilizationCycles: SterilizationCycle[];
     transfers: StockTransfer[];
     onUpdateStock: (updatedStock: StockItem[]) => void;
-    handleAddSterilizationCycle: (cycle: SterilizationCycle) => Promise<void>;
     handlePerformTransfer: (transfer: StockTransfer) => Promise<void>;
+    deductStockForProcedure: (procedure: ProcedureItem) => void;
 }
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
@@ -18,7 +17,6 @@ const InventoryContext = createContext<InventoryContextType | undefined>(undefin
 export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
-    const [sterilizationCycles, setSterilizationCycles] = useState<SterilizationCycle[]>(MOCK_STERILIZATION_CYCLES_INITIALIZED);
     const [transfers, setTransfers] = useState<StockTransfer[]>([]);
 
     const createAsyncHandler = <T extends any[]>(handler: (...args: T) => void, successMsg?: string) => {
@@ -32,13 +30,48 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
         };
     };
     
+    const deductStockForProcedure = (procedure: ProcedureItem) => {
+        if (!procedure.billOfMaterials) return;
+        
+        setStock(prevStock => {
+            const newStock = [...prevStock];
+            const lowStockItems: string[] = [];
+
+            procedure.billOfMaterials!.forEach(bom => {
+                const itemIndex = newStock.findIndex(s => s.id === bom.stockItemId);
+                if (itemIndex > -1) {
+                    const item = newStock[itemIndex];
+                    // Only deduct if NOT an instrument
+                    if (item.category !== StockCategory.INSTRUMENTS) {
+                        const newQty = Number((item.quantity - bom.quantity).toFixed(2));
+                        newStock[itemIndex] = {
+                            ...item,
+                            quantity: Math.max(0, newQty)
+                        };
+
+                        // Check for low stock alert
+                        const reorderPoint = item.lowStockThreshold || 0;
+                        if (newStock[itemIndex].quantity <= reorderPoint) {
+                            lowStockItems.push(item.name);
+                        }
+                    }
+                }
+            });
+
+            if (lowStockItems.length > 0) {
+                toast.warning(`Low Stock Alert: ${lowStockItems.join(', ')}. Please reorder.`);
+            }
+
+            return newStock;
+        });
+    };
+    
     const value = { 
         stock, 
-        sterilizationCycles,
         transfers,
         onUpdateStock: setStock,
-        handleAddSterilizationCycle: createAsyncHandler((cycle: SterilizationCycle) => setSterilizationCycles(c => [cycle, ...c])),
-        handlePerformTransfer: createAsyncHandler((transfer: StockTransfer) => setTransfers(t => [...t, transfer]))
+        handlePerformTransfer: createAsyncHandler((transfer: StockTransfer) => setTransfers(t => [...t, transfer])),
+        deductStockForProcedure
     };
 
     return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;

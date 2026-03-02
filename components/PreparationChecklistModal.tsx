@@ -1,20 +1,18 @@
 
 import React from 'react';
-import { X, ClipboardCheck, Package, Wrench } from 'lucide-react';
+import { X, ClipboardCheck, Package } from 'lucide-react';
 
 interface PreparationChecklistModalProps {
   isOpen: boolean;
   onClose: () => void;
   consumables?: { name: string; quantity: number; unit: string }[];
-  traySetup?: string[];
   procedureName?: string;
 }
 
-const PreparationChecklistModal: React.FC<PreparationChecklistModalProps> = ({ isOpen, onClose, consumables, traySetup, procedureName }) => {
+const PreparationChecklistModal: React.FC<PreparationChecklistModalProps> = ({ isOpen, onClose, consumables, procedureName }) => {
   if (!isOpen) return null;
 
   const hasConsumables = consumables && consumables.length > 0;
-  const hasTraySetup = traySetup && traySetup.length > 0;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
@@ -48,26 +46,10 @@ const PreparationChecklistModal: React.FC<PreparationChecklistModalProps> = ({ i
             </div>
           )}
 
-          {hasTraySetup && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="font-black text-slate-700 uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
-                <Wrench size={16} className="text-teal-600" />
-                Instrument Tray Setup
-              </h3>
-              <ul className="space-y-2">
-                {traySetup.map((item, index) => (
-                  <li key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-100 font-bold text-sm text-slate-800">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {(!hasConsumables && !hasTraySetup) && (
+          {(!hasConsumables) && (
              <div className="text-center py-16 text-slate-400">
                 <p className="font-bold">No specific preparation items found.</p>
-                <p className="text-sm mt-1">This procedure does not have a defined Bill of Materials or Tray Setup.</p>
+                <p className="text-sm mt-1">This procedure does not have a defined Bill of Materials.</p>
               </div>
           )}
         </div>

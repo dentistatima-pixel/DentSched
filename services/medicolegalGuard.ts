@@ -57,11 +57,8 @@ export const canStartTreatment = (
         return { isBlocked: true, reason: 'Procedure requires signed consent.', modal: { type: 'consentCapture', props: { patient, appointment, template: consentTemplate, procedure } } };
     }
     
-    // 6. Sterilization
-    if (fieldSettings.features.enableMaterialTraceability && procedure?.traySetup && procedure.traySetup.length > 0 && !appointment.sterilizationVerified) {
-        return { isBlocked: true, reason: 'Procedure requires sterilization verification.', modal: { type: 'sterilizationVerification', props: { appointment, requiredSets: procedure.traySetup, instrumentSets: fieldSettings.instrumentSets || [], sterilizationCycles: fieldSettings.sterilizationCycles || [] } } };
-    }
-
+    // 6. Sterilization - REMOVED
+    
     // 7. Financial Consent for Plans
     if (appointment.planId) {
         const plan = patient.treatmentPlans?.find(p => p.id === appointment.planId);

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Patient, DentalChartEntry, User } from '../types';
-import { X, Camera, CheckCircle, RefreshCw, Type, Maximize, Target, Link, Aperture, ShieldCheck } from 'lucide-react';
+import { X, Camera, CheckCircle, RefreshCw, Target, Link, Aperture, ShieldCheck } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 

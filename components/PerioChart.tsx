@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { PerioMeasurement, DentalChartEntry } from '../types';
-import { Save, AlertTriangle, Info, MoveHorizontal, Diamond, Shield, History, Plus, Maximize2, Minimize2, ArrowRightLeft, Edit2, Droplet } from 'lucide-react';
+import { Save, AlertTriangle, MoveHorizontal, Diamond, Shield, History, Plus, Maximize2, Minimize2, ArrowRightLeft, Edit2, Droplet } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
 

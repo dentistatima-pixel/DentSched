@@ -11,7 +11,7 @@ export const AdminHub: React.FC<AdminHubProps> = ({ onNavigate }) => {
     { id: 'analytics', title: 'Analytics Hub', description: 'View performance dashboards and generate reports.', icon: BarChart2, color: 'bg-teal-600' },
     { id: 'governance', title: 'Governance Hub', description: 'Manage compliance, audit trails, and legal forms.', icon: ShieldCheck, color: 'bg-lilac-600' },
     { id: 'financials', title: 'Financials', description: 'Handle claims, expenses, and reconciliation.', icon: DollarSign, color: 'bg-emerald-600' },
-    { id: 'inventory', title: 'Inventory', description: 'Manage stock levels and sterilization cycles.', icon: Package, color: 'bg-blue-600' },
+    { id: 'inventory', title: 'Inventory', description: 'Manage stock levels.', icon: Package, color: 'bg-blue-600' },
     { id: 'roster', title: 'Staff Roster', description: 'View and manage weekly staff assignments.', icon: Users, color: 'bg-sky-600' },
     { id: 'familygroups', title: 'Family Groups', description: 'Manage family units and shared accounts.', icon: Users2, color: 'bg-pink-600' },
     { id: 'recall', title: 'Recall Center', description: 'Manage patient recall and retention workflows.', icon: History, color: 'bg-rose-600' },

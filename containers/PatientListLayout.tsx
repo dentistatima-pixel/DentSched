@@ -43,10 +43,10 @@ const PatientDetailContainer: React.FC<{
     activeTab,
     setActiveTab,
 }) => {
-  const { patients, isLoading: arePatientsLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleApproveFinancialConsent, handleConfirmRevocation, handleSaveInformedRefusal, handleVoidNote, handlePatientSignOffOnNote } = usePatient();
+  const { patients, isLoading: arePatientsLoading, handleSavePatient, handleDeleteClinicalNote, handleSupervisorySeal, handleRecordPaymentWithReceipt, handleConfirmRevocation } = usePatient();
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
-  const { stock, sterilizationCycles } = useInventory();
+  const { stock } = useInventory();
   const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
   const { fieldSettings, handleUpdateSettings } = useSettings();
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
@@ -116,7 +116,6 @@ const PatientDetailContainer: React.FC<{
         governanceTrack={governanceTrack}
         onOpenRevocationModal={onOpenRevocationModal}
         readOnly={isReadOnly}
-        sterilizationCycles={sterilizationCycles}
         onUpdateSettings={handleUpdateSettings}
         onRequestProtocolOverride={onRequestProtocolOverride}
         onDeleteClinicalNote={(patientId: string, noteId: string) => handleDeleteClinicalNote(patientId, noteId)}

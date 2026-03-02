@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Printer, Edit, FileText, Users, DollarSign, Save, X, Info, BarChart2, Search, User as UserIcon } from 'lucide-react';
+import { Printer, Edit, FileText, Users, DollarSign, Save, X, BarChart2, Search, User as UserIcon } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useToast } from './ToastSystem';
 import { Patient } from '../types';

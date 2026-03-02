@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldAlert, CheckCircle, X } from 'lucide-react';
+import { ShieldAlert, CheckCircle } from 'lucide-react';
 import { ClinicalProtocolRule } from '../types';
 
 interface ProtocolOverrideModalProps {

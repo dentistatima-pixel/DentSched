@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FieldSettings, Medication } from '../types';
-import { Pill, Plus, Save, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useModal } from '../contexts/ModalContext';
 
