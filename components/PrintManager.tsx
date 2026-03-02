@@ -138,7 +138,7 @@ const TemplateEditorModal: React.FC<TemplateEditorModalProps> = ({ templateId, o
     );
 };
 
-const PrintoutsHub: React.FC = () => {
+const PrintManager: React.FC = () => {
     const { fieldSettings } = useSettings();
     const { showModal } = useModal();
     const { patients } = usePatient();
@@ -180,7 +180,7 @@ const PrintoutsHub: React.FC = () => {
     return (
         <div className="p-10 space-y-12 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Printouts & Reports Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Reports</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Generate patient documents and administrative reports.</p>
             </div>
             
@@ -239,4 +239,4 @@ const PrintoutsHub: React.FC = () => {
     );
 };
 
-export default PrintoutsHub;
+export default PrintManager;

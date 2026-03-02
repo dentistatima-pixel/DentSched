@@ -1,13 +1,13 @@
 import React, { Suspense } from 'react';
 import { useNavigate } from '../contexts/RouterContext';
-import { AdminHub } from '../components/AdminHub';
+import { AdminDashboard } from '../components/AdminDashboard';
 
 // Import all sub-containers for the admin hub
 import FinancialsContainer from './FinancialsContainer';
 import InventoryContainer from './InventoryContainer';
-import AnalyticsHubContainer from './AnalyticsHubContainer';
-import GovernanceHubContainer from './GovernanceHubContainer';
-import CommunicationHubContainer from './CommunicationHubContainer';
+import AnalyticsContainer from './AnalyticsContainer';
+import ComplianceContainer from './ComplianceContainer';
+import CommunicationContainer from './CommunicationContainer';
 import RecallCenterContainer from './RecallCenterContainer';
 import ReferralManagerContainer from './ReferralManagerContainer';
 import RosterViewContainer from './RosterViewContainer';
@@ -26,7 +26,7 @@ const PageLoader: React.FC = () => (
 );
 
 
-function AdminHubContainer({ route }: { route: { param: string | null } }) {
+function AdminContainer({ route }: { route: { param: string | null } }) {
     const navigate = useNavigate();
     const activePage = route.param || 'hub';
 
@@ -37,11 +37,11 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
             case 'inventory':
                 return <InventoryContainer />;
             case 'analytics':
-                return <AnalyticsHubContainer />;
+                return <AnalyticsContainer />;
             case 'governance':
-                return <GovernanceHubContainer onNavigate={navigate} />;
+                return <ComplianceContainer onNavigate={navigate} />;
             case 'communications':
-                return <CommunicationHubContainer />;
+                return <CommunicationContainer />;
             case 'recall':
                 return <RecallCenterContainer />;
             case 'referrals':
@@ -51,10 +51,10 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
             case 'leave':
                 return <LeaveAndShiftManagerContainer />;
             case 'familygroups':
-                return <FamilyGroupManagerContainer onBack={() => navigate('admin')} />;
+                return <FamilyGroupManagerContainer />;
             default:
                 // If no param, show the main Admin Hub dashboard
-                return <AdminHub onNavigate={navigate} />;
+                return <AdminDashboard onNavigate={navigate} />;
         }
     };
     
@@ -67,4 +67,4 @@ function AdminHubContainer({ route }: { route: { param: string | null } }) {
     );
 }
 
-export default AdminHubContainer;
+export default AdminContainer;

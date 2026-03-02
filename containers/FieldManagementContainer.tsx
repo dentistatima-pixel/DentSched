@@ -1,7 +1,5 @@
-import React from 'react';
 import FieldManagement from '../components/FieldManagement';
 import { useSettings } from '../contexts/SettingsContext';
-import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';

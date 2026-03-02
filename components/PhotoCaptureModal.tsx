@@ -144,8 +144,8 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                     <div className="flex items-center gap-3">
                         <div className="bg-lilac-100 p-3 rounded-xl text-lilac-700"><Camera size={24}/></div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800">Clinical Image Capture</h2>
-                            <p className="text-sm text-slate-500">Attach verifiable media to clinical note.</p>
+                            <h2 className="text-xl font-bold text-slate-800">Take Photo</h2>
+                            <p className="text-sm text-slate-500">Add a photo to the patient's record.</p>
                         </div>
                     </div>
                     <button onClick={onClose}><X size={24} className="text-slate-500"/></button>
@@ -162,7 +162,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                         <div className="bg-green-50 border-l-4 border-green-500 p-4">
                           <div className="flex items-center gap-2">
                             <ShieldCheck className="text-green-600" size={18}/>
-                            <span className="text-sm font-semibold text-green-800">Media Consent Verified</span>
+                            <span className="text-sm font-semibold text-green-800">Consent Verified</span>
                           </div>
                           <p className="text-xs text-slate-600 mt-1">
                             Patient consented on {patient.clinicalMediaConsent?.consentTimestamp ? new Date(patient.clinicalMediaConsent.consentTimestamp).toLocaleDateString() : 'N/A'}
@@ -192,12 +192,12 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                         <>
                              <button onClick={handleRetake} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-2"><RefreshCw size={16}/> Retake</button>
                              <button onClick={handleSave} className="px-10 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
-                                <CheckCircle size={18}/> Save to Chart
+                                <CheckCircle size={18}/> Save Photo
                             </button>
                         </>
                     ) : (
                         <button onClick={handleCapture} disabled={!isCameraActive || !canCapture} className="w-full py-5 bg-lilac-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 disabled:opacity-50">
-                            <Aperture size={20}/> Capture Image
+                            <Aperture size={20}/> Take Photo
                         </button>
                     )}
                 </div>

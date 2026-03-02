@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, Users, ShieldAlert, DollarSign as FinanceIcon, ShieldCheck, Key } from 'lucide-react';
-import { WaitlistEntry, Patient, User } from '../types';
+import { WaitlistEntry } from '../types';
 import { usePatient } from '../contexts/PatientContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useToast } from './ToastSystem';
@@ -68,7 +68,7 @@ const WaitlistPanel: React.FC<WaitlistPanelProps> = ({ waitlist, onClose, onAssi
                     <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <div className="flex items-center gap-3">
                             <div className="bg-teal-100 p-2 rounded-xl text-teal-800"><Users size={20}/></div>
-                            <h3 className="font-black text-slate-800 uppercase tracking-tight">Waitlist Engine</h3>
+                            <h3 className="font-black text-slate-800 uppercase tracking-tight">Waitlist</h3>
                         </div>
                         <button onClick={onClose} aria-label="Close waitlist panel" className="p-2 text-slate-400 hover:text-slate-800 transition-colors"><X size={24}/></button>
                     </div>
@@ -135,7 +135,7 @@ const WaitlistPanel: React.FC<WaitlistPanelProps> = ({ waitlist, onClose, onAssi
             {overrideTarget && (
                  <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 animate-in zoom-in-95 border-4 border-red-100" role="dialog" aria-labelledby="override-title">
-                         <div className="flex items-center gap-4 text-red-600 mb-8"><div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div><div><h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Guardrail Triggered</h3><p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Front-Desk Integrity Block</p></div></div>
+                         <div className="flex items-center gap-4 text-red-600 mb-8"><div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div><div><h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Waitlist Alert</h3><p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Booking Restriction</p></div></div>
                          <div className="bg-red-50 p-6 rounded-3xl mb-8 space-y-4 border border-red-100"><p className="text-sm font-bold text-red-900 leading-relaxed uppercase tracking-tighter">Attention: <strong>{overrideTarget.patientName}</strong> is currently flagged for:</p><ul className="space-y-3">{(getPatient(overrideTarget.patientId)?.reliabilityScore ?? 100) < RELIABILITY_THRESHOLD && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight">Low Appointment Reliability</li>)}{(getPatient(overrideTarget.patientId)?.currentBalance ?? 0) > 0 && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight">Unresolved Practice Debt</li>)}</ul></div>
                          <div className="space-y-6 mb-10"><div><label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Select Authorizing Manager *</label><select aria-label="Authorizing Manager" value={selectedManagerId} onChange={e => setSelectedManagerId(e.target.value)} className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-800 outline-none focus:border-red-600 mb-4 transition-all"><option value="">- Choose Authorized Personnel -</option>{authorizedManagers.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}</select><label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block flex items-center gap-2"><Key size={14}/> Verifying Staff PIN *</label><input aria-label="Verification PIN" type="password" maxLength={4} value={managerPin} onChange={e => setManagerPin(e.target.value)} placeholder="••••" className="w-full p-5 text-center text-3xl tracking-[1em] border-2 border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-black bg-slate-50"/></div>
                             <label className="flex items-start gap-4 p-5 rounded-3xl border-2 border-slate-200 hover:border-teal-600 transition-all cursor-pointer bg-white">

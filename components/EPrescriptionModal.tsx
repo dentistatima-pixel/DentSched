@@ -227,8 +227,8 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     <div className="flex items-center gap-3">
                         <Pill size={24} aria-hidden="true"/>
                         <div>
-                            <h2 id="rx-title" className="text-xl font-bold">Clinical Prescription</h2>
-                            <p className="text-xs text-teal-200 uppercase font-black tracking-widest">RA 6675 Generics Act Governance</p>
+                            <h2 id="rx-title" className="text-xl font-bold">Prescription</h2>
+                            <p className="text-xs text-teal-200 uppercase font-black tracking-widest">Generics Act Compliant</p>
                         </div>
                     </div>
                     <button onClick={onClose} aria-label="Close prescription module"><X size={24}/></button>
@@ -240,7 +240,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     <div className="bg-red-50 border-2 border-red-200 p-6 rounded-3xl space-y-4 shadow-sm animate-in slide-in-from-top-2">
                         <div className="flex items-center gap-3 text-red-700">
                             <HeartPulse size={24} className="animate-pulse" />
-                            <h3 className="font-black uppercase tracking-tight text-xs">Mandatory Allergic Risk Disclosure</h3>
+                            <h3 className="font-black uppercase tracking-tight text-xs">Allergy Warning</h3>
                         </div>
                         <p className="text-xs text-red-900 font-medium leading-relaxed italic">
                             "{drugsAndMedsConsent}"
@@ -255,8 +255,8 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         <div className="bg-red-600 text-white p-6 rounded-3xl shadow-xl flex items-center gap-5 animate-in shake duration-500 mb-2 border-4 border-red-400" role="alert">
                             <Lock size={32} className="shrink-0" aria-hidden="true" />
                             <div>
-                                <h3 className="text-lg font-black uppercase tracking-tighter">Clinical Authority Locked</h3>
-                                <p className="text-xs font-bold opacity-90 leading-relaxed mt-1">Prescription functions are suspended due to an expired practitioner license.</p>
+                                <h3 className="text-lg font-black uppercase tracking-tighter">License Expired</h3>
+                                <p className="text-xs font-bold opacity-90 leading-relaxed mt-1">You cannot prescribe until your license is updated.</p>
                             </div>
                         </div>
                     )}
@@ -270,7 +270,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         ) : (
                             <div className="bg-orange-50 border border-orange-200 px-4 py-2 rounded-2xl flex items-center gap-2 animate-in shake duration-500" role="alert">
                                 <FileWarning size={16} className="text-orange-600" aria-hidden="true"/>
-                                <span className="text-xs font-black text-orange-700 uppercase tracking-widest">Ethics Alert: Assessment Missing Today</span>
+                                <span className="text-xs font-black text-orange-700 uppercase tracking-widest">Assessment Not Done Today</span>
                             </div>
                         )}
                     </div>
@@ -279,7 +279,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         <div className="bg-red-50 border-2 border-red-200 p-5 rounded-3xl space-y-4 animate-in slide-in-from-top-4 shadow-lg ring-4 ring-red-500/5" role="region" aria-label="Pediatric Safety Checks">
                             <div className="flex items-center gap-3 text-red-700">
                                 <Baby size={28} aria-hidden="true" />
-                                <h3 className="font-black uppercase tracking-tight text-sm">Pediatric Safety Checklist</h3>
+                                <h3 className="font-black uppercase tracking-tight text-sm">Pediatric Safety</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -305,7 +305,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 <div className="p-4 bg-red-600 text-white rounded-2xl flex items-start gap-3 animate-pulse border-2 border-white/20" role="alert">
                                     <ShieldAlert size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
                                     <div>
-                                        <div className="font-black text-xs uppercase tracking-widest">Dosage Threshold Breach</div>
+                                        <div className="font-black text-xs uppercase tracking-widest">Dosage Too High</div>
                                         <p className="text-xs font-bold leading-tight mt-1">{safetyViolation}</p>
                                     </div>
                                 </div>
@@ -317,19 +317,19 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                         <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-3xl space-y-4 animate-in slide-in-from-top-4 shadow-lg" role="alert">
                             <div className="flex items-center gap-3 text-amber-800">
                                 <BookOpen size={32} aria-hidden="true" />
-                                <h3 className="font-black uppercase tracking-tight text-sm">PDEA S2 Statutory Logbook</h3>
+                                <h3 className="font-black uppercase tracking-tight text-sm">S2 Logbook</h3>
                             </div>
                             {s2Status.violation && (
                                 <div className="p-4 bg-red-600 text-white rounded-2xl flex items-start gap-3 animate-pulse border-2 border-white/20" role="alert">
                                     <ShieldAlert size={20} className="shrink-0 mt-0.5" aria-hidden="true" />
                                     <div>
-                                        <div className="font-black text-xs uppercase tracking-widest">S2 PRESCRIPTION BLOCKED</div>
+                                        <div className="font-black text-xs uppercase tracking-widest">S2 Blocked</div>
                                         <p className="text-xs font-bold leading-tight mt-1">Reason: {s2Status.reason}. Update your profile.</p>
                                     </div>
                                 </div>
                             )}
                             <p className="text-xs text-amber-900 font-bold leading-relaxed uppercase tracking-wide">
-                                Controlled substances require a <strong>Physical Yellow Prescription</strong>. Record the serial number here to generate the mandatory digital audit trail.
+                                Enter the Yellow Rx Serial Number for controlled substances.
                             </p>
                             <div className="space-y-2 pt-2">
                                 <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest ml-1 block">Yellow Rx Serial Number *</label>
@@ -347,14 +347,14 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 disabled={!yellowRxSerial.trim() || !consentAcknowledged || s2Status.violation}
                                 className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-50"
                             >
-                                Commit to Statutory Logbook
+                                Save to Logbook
                             </button>
                         </div>
                     ) : needsJustification && (
                         <div className="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-sm space-y-3 animate-in shake duration-500">
                             <div className="flex items-center gap-2 text-orange-600 mb-1">
                                 <Zap size={14} className="animate-pulse" aria-hidden="true"/>
-                                <label className="text-xs font-black uppercase tracking-widest text-orange-800">Prescriber's Forensic Overrule Narrative *</label>
+                                <label className="text-xs font-black uppercase tracking-widest text-orange-800">Reason for Override *</label>
                             </div>
                             <textarea value={clinicalJustification} onChange={e => setClinicalJustification(e.target.value)} placeholder="Mandatory narrative justifying this high-risk prescription (Min 20 chars)..." className="w-full p-3 bg-orange-50 border border-orange-100 rounded-xl text-xs font-bold outline-none h-20" />
                         </div>
@@ -363,7 +363,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     {!selectedMed?.isS2Controlled && (
                         <>
                         <div>
-                            <label className="block text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Medication Selection (RA 6675)</label>
+                            <label className="block text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Select Medication</label>
                             <select 
                                 aria-label="Select medication"
                                 value={selectedMedId} 
@@ -383,7 +383,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-inner flex flex-col items-center text-center gap-2 animate-in fade-in duration-500">
                                 <div className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">{selectedMed.genericName}</div>
                                 {selectedMed.brandName && <div className="text-xs font-bold text-slate-500 uppercase tracking-widest italic">Brand: {selectedMed.brandName}</div>}
-                                <div className="mt-2 px-4 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-black uppercase tracking-widest border border-teal-100">RA 6675 Compliant Prominence</div>
+                                <div className="mt-2 px-4 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-black uppercase tracking-widest border border-teal-100">Generics Act Compliant</div>
                             </div>
                         )}
 
@@ -407,7 +407,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                     <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200 flex items-center gap-3">
                         <Fingerprint size={20} className="text-slate-500" aria-hidden="true"/>
                         <p className="text-xs font-bold text-slate-600 uppercase leading-tight tracking-tight">
-                            SHA-256 Integrity Active. Generic prominence is structurally enforced for statutory compliance.
+                            Prescription is secure and compliant.
                         </p>
                     </div>
                 </div>
@@ -421,7 +421,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                           className={`px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isAuthorityLocked || s2Status.violation ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-teal-600 text-white shadow-teal-600/20 hover:bg-teal-700'}`}
                         >
                             {isAuthorityLocked ? <Lock size={16} aria-hidden="true"/> : <Printer size={16} aria-hidden="true"/>} 
-                            {isAuthorityLocked ? 'License Locked' : (s2Status.violation ? `S2 ${s2Status.reason}` : 'Print Prominent generic Rx')}
+                            {isAuthorityLocked ? 'License Locked' : (s2Status.violation ? `S2 ${s2Status.reason}` : 'Print Prescription')}
                         </button>
                     )}
                 </div>

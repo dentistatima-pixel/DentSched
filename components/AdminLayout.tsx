@@ -8,10 +8,10 @@ interface AdminLayoutProps {
 }
 
 const adminSections = [
-    { id: 'hub', title: 'Admin Hub', icon: LayoutGrid },
+    { id: 'hub', title: 'Admin', icon: LayoutGrid },
     { id: 'analytics', title: 'Analytics', icon: BarChart2 },
-    { id: 'governance', title: 'Governance', icon: ShieldCheck },
-    { id: 'financials', title: 'Financials', icon: DollarSign },
+    { id: 'governance', title: 'Compliance', icon: ShieldCheck },
+    { id: 'financials', title: 'Finance & Payroll', icon: DollarSign },
     { id: 'inventory', title: 'Inventory', icon: Package },
     { id: 'roster', title: 'Roster', icon: Users },
     { id: 'familygroups', title: 'Family Groups', icon: Users2 },

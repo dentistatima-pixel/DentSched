@@ -123,7 +123,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
     <div className="p-10 space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">Personal Profile</h3>
+          <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">My Profile</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-2">Manage your professional identity and session controls.</p>
         </div>
         {!isEditing ? (
@@ -153,11 +153,11 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
         
         {isClinicalStaff && (
           <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-            <h4 className="label text-sm flex items-center gap-2"><Shield size={16}/> Professional Verification</h4>
+            <h4 className="label text-sm flex items-center gap-2"><Shield size={16}/> License Details</h4>
             
             <div className="grid grid-cols-1 landscape:grid-cols-2 gap-6">
                  <div className="landscape:col-span-2">
-                    <label htmlFor="license-category" className="label text-xs">Statutory License Category *</label>
+                    <label htmlFor="license-category" className="label text-xs">License Category *</label>
                     <select id="license-category" name="licenseCategory" value={formData.licenseCategory || ''} onChange={handleChange} disabled={!isEditing} className="input">
                         <option value="">- SELECT SCOPE (RA 9484) -</option>
                         <option value="DENTIST">LICENSED DENTIST</option>
@@ -174,7 +174,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
                 
                 {(isDentist || formData.role === UserRole.SYSTEM_ARCHITECT) && (
                     <div className="landscape:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Prescriber's Information (S2)</h5>
+                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">S2 License Details</h5>
                         <div className="grid grid-cols-2 gap-6">
                             <ProfileField label="S2 License #" name="s2License" value={formData.s2License} onChange={handleChange} isEditing={isEditing} placeholder="PDEA-S2-XXXX"/>
                             <ProfileField label="S2 Expiry" name="s2Expiry" value={formData.s2Expiry} onChange={handleChange} isEditing={isEditing} type="date"/>
@@ -186,7 +186,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
         )}
 
         <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-            <h4 className="label text-sm flex items-center gap-2"><Briefcase size={16}/> Administrative Details</h4>
+            <h4 className="label text-sm flex items-center gap-2"><Briefcase size={16}/> Admin Details</h4>
             <div className="grid grid-cols-1 landscape:grid-cols-2 gap-6">
                 <ProfileField label="TIN (Tax Identification Number)" name="tin" value={formData.tin} onChange={handleChange} isEditing={isEditing} placeholder="XXX-XXX-XXX-000" />
                 <ProfileField label="Payout Handle" name="payoutHandle" value={formData.payoutHandle} onChange={handleChange} isEditing={isEditing} placeholder="e.g., GCash Number or Bank Account" />
@@ -208,9 +208,9 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
         </div>
 
         <div className="space-y-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-            <h4 className="label text-sm flex items-center gap-2"><GraduationCap size={16}/> CPD Tracking</h4>
+            <h4 className="label text-sm flex items-center gap-2"><GraduationCap size={16}/> CPD Units</h4>
             <div className="bg-bg-secondary p-6 rounded-2xl border border-teal-100 dark:border-teal-900 shadow-sm text-center">
-                <div className="text-[10px] font-black uppercase text-text-secondary tracking-widest mb-4">PRC Renewal Readiness</div>
+                <div className="text-[10px] font-black uppercase text-text-secondary tracking-widest mb-4">Renewal Progress</div>
                 <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-full h-full transform -rotate-90">
                         <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-700" />
@@ -225,7 +225,7 @@ const PersonalProfile: React.FC<PersonalProfileProps> = ({ currentUser, onSave }
             </div>
             {isEditing && (
                 <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-                    <h4 className="label text-xs flex items-center gap-2">Log Professional Education</h4>
+                    <h4 className="label text-xs flex items-center gap-2">Add CPD Entry</h4>
                     <input id="cpd-title" type="text" placeholder="Course/Seminar Title" className="input" value={newCpdTitle} onChange={e => setNewCpdTitle(e.target.value)} />
                     <div className="flex gap-2">
                         <input id="cpd-units" type="number" placeholder="Units" className="input flex-1" value={newCpdUnits} onChange={e => setNewCpdUnits(e.target.value)} />

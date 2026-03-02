@@ -88,12 +88,12 @@ const FamilyGroupManager: React.FC<FamilyGroupManagerProps> = ({ settings, onUpd
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center gap-4">
                 {onBack && (
-                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
                       <ArrowLeft size={24} className="text-slate-600"/>
                   </button>
                 )}
                 <div>
-                    <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Family Group Manager</h3>
+                    <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Family Groups</h3>
                     <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Manage shared accounts and family units.</p>
                 </div>
             </div>

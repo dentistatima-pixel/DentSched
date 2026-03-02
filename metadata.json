@@ -1,5 +1,5 @@
 {
-  "name": "dentsched",
+  "name": "DentSched",
   "description": "A tablet-first, intelligent dental practice management system featuring clinical charting, inventory auditing, and a beautiful teal and lilac aesthetic.",
   "requestFramePermissions": [
     "camera"

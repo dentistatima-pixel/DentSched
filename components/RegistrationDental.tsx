@@ -1,6 +1,6 @@
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
-import { Activity, History, MessageSquare, ShieldAlert, Edit3 } from 'lucide-react';
+import { Activity, History, MessageSquare, Edit3 } from 'lucide-react';
 
 const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'dentalCore' | 'dentalQuestion', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
   const isSelected = selectedFieldId === id;

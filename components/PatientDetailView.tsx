@@ -9,7 +9,7 @@ import CommunicationLog from './CommunicationLog';
 import { ErrorBoundary } from './ErrorBoundary';
 
 // Lazy load heavy components
-const Odontonotes = React.lazy(() => import('./Odontonotes').then(module => ({ default: module.Odontonotes })));
+const ClinicalNotes = React.lazy(() => import('./ClinicalNotes').then(module => ({ default: module.ClinicalNotes })));
 const Odontogram = React.lazy(() => import('./Odontogram').then(module => ({ default: module.Odontogram })));
 const PerioChart = React.lazy(() => import('./PerioChart').then(module => ({ default: module.PerioChart })));
 const TreatmentPlanModule = React.lazy(() => import('./TreatmentPlanModule'));
@@ -333,8 +333,8 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     const mainTabs = [
         { id: 'details', label: 'Details', icon: FileText },
-        { id: 'strategy', label: 'Strategy', icon: ClipboardList },
-        { id: 'notes', label: 'Notes', icon: FileText },
+        { id: 'strategy', label: 'Treatment Plan', icon: ClipboardList },
+        { id: 'notes', label: 'Clinical Notes', icon: FileText },
         { id: 'chart', label: 'Chart', icon: Stethoscope },
         { id: 'perio', label: 'Perio', icon: Activity },
         { id: 'imaging', label: 'Imaging', icon: ImageIconLucide },
@@ -343,9 +343,9 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     const moreTabs = [
         { id: 'appointments', label: 'Appointments', icon: History },
-        { id: 'comms', label: 'Comms', icon: MessageSquare },
+        { id: 'comms', label: 'Communications', icon: MessageSquare },
         { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
-        { id: 'history', label: 'History', icon: Shield },
+        { id: 'history', label: 'Audit Log', icon: Shield },
     ];
     
     const renderTabContent = () => {
@@ -353,7 +353,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
         switch(activeTab) {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
             case 'strategy': return <TreatmentPlanModule {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
-            case 'notes': return <Odontonotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} onAssignToPlan={() => setActiveTab('strategy')} />;
+            case 'notes': return <ClinicalNotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} onAssignToPlan={() => setActiveTab('strategy')} />;
             case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
@@ -383,9 +383,9 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest">New Appt</button>
+                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest">Book Appointment</button>
                      <button onClick={() => onEditPatient(patient)} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patient.registrationStatus === 'Provisional' ? 'bg-amber-400 text-amber-950 border-2 border-amber-400 shadow-lg shadow-amber-900/20 hover:bg-amber-300' : 'bg-transparent border-2 border-white text-white hover:bg-white/10'}`}>
-                        {patient.registrationStatus === 'Provisional' ? 'Resume Registration' : 'Edit Profile'}
+                        {patient.registrationStatus === 'Provisional' ? 'Resume Registration' : 'Edit Patient'}
                      </button>
                 </div>
             </header>

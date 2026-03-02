@@ -26,7 +26,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
                 <div className="flex-1 overflow-y-auto p-8 text-sm text-slate-600 leading-relaxed space-y-6">
                     <section>
                         <h3 className="font-bold text-slate-800 text-lg mb-2">1. Introduction</h3>
-                        <p>dentsched ("we", "us", "our") is committed to protecting your personal data. This Privacy Policy outlines how we collect, use, store, and share your information in compliance with the Philippines Data Privacy Act of 2012 (R.A. 10173).</p>
+                        <p>DentSched ("we", "us", "our") is committed to protecting your personal data. This Privacy Policy outlines how we collect, use, store, and share your information in compliance with the Philippines Data Privacy Act of 2012 (R.A. 10173).</p>
                     </section>
 
                     <section className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-slate-200">

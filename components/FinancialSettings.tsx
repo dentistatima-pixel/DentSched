@@ -110,7 +110,7 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
                  return (
                     <div>
                         <div className="flex justify-between items-center mb-4">
-                            <h4 className="label text-sm">Payroll Adjustment Templates</h4>
+                            <h4 className="label text-sm">Payroll Adjustments</h4>
                             <button onClick={handleAddPayrollTemplate} className="p-2 bg-teal-50 text-teal-600 rounded-lg hover:bg-teal-100"><Plus size={16}/></button>
                         </div>
                         <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -134,7 +134,7 @@ const FinancialSettings: React.FC<FinancialSettingsProps> = ({ settings, onUpdat
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Financial & HR Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Finance</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Configure financial transaction types and payroll components.</p>
             </div>
             

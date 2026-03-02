@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, Send, MessageSquare, Loader2 } from 'lucide-react';
-import { Patient, CommunicationChannel, SmsTemplateConfig } from '../types';
+import { CommunicationChannel, SmsTemplateConfig } from '../types';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { sanitizeSmsContent, sendSms } from '../services/smsService';

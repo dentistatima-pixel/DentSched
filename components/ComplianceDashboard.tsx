@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle } from 'lucide-react';
 import AuditTrailViewer from './AuditTrailViewer';
-import LegalActionHub from './LegalActionHub';
+import LegalActions from './LegalActions';
 import ComplianceCenter from './ComplianceCenter';
 import ConsentFormManager from './ConsentFormManager';
 import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident } from '../types';
@@ -71,7 +71,7 @@ const BreachNotificationCountdown: React.FC<BreachNotificationCountdownProps> = 
 };
 
 
-interface GovernanceHubProps {
+interface ComplianceDashboardProps {
   patients: Patient[];
   showModal: (type: string, props: any) => void;
   auditLog: AuditLogEntry[];
@@ -84,15 +84,15 @@ interface GovernanceHubProps {
 }
 
 // FIX: Changed "export const" to "const" to make this a clean default export.
-const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
+const ComplianceDashboard: React.FC<ComplianceDashboardProps> = (props) => {
   const [activeTab, setActiveTab] = useState('audit');
 
   const tabs = [
-    { id: 'audit', label: 'Forensic Audit Trail', icon: Fingerprint, color: 'text-teal-600' },
+    { id: 'audit', label: 'Audit Trail', icon: Fingerprint, color: 'text-teal-600' },
     { id: 'compliance', label: 'Compliance Center', icon: Shield, color: 'text-blue-600' },
     { id: 'breaches', label: 'Breaches', icon: AlertTriangle, color: 'text-red-600' },
     { id: 'consent', label: 'Consent Forms', icon: FileSignature, color: 'text-lilac-600' },
-    { id: 'legal', label: 'Legal Action Hub', icon: Scale, color: 'text-amber-600' },
+    { id: 'legal', label: 'Legal & Incidents', icon: Scale, color: 'text-amber-600' },
   ];
 
   const renderContent = () => {
@@ -119,7 +119,7 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
       case 'consent':
         return <ConsentFormManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
       case 'legal':
-        return <LegalActionHub patients={props.patients} showModal={props.showModal} />;
+        return <LegalActions patients={props.patients} showModal={props.showModal} />;
       default:
         return null;
     }
@@ -128,13 +128,13 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
   return (
     <div className="p-8 animate-in fade-in duration-500 space-y-8">
       <div className="flex items-center gap-4">
-        <button onClick={props.onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+        <button onClick={props.onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
             <ArrowLeft size={24} className="text-slate-600"/>
         </button>
         <div className="bg-lilac-600 p-4 rounded-3xl text-white shadow-xl"><ShieldCheck size={36} /></div>
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Governance Hub</h1>
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Compliance, Audit, and Legal Documentation</p>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Compliance</h1>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Practice-wide compliance and legal documentation</p>
         </div>
       </div>
       
@@ -158,4 +158,4 @@ const GovernanceHub: React.FC<GovernanceHubProps> = (props) => {
   );
 };
 
-export default GovernanceHub;
+export default ComplianceDashboard;

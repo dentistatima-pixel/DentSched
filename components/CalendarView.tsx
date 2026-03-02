@@ -473,7 +473,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
               <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                   <div className="flex items-center gap-3">
                       <div className="bg-teal-100 p-2 rounded-xl text-teal-800"><Users size={20}/></div>
-                      <h3 className="font-black text-slate-800 uppercase tracking-tight">Waitlist Engine</h3>
+                      <h3 className="font-black text-slate-800 uppercase tracking-tight">Waitlist</h3>
                   </div>
                   <button onClick={() => setShowWaitlist(false)} aria-label="Close waitlist panel" className="p-2 text-slate-400 hover:text-slate-800 transition-colors"><X size={24}/></button>
               </div>
@@ -545,8 +545,8 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                   <div className="flex items-center gap-4 text-red-600 mb-8">
                       <div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div>
                       <div>
-                          <h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Guardrail Triggered</h3>
-                          <p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Front-Desk Integrity Block</p>
+                          <h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Waitlist Alert</h3>
+                          <p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Booking Restriction</p>
                       </div>
                   </div>
 

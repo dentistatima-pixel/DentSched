@@ -135,7 +135,7 @@ const FinancialConsentModal: React.FC<FinancialConsentModalProps> = ({
                             <DollarSign size={24} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800">Treatment Quote & Financial Consent</h2>
+                            <h2 className="text-xl font-bold text-slate-800">Financial Consent</h2>
                             <p className="text-sm text-slate-500">Plan: {plan.name}</p>
                         </div>
                     </div>

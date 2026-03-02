@@ -169,7 +169,7 @@ const InformedRefusalModal: React.FC<InformedRefusalModalProps> = ({
                 <div className="p-6 border-b border-red-100 bg-red-50 flex items-center gap-3">
                     <XCircle size={28} className="text-red-600"/>
                     <div>
-                        <h2 className="text-xl font-black text-red-900 uppercase tracking-tight">Informed Refusal of Treatment</h2>
+                        <h2 className="text-xl font-black text-red-900 uppercase tracking-tight">Refusal of Treatment</h2>
                         <p className="text-xs text-red-700 font-bold uppercase">Medico-Legal Documentation</p>
                     </div>
                 </div>

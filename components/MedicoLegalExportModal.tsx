@@ -136,7 +136,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const certText = `I, as the Personal Information Controller (PIC) for dentsched Practice, hereby certify that the following data represents the true and original clinical history of patient ${patient.name} (UID: ${patient.id}) as recorded in our encrypted electronic health record system. These records are digitally sealed to ensure non-repudiation and temporal integrity under the Rules on Electronic Evidence of the Philippines.`;
+        const certText = `I, as the Personal Information Controller (PIC) for DentSched Practice, hereby certify that the following data represents the true and original clinical history of patient ${patient.name} (UID: ${patient.id}) as recorded in our encrypted electronic health record system. These records are digitally sealed to ensure non-repudiation and temporal integrity under the Rules on Electronic Evidence of the Philippines.`;
         const splitCert = doc.splitTextToSize(certText, 170);
         doc.text(splitCert, 20, 70);
         
@@ -332,7 +332,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                     <div className="flex items-center gap-4">
                         <div className="bg-teal-500 p-2 rounded-xl"><Shield size={24} /></div>
                         <div>
-                            <h2 className="text-xl font-black uppercase tracking-tight">Legal Action Hub</h2>
+                            <h2 className="text-xl font-black uppercase tracking-tight">Legal & Incidents</h2>
                             <p className="text-xs text-teal-400 font-bold uppercase tracking-widest mt-1">Export Clinical Evidence</p>
                         </div>
                     </div>

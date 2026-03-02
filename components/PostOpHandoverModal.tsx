@@ -54,14 +54,14 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                         <ClipboardList size={32} />
                     </div>
                     <h2 className="text-2xl font-black text-teal-900 uppercase tracking-tight">Clinical Handover Gate</h2>
-                    <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-1">Post-Operative Instruction Verification</p>
+                    <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-1">Before You Release the Patient</p>
                 </div>
 
                 <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
                     <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
                         <AlertTriangle size={24} className="text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-900 font-bold leading-relaxed">
-                            <strong>Liability Protection Gate:</strong> You must certify that the patient understands their post-treatment responsibilities before clinical release. This action is logged permanently.
+                            <strong>Safety Check:</strong> You must certify that the patient understands their post-treatment responsibilities before clinical release. This action is logged permanently.
                         </p>
                     </div>
 

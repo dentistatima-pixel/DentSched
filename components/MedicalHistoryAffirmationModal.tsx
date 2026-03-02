@@ -232,8 +232,8 @@ const MedicalHistoryAffirmationModal: React.FC<MedicalHistoryAffirmationModalPro
           <div className="flex items-center gap-4">
               <HeartPulse size={28} className="text-amber-600" />
               <div>
-                <h2 className="text-xl font-black text-amber-900 uppercase tracking-tight">Medical History Affirmation</h2>
-                <p className="text-xs text-amber-700 font-bold uppercase">Mandatory Pre-Treatment Verification</p>
+                <h2 className="text-xl font-black text-amber-900 uppercase tracking-tight">Update Medical Info</h2>
+                <p className="text-xs text-amber-700 font-bold uppercase">Update your medical information</p>
               </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-amber-200 rounded-full transition-colors"><X size={24} className="text-amber-950" /></button>

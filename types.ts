@@ -1252,6 +1252,9 @@ export interface FieldSettings {
   clinicName: string;
   clinicProfile: ClinicProfile;
   clinicLogo?: string;
+  clinicLogoFull?: string;
+  clinicLogoCompact?: string;
+  clinicLogoIcon?: string;
   strictMode: boolean;
   editBufferWindowMinutes: number;
   sessionTimeoutMinutes: number;

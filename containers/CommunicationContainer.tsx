@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 
-const CommunicationHub = React.lazy(() => import('../components/CommunicationHub'));
+const CommunicationCenter = React.lazy(() => import('../components/CommunicationCenter'));
 
 const PageLoader: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
@@ -11,8 +11,8 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-function CommunicationHubContainer() {
-    return <Suspense fallback={<PageLoader />}><CommunicationHub /></Suspense>;
+function CommunicationContainer() {
+    return <Suspense fallback={<PageLoader />}><CommunicationCenter /></Suspense>;
 }
 
-export default CommunicationHubContainer;
+export default CommunicationContainer;

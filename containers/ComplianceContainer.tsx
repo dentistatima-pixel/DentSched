@@ -4,9 +4,8 @@ import { useModal } from '../contexts/ModalContext';
 import { useAppContext } from '../contexts/AppContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
-import { useNavigate } from '../contexts/RouterContext';
 
-const GovernanceHub = React.lazy(() => import('../components/GovernanceHub'));
+const ComplianceDashboard = React.lazy(() => import('../components/ComplianceDashboard'));
 
 const PageLoader: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
@@ -17,17 +16,16 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
+function ComplianceContainer({ onNavigate }: { onNavigate: (path: string) => void }) {
     const { patients, handleAnonymizePatient: onPurgePatient } = usePatient();
     const { showModal } = useModal();
     const { auditLog, isAuditLogVerified } = useAppContext();
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { incidents } = useClinicalOps();
-    const navigate = useNavigate();
 
     return (
         <Suspense fallback={<PageLoader />}>
-            <GovernanceHub 
+            <ComplianceDashboard 
                 patients={patients}
                 showModal={showModal}
                 auditLog={auditLog}
@@ -42,4 +40,4 @@ function GovernanceHubContainer({ onNavigate }: { onNavigate: (path: string) => 
     );
 }
 
-export default GovernanceHubContainer;
+export default ComplianceContainer;

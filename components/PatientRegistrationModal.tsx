@@ -82,7 +82,7 @@ const RegistrationSummary: React.FC<{ formData: Partial<Patient> }> = ({ formDat
 
     return (
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm animate-in fade-in duration-500">
-            <h3 className="text-xl font-black text-slate-800 mb-2">Record Summary for Verification</h3>
+            <h3 className="text-xl font-black text-slate-800 mb-2">Review & Confirm</h3>
             <p className="text-sm text-slate-500 mb-8">Please review all the information you have provided. This compiled record will be sealed by your signature.</p>
             {sections.map(section => (
                 <div key={section} className="mb-6">
@@ -408,7 +408,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className={`flex items-center justify-between h-14 px-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'rounded-t-3xl'}`}>
           <div className="flex items-center gap-3">
              <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center font-black text-[10px] shadow-inner text-teal-400">DS</div>
-             <h2 className="text-[10px] font-black uppercase tracking-widest hidden md:block opacity-60">Standard Patient Record</h2>
+             <h2 className="text-[10px] font-black uppercase tracking-widest hidden md:block opacity-60">New Patient</h2>
           </div>
           
           <div className="flex items-center gap-2">
@@ -533,7 +533,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                   <div className="w-24 h-24 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-6">
                       <CheckCircle size={48} />
                   </div>
-                  <h2 className="text-2xl font-black text-slate-800 mb-2">Registration Complete</h2>
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Patient Added</h2>
                   <p className="text-slate-500">The patient record has been successfully saved and verified.</p>
               </div>
           </div>

@@ -33,7 +33,7 @@ const ProtocolOverrideModal: React.FC<ProtocolOverrideModalProps> = ({ isOpen, r
                         <ShieldAlert size={28} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-red-900">Clinical Protocol Alert</h2>
+                        <h2 className="text-xl font-bold text-red-900">Safety Alert</h2>
                         <p className="text-sm text-red-800 mt-1">{rule.name}</p>
                     </div>
                 </div>

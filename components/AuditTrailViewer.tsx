@@ -42,8 +42,8 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
-                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Forensic Audit Trail</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Immutable session and data change logs</p>
+                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Audit Log</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">View system activity logs.</p>
                 </div>
             </div>
 
@@ -52,8 +52,8 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
                     <div className="flex items-center gap-3">
                         <ShieldCheck className="h-6 w-6 text-teal-600" />
                         <div>
-                            <h3 className="text-sm font-bold text-teal-800">Chain Integrity Verified</h3>
-                            <p className="text-xs text-teal-700">The cryptographic hash chain of this audit log is intact. No tampering detected.</p>
+                            <h3 className="text-sm font-bold text-teal-800">Log Verified</h3>
+                            <p className="text-xs text-teal-700">The audit log is intact.</p>
                         </div>
                     </div>
                 </div>
@@ -63,8 +63,8 @@ const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({ auditLog, auditLogV
                     <div className="flex items-center gap-3">
                         <AlertTriangle className="h-6 w-6 text-red-600" />
                         <div>
-                            <h3 className="text-sm font-bold text-red-800">CRITICAL: LOG TAMPERING DETECTED</h3>
-                            <p className="text-xs text-red-700">The integrity of this audit trail has been compromised. Records may not be reliable for legal use.</p>
+                            <h3 className="text-sm font-bold text-red-800">Log Tampering Detected</h3>
+                            <p className="text-xs text-red-700">The audit log may be compromised.</p>
                         </div>
                     </div>
                 </div>

@@ -7,7 +7,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 import { generateUid } from '../constants';
 import { Odontogram } from './Odontogram';
-import { Odontonotes } from './Odontonotes';
+import { ClinicalNotes } from './ClinicalNotes';
 import { PerioChart } from './PerioChart';
 import TreatmentPlanModule from './TreatmentPlanModule';
 import CryptoJS from 'crypto-js';
@@ -199,7 +199,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
         { id: 'notes', label: 'Notes', icon: FileText },
         { id: 'odontogram', label: 'Odontogram', icon: Stethoscope },
         { id: 'perio', label: 'Perio', icon: Activity },
-        { id: 'strategy', label: 'Strategy', icon: ClipboardList },
+        { id: 'strategy', label: 'Treatment Plan', icon: ClipboardList },
     ];
 
     return (
@@ -207,7 +207,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
             <div className="bg-slate-50 w-full h-full rounded-3xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-300 overflow-hidden">
                 <header className="p-6 border-b border-slate-200 bg-white flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Clinical Checkout</h2>
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">End of Visit</h2>
                         <p className="text-sm text-slate-500 font-bold">{patient.name} - {appointment.type}</p>
                     </div>
                      <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ const ClinicalCheckoutModal: React.FC<ClinicalCheckoutModalProps> = ({ isOpen, o
 
                 <main className="flex-1 overflow-y-auto">
                    <div className={activeTab === 'notes' ? '' : 'hidden'}>
-                        <Odontonotes
+                        <ClinicalNotes
                             entries={[sessionNote]}
                             appointments={[appointment]}
                             patient={tempPatient}

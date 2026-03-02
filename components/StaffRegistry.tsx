@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { User } from '../types';
 import { ShieldAlert, UserX, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';

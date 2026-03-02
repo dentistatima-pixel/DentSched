@@ -19,7 +19,7 @@ const RosterView: React.FC<RosterViewProps> = ({ staff, fieldSettings, currentUs
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="flex items-center gap-4">
         {onBack && (
-          <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+          <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
               <ArrowLeft size={24} className="text-slate-600"/>
           </button>
         )}

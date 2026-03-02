@@ -1,4 +1,3 @@
-import React from 'react';
 import Inventory from '../components/Inventory';
 import { useInventory } from '../contexts/InventoryContext';
 import { useAppContext } from '../contexts/AppContext';

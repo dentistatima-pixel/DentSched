@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User } from '../types';
+import { User, FieldSettings } from '../types';
 import { STAFF } from '../constants';
-import { ArrowLeft, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Building2 } from 'lucide-react';
 
 /**
  * @interface LoginScreenProps
@@ -14,9 +14,10 @@ interface LoginScreenProps {
    * @param user The authenticated user object.
    */
   onLogin: (user: User) => void;
+  fieldSettings?: FieldSettings;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, fieldSettings }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -65,8 +66,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         {/* --- Left Column: Branding & Profile Selection --- */}
         <div className="text-center landscape:text-left w-full max-w-md landscape:max-w-none landscape:w-1/2">
           <div className="mb-8">
-            <h1 className="text-4xl font-black text-white uppercase tracking-widest">dentsched</h1>
-            <p className="text-teal-300 font-bold mt-2">Practice Management System</p>
+            <div className="flex items-center justify-center landscape:justify-start gap-4 mb-4">
+                <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center overflow-hidden border border-white/20">
+                    {fieldSettings?.clinicLogoFull ? (
+                        <img src={fieldSettings.clinicLogoFull} alt={fieldSettings.clinicName} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                        <Building2 size={40} className="text-teal-300" />
+                    )}
+                </div>
+                <div>
+                    <h1 className="text-4xl font-black text-white uppercase tracking-widest">{fieldSettings?.clinicName || 'DentSched'}</h1>
+                    <p className="text-teal-300 font-bold mt-1">Practice Management</p>
+                </div>
+            </div>
           </div>
           <div className="w-full bg-white/10 p-6 rounded-3xl border border-white/20 backdrop-blur-lg">
             <h2 className="text-white font-bold text-center mb-4">Select Your Profile</h2>

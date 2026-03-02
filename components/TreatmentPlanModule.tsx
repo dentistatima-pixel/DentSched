@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Patient, DentalChartEntry, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, OrthoAdjustment, TreatmentStatus, FieldSettings, ConsentCategory, InformedRefusal } from '../types';
-import { ClipboardList, Printer, FileCheck, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, ArrowRight, X, ChevronDown, ChevronUp, Activity, History, FileWarning, ShieldAlert, Key, Eraser, Camera, UserCheck, AlertTriangle, Scale, Receipt, Stethoscope, FileSearch, Lock, Sparkles, LayoutGrid } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Patient, TreatmentPlan as TreatmentPlanType, TreatmentPlanStatus, User, UserRole, FeatureToggles, AuditLogEntry, ConsentCategory, InformedRefusal, FieldSettings } from '../types';
+import { ClipboardList, Plus, Send, ShieldCheck, XCircle, Edit, CheckCircle, Trash2, Lock, LayoutGrid, Receipt, FileWarning } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { formatDate, isExpired } from '../constants';
 import { useModal } from '../contexts/ModalContext';
@@ -168,7 +168,7 @@ interface TreatmentPlanProps {
   onInitiateFinancialConsent: (plan: TreatmentPlanType) => void;
 }
 
-const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, readOnly, currentUser, logAction, featureFlags, fieldSettings, onOpenRevocationModal, onInitiateFinancialConsent }) => {
+const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePatient, currentUser, logAction, featureFlags, onInitiateFinancialConsent }) => {
     const toast = useToast();
     const { showModal } = useModal();
     const isApprovalEnabled = featureFlags?.enableTreatmentPlanApprovals ?? true;
@@ -334,8 +334,8 @@ const TreatmentPlanModule: React.FC<TreatmentPlanProps> = ({ patient, onUpdatePa
                 <div className="flex items-center gap-4">
                     <div className="bg-lilac-100 p-3 rounded-2xl text-lilac-700 shadow-sm"><ClipboardList size={28}/></div>
                     <div>
-                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Clinical Strategies</h3>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Forensic Treatment Sequencing</p>
+                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Treatment Plans</h3>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Treatment Order</p>
                     </div>
                 </div>
                 <button onClick={() => setIsCreating(true)} className="bg-teal-600 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> New Phase</button>

@@ -166,7 +166,7 @@ const InfrastructureManager: React.FC<InfrastructureManagerProps> = ({ settings,
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Infrastructure Management</h3>
+                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Equipment & Resources</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Manage physical resources and equipment assets by location.</p>
             </div>
             

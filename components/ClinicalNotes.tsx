@@ -91,7 +91,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
         {canGetAiReview && (
             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 space-y-3">
                 <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">Professionalism Audit</h4>
+                    <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">AI Note Review</h4>
                     <button onClick={handleGetAiReview} disabled={isReviewLoading} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-black uppercase flex items-center gap-2">
                         <Sparkles size={14}/> {isReviewLoading ? 'Analyzing...' : 'Get AI Review'}
                     </button>
@@ -144,7 +144,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
 
             {/* Treatment Phase */}
             <div>
-                <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Treatment Phase</label>
+                <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Phase</label>
                 <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input w-full text-sm font-bold" disabled={isSealed}>
                     <option value="">- Unassigned -</option>
                     {treatmentPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -193,7 +193,7 @@ const ConsentVerificationGate: React.FC<ConsentVerificationGateProps> = ({ appoi
             <div className="w-24 h-24 bg-lilac-100 text-lilac-600 rounded-full flex items-center justify-center mb-6 ring-8 ring-lilac-50">
                 <FileSignature size={48} />
             </div>
-            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight text-center">Consent Verification Gate</h3>
+            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight text-center">Confirm Patient Consent</h3>
             <p className="text-sm text-slate-500 mt-2 text-center max-w-md">
                 Before proceeding with documentation for <strong>{appointment.type}</strong>, please verify the patient's consent for today's session.
             </p>
@@ -216,7 +216,7 @@ const ConsentVerificationGate: React.FC<ConsentVerificationGateProps> = ({ appoi
 };
 
 
-interface OdontonotesProps {
+interface ClinicalNotesProps {
   entries: DentalChartEntry[];
   appointments: Appointment[];
   patient: Patient;
@@ -236,7 +236,7 @@ interface OdontonotesProps {
   setEditingNote: (note: DentalChartEntry | null) => void;
 }
 
-export const Odontonotes: React.FC<OdontonotesProps> = ({ 
+export const ClinicalNotes: React.FC<ClinicalNotesProps> = ({ 
   entries, appointments, patient, onAddEntry, onUpdateEntry, onUpdateAppointment, currentUser, readOnly, 
   procedures, treatmentPlans = [], onAssignToPlan, showModal, logAction,
   editingNote, setEditingNote
@@ -342,7 +342,7 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
     <div className="flex h-full">
         <div className="w-full md:w-1/3 border-r border-slate-200 flex flex-col bg-slate-50/50">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-                <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Narrative</h3>
+                <h3 className="font-black text-slate-800 uppercase tracking-tight">Clinical Notes</h3>
                 <button onClick={() => startNewNote()} disabled={readOnly} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-600/20 flex items-center gap-2"><Plus size={16}/> New</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -398,4 +398,4 @@ export const Odontonotes: React.FC<OdontonotesProps> = ({
   );
 };
 
-export default React.memo(Odontonotes);
+export default React.memo(ClinicalNotes);

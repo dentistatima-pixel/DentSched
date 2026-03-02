@@ -51,14 +51,14 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClos
       <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 shrink-0">
         <div className="flex items-center gap-3">
             <div className="bg-lilac-100 p-2 rounded-xl text-lilac-700"><Sparkles size={20}/></div>
-            <h2 id="docent-title" className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Digital Docent</h2>
+            <h2 id="docent-title" className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">AI Assistant</h2>
         </div>
         <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500"><X size={24}/></button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="p-4 bg-teal-50 dark:bg-teal-900/50 border border-teal-100 dark:border-teal-800 rounded-xl text-sm text-teal-800 dark:text-teal-200">
-            Ask me anything about the app, from "What is this button?" to "Explain RA 10173".
+            Ask me anything about DentSched.
         </div>
         {chatHistory.map((chat, index) => (
           <div key={index} className="space-y-4">

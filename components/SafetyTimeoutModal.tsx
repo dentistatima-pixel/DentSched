@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, AlertCircle, HeartPulse, Clock, CheckCircle } from 'lucide-react';
+import { ShieldAlert, HeartPulse, Clock, CheckCircle } from 'lucide-react';
 import { Patient, PatientAlert } from '../types';
 
 interface SafetyTimeoutModalProps {
@@ -38,15 +38,15 @@ const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, alerts
                         <ShieldAlert size={48} className="animate-pulse" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">Chair-Side Safety Timeout</h2>
-                        <p className="text-sm font-bold text-red-100 uppercase tracking-widest mt-2">Critical Review Mandate Active</p>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">Safety Check</h2>
+                        <p className="text-sm font-bold text-red-100 uppercase tracking-widest mt-2">Please review before proceeding</p>
                     </div>
                 </div>
 
                 <div className="p-8 space-y-8 flex-1">
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-red-600 font-black uppercase text-xs tracking-widest border-b border-red-50 pb-2">
-                            <HeartPulse size={16}/> Critical Red Flags Detected
+                            <HeartPulse size={16}/> Critical Alerts
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                             {criticalAlerts.map((alert, idx) => (
@@ -59,7 +59,7 @@ const SafetyTimeoutModal: React.FC<SafetyTimeoutModalProps> = ({ patient, alerts
                     </div>
 
                     <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100 italic text-slate-600 text-sm leading-relaxed text-center">
-                        "I verify that I have reviewed these critical risks and have implemented the necessary clinical precautions for {patient.name}'s treatment."
+                        "I verify that I have reviewed these risks and have implemented the necessary clinical precautions for {patient.name}'s treatment."
                     </div>
                 </div>
 

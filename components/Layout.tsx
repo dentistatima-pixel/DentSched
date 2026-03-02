@@ -186,7 +186,13 @@ export const Layout: React.FC<LayoutProps> = ({
       <header className={headerClass} style={{ backgroundColor: isDowntime ? undefined : `${branchColor}F2` }}>
              <div className="flex items-center gap-6">
                 <div className="flex flex-col">
-                     <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'dentsched'}</span>
+                     <div className="flex items-center gap-3">
+                        {fieldSettings?.clinicLogoCompact ? (
+                            <img src={fieldSettings.clinicLogoCompact} alt="Logo" className="h-10 w-auto object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                            <span className={`font-black tracking-wider text-xl leading-none ${isDowntime ? 'text-black bg-yellow-400 px-2 py-0.5 rounded uppercase' : 'text-white'}`}>{isDowntime ? 'Downtime Protocol' : fieldSettings?.clinicName || 'DentSched'}</span>
+                        )}
+                     </div>
                      <div className="flex items-center gap-2 mt-2">
                         <span className={`text-sm font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
                      </div>

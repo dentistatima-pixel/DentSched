@@ -86,10 +86,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
     );
 
     return (
-        <div className="flex flex-col gap-8 animate-in fade-in duration-500 p-8" role="region" aria-label="Analytics Hub">
+        <div className="flex flex-col gap-8 animate-in fade-in duration-500 p-8" role="region" aria-label="Analytics">
             <div>
-                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Analytics Hub</h1>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Practice Performance Intelligence</p>
+                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Analytics</h1>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Overview</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -101,7 +101,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
-                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6 flex items-center gap-3"><Users size={20} className="text-blue-600"/> Practitioner Production</h3>
+                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6 flex items-center gap-3"><Users size={20} className="text-blue-600"/> Staff Performance</h3>
                     <div className="space-y-4">
                         {stats.practitionerProduction.map(p => {
                             const maxRevenue = Math.max(...stats.practitionerProduction.map(pr => pr.revenue), 1);
@@ -122,7 +122,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
                 </div>
 
                 <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
-                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6 flex items-center gap-3"><PieChart size={20} className="text-lilac-600"/> Procedure Mix by Revenue</h3>
+                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6 flex items-center gap-3"><PieChart size={20} className="text-lilac-600"/> Revenue by Procedure</h3>
                      <div className="space-y-4">
                         {stats.procedureMix.map(([category, data]) => {
                             const maxRevenue = Math.max(...stats.procedureMix.map(pm => pm[1].revenue), 1);

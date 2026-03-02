@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, FileWarning } from 'lucide-react';
+import { FileWarning } from 'lucide-react';
 
 interface VoidNoteModalProps {
     isOpen: boolean;

@@ -240,7 +240,7 @@ export const App: React.FC = () => {
   }
   
   if (!currentUser) {
-      return <LoginScreen onLogin={setCurrentUser} />;
+      return <LoginScreen onLogin={setCurrentUser} fieldSettings={fieldSettings} />;
   }
   
   const renderRoute = () => {
@@ -257,7 +257,7 @@ export const App: React.FC = () => {
     return routeContent;
   };
 
-  if (isInKioskMode) return <KioskView onExitKiosk={() => setIsInKioskMode(false)} />;
+  if (isInKioskMode) return <KioskView onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} />;
 
   return (
     <>

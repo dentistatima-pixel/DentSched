@@ -1,12 +1,9 @@
-import React from 'react';
 import { useFinancials } from '../contexts/FinancialContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';
-import { useSettings } from '../contexts/SettingsContext';
+import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
-import { useClinicalOps } from '../contexts/ClinicalOpsContext';
-import { useNavigate } from '../contexts/RouterContext';
 import { Financials } from '../components/Financials';
 
 function FinancialsContainer({ route }: { route: { param: string | null } }) {
@@ -20,11 +17,9 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
     } = useFinancials();
     const { patients } = usePatient();
     const { appointments } = useAppointments();
-    const { fieldSettings } = useSettings();
     const { staff } = useStaff();
     const { currentUser, currentBranch, governanceTrack, setGovernanceTrack } = useAppContext();
     const { incidents } = useClinicalOps();
-    const navigate = useNavigate();
 
     return <Financials 
         expenses={expenses} onAddExpense={handleAddExpense}

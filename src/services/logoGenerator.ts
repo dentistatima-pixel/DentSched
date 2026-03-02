@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-async function generateLogo() {
+export async function generateLogo() {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
@@ -13,12 +13,15 @@ async function generateLogo() {
     },
   });
 
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) {
-      const base64EncodeString = part.inlineData.data;
-      const imageUrl = `data:image/png;base64,${base64EncodeString}`;
-      console.log("Generated Image URL:", imageUrl);
-      // In a real app, we'd display this. For now, I'll just return it or log it.
+  const candidates = response.candidates;
+  if (candidates && candidates[0] && candidates[0].content && candidates[0].content.parts) {
+    for (const part of candidates[0].content.parts) {
+      if (part.inlineData) {
+        const base64EncodeString = part.inlineData.data;
+        const imageUrl = `data:image/png;base64,${base64EncodeString}`;
+        console.log("Generated Image URL:", imageUrl);
+        // In a real app, we'd display this. For now, I'll just return it or log it.
+      }
     }
   }
 }

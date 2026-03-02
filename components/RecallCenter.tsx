@@ -68,14 +68,14 @@ const RecallCenter: React.FC<RecallCenterProps> = ({ patients, onUpdatePatientRe
     <div className="h-full flex flex-col p-6 gap-6 bg-slate-50 animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
             {onBack && (
-              <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+              <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
                   <ArrowLeft size={24} className="text-slate-600"/>
               </button>
             )}
             <div className="bg-teal-600 p-4 rounded-3xl text-white shadow-xl"><History size={36} /></div>
             <div>
-                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Recall Center</h1>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Patient Retention Workflow</p>
+                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Recalls</h1>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Recall & Retention</p>
             </div>
         </div>
         <div className="flex-1 grid gap-6 admin-hub-grid pb-4">

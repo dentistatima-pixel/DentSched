@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Patient, AuditLogEntry, AuthorityLevel } from '../types';
-import { UserPlus, UserCheck, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Lock } from 'lucide-react';
+import { Patient, AuditLogEntry, AuthorityLevel, FieldSettings } from '../types';
+import { UserPlus, UserCheck, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Lock, Building2 } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -11,11 +11,12 @@ import { useModal } from '../contexts/ModalContext';
 interface KioskViewProps {
   onExitKiosk: () => void;
   logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  fieldSettings?: FieldSettings;
 }
 
 type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affirmation' | 'update' | 'thankyou';
 
-export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) => {
+export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fieldSettings }) => {
   const toast = useToast();
   const { showModal } = useModal();
   const { patients, handleSavePatient: onUpdatePatient } = usePatient();
@@ -146,12 +147,16 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
         
         <div className="bg-white p-6 shadow-sm flex justify-between items-center relative border-b border-slate-100">
             <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-600/20">
-                    <span className="text-white font-bold text-2xl">D</span>
+                <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-600/20 overflow-hidden">
+                    {fieldSettings?.clinicLogoIcon ? (
+                        <img src={fieldSettings.clinicLogoIcon} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                        <Building2 size={24} className="text-white" />
+                    )}
                 </div>
                 <div>
-                    <h1 className="font-bold text-xl tracking-tight leading-none">dentsched</h1>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Digital Patient Terminal</span>
+                    <h1 className="font-bold text-xl tracking-tight leading-none">{fieldSettings?.clinicName || 'DentSched'}</h1>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Patient Kiosk</span>
                 </div>
             </div>
             
@@ -173,7 +178,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
             {step === 'welcome' && (
                 <div className="w-full max-w-4xl animate-in zoom-in-95 duration-500">
                     <div className="text-center mb-12">
-                        <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-4 uppercase tracking-tight">Digital Intake</h2>
+                        <h2 className="text-4xl md:text-5xl font-black text-teal-900 mb-4 uppercase tracking-tight">Welcome</h2>
                         <p className="text-xl text-slate-500 font-medium">Please select your status to begin registration.</p>
                     </div>
                     
@@ -185,7 +190,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                             <div className="w-24 h-24 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-teal-600 group-hover:text-white transition-all">
                                 <UserPlus size={48} />
                             </div>
-                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">New Registration</h3>
+                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">New Patient</h3>
                             <p className="text-slate-500 mt-2 font-medium">First time at our clinic? Enroll your record here.</p>
                         </button>
 
@@ -196,7 +201,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                             <div className="w-24 h-24 bg-lilac-50 text-lilac-600 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-lilac-600 group-hover:text-white transition-all">
                                 <UserCheck size={48} />
                             </div>
-                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Update Record</h3>
+                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Existing Patient</h3>
                             <p className="text-slate-500 mt-2 font-medium">Verify your ID to update medical or contact details.</p>
                         </button>
                     </div>
@@ -206,7 +211,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
             {step === 'identify' && (
                 <div className="w-full max-w-md animate-in slide-in-from-bottom-10 duration-300">
                     <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100">
-                        <h3 className="text-2xl font-black text-center text-slate-800 mb-8 uppercase tracking-widest">Verify Identity</h3>
+                        <h3 className="text-2xl font-black text-center text-slate-800 mb-8 uppercase tracking-widest">Confirm Your Identity</h3>
                         <form onSubmit={handleIdentify} className="space-y-6">
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest flex items-center gap-1"><Phone size={12}/> Registered Mobile</label>
@@ -256,16 +261,16 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                         <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-sm"><ShieldCheck size={32}/></div>
                             <div>
-                                <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter leading-none">Privacy Notice at Collection</h3>
+                                <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter leading-none">Privacy Notice</h3>
                                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Compliance with R.A. 10173</p>
                             </div>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto pr-4 mb-8 space-y-6 text-sm text-slate-600 leading-relaxed no-scrollbar border-y py-6">
-                            <p>Before providing your personal data, please read our <strong>Digital Intake Transparency Notice</strong>:</p>
+                            <p>Before providing your personal data, please read our <strong>Privacy Policy</strong>:</p>
                             <section>
                                 <h4 className="font-black text-slate-800 uppercase text-[10px] tracking-widest mb-1">1. Collection Purpose</h4>
-                                <p>We collect your medical history, personal identifiers, and a <strong>Visual Identity Anchor</strong> (photo) strictly for clinical diagnosis, treatment planning, and ensuring the authenticity of medical records.</p>
+                                <p>We collect your medical history, personal identifiers, and a <strong>photo</strong> strictly for clinical diagnosis, treatment planning, and ensuring the authenticity of medical records.</p>
                             </section>
                             <section>
                                 <h4 className="font-black text-slate-800 uppercase text-[10px] tracking-widest mb-1">2. Visual Identity Proof</h4>
@@ -294,7 +299,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                 <div className="w-full max-w-md animate-in zoom-in-95 duration-300">
                     <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 text-center flex flex-col items-center">
                         <div className="mb-8">
-                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">Digital Witness Snap</h3>
+                            <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter">Take Your Photo</h3>
                             <p className="text-sm text-slate-500 font-medium mt-1">Please position your face in the frame below.</p>
                         </div>
 
@@ -314,7 +319,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                                 onClick={captureAnchor}
                                 className="w-full py-5 bg-lilac-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl animate-pulse"
                             >
-                                Authorize & Snap
+                                Take Photo
                             </button>
                         ) : (
                             <button 
@@ -322,14 +327,14 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                                 disabled={cameraLoading}
                                 className="w-full py-5 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl hover:scale-105 transition-all"
                             >
-                                {cameraLoading ? 'Initializing Lens...' : 'Activate Identity Proof'}
+                                {cameraLoading ? 'Initializing Lens...' : 'Start Camera'}
                             </button>
                         )}
                         
                         <canvas ref={canvasRef} className="hidden" />
                         <div className="mt-6 flex items-center gap-2 text-slate-300">
                             <Lock size={12}/>
-                            <span className="text-[10px] font-black uppercase tracking-widest">Encrypted Identity Binding Active</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Photo is secure</span>
                         </div>
                     </div>
                 </div>
@@ -342,7 +347,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                             <div className="w-20 h-20 bg-teal-50 text-teal-600 rounded-3xl flex items-center justify-center mb-6">
                                 <ShieldCheck size={40} />
                             </div>
-                            <h3 className="text-3xl font-black text-teal-900 uppercase tracking-tight leading-none">Health Verification</h3>
+                            <h3 className="text-3xl font-black text-teal-900 uppercase tracking-tight leading-none">Health Status</h3>
                             <p className="text-slate-500 mt-2 font-medium">Please confirm your clinical status since your last visit.</p>
                         </div>
                         
@@ -379,7 +384,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction }) 
                         
                         <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-300">
                             <ShieldAlert size={14}/>
-                            <span className="text-[10px] font-black uppercase tracking-widest">Self-Certification is legally binding for clinical safety</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Your confirmation is legally binding.</span>
                         </div>
                     </div>
                 </div>

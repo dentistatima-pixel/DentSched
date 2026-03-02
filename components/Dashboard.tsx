@@ -187,7 +187,7 @@ const TodaysTimeline: React.FC<{
         <div className="space-y-4">
             <div className="flex items-center gap-3 px-2">
                 <Calendar size={20} className="text-teal-700 dark:text-teal-400"/>
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Today's Timeline</h3>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Today's Schedule</h3>
             </div>
             <div className="bg-bg-secondary rounded-[2.5rem] border border-border-primary shadow-sm p-4 space-y-3 max-h-[80vh] overflow-y-auto no-scrollbar">
                 {appointments.length > 0 ? appointments.map(apt => {
@@ -289,7 +289,7 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
         <div className="space-y-4">
              <div className="flex items-center gap-3 px-2">
                 <Activity size={20} className="text-red-700 dark:text-red-400"/>
-                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Action Center</h3>
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Tasks & Alerts</h3>
             </div>
             <div className="space-y-4">
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
@@ -299,7 +299,7 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
                 </div>
                 
                  <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
-                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2">My Tasks ({myTasks.length})</h4>
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2">Tasks ({myTasks.length})</h4>
                      <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar">
                         {myTasks.map(task => (
                             <div key={task.id} className="flex items-start gap-3 p-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg group">

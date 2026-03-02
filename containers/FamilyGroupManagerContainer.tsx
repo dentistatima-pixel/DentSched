@@ -15,7 +15,7 @@ const PageLoader: React.FC = () => (
 );
 
 
-function FamilyGroupManagerContainer({ onBack }: { onBack: () => void }) {
+function FamilyGroupManagerContainer() {
     const { fieldSettings, handleUpdateSettings } = useSettings();
     const { patients } = usePatient();
     const navigate = useNavigate();

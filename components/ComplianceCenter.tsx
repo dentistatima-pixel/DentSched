@@ -83,7 +83,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
         <div className="space-y-8">
             <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
                  <div className="flex items-center gap-3 text-blue-800 font-black uppercase text-xs tracking-widest border-b border-slate-100 pb-3 mb-4">
-                    <UserIcon size={20} /> Data Protection Officer (DPO)
+                    <UserIcon size={20} /> Data Protection Officer
                 </div>
                 <p className="text-xs text-slate-500 -mt-4">Designate a staff member as the official DPO for NPC correspondence.</p>
                 <select value={settings.dataProtectionOfficerId || ''} onChange={handleDpoChange} className="input">
@@ -94,7 +94,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
 
             <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                    <h4 className="flex items-center gap-3 text-blue-800 font-black uppercase text-xs tracking-widest"><FileText size={20}/> Privacy Impact Assessments (PIA)</h4>
+                    <h4 className="flex items-center gap-3 text-blue-800 font-black uppercase text-xs tracking-widest"><FileText size={20}/> Privacy Assessments</h4>
                     <button onClick={() => setShowPiaForm(!showPiaForm)} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold">{showPiaForm ? 'Cancel' : 'Add PIA'}</button>
                 </div>
                 
@@ -120,7 +120,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
              
              <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
                  <div className="flex items-center gap-3 text-teal-800 font-black uppercase text-xs tracking-widest border-b border-slate-100 pb-3 mb-4">
-                    <Archive size={20} /> Data Retention Policy
+                    <Archive size={20} /> Retention Policy
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -151,7 +151,7 @@ const ComplianceCenter: React.FC<ComplianceCenterProps> = ({ settings, onUpdateS
                 )}
                 
                 <div className="bg-red-50 p-6 rounded-2xl border-2 border-dashed border-red-200">
-                    <h4 className="font-bold text-sm text-red-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Right to Erasure (Anonymization)</h4>
+                    <h4 className="font-bold text-sm text-red-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Anonymize Patient</h4>
                     <p className="text-xs text-red-700 mb-4">This action is irreversible and redacts all Personally Identifiable Information (PII) from a patient's record while retaining their non-identifiable clinical history for regulatory compliance. Use only to fulfill a data subject's formal request.</p>
                      <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input type="text" placeholder="Search patient to anonymize..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className="input pl-10"/></div>
                      <div className="max-h-48 overflow-y-auto mt-2 space-y-1 pr-2">

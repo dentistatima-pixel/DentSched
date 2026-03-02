@@ -7,17 +7,17 @@ import {
 
 
 
-import SmsHub from './SmsHub';
+import SmsManager from './SmsManager';
 import PracticeBranding from './PracticeBranding';
 import FinancialSettings from './FinancialSettings';
 import StaffRegistry from './StaffRegistry';
 import InfrastructureManager from './InfrastructureManager';
 
-import PrintoutsHub from './PrintoutsHub';
+import PrintManager from './PrintManager';
 
 
 import ConsentFormManager from './ConsentFormManager';
-import ClinicalCatalogHub from './ClinicalCatalogHub';
+import ClinicalCatalog from './ClinicalCatalog';
 
 import { useStaff } from '../contexts/StaffContext';
 
@@ -43,15 +43,15 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const { handleSaveStaff, staff, handleDeactivateStaff, onDeleteStaff, onStartImpersonating } = useStaff();
 
     const sidebarItems = [
-        { id: 'branding', label: 'Global Profile', icon: Sparkles },
+        { id: 'branding', label: 'My Profile', icon: Sparkles },
         { id: 'patient_registry_form', label: 'Registration Form', icon: LayoutPanelLeft },
         { id: 'consent_forms', label: 'Consent Forms', icon: FileSignature },
-        { id: 'sms_hub', label: 'SMS & Comms Hub', icon: Smartphone },
-        { id: 'printouts_hub', label: 'Printouts & Report Hub', icon: Printer },
-        { id: 'staff_hub', label: 'Staff Management', icon: UserIcon },
-        { id: 'catalog_hub', label: 'Clinical Catalog', icon: Box },
-        { id: 'finance_hub', label: 'Financial Hub', icon: Receipt },
-        { id: 'infrastructure', label: 'Infrastructure', icon: Wrench },
+        { id: 'sms_manager', label: 'Communications', icon: Smartphone },
+        { id: 'print_manager', label: 'Reports', icon: Printer },
+        { id: 'staff_registry', label: 'Staff', icon: UserIcon },
+        { id: 'clinical_catalog', label: 'Procedures & Catalog', icon: Box },
+        { id: 'finance_manager', label: 'Finance & Payroll', icon: Receipt },
+        { id: 'infrastructure', label: 'Equipment & Resources', icon: Wrench },
     ];
 
     const handleOpenStaffModal = (staffMember: Partial<User> | null) => {
@@ -65,19 +65,19 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                 return <PracticeBranding settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             case 'consent_forms':
                 return <ConsentFormManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
-            case 'sms_hub':
-                return <SmsHub settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
-            case 'printouts_hub':
-                return <PrintoutsHub />;
-            case 'staff_hub':
+            case 'sms_manager':
+                return <SmsManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            case 'print_manager':
+                return <PrintManager />;
+            case 'staff_registry':
                 return <StaffRegistry staff={staff} onStartImpersonating={onStartImpersonating} onDeactivateStaff={handleDeactivateStaff} onDeleteStaff={onDeleteStaff} onOpenStaffModal={handleOpenStaffModal} />;
 
-            // Clinical Catalog Hub
-            case 'catalog_hub':
-                return <ClinicalCatalogHub settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+            // Procedures & Catalog
+            case 'clinical_catalog':
+                return <ClinicalCatalog settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
             
-            // Financial Hub
-            case 'finance_hub':
+            // Finance & Payroll
+            case 'finance_manager':
                 return <FinancialSettings settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
 
             // Infrastructure
@@ -90,7 +90,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                         <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-6">
                             <Settings size={48} className="text-slate-300 dark:text-slate-600" />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-400 dark:text-slate-500">Settings Hub</h3>
+                        <h3 className="text-2xl font-black text-slate-400 dark:text-slate-500">Settings</h3>
                         <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">Select a configuration module from the sidebar to manage practice-wide settings and registries.</p>
                     </div>
                 );
@@ -101,7 +101,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
         <div className="flex h-full overflow-hidden relative">
             <div className="w-64 bg-teal-900 text-white flex flex-col shrink-0 shadow-2xl z-40 overflow-y-auto no-scrollbar transition-all duration-500">
                 <div className="p-8 border-b border-white/10 shrink-0">
-                    <h2 className="text-sm font-black uppercase tracking-[0.3em] text-teal-400">Settings Hub</h2>
+                    <h2 className="text-sm font-black uppercase tracking-[0.3em] text-teal-400">Settings</h2>
                 </div>
                 <div className="flex-1 p-4 space-y-1">
                     {sidebarItems.map(item => (

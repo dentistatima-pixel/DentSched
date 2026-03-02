@@ -111,7 +111,7 @@ const DiagnosticGallery: React.FC<DiagnosticGalleryProps> = ({ patient, onQuickU
                 ) : (
                     <div className="text-center text-slate-500 flex flex-col items-center justify-center">
                         <ImageIcon size={48} className="mx-auto mb-4"/>
-                        <h3 className="font-bold">Imaging Hub</h3>
+                        <h3 className="font-bold">X-Rays & Images</h3>
                         <p className="text-sm mt-1 mb-6">Upload and manage diagnostic images.</p>
                          <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-6 py-3 bg-teal-600/20 text-teal-300 rounded-xl hover:bg-teal-600/40 transition-colors">
                             <Camera size={16}/> Upload First Image

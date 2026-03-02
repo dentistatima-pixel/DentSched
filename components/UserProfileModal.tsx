@@ -31,7 +31,6 @@ const ProfileField: React.FC<{ label: string; value: string | undefined | number
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, isOpen, onClose, onSave }) => {
   const { fieldSettings } = useSettings();
-  const { theme, toggleTheme } = useAppContext();
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<User>(user);

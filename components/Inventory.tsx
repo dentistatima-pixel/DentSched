@@ -185,21 +185,21 @@ const Inventory: React.FC<InventoryProps> = ({
         <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4">
                 {onBack && (
-                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
                       <ArrowLeft size={24} className="text-slate-600"/>
                   </button>
                 )}
                 <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-xl" aria-hidden="true"><Package size={36} /></div>
                 <div>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">{isAdvanced ? 'Clinic Logistics' : 'Stock Control'}</h1>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Supply chain and material traceability.</p>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Supplies</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Manage stock levels and orders.</p>
                 </div>
             </div>
             {isAdvanced && (
                 <div className="flex gap-2">
                     <div className="bg-white px-6 py-3 rounded-2xl border-2 border-slate-100 shadow-sm flex items-center gap-4 group hover:border-teal-500 transition-all">
                         <div className="text-right">
-                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Inventory Integrity</div>
+                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Stock & Inventory</div>
                             <div className={`text-2xl font-black leading-none mt-1 ${realityScore > 90 ? 'text-teal-700' : 'text-orange-700'}`}>{realityScore}%</div>
                         </div>
                         <Scale size={24} className={realityScore > 90 ? 'text-teal-500' : 'text-orange-500'} aria-hidden="true"/>
@@ -333,7 +333,7 @@ const Inventory: React.FC<InventoryProps> = ({
                         <div className="flex justify-between items-center">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Stock Transfers</h3>
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Inter-Branch Logistics</p>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Branch Transfers</p>
                             </div>
                             <button onClick={() => setShowTransferForm(true)} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> New Transfer</button>
                         </div>
@@ -371,7 +371,7 @@ const Inventory: React.FC<InventoryProps> = ({
                  )}
                  {activeTab === 'forecasting' && (
                     <div className="space-y-6">
-                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Supply Chain Forecasting</h3>
+                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Stock Forecasting</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {branchStock.map(item => {
                                 const metric = predictiveMetrics[item.id];
@@ -398,7 +398,7 @@ const Inventory: React.FC<InventoryProps> = ({
                     <div className="space-y-6">
                          <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Procurement & Orders</h3>
                          <div className="bg-white p-8 rounded-3xl border shadow-sm">
-                            <h4 className="font-bold text-lg mb-4">New Purchase Order</h4>
+                            <h4 className="font-bold text-lg mb-4">Order Supplies</h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <select className="input"><option>Select Vendor</option></select>
                                 <input type="date" className="input" />

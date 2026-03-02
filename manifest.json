@@ -1,6 +1,6 @@
 {
-  "name": "dentsched Practice Management",
-  "short_name": "dentsched",
+  "name": "DentSched Practice Management",
+  "short_name": "DentSched",
   "description": "Intelligent Dental Management System",
   "start_url": "./",
   "scope": ".",

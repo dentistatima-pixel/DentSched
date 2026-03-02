@@ -40,8 +40,8 @@ const QuickAddPatientModal: React.FC<QuickAddPatientModalProps> = ({ isOpen, onC
                     <div className="flex items-center gap-3">
                         <div className="bg-teal-100 p-2 rounded-xl text-teal-700"><UserPlus size={24}/></div>
                         <div>
-                            <h2 className="text-xl font-black text-teal-900 uppercase tracking-tight">Quick Intake</h2>
-                            <p className="text-xs text-teal-600 font-bold uppercase tracking-widest">Provisional Record Creation</p>
+                            <h2 className="text-xl font-black text-teal-900 uppercase tracking-tight">Quick Add</h2>
+                            <p className="text-xs text-teal-600 font-bold uppercase tracking-widest">Quick Add Patient</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-teal-100 rounded-full transition-colors"><X size={24} className="text-teal-400" /></button>

@@ -15,7 +15,7 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-function AnalyticsHubContainer() {
+function AnalyticsContainer() {
     const { patients } = usePatient();
     const { appointments } = useAppointments();
     const { fieldSettings } = useSettings();
@@ -33,4 +33,4 @@ function AnalyticsHubContainer() {
     );
 }
 
-export default AnalyticsHubContainer;
+export default AnalyticsContainer;

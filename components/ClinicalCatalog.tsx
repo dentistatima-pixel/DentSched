@@ -5,12 +5,12 @@ import PharmacyRegistry from './PharmacyRegistry';
 import MaterialsRegistry from './MaterialsRegistry';
 import { DollarSign, Pill, Layers } from 'lucide-react';
 
-interface ClinicalCatalogHubProps {
+interface ClinicalCatalogProps {
     settings: FieldSettings;
     onUpdateSettings: (newSettings: FieldSettings) => void;
 }
 
-const ClinicalCatalogHub: React.FC<ClinicalCatalogHubProps> = ({ settings, onUpdateSettings }) => {
+const ClinicalCatalog: React.FC<ClinicalCatalogProps> = ({ settings, onUpdateSettings }) => {
     const [activeTab, setActiveTab] = useState('procedures');
     
     const tabs = [
@@ -34,7 +34,7 @@ const ClinicalCatalogHub: React.FC<ClinicalCatalogHubProps> = ({ settings, onUpd
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Clinical Catalog Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Procedures & Catalog</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Manage all billable services and materials.</p>
             </div>
             
@@ -57,4 +57,4 @@ const ClinicalCatalogHub: React.FC<ClinicalCatalogHubProps> = ({ settings, onUpd
     );
 };
 
-export default ClinicalCatalogHub;
+export default ClinicalCatalog;

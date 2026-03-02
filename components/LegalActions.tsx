@@ -4,12 +4,12 @@ import { Patient } from '../types';
 import { Search, Scale, FileText, User, ChevronRight, X } from 'lucide-react';
 import Fuse from 'fuse.js';
 
-interface LegalActionHubProps {
+interface LegalActionsProps {
     patients: Patient[];
     showModal: (type: string, props: any) => void;
 }
 
-const LegalActionHub: React.FC<LegalActionHubProps> = ({ patients, showModal }) => {
+const LegalActions: React.FC<LegalActionsProps> = ({ patients, showModal }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
@@ -37,7 +37,7 @@ const LegalActionHub: React.FC<LegalActionHubProps> = ({ patients, showModal }) 
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Legal Action Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Legal & Incidents</h3>
                 <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Generate and manage medico-legal documentation.</p>
             </div>
 
@@ -105,4 +105,4 @@ const LegalActionHub: React.FC<LegalActionHubProps> = ({ patients, showModal }) 
     );
 };
 
-export default LegalActionHub;
+export default LegalActions;

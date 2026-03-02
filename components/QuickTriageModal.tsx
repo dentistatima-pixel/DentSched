@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, Zap } from 'lucide-react';
-import { Appointment, AppointmentStatus, Patient, RegistrationStatus, TriageLevel, RecallStatus } from '../types';
+import { Appointment, AppointmentStatus, Patient, RegistrationStatus, RecallStatus } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { usePatient } from '../contexts/PatientContext';
@@ -97,8 +97,8 @@ const QuickTriageModal: React.FC<QuickTriageModalProps> = ({ isOpen, onClose, cu
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-100 p-2 rounded-xl text-blue-700"><Zap size={24}/></div>
                         <div>
-                            <h2 className="text-xl font-black text-blue-900 uppercase tracking-tight">Unregistered Patient</h2>
-                            <p className="text-xs text-blue-600 font-bold uppercase tracking-widest">Walk-In Intake</p>
+                            <h2 className="text-xl font-black text-blue-900 uppercase tracking-tight">Patient</h2>
+                            <p className="text-xs text-blue-600 font-bold uppercase tracking-widest">Walk-In</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2.5 hover:bg-blue-100 rounded-full transition-colors"><X size={24} className="text-blue-400" /></button>

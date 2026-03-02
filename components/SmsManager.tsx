@@ -2,16 +2,16 @@
 
 import React, { useState, useMemo } from 'react';
 import { FieldSettings, SmsTemplateConfig, SmsCategory } from '../types';
-import { Smartphone, Cloud, Server, MessageSquare, Save, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Cloud, Server, MessageSquare, Save, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { PDA_FORBIDDEN_COMMERCIAL_TERMS } from '../constants';
 
-interface SmsHubProps {
+interface SmsManagerProps {
     settings: FieldSettings;
     onUpdateSettings: (newSettings: FieldSettings) => void;
 }
 
-const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
+const SmsManager: React.FC<SmsManagerProps> = ({ settings, onUpdateSettings }) => {
     const toast = useToast();
     const { smsConfig, smsTemplates, clinicName } = settings;
     const [isLocalPasswordVisible, setIsLocalPasswordVisible] = useState(false);
@@ -88,8 +88,8 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">SMS & Comms Hub</h3>
-                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Multi-Channel SIM Gateway Configuration</p>
+                    <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Communications</h3>
+                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">SMS Setup</p>
                 </div>
                 <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] border border-slate-200">
                     <button 
@@ -185,7 +185,6 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
                 {/* Templates Section */}
                 <div className="bg-white p-10 rounded-[3.5rem] border border-slate-200 shadow-sm space-y-12">
                     {Object.entries(groupedTemplates).map(([category, templatesInCategory]) => {
-                        const categoryIcon = MessageSquare;
                         let categoryTitle = `${category} Narratives`;
                         if (category === 'Recovery') categoryTitle = 'Post-Treatment Care';
 
@@ -247,4 +246,4 @@ const SmsHub: React.FC<SmsHubProps> = ({ settings, onUpdateSettings }) => {
     );
 };
 
-export default SmsHub;
+export default SmsManager;

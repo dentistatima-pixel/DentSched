@@ -9,7 +9,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { formatDate } from '../constants';
 import { useNavigate } from '../contexts/RouterContext';
 
-const CommunicationHub: React.FC = () => {
+const CommunicationCenter: React.FC = () => {
   const { fieldSettings } = useSettings();
   const { patients } = usePatient();
   const { currentUser } = useAppContext();
@@ -122,10 +122,10 @@ const CommunicationHub: React.FC = () => {
   return (
     <div className="h-full flex flex-col p-6 gap-6 bg-slate-50">
         <div className="flex items-center gap-4">
-            <button onClick={() => navigate('admin')} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin Hub">
+            <button onClick={() => navigate('admin')} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
                 <ArrowLeft size={24} className="text-slate-600"/>
             </button>
-            <h1 className="text-3xl font-black text-slate-800">Communications Hub</h1>
+            <h1 className="text-3xl font-black text-slate-800">Communications</h1>
         </div>
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0">
             {/* Left: Categories & Templates */}
@@ -178,4 +178,4 @@ const CommunicationHub: React.FC = () => {
     </div>
   );
 };
-export default CommunicationHub;
+export default CommunicationCenter;

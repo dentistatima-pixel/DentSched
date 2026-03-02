@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Eraser, CheckCircle, Camera, Lock, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
+import { X, Eraser, Camera, UserCheck, ShieldCheck, Fingerprint } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { useToast } from './ToastSystem';
 
@@ -236,7 +236,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <div className="bg-white/20 p-2 rounded-xl"><ShieldCheck size={24} /></div>
             <div>
               <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
-              <p className={`text-xs font-black uppercase tracking-widest ${colors.sub}`}>Verified Forensic Identity</p>
+              <p className={`text-xs font-black uppercase tracking-widest ${colors.sub}`}>Verified Identity</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>

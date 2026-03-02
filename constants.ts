@@ -1806,8 +1806,12 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
 };
 
 export const DEFAULT_SETTINGS: FieldSettings = {
-  clinicName: 'dentsched',
+  clinicName: 'DentSched',
   clinicProfile: 'corporate',
+  clinicLogo: '',
+  clinicLogoFull: '',
+  clinicLogoCompact: '',
+  clinicLogoIcon: '',
   strictMode: true,
   editBufferWindowMinutes: 5,
   sessionTimeoutMinutes: 30,

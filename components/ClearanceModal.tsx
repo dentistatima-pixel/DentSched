@@ -58,7 +58,7 @@ const ClearanceModal: React.FC<ClearanceModalProps> = ({ isOpen, onClose, onSave
                         <div className="bg-white/20 p-3 rounded-2xl"><ShieldCheck size={28}/></div>
                         <div>
                             <h2 className="text-2xl font-black uppercase tracking-tight">Log Medical Clearance</h2>
-                            <p className="text-xs font-bold text-lilac-100 uppercase tracking-widest mt-1">Forensic Verification Record</p>
+                            <p className="text-xs font-bold text-lilac-100 uppercase tracking-widest mt-1">Verification Record</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>

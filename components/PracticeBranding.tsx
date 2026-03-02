@@ -165,6 +165,11 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
 
+    const [isUploading, setIsUploading] = useState<string | null>(null);
+    const fullLogoRef = useRef<HTMLInputElement>(null);
+    const compactLogoRef = useRef<HTMLInputElement>(null);
+    const iconLogoRef = useRef<HTMLInputElement>(null);
+
     // FIX: Add local state for the identity form
     const [localSettings, setLocalSettings] = useState(settings);
 
@@ -177,9 +182,34 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
         toast.success("Global profile updated successfully.");
     };
 
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'clinicLogoFull' | 'clinicLogoCompact' | 'clinicLogoIcon') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(type);
+        try {
+            const url = await DataService.uploadFile(file);
+            setLocalSettings(prev => ({ 
+                ...prev, 
+                [type]: url,
+                // Fallback logic: if clinicLogo is empty, set it to the first uploaded logo
+                clinicLogo: prev.clinicLogo || url 
+            }));
+            toast.success("Logo uploaded successfully.");
+        } catch (error: any) {
+            toast.error(`Logo upload failed: ${error.message}`);
+        } finally {
+            setIsUploading(null);
+        }
+    };
+
     const isIdentityChanged = useMemo(() => {
         return settings.clinicName !== localSettings.clinicName ||
                settings.clinicProfile !== localSettings.clinicProfile ||
+               settings.clinicLogo !== localSettings.clinicLogo ||
+               settings.clinicLogoFull !== localSettings.clinicLogoFull ||
+               settings.clinicLogoCompact !== localSettings.clinicLogoCompact ||
+               settings.clinicLogoIcon !== localSettings.clinicLogoIcon ||
                settings.sessionTimeoutMinutes !== localSettings.sessionTimeoutMinutes;
     }, [settings, localSettings]);
 
@@ -234,7 +264,7 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     return (
         <div className="p-10 space-y-8 animate-in fade-in duration-500">
             <div>
-                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">Global Profile Hub</h3>
+                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter leading-none">My Profile</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-2">Manage global branding, locations, and network affiliations.</p>
             </div>
 
@@ -248,18 +278,69 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
 
             {activeTab === 'identity' && (
                  <div className="bg-bg-secondary p-10 rounded-[2.5rem] border border-border-primary shadow-sm space-y-8">
-                    <div className="space-y-8">
-                        <div>
-                            <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
-                            <input id="clinicName" type="text" value={localSettings.clinicName} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicName: e.target.value }))} className="input text-lg font-bold"/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-8">
+                            <div>
+                                <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
+                                <input id="clinicName" type="text" value={localSettings.clinicName} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicName: e.target.value }))} className="input text-lg font-bold"/>
+                            </div>
+                            <div>
+                                <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
+                                <select id="clinicProfile" value={localSettings.clinicProfile} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicProfile: e.target.value as any }))} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
+                            </div>
+                            <div>
+                                <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
+                                <input id="sessionTimeout" type="number" value={localSettings.sessionTimeoutMinutes} onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: parseInt(e.target.value) || 30 }))} className="input text-lg font-bold"/>
+                            </div>
                         </div>
-                        <div>
-                            <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
-                            <select id="clinicProfile" value={localSettings.clinicProfile} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicProfile: e.target.value as any }))} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
-                        </div>
-                        <div>
-                            <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
-                            <input id="sessionTimeout" type="number" value={localSettings.sessionTimeoutMinutes} onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: parseInt(e.target.value) || 30 }))} className="input text-lg font-bold"/>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Full Logo Slot */}
+                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Full Branding Logo</span>
+                                <div className="w-full aspect-video rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                                    {localSettings.clinicLogoFull ? (
+                                        <img src={localSettings.clinicLogoFull} alt="Full Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <Building2 size={32} className="text-slate-300" />
+                                    )}
+                                </div>
+                                <button onClick={() => fullLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
+                                    {isUploading === 'clinicLogoFull' ? 'Uploading...' : 'Upload Full'}
+                                </button>
+                                <input type="file" ref={fullLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoFull')} accept="image/*" className="hidden" />
+                            </div>
+
+                            {/* Compact Logo Slot */}
+                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Compact Nav Logo</span>
+                                <div className="w-full h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                                    {localSettings.clinicLogoCompact ? (
+                                        <img src={localSettings.clinicLogoCompact} alt="Compact Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <Building2 size={24} className="text-slate-300" />
+                                    )}
+                                </div>
+                                <button onClick={() => compactLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
+                                    {isUploading === 'clinicLogoCompact' ? 'Uploading...' : 'Upload Compact'}
+                                </button>
+                                <input type="file" ref={compactLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoCompact')} accept="image/*" className="hidden" />
+                            </div>
+
+                            {/* Icon Logo Slot */}
+                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">System Icon</span>
+                                <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                                    {localSettings.clinicLogoIcon ? (
+                                        <img src={localSettings.clinicLogoIcon} alt="Icon Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <Building2 size={24} className="text-slate-300" />
+                                    )}
+                                </div>
+                                <button onClick={() => iconLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
+                                    {isUploading === 'clinicLogoIcon' ? 'Uploading...' : 'Upload Icon'}
+                                </button>
+                                <input type="file" ref={iconLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoIcon')} accept="image/*" className="hidden" />
+                            </div>
                         </div>
                     </div>
                     <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">

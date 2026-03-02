@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { WaitlistEntry, User, UserRole } from '../types';
+import { WaitlistEntry, UserRole } from '../types';
 import { useStaff } from '../contexts/StaffContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useToast } from './ToastSystem';
@@ -44,7 +44,7 @@ const WaitlistOverrideModal: React.FC<WaitlistOverrideModalProps> = ({ isOpen, o
     return (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
              <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 animate-in zoom-in-95 border-4 border-red-100" role="dialog" aria-labelledby="override-title">
-                 <div className="flex items-center gap-4 text-red-600 mb-8"><div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div><div><h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Guardrail Triggered</h3><p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Front-Desk Integrity Block</p></div></div>
+                 <div className="flex items-center gap-4 text-red-600 mb-8"><div className="bg-red-50 p-4 rounded-2xl shadow-sm"><ShieldAlert size={40} className="animate-pulse"/></div><div><h3 id="override-title" className="text-2xl font-black uppercase tracking-tighter">Waitlist Alert</h3><p className="text-xs font-bold uppercase text-red-800 tracking-widest mt-1">Booking Restriction</p></div></div>
                  <div className="bg-red-50 p-6 rounded-3xl mb-8 space-y-4 border border-red-100"><p className="text-sm font-bold text-red-900 leading-relaxed uppercase tracking-tighter">Attention: <strong>{entry.patientName}</strong> is currently flagged for:</p><ul className="space-y-3">{(isUnreliable) && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight">Low Appointment Reliability</li>)}{(hasBalance) && (<li className="flex items-center gap-3 text-sm font-black text-red-700 uppercase tracking-tight"><FinanceIcon size={18}/> Unresolved Practice Debt</li>)}</ul></div>
                  <div className="space-y-6 mb-10">
                     <div>
