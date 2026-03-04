@@ -3,6 +3,7 @@ import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Hash, Star, Search, User, Users, FileText, Baby, ShieldAlert, Edit3, Check } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { calculateAge } from '../constants';
+import DocentSparkle from './DocentSparkle';
 
 /**
  * REFACTORED: This is now a standard controlled input component.
@@ -364,7 +365,10 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 <div className="input bg-slate-50 text-slate-400 font-mono text-sm border-slate-200">{formData.id || 'AUTO_GEN'}</div>
             </div>
             <div className="col-span-1 md:col-span-4 relative" ref={searchContainerRef}>
-                <label className="label flex items-center gap-2 text-teal-800 font-bold"><Star size={14} fill="currentColor"/> Referral Source</label>
+                <label className="label flex items-center gap-2 text-teal-800 font-bold">
+                    <Star size={14} fill="currentColor"/> Referral Source
+                    <DocentSparkle elementId="referralSource" context="How the patient found out about the clinic. This helps in tracking marketing effectiveness." />
+                </label>
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
                     <input 
@@ -397,7 +401,10 @@ const RegistrationBasicInfoInternal: React.FC<RegistrationBasicInfoProps> = ({
                 </div>
             </div>
             <div className="col-span-1 md:col-span-5 relative" ref={headOfHouseholdContainerRef}>
-                <label className="label flex items-center gap-2 text-lilac-800 font-bold"><Users size={14}/> Head of Household</label>
+                <label className="label flex items-center gap-2 text-lilac-800 font-bold">
+                    <Users size={14}/> Head of Household
+                    <DocentSparkle elementId="headOfHousehold" context="The primary account holder for billing and family grouping purposes." />
+                </label>
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
                     <input 

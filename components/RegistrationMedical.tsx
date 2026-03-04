@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 // FIX: Added missing types Patient and FieldSettings from ../types
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, Edit3, HeartPulse, Calendar } from 'lucide-react';
+import DocentSparkle from './DocentSparkle';
 
 /**
  * REFACTORED: This is now a standard controlled textarea component.
@@ -287,7 +288,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
                 <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
                     <div className="p-3 bg-lilac-50 text-lilac-600 rounded-2xl"><ShieldAlert size={24}/></div>
-                    <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">Allergies</h4>
+                    <h4 className="text-xl font-black uppercase text-slate-800 tracking-tight">
+                        Allergies
+                        <DocentSparkle elementId="allergies" context="Common allergens that may cause adverse reactions during dental treatment." />
+                    </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                     {allergiesOrder.map(id => {
@@ -360,7 +364,10 @@ const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({
             <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
                 <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
                     <div className="p-3 bg-slate-50 text-slate-700 rounded-2xl"><Activity size={24}/></div>
-                    <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight">Diagnostic Conditions Registry</h4>
+                    <h4 className="text-lg font-black uppercase text-slate-800 tracking-tight">
+                        Diagnostic Conditions Registry
+                        <DocentSparkle elementId="medicalConditions" context="Pre-existing medical conditions that may impact dental treatment planning." />
+                    </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Explicit None Option for Medical Conditions */}

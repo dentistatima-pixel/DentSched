@@ -1,6 +1,7 @@
 import React from 'react';
 import { Patient, FieldSettings } from '../types';
 import { Activity, History, MessageSquare, Edit3 } from 'lucide-react';
+import DocentSparkle from './DocentSparkle';
 
 const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'dentalCore' | 'dentalQuestion', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
   const isSelected = selectedFieldId === id;
@@ -104,7 +105,10 @@ const RegistrationDental: React.FC<RegistrationDentalProps> = ({
             return (
                 <DesignWrapper id={id} type="dentalCore" key={id} className="md:col-span-12" designMode={designMode} onFieldClick={onFieldClick} selectedFieldId={selectedFieldId}>
                     <div>
-                        <label htmlFor="chiefComplaint" className="label text-xs flex items-center gap-2"><MessageSquare size={14}/> Chief Complaint / Reason for Visit *</label>
+                        <label htmlFor="chiefComplaint" className="label text-xs flex items-center gap-2">
+                            <MessageSquare size={14}/> Chief Complaint / Reason for Visit *
+                            <DocentSparkle elementId="chiefComplaint" context="The patient's primary reason for seeking dental care. This should be recorded in the patient's own words. Ask open-ended questions to elicit a detailed history." />
+                        </label>
                         <textarea id="chiefComplaint" name="chiefComplaint" value={formData.chiefComplaint || ''} onChange={handleChange} disabled={readOnly} rows={4} className="input bg-white h-auto" placeholder="Please describe your main dental concern..." required/>
                     </div>
                 </DesignWrapper>

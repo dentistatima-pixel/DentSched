@@ -39,6 +39,7 @@ const SendSmsModal = React.lazy(() => import('./SendSmsModal'));
 const ClinicalCheckoutModal = React.lazy(() => import('./ClinicalCheckoutModal'));
 const ConfirmModal = React.lazy(() => import('./ConfirmModal'));
 const PromptModal = React.lazy(() => import('./PromptModal'));
+const CancellationModal = React.lazy(() => import('./CancellationModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -83,6 +84,7 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     clinicalCheckout: ClinicalCheckoutModal,
     confirm: ConfirmModal,
     prompt: PromptModal,
+    cancellation: CancellationModal,
 };
 
 const ModalManager: React.FC = () => {

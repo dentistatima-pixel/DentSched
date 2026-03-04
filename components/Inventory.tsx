@@ -57,6 +57,38 @@ const Inventory: React.FC<InventoryProps> = ({
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [transferData, setTransferData] = useState({ itemId: '', quantity: 1, toBranch: '' });
 
+  // Purchase Order State
+  const [poVendor, setPoVendor] = useState('');
+  const [poDate, setPoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [poItems, setPoItems] = useState<{itemId: string, quantity: number}[]>([]);
+  const [currentPoItem, setCurrentPoItem] = useState<{itemId: string, quantity: number}>({ itemId: '', quantity: 1 });
+
+  const handleAddPoItem = () => {
+      if (!currentPoItem.itemId || currentPoItem.quantity <= 0) return;
+      setPoItems(prev => [...prev, currentPoItem]);
+      setCurrentPoItem({ itemId: '', quantity: 1 });
+  };
+
+  const handleRemovePoItem = (index: number) => {
+      setPoItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitPO = () => {
+      if (!poVendor || poItems.length === 0) {
+          toast.error("Please select a vendor and add at least one item.");
+          return;
+      }
+      
+      // In a real app, this would save to a database
+      console.log("Submitting PO:", { vendor: poVendor, date: poDate, items: poItems });
+      toast.success(`Purchase Order to ${poVendor} submitted successfully.`);
+      
+      // Reset form
+      setPoVendor('');
+      setPoDate(new Date().toISOString().split('T')[0]);
+      setPoItems([]);
+  };
+
   const handleTransfer = () => {
     if (!transferData.itemId || transferData.quantity <= 0 || !transferData.toBranch) {
         toast.error("All transfer fields are required.");
@@ -400,18 +432,74 @@ const Inventory: React.FC<InventoryProps> = ({
                          <div className="bg-white p-8 rounded-3xl border shadow-sm">
                             <h4 className="font-bold text-lg mb-4">Order Supplies</h4>
                             <div className="grid grid-cols-2 gap-4">
-                                <select className="input"><option>Select Vendor</option></select>
-                                <input type="date" className="input" />
+                                <select 
+                                    className="input"
+                                    value={poVendor}
+                                    onChange={(e) => setPoVendor(e.target.value)}
+                                >
+                                    <option value="">Select Vendor</option>
+                                    {fieldSettings?.vendors?.map(v => (
+                                        <option key={v.id} value={v.name}>{v.name}</option>
+                                    ))}
+                                    {!fieldSettings?.vendors?.length && <option value="Generic Supplier">Generic Supplier</option>}
+                                </select>
+                                <input 
+                                    type="date" 
+                                    className="input"
+                                    value={poDate}
+                                    onChange={(e) => setPoDate(e.target.value)}
+                                />
                             </div>
+                            
+                            {/* PO Items List */}
+                            {poItems.length > 0 && (
+                                <div className="mt-4 space-y-2">
+                                    {poItems.map((item, idx) => {
+                                        const stockItem = stock.find(s => s.id === item.itemId);
+                                        return (
+                                            <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-sm">
+                                                <span>{stockItem?.name || 'Unknown Item'} (x{item.quantity})</span>
+                                                <button onClick={() => handleRemovePoItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             <div className="mt-4 border-t pt-4">
-                                <p className="font-bold mb-2">Items</p>
+                                <p className="font-bold mb-2">Add Item</p>
                                 <div className="flex gap-4 items-center">
-                                    <select className="input flex-1"><option>Select Item</option></select>
-                                    <input type="number" placeholder="Qty" className="input w-24"/>
-                                    <button className="p-2 bg-teal-100 text-teal-700 rounded-lg"><Plus size={16}/></button>
+                                    <select 
+                                        className="input flex-1"
+                                        value={currentPoItem.itemId}
+                                        onChange={(e) => setCurrentPoItem(prev => ({ ...prev, itemId: e.target.value }))}
+                                    >
+                                        <option value="">Select Item</option>
+                                        {stock.map(s => <option key={s.id} value={s.id}>{s.name} (Current: {s.quantity})</option>)}
+                                    </select>
+                                    <input 
+                                        type="number" 
+                                        placeholder="Qty" 
+                                        className="input w-24"
+                                        value={currentPoItem.quantity}
+                                        onChange={(e) => setCurrentPoItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+                                    />
+                                    <button 
+                                        onClick={handleAddPoItem}
+                                        className="p-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200"
+                                        disabled={!currentPoItem.itemId || currentPoItem.quantity <= 0}
+                                    >
+                                        <Plus size={16}/>
+                                    </button>
                                 </div>
                             </div>
-                            <button onClick={() => toast.success("Purchase Order submitted.")} className="mt-6 bg-teal-600 text-white px-6 py-3 rounded-lg text-sm font-bold">Submit Purchase Order</button>
+                            <button 
+                                onClick={handleSubmitPO} 
+                                className="mt-6 bg-teal-600 text-white px-6 py-3 rounded-lg text-sm font-bold w-full hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                disabled={!poVendor || poItems.length === 0}
+                            >
+                                Submit Purchase Order
+                            </button>
                          </div>
                     </div>
                  )}

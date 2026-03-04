@@ -4,12 +4,13 @@ import { Appointment, Patient, AppointmentStatus } from '../types';
 import { useInventory } from '../contexts/InventoryContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface InspectorPanelProps {
     inspected: { apt: Appointment, patient: Patient } | null;
     mode?: 'clinical' | 'system';
     onClose: () => void;
-    onUpdateStatus?: (appointmentId: string, status: AppointmentStatus) => void;
+    onUpdateStatus?: (appointmentId: string, status: AppointmentStatus, additionalData?: any) => void;
     onOpenChart?: (patientId: string, prefill: any) => void;
 }
 
@@ -17,6 +18,8 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, mode = 'clin
     const { transfers } = useInventory();
     const { fieldSettings } = useSettings();
     const { currentUser } = useAppContext();
+    
+    const { showModal } = useModal();
     
     // Mock audit log tail (in a real app, this would come from an audit service)
     const [auditTail, setAuditTail] = useState<string[]>([]);
@@ -132,6 +135,8 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, mode = 'clin
                                   <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.ARRIVED)} className="bg-orange-100 text-orange-800 p-3 rounded-lg text-xs font-black uppercase">Arrived</button>
                                   <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.TREATING)} className="bg-lilac-100 text-lilac-800 p-3 rounded-lg text-xs font-black uppercase">Treat</button>
                                   <button onClick={() => onUpdateStatus(inspected.apt.id, AppointmentStatus.COMPLETED)} className="bg-teal-100 text-teal-800 p-3 rounded-lg text-xs font-black uppercase col-span-2">Complete</button>
+                                  <button onClick={() => showModal('ePrescription', { patient: inspected.patient })} className="bg-blue-100 text-blue-800 p-3 rounded-lg text-xs font-black uppercase col-span-2">Prescribe</button>
+                                  <button onClick={() => showModal('cancellation', { appointment: inspected.apt, onConfirm: (reason: string) => onUpdateStatus(inspected.apt.id, AppointmentStatus.CANCELLED, { cancellationReason: reason }) })} className="bg-red-50 text-red-800 p-3 rounded-lg text-xs font-black uppercase col-span-2">Cancel</button>
                                 </>
                               )}
                           </div>
