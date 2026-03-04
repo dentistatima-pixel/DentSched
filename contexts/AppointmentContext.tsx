@@ -90,6 +90,14 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                         const msg = formatSmsTemplate(template.text, data);
                         sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
                     }
+                    
+                    if (patient && patient.phone) {
+                        const aptDateTime = new Date(`${finalAppointment.date}T${finalAppointment.time}`);
+                        const reminderDate = new Date(aptDateTime.getTime() - 24 * 60 * 60 * 1000);
+                        if (reminderDate > new Date()) {
+                            addScheduledSms({ patientId: patient.id, templateId: 'appointment_reminder', dueDate: reminderDate.toISOString(), data: { PatientName: patient.firstName || patient.name.split(' ')[0], ClinicName: fieldSettings.clinicName || 'Clinic', Date: finalAppointment.date, Time: finalAppointment.time } });
+                        }
+                    }
                 }
             }
 
@@ -213,6 +221,14 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     };
                     const msg = formatSmsTemplate(template.text, data);
                     sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
+                }
+                
+                if (patient && patient.phone) {
+                    const aptDateTime = new Date(`${updatedApt.date}T${updatedApt.time}`);
+                    const reminderDate = new Date(aptDateTime.getTime() - 24 * 60 * 60 * 1000);
+                    if (reminderDate > new Date()) {
+                        addScheduledSms({ patientId: patient.id, templateId: 'appointment_reminder', dueDate: reminderDate.toISOString(), data: { PatientName: patient.firstName || patient.name.split(' ')[0], ClinicName: fieldSettings.clinicName || 'Clinic', Date: updatedApt.date, Time: updatedApt.time } });
+                    }
                 }
             }
         } catch (e) {

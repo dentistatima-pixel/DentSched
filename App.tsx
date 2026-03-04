@@ -11,6 +11,7 @@ import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
 import { routes } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
+import { sendSms } from './services/smsService';
 
 import { User } from './types';
 import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
@@ -151,7 +152,7 @@ export const App: React.FC = () => {
                 ? `ALERT: Dr. ${currentUser.name}, your ${type} license has EXPIRED. Clinical privileges are suspended.`
                 : `REMINDER: Dr. ${currentUser.name}, your ${type} license expires in ${daysRemaining} days. Please renew.`;
             
-            console.log(`[SMS SERVICE] Sending to ${currentUser.phone || 'Unknown'}: ${message}`);
+            sendSms(currentUser.phone || 'Unknown', message, fieldSettings.smsConfig).catch(console.error);
             localStorage.setItem(storageKey, 'sent');
         }
     };
