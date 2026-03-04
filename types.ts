@@ -613,6 +613,7 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  phone?: string;
   pin?: string;
   licenseCategory?: LicenseCategory;
   avatar?: string;

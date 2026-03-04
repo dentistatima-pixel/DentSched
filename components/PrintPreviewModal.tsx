@@ -9,7 +9,11 @@ import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useStaff } from '../contexts/StaffContext';
+import { useInventory } from '../contexts/InventoryContext';
 import { generatePatientDocument, generateAdminReport } from '../services/documentGenerator';
+
+import { useToast } from './ToastSystem';
+import { sendSms } from '../services/smsService';
 
 interface PrintPreviewModalProps {
     isOpen: boolean;
@@ -20,11 +24,13 @@ interface PrintPreviewModalProps {
 }
 
 const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, templateId, patient, params }) => {
+    const toast = useToast();
     const { fieldSettings } = useSettings();
     const { currentUser } = useAppContext();
     const { patients } = usePatient();
     const { appointments } = useAppointments();
     const { staff } = useStaff();
+    const { stock } = useInventory();
 
     const [content, setContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +50,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
                     const generatedContent = generatePatientDocument(template.content, patient, currentUser, fieldSettings, appointments);
                     setContent(generatedContent);
                 } else if (params) {
-                    const generatedContent = generateAdminReport(template.content, params, { patients, appointments, staff }, fieldSettings);
+                    const generatedContent = generateAdminReport(template.content, params, { patients, appointments, staff, stock }, fieldSettings);
                     setContent(generatedContent);
                 } else {
                     setContent("# Error: Insufficient data for document generation.");
@@ -56,7 +62,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
             
             setIsLoading(false);
         }
-    }, [isOpen, templateId, patient, params, currentUser, fieldSettings, patients, appointments]);
+    }, [isOpen, templateId, patient, params, currentUser, fieldSettings, patients, appointments, stock]);
 
     const handlePrint = () => {
         const doc = new jsPDF();
@@ -69,6 +75,24 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
             width: 170,
             windowWidth: 650
         });
+    };
+
+    const handleSendReminder = async (patientId: string) => {
+        const p = patients.find(pat => pat.id === patientId);
+        if (!p) return;
+        
+        toast.info(`Sending balance reminder to ${p.name}...`);
+        const result = await sendSms(
+            p.phone, 
+            `Dear ${p.name}, this is a friendly reminder of your outstanding balance of PHP ${(p.currentBalance || 0).toLocaleString()}. Please visit the clinic to settle. Thank you.`, 
+            fieldSettings.smsConfig
+        );
+        
+        if (result.success) {
+            toast.success(`Reminder sent to ${p.name}`);
+        } else {
+            toast.error(`Failed to send SMS: ${result.error}`);
+        }
     };
 
     if (!isOpen) return null;
@@ -96,7 +120,21 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
                                         // By default, react-markdown strips data-url images for security.
                                         // This override tells it to render img tags as-is, which allows
                                         // our base64-encoded SVG signatures to appear correctly.
-                                        img: ({node, ...props}) => <img style={{maxWidth: '200px', maxHeight: '100px'}} {...props} alt={props.alt || 'Signature'} />
+                                        img: ({node, ...props}) => <img style={{maxWidth: '200px', maxHeight: '100px'}} {...props} alt={props.alt || 'Signature'} />,
+                                        a: ({href, children, ...props}) => {
+                                            if (href?.startsWith('reminder:')) {
+                                                const id = href.split(':')[1];
+                                                return (
+                                                    <button 
+                                                        onClick={(e) => { e.preventDefault(); handleSendReminder(id); }} 
+                                                        className="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-bold hover:bg-teal-200 transition-colors"
+                                                    >
+                                                        Send Reminder
+                                                    </button>
+                                                );
+                                            }
+                                            return <a href={href} {...props}>{children}</a>;
+                                        }
                                     }}
                                 >
                                     {content}

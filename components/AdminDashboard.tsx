@@ -1,12 +1,15 @@
 
-import React from 'react';
-import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX, Users2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX, Users2, Activity } from 'lucide-react';
+import InspectorPanel from './InspectorPanel';
 
 interface AdminDashboardProps {
   onNavigate: (path: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
+  const [showSystemInspector, setShowSystemInspector] = useState(false);
+
   const adminSections = [
     { id: 'analytics', title: 'Analytics', description: 'View performance dashboards and generate reports.', icon: BarChart2, color: 'bg-teal-600' },
     { id: 'governance', title: 'Compliance', description: 'Manage compliance, audit trails, and legal forms.', icon: ShieldCheck, color: 'bg-lilac-600' },
@@ -21,9 +24,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   return (
     <div className="p-8 animate-in fade-in duration-500">
-      <div className="mb-12">
-        <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Admin</h1>
-        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manage your practice settings, staff, and workflows.</p>
+      <div className="mb-12 flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Admin</h1>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manage your practice settings, staff, and workflows.</p>
+        </div>
+        <button 
+          onClick={() => setShowSystemInspector(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-colors"
+        >
+          <Activity size={16} /> System Inspector
+        </button>
       </div>
 
       <div className="grid gap-8 admin-hub-grid">
@@ -41,6 +52,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </button>
         ))}
       </div>
+      
+      {showSystemInspector && (
+        <InspectorPanel 
+          inspected={null} 
+          mode="system" 
+          onClose={() => setShowSystemInspector(false)} 
+        />
+      )}
     </div>
   );
 };

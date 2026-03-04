@@ -1,3 +1,4 @@
+// Force rebuild
 import React, { useMemo } from 'react';
 import { DollarSign, Users, PieChart, CalendarX, UserPlus, UserCheck } from 'lucide-react';
 import { Patient, Appointment, FieldSettings, AppointmentStatus, User as StaffUser, PriceBookEntry } from '../types';

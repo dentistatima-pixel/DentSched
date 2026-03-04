@@ -125,6 +125,41 @@ export const App: React.FC = () => {
   const countdownIntervalRef = useRef<number | null>(null);
 
   const { isPrcExpired, isMalpracticeExpired } = useLicenseValidation(currentUser?.id || null);
+  
+  // Automated License Expiry Notifications
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // Helper to calculate days remaining
+    const getDaysRemaining = (expiryDate?: string) => {
+        if (!expiryDate) return Infinity;
+        const today = new Date();
+        const expiry = new Date(expiryDate);
+        const diffTime = expiry.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    const daysUntilPrc = getDaysRemaining(currentUser.prcExpiry);
+    const daysUntilMalpractice = getDaysRemaining(currentUser.malpracticeExpiry);
+
+    const checkAndNotify = (type: 'PRC' | 'Malpractice', isExpired: boolean, daysRemaining: number) => {
+        const storageKey = `license_alert_${currentUser.id}_${type}_${new Date().toISOString().split('T')[0]}`;
+        if (localStorage.getItem(storageKey)) return; 
+
+        if (isExpired || (daysRemaining > 0 && daysRemaining <= 30)) {
+            const message = isExpired 
+                ? `ALERT: Dr. ${currentUser.name}, your ${type} license has EXPIRED. Clinical privileges are suspended.`
+                : `REMINDER: Dr. ${currentUser.name}, your ${type} license expires in ${daysRemaining} days. Please renew.`;
+            
+            console.log(`[SMS SERVICE] Sending to ${currentUser.phone || 'Unknown'}: ${message}`);
+            localStorage.setItem(storageKey, 'sent');
+        }
+    };
+
+    checkAndNotify('PRC', isPrcExpired, daysUntilPrc);
+    checkAndNotify('Malpractice', isMalpracticeExpired, daysUntilMalpractice);
+
+  }, [currentUser, isPrcExpired, isMalpracticeExpired]);
 
   useEffect(() => {
       setIsAuthorityLocked(isPrcExpired || isMalpracticeExpired);

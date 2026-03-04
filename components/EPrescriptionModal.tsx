@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Patient, FieldSettings, User, EPrescription } from '../types';
 import { X, Pill, Printer, ShieldAlert, Lock, Baby, CheckCircle, Fingerprint, Scale, Zap, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -30,6 +30,9 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const [yellowRxSerial, setYellowRxSerial] = useState('');
     const [consentAcknowledged, setConsentAcknowledged] = useState(false);
     
+    const [interactionWarning, setInteractionWarning] = useState<string | null>(null);
+    // const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
+
     // Pediatric Safety State
     const [patientWeight, setPatientWeight] = useState<string>(patient.weightKg?.toString() || '');
     const [isDosageVerified, setIsDosageVerified] = useState(false);
@@ -89,7 +92,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         return selectedMed.interactions?.find(conflictDrug => currentMedsStr.includes(conflictDrug.toLowerCase()));
     }, [selectedMed, patient.medicationDetails]);
 
-    const needsJustification = !!allergyConflict || !!drugInteraction || !!safetyViolation;
+    const needsJustification = !!allergyConflict || !!drugInteraction || !!safetyViolation || !!interactionWarning;
     const isJustificationValid = clinicalJustification.trim().length >= 20;
 
     const isSafetyBlocked = isPediatric && (!patientWeight || !isDosageVerified || (safetyViolation && !isJustificationValid));
@@ -99,6 +102,61 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         const med = medications.find(m => m.id === medId);
         if (med) { setDosage(med.dosage); setInstructions(med.instructions); }
     };
+
+    const checkDrugInteractions = async (newMedName: string) => {
+        if (!patient?.medicationDetails) return;
+        
+        // setIsCheckingInteractions(true);
+        setInteractionWarning(null);
+
+        try {
+            // Extract existing meds from the free-text field (simple comma separation)
+            const existingMeds = patient.medicationDetails.split(',').map(m => m.trim()).filter(Boolean);
+            if (existingMeds.length === 0) {
+                // setIsCheckingInteractions(false);
+                return;
+            }
+
+            // OpenFDA API is free but rate-limited. We'll do a simple check.
+            // We query for the NEW med's label and see if it lists any of the EXISTING meds in its 'drug_interactions' section.
+            
+            const response = await fetch(`https://api.fda.gov/drug/label.json?search=drug_interactions:"${newMedName}"&limit=1`);
+            if (!response.ok) {
+                // If 404, maybe the drug isn't found or no interactions listed.
+                // setIsCheckingInteractions(false);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                const interactionsText = data.results[0].drug_interactions ? data.results[0].drug_interactions[0] : '';
+                
+                const foundInteractions = existingMeds.filter(existingMed => 
+                    interactionsText.toLowerCase().includes(existingMed.toLowerCase())
+                );
+
+                if (foundInteractions.length > 0) {
+                    setInteractionWarning(`⚠️ Potential Interaction: ${newMedName} may interact with patient's existing medication(s): ${foundInteractions.join(', ')}. (Source: OpenFDA)`);
+                }
+            }
+
+        } catch (error) {
+            console.error("Failed to check drug interactions", error);
+        } finally {
+            // setIsCheckingInteractions(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedMedId) {
+            const med = medications.find(m => m.id === selectedMedId);
+            if (med) {
+                checkDrugInteractions(med.genericName);
+            }
+        } else {
+            setInteractionWarning(null);
+        }
+    }, [selectedMedId, patient, medications]);
 
     const s2Status = useMemo(() => {
         if (!selectedMed?.isS2Controlled) return { violation: false, reason: '' };
@@ -274,6 +332,18 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                             </div>
                         )}
                     </div>
+
+                    {interactionWarning && (
+                        <div className="bg-amber-50 border-2 border-amber-200 p-5 rounded-3xl space-y-4 animate-in slide-in-from-top-4 shadow-lg" role="alert">
+                            <div className="flex items-center gap-3 text-amber-800">
+                                <ShieldAlert size={28} aria-hidden="true" />
+                                <h3 className="font-black uppercase tracking-tight text-sm">Drug Interaction Warning</h3>
+                            </div>
+                            <p className="text-xs text-amber-900 font-bold leading-relaxed">
+                                {interactionWarning}
+                            </p>
+                        </div>
+                    )}
 
                     {isPediatric && (
                         <div className="bg-red-50 border-2 border-red-200 p-5 rounded-3xl space-y-4 animate-in slide-in-from-top-4 shadow-lg ring-4 ring-red-500/5" role="region" aria-label="Pediatric Safety Checks">

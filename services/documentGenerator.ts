@@ -1,6 +1,6 @@
 
 
-import { Patient, User, FieldSettings, Appointment, AppointmentStatus, DentalChartEntry } from '../types';
+import { Patient, User, FieldSettings, Appointment, AppointmentStatus, DentalChartEntry, StockItem } from '../types';
 import { formatDate, calculateAge } from '../constants';
 
 export const generatePatientDocument = (templateContent: string, patient: Patient, practitioner: User, settings: FieldSettings, appointments: Appointment[]): string => {
@@ -176,7 +176,7 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
 };
 
 
-export const generateAdminReport = (templateContent: string, params: any, data: { patients: Patient[], appointments: Appointment[], staff?: User[] }, settings: FieldSettings): string => {
+export const generateAdminReport = (templateContent: string, params: any, data: { patients: Patient[], appointments: Appointment[], staff?: User[], stock?: StockItem[] }, settings: FieldSettings): string => {
     let content = templateContent;
 
     const today = new Date();
@@ -227,17 +227,52 @@ export const generateAdminReport = (templateContent: string, params: any, data: 
         if (debtors.length === 0) {
             content = content.replace('{agingRows}', '_No outstanding balances found._');
         } else {
-            let agingTable = '| Patient | Last Visit | Balance | Age Bucket |\n|---|---|---|---|\n';
+            let agingTable = '| Patient | Last Visit | Balance | Age Bucket | Action |\n|---|---|---|---|---|\n';
             debtors.forEach(p => {
                 const lastVisit = p.lastVisit ? new Date(p.lastVisit) : new Date();
-                const diffTime = Math.abs(today.getTime() - lastVisit.getTime());
+                
+                // Find anchor date from oldest unpaid charge
+                let anchorDate = lastVisit;
+                if (p.ledger && p.ledger.length > 0) {
+                    // Sort ledger by date ascending
+                    const sortedLedger = [...p.ledger].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    
+                    // Walk backwards to find when balance became positive and stayed positive
+                    // let runningBalance = p.currentBalance || 0;
+                    let earliestUnpaidDate = new Date();
+                    
+                    // Simple heuristic: Find the oldest charge that could contribute to the current balance
+                    // If we assume FIFO payment application:
+                    // We sum up all payments. Then we subtract payments from charges starting from the oldest.
+                    // The first charge that isn't fully paid is the anchor.
+                    
+                    const totalPayments = sortedLedger
+                        .filter(e => e.type === 'Payment' || e.type === 'Discount')
+                        .reduce((sum, e) => sum + e.amount, 0);
+                        
+                    let paymentsRemaining = totalPayments;
+                    const charges = sortedLedger.filter(e => e.type === 'Charge');
+                    
+                    for (const charge of charges) {
+                        if (paymentsRemaining >= charge.amount) {
+                            paymentsRemaining -= charge.amount;
+                        } else {
+                            // This charge is partially or fully unpaid
+                            earliestUnpaidDate = new Date(charge.date);
+                            break;
+                        }
+                    }
+                    anchorDate = earliestUnpaidDate;
+                }
+
+                const diffTime = Math.abs(today.getTime() - anchorDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 let bucket = 'Current';
                 if (diffDays > 90) bucket = '90+ Days';
                 else if (diffDays > 60) bucket = '61-90 Days';
                 else if (diffDays > 30) bucket = '31-60 Days';
                 
-                agingTable += `| ${p.name} | ${formatDate(p.lastVisit)} | ${(p.currentBalance || 0).toLocaleString()} | ${bucket} |\n`;
+                agingTable += `| ${p.name} | ${formatDate(p.lastVisit)} | ${(p.currentBalance || 0).toLocaleString()} | ${bucket} | [Send Reminder](reminder:${p.id}) |\n`;
             });
             content = content.replace('{agingRows}', agingTable);
         }
@@ -245,7 +280,7 @@ export const generateAdminReport = (templateContent: string, params: any, data: 
 
     // --- INVENTORY REPORT LOGIC ---
     if (content.includes('{inventoryRows}')) {
-        const items = settings.stockItems || [];
+        const items = data.stock || settings.stockItems || [];
         if (items.length === 0) {
             content = content.replace('{inventoryRows}', '_No stock items found._');
         } else {
