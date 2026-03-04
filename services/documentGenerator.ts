@@ -1,6 +1,6 @@
 
 
-import { Patient, User, FieldSettings, Appointment, AppointmentStatus, TreatmentPlan, DentalChartEntry } from '../types';
+import { Patient, User, FieldSettings, Appointment, AppointmentStatus, DentalChartEntry } from '../types';
 import { formatDate, calculateAge } from '../constants';
 
 export const generatePatientDocument = (templateContent: string, patient: Patient, practitioner: User, settings: FieldSettings, appointments: Appointment[]): string => {
@@ -176,7 +176,7 @@ export const generatePatientDocument = (templateContent: string, patient: Patien
 };
 
 
-export const generateAdminReport = (templateContent: string, params: any, data: { patients: Patient[], appointments: Appointment[] }, settings: FieldSettings): string => {
+export const generateAdminReport = (templateContent: string, params: any, data: { patients: Patient[], appointments: Appointment[], staff?: User[] }, settings: FieldSettings): string => {
     let content = templateContent;
 
     const today = new Date();
@@ -221,10 +221,74 @@ export const generateAdminReport = (templateContent: string, params: any, data: 
     content = content.replace(/{newPatients}/g, newPatients.toString());
     content = content.replace(/{noShows}/g, noShows.toString());
 
-    // Placeholder for more complex row-based data
-    content = content.replace(/{agingRows}/g, 'Aging report data not implemented.');
-    content = content.replace(/{inventoryRows}/g, 'Inventory report data not implemented.');
-    content = content.replace(/{productionItems}/g, 'Production items data not implemented.');
+    // --- AGING REPORT LOGIC ---
+    if (content.includes('{agingRows}')) {
+        const debtors = data.patients.filter(p => (p.currentBalance || 0) > 0);
+        if (debtors.length === 0) {
+            content = content.replace('{agingRows}', '_No outstanding balances found._');
+        } else {
+            let agingTable = '| Patient | Last Visit | Balance | Age Bucket |\n|---|---|---|---|\n';
+            debtors.forEach(p => {
+                const lastVisit = p.lastVisit ? new Date(p.lastVisit) : new Date();
+                const diffTime = Math.abs(today.getTime() - lastVisit.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let bucket = 'Current';
+                if (diffDays > 90) bucket = '90+ Days';
+                else if (diffDays > 60) bucket = '61-90 Days';
+                else if (diffDays > 30) bucket = '31-60 Days';
+                
+                agingTable += `| ${p.name} | ${formatDate(p.lastVisit)} | ${(p.currentBalance || 0).toLocaleString()} | ${bucket} |\n`;
+            });
+            content = content.replace('{agingRows}', agingTable);
+        }
+    }
+
+    // --- INVENTORY REPORT LOGIC ---
+    if (content.includes('{inventoryRows}')) {
+        const items = settings.stockItems || [];
+        if (items.length === 0) {
+            content = content.replace('{inventoryRows}', '_No stock items found._');
+        } else {
+            let invTable = '| Item Name | Category | Quantity | Status |\n|---|---|---|---|\n';
+            items.forEach(item => {
+                const status = item.quantity <= item.lowStockThreshold ? '**LOW STOCK**' : 'OK';
+                invTable += `| ${item.name} | ${item.category} | ${item.quantity} ${item.dispensingUnit || ''} | ${status} |\n`;
+            });
+            content = content.replace('{inventoryRows}', invTable);
+        }
+    }
+
+    // --- PRODUCTION REPORT LOGIC ---
+    if (content.includes('{productionItems}')) {
+        const productionByProvider: Record<string, { name: string, count: number, total: number }> = {};
+        
+        completedApts.forEach(apt => {
+            const providerId = apt.providerId;
+            if (!productionByProvider[providerId]) {
+                const provider = data.staff?.find(u => u.id === providerId);
+                productionByProvider[providerId] = { 
+                    name: provider?.name || 'Unknown Provider', 
+                    count: 0, 
+                    total: 0 
+                };
+            }
+            
+            const proc = settings.procedures.find(p => p.name === apt.type);
+            productionByProvider[providerId].count++;
+            productionByProvider[providerId].total += (proc?.defaultPrice || 0);
+        });
+
+        if (Object.keys(productionByProvider).length === 0) {
+            content = content.replace('{productionItems}', '_No production data for this period._');
+        } else {
+            let prodTable = '| Provider | Procedures Completed | Total Production |\n|---|---|---|\n';
+            Object.values(productionByProvider).forEach(entry => {
+                prodTable += `| ${entry.name} | ${entry.count} | ${entry.total.toLocaleString()} |\n`;
+            });
+            content = content.replace('{productionItems}', prodTable);
+        }
+    }
+
     content = content.replace(/{totalAppointments}/g, relevantAppointments.length.toString());
     content = content.replace(/{completedAppointments}/g, completedApts.length.toString());
     content = content.replace(/{noShowCount}/g, noShows.toString());

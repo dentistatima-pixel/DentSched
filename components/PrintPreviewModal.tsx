@@ -8,6 +8,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';
+import { useStaff } from '../contexts/StaffContext';
 import { generatePatientDocument, generateAdminReport } from '../services/documentGenerator';
 
 interface PrintPreviewModalProps {
@@ -23,6 +24,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
     const { currentUser } = useAppContext();
     const { patients } = usePatient();
     const { appointments } = useAppointments();
+    const { staff } = useStaff();
 
     const [content, setContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +44,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
                     const generatedContent = generatePatientDocument(template.content, patient, currentUser, fieldSettings, appointments);
                     setContent(generatedContent);
                 } else if (params) {
-                    const generatedContent = generateAdminReport(template.content, params, { patients, appointments }, fieldSettings);
+                    const generatedContent = generateAdminReport(template.content, params, { patients, appointments, staff }, fieldSettings);
                     setContent(generatedContent);
                 } else {
                     setContent("# Error: Insufficient data for document generation.");
