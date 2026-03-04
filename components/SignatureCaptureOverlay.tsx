@@ -289,7 +289,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
               onPointerDown={startSign}
             />
             <div className="absolute bottom-10 left-8 right-8 h-px bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none" />
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-black text-slate-300 uppercase">Signature Baseline</div>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-black text-slate-300 uppercase">Reference Signature</div>
           </div>
 
           <div className="flex gap-4">

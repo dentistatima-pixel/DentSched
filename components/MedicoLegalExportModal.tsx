@@ -198,7 +198,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             doc.addPage();
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(16);
-            doc.text("SECTION II: FORENSIC AUDIT TRAIL", 20, 20);
+            doc.text("SECTION II: AUDIT TRAIL", 20, 20);
             doc.line(20, 25, 190, 25);
             
             const auditData = (patient.dentalChart || []).map(entry => [
@@ -305,7 +305,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
             currentY += 15;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
-            doc.text("FORENSIC METADATA:", 20, currentY);
+            doc.text("METADATA:", 20, currentY);
             currentY += 8;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
@@ -320,7 +320,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
         addPractitionerAffidavitFooter(doc);
 
         doc.save(`MedicoLegal_Report_${patient.surname}_${Date.now()}.pdf`);
-        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report including Rule 11 Financial Reconciliation and International DVI dataset.");
+        logAction('EXPORT_RECORD', 'Patient', patient.id, "Generated comprehensive Medico-Legal narrative report including End of Day Cash Reconciliation and International DVI dataset.");
         toast.success("Medico-Legal Narrative exported successfully.");
         onClose();
     };
@@ -343,7 +343,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                     <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex items-start gap-4">
                         <Fingerprint size={32} className="text-blue-600 shrink-0 mt-1" />
                         <div>
-                            <h4 className="font-black text-blue-900 uppercase text-xs tracking-widest mb-1">Electronic Evidence Standard</h4>
+                            <h4 className="font-black text-blue-900 uppercase text-xs tracking-widest mb-1">Digital Records Standard</h4>
                             <p className="text-xs text-blue-800 font-medium leading-relaxed">
                                 This tool compiles clinical narratives including practitioner PRC/PTR attribution and cryptographic hashes. Compliant with the <strong>Revised Rules on Evidence</strong>.
                             </p>
@@ -361,8 +361,8 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                                 className="w-6 h-6 accent-teal-600 rounded" 
                             />
                             <div>
-                                <div className="font-bold text-slate-800 text-sm">Chronological Clinical Narrative</div>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Scale size={10}/> Includes Rule 9 Forensic Watermarks</p>
+                                <div className="font-bold text-slate-800 text-sm">Treatment History</div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Scale size={10}/> Includes Rule 9 Watermarks</p>
                             </div>
                         </label>
 
@@ -374,7 +374,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                                 className="w-6 h-6 accent-teal-600 rounded" 
                             />
                             <div>
-                                <div className="font-bold text-slate-800 text-sm">Forensic Audit Trail</div>
+                                <div className="font-bold text-slate-800 text-sm">Audit Trail</div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">Digital fingerprint log and temporal verification</p>
                             </div>
                         </label>
@@ -387,7 +387,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                                 className="w-6 h-6 accent-teal-600 rounded" 
                             />
                             <div>
-                                <div className="font-bold text-slate-800 text-sm">Forensic Post-Mortem (DVI) Template</div>
+                                <div className="font-bold text-slate-800 text-sm">Post-Mortem (DVI) Template</div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Scale size={10}/> International standard for Disaster Victim Identification</p>
                             </div>
                         </label>
@@ -400,7 +400,7 @@ const MedicoLegalExportModal: React.FC<MedicoLegalExportModalProps> = ({ isOpen,
                                 className="w-6 h-6 accent-teal-600 rounded" 
                             />
                             <div>
-                                <div className="font-bold text-slate-800 text-sm">Rule 11 Financial Reconciliation</div>
+                                <div className="font-bold text-slate-800 text-sm">End of Day Cash Reconciliation</div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1"><Receipt size={10}/> Statutory OR Matching Summary</p>
                             </div>
                         </label>

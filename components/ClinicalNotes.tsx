@@ -142,7 +142,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ note, procedures, treatmentPlans,
                 </div>
             </div>
 
-            {/* Treatment Phase */}
+            {/* Phase */}
             <div>
                 <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 block">Phase</label>
                 <select name="planId" value={formData.planId || ''} onChange={handleChange} className="input w-full text-sm font-bold" disabled={isSealed}>

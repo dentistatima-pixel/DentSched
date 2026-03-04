@@ -235,7 +235,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                 <>
                     <div className="flex-1 p-6 min-h-0 overflow-y-auto space-y-4">
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center space-y-2">
-                            <h3 className="text-lg font-black text-slate-800">Summary of Attestation</h3>
+                            <h3 className="text-lg font-black text-slate-800">Summary of Declaration</h3>
                             <p className="text-xs text-slate-500">For Patient: <span className="font-bold">{patient.name}</span> | Procedure: <span className="font-bold">{appointment.type}</span> | Date: <span className="font-bold">{formatDate(appointment.date)}</span></p>
                         </div>
                         <div className={`bg-white p-4 rounded-2xl border-2 shadow-sm transition-all border-teal-500`}>
@@ -244,7 +244,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                         </div>
                         {isWitnessRequired && (
                             <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 mt-6">
-                                <h4 className="font-bold text-amber-800 flex items-center gap-2 mb-4"><ShieldCheck size={16}/> Witness Attestation (Required)</h4>
+                                <h4 className="font-bold text-amber-800 flex items-center gap-2 mb-4"><ShieldCheck size={16}/> Witness Declaration (Required)</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <select value={witnessId} onChange={e => setWitnessId(e.target.value)} className="input">
                                         <option value="">Select Staff Witness...</option>
@@ -261,7 +261,7 @@ const ConsentCaptureModal: React.FC<ConsentCaptureModalProps> = ({
                     </div>
                     <div className="p-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
                         <button onClick={() => setStep('review')} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">Back to Review</button>
-                        <button onClick={handleSave} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 flex items-center gap-2"><CheckCircle size={20} /> Attest & Save Consent</button>
+                        <button onClick={handleSave} className="px-8 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-600/20 flex items-center gap-2"><CheckCircle size={20} /> Confirm & Save Consent</button>
                     </div>
                 </>
               )}

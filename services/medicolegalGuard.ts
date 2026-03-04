@@ -1,4 +1,4 @@
-import { Appointment, Patient, FieldSettings, User, UserRole, TreatmentPlanStatus, ProcedureItem } from '../types';
+import { Appointment, Patient, FieldSettings, User, TreatmentPlanStatus } from '../types';
 import { isExpired } from '../constants';
 import { checkClinicalProtocols } from './protocolEnforcement';
 
@@ -38,7 +38,7 @@ export const canStartTreatment = (
         return { isBlocked: true, reason: 'Patient registration is incomplete.', modal: { type: 'incompleteRegistration', props: { patient, missingItems: ['Signature', 'Medical History Section'], riskLevel: 'High' } } };
     }
 
-    // 3. Medical History Affirmation for today's session
+    // 3. Update Medical Info for today's session
     if (!appointment.medHistoryAffirmation) {
          return { isBlocked: true, reason: 'Patient medical history must be affirmed for today\'s session.', modal: { type: 'medicalHistoryAffirmation', props: { patient, appointment } } };
     }

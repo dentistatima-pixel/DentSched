@@ -53,7 +53,7 @@ const PostOpHandoverModal: React.FC<PostOpHandoverModalProps> = ({ isOpen, onClo
                     <div className="bg-teal-600 text-white p-4 rounded-3xl shadow-lg shadow-teal-600/20 mb-4">
                         <ClipboardList size={32} />
                     </div>
-                    <h2 className="text-2xl font-black text-teal-900 uppercase tracking-tight">Clinical Handover Gate</h2>
+                    <h2 className="text-2xl font-black text-teal-900 uppercase tracking-tight">Patient Release Checklist</h2>
                     <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-1">Before You Release the Patient</p>
                 </div>
 

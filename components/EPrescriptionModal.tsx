@@ -206,7 +206,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
 
         if (!linkedDiagnosis) {
             showModal('confirm', {
-                title: 'PDA Ethics Alert',
+                title: 'Assessment Not Done Today',
                 message: "You are issuing a prescription without a corresponding recorded and SEALED clinical assessment (A) for today's session. This increases your malpractice liability exposure. Proceed at your own risk?",
                 confirmText: 'Proceed',
                 isDestructive: true,
@@ -329,10 +329,10 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
                                 </div>
                             )}
                             <p className="text-xs text-amber-900 font-bold leading-relaxed uppercase tracking-wide">
-                                Enter the Yellow Rx Serial Number for controlled substances.
+                                Enter the Rx Serial Number for controlled substances.
                             </p>
                             <div className="space-y-2 pt-2">
-                                <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest ml-1 block">Yellow Rx Serial Number *</label>
+                                <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest ml-1 block">Rx Serial Number *</label>
                                 <input 
                                     type="text"
                                     value={yellowRxSerial}

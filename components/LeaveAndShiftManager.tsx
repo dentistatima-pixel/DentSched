@@ -30,8 +30,8 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                 )}
                 <div className="bg-rose-600 p-4 rounded-3xl text-white shadow-xl"><UserX size={36} /></div>
                 <div>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Leave & Shift Management</h1>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Staff Availability & Roster Integrity</p>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Leave & Roster</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Staff Roster</p>
                 </div>
             </div>
 

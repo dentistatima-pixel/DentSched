@@ -72,7 +72,7 @@ const PlanCard: React.FC<{
                 <div className="p-6 bg-teal-700 border-y-4 border-teal-800 flex items-center gap-6 animate-in fade-in shadow-inner text-white">
                     <div className="bg-white/20 p-4 rounded-2xl"><ShieldCheck size={28} /></div>
                     <div>
-                        <div className="text-[10px] font-black text-teal-200 uppercase tracking-widest">Final Phase Reconfirmation</div>
+                        <div className="text-[10px] font-black text-teal-200 uppercase tracking-widest">Confirm Final Phase</div>
                         <div className="text-base font-black">Reconfirmed by {plan.reconfirmedBy} on {formatDate(plan.reconfirmedAt || '')}</div>
                         <p className="text-xs font-bold text-teal-100 mt-1">This phase is permanently sealed as complete.</p>
                     </div>

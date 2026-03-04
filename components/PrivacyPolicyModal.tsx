@@ -17,7 +17,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
                         <Shield size={24} className="text-teal-300" />
                         <div>
                             <h2 className="text-xl font-bold">Data Privacy Policy</h2>
-                            <p className="text-xs text-teal-200">Compliance with R.A. 10173 (Data Privacy Act of 2012)</p>
+                            <p className="text-xs text-teal-200">Data Privacy (RA 10173)</p>
                         </div>
                     </div>
                     <button onClick={onClose}><X size={24} className="text-teal-200 hover:text-white" /></button>
@@ -32,7 +32,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
                     <section className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-slate-200">
                         <div className="flex items-center gap-2 mb-2">
                             <Globe size={18} className="text-teal-600"/>
-                            <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Data Residency & Cloud Processing</h3>
+                            <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">Cloud Data Storage</h3>
                         </div>
                         <p className="text-xs font-bold text-slate-700 leading-relaxed">
                             Pursuant to our commitment to transparency: Data is processed by Google Firebase in the Asia-Southeast1 region under a standard Global Data Processing Agreement compliant with R.A. 10173. While data is stored in the cloud, all clinical records are end-to-end encrypted before transmission.

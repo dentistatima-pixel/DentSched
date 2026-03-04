@@ -277,7 +277,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
     const finalHash = CryptoJS.SHA256(photoHash + sig).toString();
     const updatedData = { ...formData, registrationSignature: sig, registrationSignatureTimestamp: timestamp, registrationPhotoHash: finalHash };
     setFormData(updatedData);
-    toast.success("Identity Anchor Linked. Record Verified.");
+    toast.success("Identity Verified. Record Saved.");
     await savePatientRecord(updatedData);
   };
 

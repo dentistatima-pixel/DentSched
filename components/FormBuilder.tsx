@@ -286,7 +286,7 @@ const FormBuilder: React.FC = () => {
                 <div className={`mx-auto space-y-12 pb-32 ${isPreviewMode ? 'max-w-none' : 'max-w-4xl'}`}>
                     <div className="flex justify-between items-center mb-8">
                         <div>
-                            <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Admission Design Studio</h3>
+                            <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none">Registration Form Builder</h3>
                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Configure clinical intake schema & data requirements</p>
                         </div>
                         <div className="flex gap-2">

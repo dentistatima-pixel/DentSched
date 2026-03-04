@@ -170,7 +170,7 @@ const TodaysTimeline: React.FC<{
                             <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4">
                                 <Icon size={32} />
                             </div>
-                            <h2 className="text-xl font-black text-slate-800 mb-2">Confirm Action</h2>
+                            <h2 className="text-xl font-black text-slate-800 mb-2">Are you sure?</h2>
                             <p className="text-sm text-slate-500 mb-6">Are you sure you want to change the status to <span className="font-bold text-slate-800">{action.label}</span>?</p>
                             <div className="flex gap-3 w-full">
                                 <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold">Cancel</button>

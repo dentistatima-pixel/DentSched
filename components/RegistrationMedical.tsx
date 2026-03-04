@@ -158,7 +158,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
                             </div>
                         )}
                         <div>
-                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Clinical Specification Narrative *</label>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2 block">Clinical Notes *</label>
                             <ControlledTextarea 
                                 name={`${q}_details`}
                                 value={subVal} 

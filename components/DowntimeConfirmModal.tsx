@@ -25,7 +25,7 @@ const DowntimeConfirmModal: React.FC<DowntimeConfirmModalProps> = ({ isOpen, onC
                     <div className="w-20 h-20 bg-amber-200 dark:bg-amber-900/50 text-amber-950 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
                         <AlertTriangle size={40} />
                     </div>
-                    <h2 id="downtime-title" className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">Activate Emergency Protocol?</h2>
+                    <h2 id="downtime-title" className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">Start Emergency Mode?</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-4">
                         Activating this mode will flag all new appointments as manual entries requiring later reconciliation. Only proceed if you are experiencing a network outage or system failure.
                     </p>

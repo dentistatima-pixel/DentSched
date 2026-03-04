@@ -262,7 +262,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
                             <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-sm"><ShieldCheck size={32}/></div>
                             <div>
                                 <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter leading-none">Privacy Notice</h3>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Compliance with R.A. 10173</p>
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Data Privacy (RA 10173)</p>
                             </div>
                         </div>
                         

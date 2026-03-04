@@ -284,7 +284,7 @@ const Inventory: React.FC<InventoryProps> = ({
                                     <tr>
                                         <th className="p-3 text-left">Items</th>
                                         {isAdvanced && !isManagingSets && <th className="p-3 text-left">Classification</th>}
-                                        {!isManagingSets && <th className="p-3 text-right">{auditMode ? 'Blind Forensic Count' : 'Stock'}</th>}
+                                        {!isManagingSets && <th className="p-3 text-right">{auditMode ? 'Blind Count' : 'Stock'}</th>}
                                         {!isManagingSets && <th className="p-3 text-right">Min Buffer</th>}
                                         {isAdvanced && !isManagingSets && <th className="p-3 text-right">Limit</th>}
                                         <th className="p-3 text-right">Actions</th>
@@ -384,7 +384,7 @@ const Inventory: React.FC<InventoryProps> = ({
                                                 <div className={`text-3xl font-black ${metric.daysLeft < 999 ? 'text-teal-700' : 'text-slate-400'}`}>{metric.daysLeft < 999 ? Math.round(metric.daysLeft) : '∞'}</div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-xs font-bold text-slate-500">Burn Rate</div>
+                                                <div className="text-xs font-bold text-slate-500">Monthly Spend</div>
                                                 <div className="text-lg font-bold text-slate-600">{metric.burnRate.toFixed(2)}/day</div>
                                             </div>
                                         </div>
@@ -426,7 +426,7 @@ const Inventory: React.FC<InventoryProps> = ({
                             <div className="bg-white/20 p-3 rounded-xl"><Package size={24} /></div>
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight">{editItem.id ? 'Edit Stock Item' : 'Register New Item'}</h3>
-                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Supply Chain Registry</p>
+                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Supplies</p>
                             </div>
                         </div>
                         <button onClick={() => setEditItem(null)}><X size={24} /></button>
@@ -449,7 +449,7 @@ const Inventory: React.FC<InventoryProps> = ({
                         </div>
                         {isAdvanced && (
                              <div className="pt-6 border-t border-slate-200 mt-6 space-y-6">
-                                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Advanced Traceability</h4>
+                                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Full Audit Trail</h4>
                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                                      <div><label className="label text-xs">Bulk Unit</label><input type="text" value={editItem.bulkUnit || ''} onChange={e => handleFormChange('bulkUnit', e.target.value)} className="input" /></div>
                                      <div><label className="label text-xs">Dispensing Unit</label><input type="text" value={editItem.dispensingUnit || ''} onChange={e => handleFormChange('dispensingUnit', e.target.value)} className="input" /></div>

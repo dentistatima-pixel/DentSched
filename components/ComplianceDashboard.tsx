@@ -41,7 +41,7 @@ const BreachNotificationCountdown: React.FC<BreachNotificationCountdownProps> = 
         <div className={`p-4 rounded-xl border-2 ${colorClasses}`}>
             <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className={iconColor} />
-                <h4 className="font-black">NPC Notification Deadline</h4>
+                <h4 className="font-black">Privacy Breach Deadline</h4>
             </div>
 
             {!isFiled ? (
