@@ -275,11 +275,16 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
       }
       
       if (onChartUpdate && currentUser) {
+          const isCondition = activeTool.status === 'Condition';
+          const newStatus = showBaseline 
+              ? (isCondition ? 'Condition' : 'Existing') 
+              : activeTool.status;
+
           const newEntry: DentalChartEntry = {
               id: `dc_${Date.now()}`,
               toothNumber: tooth,
               procedure: activeTool.procedure,
-              status: activeTool.status,
+              status: newStatus,
               surfaces: ['extraction', 'missing', 'crown', 'endo'].includes(activeToolId) ? undefined : surface,
               date: new Date().toISOString().split('T')[0],
               price: 0,
@@ -287,6 +292,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
               authorId: currentUser.id,
               authorRole: currentUser.role,
               authorPrc: currentUser.prcLicense,
+              isBaseline: showBaseline,
           };
           onChartUpdate(newEntry);
       }
@@ -329,7 +335,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
 
         <div 
           ref={chartRef}
-          className="bg-white rounded-[4rem] border-4 border-white overflow-hidden shadow-[inset_0_2px_15px_rgba(0,0,0,0.02),0_10px_40px_rgba(0,0,0,0.03)] relative min-h-[600px] flex flex-col justify-center items-center transition-all duration-700 group/canvas"
+          className="bg-white rounded-[4rem] border-4 border-white overflow-hidden shadow-[inset_0_2px_15px_rgba(0,0,0,0.02),0_10px_40px_rgba(0,0,0,0.03)] relative min-h-[400px] flex flex-col justify-center items-center transition-all duration-700 group/canvas"
           role="img"
           aria-label="Clinical Odontogram"
         >
@@ -356,7 +362,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                     transformOrigin: 'top center',
                     marginBottom: `-${(1 - scale) * 400}px` // Compensate for scale height
                   }}
-                  className="flex flex-col gap-8 items-center py-16 transition-all duration-500"
+                  className="flex flex-col gap-8 items-center py-8 transition-all duration-500"
                 >
                     {/* UPPER ARCH */}
                     <div className="flex flex-col items-center gap-2">

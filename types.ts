@@ -1057,6 +1057,7 @@ export interface DentalChartEntry {
   sealedAt?: string;
   isLocked?: boolean;
   isPrinted?: boolean;
+  isBaseline?: boolean;
   notes?: string;
   subjective?: string;
   objective?: string;
