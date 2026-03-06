@@ -1,6 +1,6 @@
 // Force rebuild
 import React, { useMemo } from 'react';
-import { DollarSign, Users, PieChart, CalendarX, UserPlus, UserCheck } from 'lucide-react';
+import { DollarSign, Users, PieChart, CalendarX, UserPlus, UserCheck, TrendingUp } from 'lucide-react';
 import { Patient, Appointment, FieldSettings, AppointmentStatus, User as StaffUser, PriceBookEntry } from '../types';
 
 interface AnalyticsProps {
@@ -61,6 +61,21 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
         });
         const sortedPractitioners = Object.values(practitionerProduction).sort((a,b) => b.revenue - a.revenue);
 
+        // Revenue Forecasting
+        let projectedRevenue = 0;
+        patients.forEach(p => {
+            if (!p.treatmentPlans || !p.dentalChart) return;
+            const activePlans = p.treatmentPlans.filter(tp => 
+                tp.status === 'Approved' || 
+                tp.status === 'Pending Financial Consent' || 
+                tp.status === 'Pending Review' ||
+                tp.status === 'Draft'
+            );
+            activePlans.forEach(plan => {
+                const planItems = p.dentalChart!.filter(item => item.planId === plan.id && item.status !== 'Completed');
+                projectedRevenue += planItems.reduce((sum, item) => sum + (item.price || 0), 0);
+            });
+        });
 
         return { 
             totalRevenue, 
@@ -68,6 +83,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
             noShowRate,
             procedureMix: sortedMix,
             practitionerProduction: sortedPractitioners,
+            projectedRevenue
         };
     }, [patients, appointments, fieldSettings, staff]);
 
@@ -93,8 +109,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Overview</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <StatCard title="Total Production (YTD)" value={`₱${Math.round(stats.totalRevenue / 1000)}k`} icon={DollarSign} colorClass="bg-teal-600 shadow-teal-600/20" />
+                <StatCard title="Projected Revenue" value={`₱${Math.round(stats.projectedRevenue / 1000)}k`} icon={TrendingUp} colorClass="bg-emerald-600 shadow-emerald-600/20" />
                 <StatCard title="New Patients (YTD)" value={stats.newPatientsYtd.toString()} icon={UserPlus} colorClass="bg-blue-600 shadow-blue-600/20" />
                 <StatCard title="Appointment No-Show Rate" value={stats.noShowRate.toFixed(1)} unit="%" icon={CalendarX} colorClass="bg-red-600 shadow-red-600/20" />
                 <StatCard title="Completed Appointments" value={appointments.filter(a => a.status === 'Completed').length.toString()} icon={UserCheck} colorClass="bg-lilac-600 shadow-lilac-600/20" />

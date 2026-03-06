@@ -251,6 +251,30 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
 
   const getToothData = (number: number) => filteredChart.filter(e => e.toothNumber === number);
 
+  const quickStatus = useMemo(() => {
+      const uniqueTeeth = new Set(chart.map(e => e.toothNumber));
+      let decayed = 0;
+      let missing = 0;
+      let filled = 0;
+
+      uniqueTeeth.forEach(tooth => {
+          const entries = chart.filter(e => e.toothNumber === tooth);
+          if (entries.some(e => e.procedure.toLowerCase().includes('missing') || e.procedure.toLowerCase().includes('extract'))) {
+              missing++;
+          } else if (entries.some(e => e.status === 'Condition')) {
+              decayed++;
+          } else if (entries.some(e => e.status === 'Completed' || e.status === 'Existing')) {
+              filled++;
+          }
+      });
+
+      return { decayed, missing, filled, total: uniqueTeeth.size };
+  }, [chart]);
+
+  const handlePrint = () => {
+      window.print();
+  };
+
   const handleToothClick = (e: React.MouseEvent, tooth: number) => {
     e.stopPropagation();
     if (activeToolId !== 'cursor') {
@@ -300,7 +324,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
 
   return (
     <div className="flex flex-col gap-6 relative h-full">
-        <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
+         <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
              {!readOnly && (
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1 py-1" role="toolbar" aria-label="Clinical charting palette">
                     {TOOLS.map(tool => (
@@ -319,6 +343,27 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
              )}
              
              <div className="flex gap-3 ml-auto items-center">
+                 <div className="flex items-center gap-4 mr-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+                     <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Decayed</span>
+                         <span className="text-lg font-black text-red-500">{quickStatus.decayed}</span>
+                     </div>
+                     <div className="w-px h-8 bg-slate-200"></div>
+                     <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Missing</span>
+                         <span className="text-lg font-black text-slate-500">{quickStatus.missing}</span>
+                     </div>
+                     <div className="w-px h-8 bg-slate-200"></div>
+                     <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filled</span>
+                         <span className="text-lg font-black text-teal-500">{quickStatus.filled}</span>
+                     </div>
+                 </div>
+
+                 <button onClick={handlePrint} className="p-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-teal-50 hover:text-teal-700 transition-colors" aria-label="Print Odontogram">
+                     <FileText size={20} />
+                 </button>
+
                  <div className="bg-slate-50 rounded-2xl p-1.5 border-2 border-slate-100 flex shadow-inner gap-1" role="group" aria-label="Arch dentition mode">
                     <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
                     <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>

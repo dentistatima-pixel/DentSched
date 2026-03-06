@@ -20,6 +20,8 @@ const PlanCard: React.FC<{
 }> = ({ plan, patient, currentUser, isApprovalEnabled, onPlanAction, onEditPlanName, onInitiateFinancialConsent, onManageProcedures, onDocumentRefusal, onReconfirm }) => {
     const planItems = useMemo(() => patient.dentalChart?.filter(item => item.planId === plan.id) || [], [patient.dentalChart, plan.id]);
     const planTotal = useMemo(() => planItems.reduce((acc, item) => acc + (item.price || 0), 0), [planItems]);
+    const completedItems = useMemo(() => planItems.filter(item => item.status === 'Completed').length, [planItems]);
+    const progressPercentage = planItems.length > 0 ? Math.round((completedItems / planItems.length) * 100) : 0;
 
     const statusMap: Record<TreatmentPlanStatus, { text: string, color: string, icon: React.ElementType }> = {
         [TreatmentPlanStatus.DRAFT]: { text: 'Draft', color: 'bg-slate-100 text-slate-600', icon: Edit },
@@ -49,6 +51,12 @@ const PlanCard: React.FC<{
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end mr-4">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Progress: {progressPercentage}%</div>
+                        <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+                        </div>
+                    </div>
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase ${currentStatus.color}`}>
                         <currentStatus.icon size={14} />
                         {currentStatus.text}

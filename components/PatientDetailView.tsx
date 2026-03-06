@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, Suspense, useCallback } from 'react';
-import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan } from '../types';
+import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, TreatmentPlanStatus } from '../types';
 import { Phone, Mail, MapPin, Stethoscope, Briefcase, BookUser, AlertCircle, ClipboardList, User as UserIcon, Heart, Activity, CheckCircle, ArrowLeft, ShieldCheck, MessageSquare, ChevronDown, Loader, Image as ImageIconLucide, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon, FileText, Shield, DollarSign, History } from 'lucide-react';
 import { formatDate, calculateAge } from '../constants';
 import { usePatient } from '../contexts/PatientContext';
@@ -158,8 +158,34 @@ const PatientDetailsTabContent: React.FC<{ patient: Patient; fieldSettings: Fiel
         { label: '3rd Party Disclosure Consent', value: patient.thirdPartyDisclosureConsent },
     ];
 
+    const activePlan = patient.treatmentPlans?.find(tp => tp.status === TreatmentPlanStatus.APPROVED || tp.status === TreatmentPlanStatus.RECONFIRMED);
+    let totalProcedures = 0;
+    let completedProcedures = 0;
+    let progressPercentage = 0;
+
+    if (activePlan && patient.dentalChart) {
+        const planEntries = patient.dentalChart.filter(e => e.planId === activePlan.id);
+        totalProcedures = planEntries.length;
+        completedProcedures = planEntries.filter(e => e.status === 'Completed').length;
+        progressPercentage = totalProcedures > 0 ? Math.round((completedProcedures / totalProcedures) * 100) : 0;
+    }
+
     return (
         <div className="space-y-6">
+            {activePlan && totalProcedures > 0 && (
+                <DetailSection title="Active Treatment Progress" icon={Activity} borderColor="border-teal-300">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between text-sm font-bold text-slate-700">
+                            <span>{activePlan.name}</span>
+                            <span>{completedProcedures} of {totalProcedures} procedures completed</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                            <div className="bg-teal-500 h-4 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+                        </div>
+                    </div>
+                </DetailSection>
+            )}
+
             <DetailSection title="Medical Summary & Narratives" icon={Heart} borderColor="border-red-300">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     <ValuePill label="Allergies" value={(patient.allergies || []).join(', ') || 'None reported'} color="red" />

@@ -346,7 +346,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                 }
             } else if (status === AppointmentStatus.CANCELLED) {
                 const patient = patients.find(p => p.id === aptToUpdate.patientId);
-                const isClinicCancellation = additionalData.cancellationReason?.toLowerCase().includes('clinic') || additionalData.cancellationReason?.toLowerCase().includes('doctor');
+                const isClinicCancellation = additionalData?.cancellationReason?.toLowerCase()?.includes('clinic') || additionalData?.cancellationReason?.toLowerCase()?.includes('doctor');
                 const templateId = isClinicCancellation ? 'cancellation_by_clinic' : 'cancellation_confirmation_patient';
                 const template = fieldSettings.smsTemplates[templateId];
                 
@@ -356,7 +356,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                         ClinicName: fieldSettings.clinicName || 'Clinic',
                         Date: aptToUpdate.date,
                         Time: aptToUpdate.time,
-                        Reason: additionalData.cancellationReason || 'Not specified'
+                        Reason: additionalData?.cancellationReason || 'Not specified'
                     };
                     const msg = formatSmsTemplate(template.text, data);
                     sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);

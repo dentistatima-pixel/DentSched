@@ -3,7 +3,7 @@ import React,
 { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ChevronLeft, ChevronRight, LayoutGrid, AlertTriangle, 
-  Users, X, ShieldAlert, ShieldCheck, DollarSign as FinanceIcon, Key, CalendarDays, CloudOff, AlertCircle
+  Users, X, ShieldAlert, ShieldCheck, DollarSign as FinanceIcon, Key, CalendarDays, CloudOff, AlertCircle, Calendar
 } from 'lucide-react';
 import { 
   Appointment, UserRole, AppointmentStatus, Patient, 
@@ -37,7 +37,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const { waitlist, handleAddToWaitlist } = useClinicalOps();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'week' | 'month'>('grid');
   const [viewDimension, setViewDimension] = useState<'provider' | 'chair'>('provider');
   const [showWaitlist, setShowWaitlist] = useState(false); 
   const [activeProviderId, setActiveProviderId] = useState<string>(currentUser?.id || '');
@@ -62,6 +62,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const next = () => {
     const nextDate = new Date(selectedDate);
     if (viewMode === 'week') nextDate.setDate(selectedDate.getDate() + 7);
+    else if (viewMode === 'month') nextDate.setMonth(selectedDate.getMonth() + 1);
     else nextDate.setDate(selectedDate.getDate() + 1);
     setSelectedDate(nextDate);
   };
@@ -69,6 +70,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
   const prev = () => {
     const prevDate = new Date(selectedDate);
     if (viewMode === 'week') prevDate.setDate(selectedDate.getDate() - 7);
+    else if (viewMode === 'month') prevDate.setMonth(selectedDate.getMonth() - 1);
     else prevDate.setDate(selectedDate.getDate() - 1);
     setSelectedDate(prevDate);
   };
@@ -84,6 +86,9 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
           const end = new Date(start);
           end.setDate(start.getDate() + 5); 
           return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      }
+      if (viewMode === 'month') {
+          return selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       }
       return selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   }, [selectedDate, viewMode]);
@@ -103,6 +108,33 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
               label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
               isToday: d.toLocaleDateString('en-CA') === new Date().toLocaleDateString('en-CA')
           });
+      }
+      return dates;
+  }, [selectedDate]);
+
+  const monthDates = useMemo(() => {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      const dates = [];
+      // Pad previous month
+      const startPadding = firstDay.getDay(); // 0 for Sunday
+      for (let i = startPadding - 1; i >= 0; i--) {
+          const d = new Date(year, month, -i);
+          dates.push({ dateObj: d, iso: d.toLocaleDateString('en-CA'), isCurrentMonth: false, label: d.getDate().toString() });
+      }
+      // Current month
+      for (let i = 1; i <= lastDay.getDate(); i++) {
+          const d = new Date(year, month, i);
+          dates.push({ dateObj: d, iso: d.toLocaleDateString('en-CA'), isCurrentMonth: true, label: d.getDate().toString(), isToday: d.toLocaleDateString('en-CA') === new Date().toLocaleDateString('en-CA') });
+      }
+      // Pad next month
+      const endPadding = 42 - dates.length; // 6 rows * 7 days
+      for (let i = 1; i <= endPadding; i++) {
+          const d = new Date(year, month + 1, i);
+          dates.push({ dateObj: d, iso: d.toLocaleDateString('en-CA'), isCurrentMonth: false, label: d.getDate().toString() });
       }
       return dates;
   }, [selectedDate]);
@@ -152,13 +184,16 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
       if (viewMode === 'week') {
           const weekApts = weekDates.flatMap(d => appointmentsByDate.get(d.iso) || []);
           return weekApts.filter(a => a.providerId === activeProviderId || a.isBlock);
+      } else if (viewMode === 'month') {
+          const monthApts = monthDates.flatMap(d => appointmentsByDate.get(d.iso) || []);
+          return monthApts.filter(a => a.providerId === activeProviderId || a.isBlock);
       } else {
           const dayApts = appointmentsByDate.get(formattedDate) || [];
           const visibleIds = visibleProviders.map(p => p.id);
           const visibleResIds = visibleResources.map(r => r.id);
           return dayApts.filter(a => a.isBlock || visibleIds.includes(a.providerId) || (a.resourceId && visibleResIds.includes(a.resourceId)));
       }
-  }, [appointmentsByDate, viewMode, formattedDate, weekDates, activeProviderId, visibleProviders, visibleResources]);
+  }, [appointmentsByDate, viewMode, formattedDate, weekDates, monthDates, activeProviderId, visibleProviders, visibleResources]);
 
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
@@ -333,11 +368,12 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                 <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200" role="group" aria-label="Calendar view mode">
                     <button onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'} aria-label="Grid view" className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-teal-800 font-bold' : 'text-slate-600'}`}><LayoutGrid size={18} /></button>
                     <button onClick={() => setViewMode('week')} aria-pressed={viewMode === 'week'} aria-label="Week view" className={`p-2 rounded-md transition-all ${viewMode === 'week' ? 'bg-white shadow text-teal-800 font-bold' : 'text-slate-600'}`}><CalendarDays size={18} /></button>
+                    <button onClick={() => setViewMode('month')} aria-pressed={viewMode === 'month'} aria-label="Month view" className={`p-2 rounded-md transition-all ${viewMode === 'month' ? 'bg-white shadow text-teal-800 font-bold' : 'text-slate-600'}`}><Calendar size={18} /></button>
                 </div>
             </div>
             <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                    {viewMode === 'week' && (
+                    {(viewMode === 'week' || viewMode === 'month') && (
                         <select value={activeProviderId} onChange={e => setActiveProviderId(e.target.value)} className="bg-white border-2 border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs font-black uppercase tracking-widest">
                             {visibleProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
@@ -354,109 +390,160 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
         </div>
 
         <div className="flex-1 overflow-x-auto overflow-y-auto bg-white relative">
-            <div className="min-w-max md:min-w-full h-full flex flex-col">
-                <div className="flex border-b border-slate-200 sticky top-0 z-30 bg-white" role="row">
-                    <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-200 sticky left-0 z-40 shadow-sm"></div> 
-                    {viewMode === 'week' ? weekDates.map(d => (
-                            <div key={d.iso} role="columnheader" className={`w-[200px] flex-shrink-0 p-4 border-r border-slate-200 text-center ${d.isToday ? 'bg-teal-50/50' : 'bg-slate-50'}`}>
-                                <div className={`text-sm font-black uppercase tracking-widest ${d.isToday ? 'text-teal-700' : 'text-slate-800'}`}>{d.label}</div>
+            {viewMode === 'month' ? (
+                <div className="min-w-max md:min-w-full h-full flex flex-col">
+                    <div className="grid grid-cols-7 border-b border-slate-200 sticky top-0 z-30 bg-white">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                            <div key={day} className="p-3 text-center text-xs font-black uppercase tracking-widest text-slate-500 border-r border-slate-200 bg-slate-50">
+                                {day}
                             </div>
-                        )) : viewDimension === 'provider' ? visibleProviders.map(p => (
-                            <div key={p.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
-                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{p.name}</span>
-                            </div>
-                        )) : visibleResources.map(r => (
-                            <div key={r.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
-                                <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{r.name}</span>
-                            </div>
-                        ))
-                    }
-                </div>
-
-                <div className="flex flex-col flex-1">
-                    {timeSlots.map(hour => (
-                        <div key={hour} className="flex min-h-[80px] border-b border-slate-100" role="row">
-                            <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-200 bg-slate-50/90 backdrop-blur-sm text-xs font-black text-slate-500 sticky left-0 z-20">
-                                {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
-                            </div>
-
-                            {(viewMode === 'week' ? weekDates : (viewDimension === 'provider' ? visibleProviders : visibleResources)).map((col: any) => {
-                                const colId = viewMode === 'week' ? activeProviderId : col.id;
-                                const dateIso = viewMode === 'week' ? col.iso : formattedDate;
-                                const slotAppointments = filteredAppointments.filter(a => {
-                                    const matchesDate = a.date === dateIso;
-                                    const matchesHour = parseInt(a.time.split(':')[0]) === hour;
-                                    const matchesCol = viewMode === 'week' ? a.providerId === activeProviderId : (viewDimension === 'provider' ? a.providerId === colId : a.resourceId === colId);
-                                    return matchesDate && matchesHour && matchesCol;
-                                });
-                                const isDragOver = dragOverInfo?.colId === colId && dragOverInfo?.hour === hour && dragOverInfo?.dateIso === dateIso;
-                            
-                                return (
-                                    <div 
-                                        key={`${col.id || col.iso}-${hour}`} 
-                                        role="gridcell" 
-                                        aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
-                                        className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
-                                        onDoubleClick={() => handleSlotClick(hour, dateIso)}
-                                        onDragOver={e => e.preventDefault()}
-                                        onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
-                                        onDragLeave={() => setDragOverInfo(null)}
-                                        onDrop={(e) => handleDrop(e, colId, hour, dateIso)}
-                                    >
-                                        {slotAppointments.map(apt => {
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-7 flex-1 auto-rows-[minmax(120px,1fr)]">
+                        {monthDates.map((d, i) => {
+                            const dayApts = filteredAppointments.filter(a => a.date === d.iso);
+                            return (
+                                <div 
+                                    key={`${d.iso}-${i}`} 
+                                    className={`p-2 border-r border-b border-slate-100 transition-colors hover:bg-slate-50/50 ${!d.isCurrentMonth ? 'bg-slate-50/50 text-slate-400' : ''} ${d.isToday ? 'bg-teal-50/30' : ''}`}
+                                    onDoubleClick={() => openAppointmentModal(d.iso, "09:00", undefined, undefined)}
+                                >
+                                    <div className={`text-sm font-bold mb-2 ${d.isToday ? 'bg-teal-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : 'text-slate-700'}`}>
+                                        {d.label}
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        {dayApts.slice(0, 4).map(apt => {
                                             const patient = getPatient(apt.patientId);
-                                            const provider = staff.find(s => s.id === apt.providerId);
+                                            if (!patient && !apt.isBlock) return null;
                                             const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
                                             
-                                            if (!patient && !apt.isBlock) return null;
-                                            
-                                            if(apt.isBlock) {
-                                              return (
-                                                  <div key={apt.id} className="rounded-xl p-3 bg-slate-100 border-2 border-slate-200 text-slate-500 cursor-not-allowed">
-                                                      <div className="font-black text-sm uppercase tracking-tight truncate">{apt.title}</div>
-                                                      <div className="text-xs uppercase font-bold text-slate-400 mt-1 truncate">{apt.type}</div>
-                                                  </div>
-                                              )
-                                            }
-
                                             return (
                                                 <div 
                                                     key={apt.id} 
-                                                    draggable
-                                                    onDragStart={(e) => { 
-                                                        e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setInspected({ apt, patient: patient! });
-                                                    }}
-                                                    onDoubleClick={(e) => { e.stopPropagation(); openAppointmentModal(undefined, undefined, undefined, apt); }}
-                                                    className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="font-black text-slate-600">{apt.time}</span>
-                                                        <div className="flex items-center gap-1">
-                                                            {apt.isWaitlistOverride && <span title="Booked from Waitlist (Manager Override)"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
-                                                            {apt.entryMode === 'MANUAL' && <span title="Manual Downtime Entry"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
-                                                            {apt.isPendingSync && <span title="Pending Offline Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
-                                                            {viewDimension === 'chair' && provider && 
-                                                                <div className="w-5 h-5 rounded-full border border-white bg-teal-100 text-teal-700 flex items-center justify-center text-[8px] font-black" title={provider.name}>
-                                                                    {provider.name.replace('Dr. ', '').split(' ').map(n => n[0]).join('').substring(0,2)}
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                    <div className="font-black text-sm uppercase tracking-tight truncate">{patient?.name || 'Clinical Block'}</div>
-                                                    <div className="text-xs uppercase font-black text-slate-500 mt-1 truncate">{apt.type}</div>
+                                                    onClick={(e) => { e.stopPropagation(); setInspected({ apt, patient: patient! }); }}
+                                                    className={`text-xs p-1 px-2 rounded truncate cursor-pointer ${styles.bg} ${styles.text} border ${styles.border}`}
+                                                    title={apt.isBlock ? apt.title : `${patient?.name} - ${apt.type}`}
+                                                >
+                                                    {apt.time.substring(0, 5)} {apt.isBlock ? apt.title : patient?.name}
                                                 </div>
                                             );
                                         })}
+                                        {dayApts.length > 4 && (
+                                            <div className="text-[10px] font-bold text-slate-500 text-center mt-1">
+                                                +{dayApts.length - 4} more
+                                            </div>
+                                        )}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    ))}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="min-w-max md:min-w-full h-full flex flex-col">
+                    <div className="flex border-b border-slate-200 sticky top-0 z-30 bg-white" role="row">
+                        <div className="w-16 flex-shrink-0 bg-slate-50 border-r border-slate-200 sticky left-0 z-40 shadow-sm"></div> 
+                        {viewMode === 'week' ? weekDates.map(d => (
+                                <div key={d.iso} role="columnheader" className={`w-[200px] flex-shrink-0 p-4 border-r border-slate-200 text-center ${d.isToday ? 'bg-teal-50/50' : 'bg-slate-50'}`}>
+                                    <div className={`text-sm font-black uppercase tracking-widest ${d.isToday ? 'text-teal-700' : 'text-slate-800'}`}>{d.label}</div>
+                                </div>
+                            )) : viewDimension === 'provider' ? visibleProviders.map(p => (
+                                <div key={p.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
+                                    <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{p.name}</span>
+                                </div>
+                            )) : visibleResources.map(r => (
+                                <div key={r.id} role="columnheader" className="w-[240px] flex-shrink-0 p-4 border-r border-slate-200 text-center bg-slate-50 flex items-center justify-center h-24">
+                                    <span className="text-sm font-black text-slate-800 uppercase tracking-tight truncate w-full">{r.name}</span>
+                                </div>
+                            ))
+                        }
+                    </div>
+
+                    <div className="flex flex-col flex-1">
+                        {timeSlots.map(hour => (
+                            <div key={hour} className="flex min-h-[80px] border-b border-slate-100" role="row">
+                                <div className="w-16 flex-shrink-0 flex justify-center pt-3 border-r border-slate-200 bg-slate-50/90 backdrop-blur-sm text-xs font-black text-slate-500 sticky left-0 z-20">
+                                    {hour > 12 ? hour - 12 : hour} {hour >= 12 ? 'PM' : 'AM'}
+                                </div>
+
+                                {(viewMode === 'week' ? weekDates : (viewDimension === 'provider' ? visibleProviders : visibleResources)).map((col: any) => {
+                                    const colId = viewMode === 'week' ? activeProviderId : col.id;
+                                    const dateIso = viewMode === 'week' ? col.iso : formattedDate;
+                                    const slotAppointments = filteredAppointments.filter(a => {
+                                        const matchesDate = a.date === dateIso;
+                                        const matchesHour = parseInt(a.time.split(':')[0]) === hour;
+                                        const matchesCol = viewMode === 'week' ? a.providerId === activeProviderId : (viewDimension === 'provider' ? a.providerId === colId : a.resourceId === colId);
+                                        return matchesDate && matchesHour && matchesCol;
+                                    });
+                                    const isDragOver = dragOverInfo?.colId === colId && dragOverInfo?.hour === hour && dragOverInfo?.dateIso === dateIso;
+                                
+                                    return (
+                                        <div 
+                                            key={`${col.id || col.iso}-${hour}`} 
+                                            role="gridcell" 
+                                            aria-label={`Add appointment for ${dateIso} at ${hour}:00`} 
+                                            className={`${viewMode === 'week' ? 'w-[200px]' : 'w-[240px]'} flex-shrink-0 border-r border-slate-100 p-2 relative transition-colors ${isDragOver ? 'bg-teal-50 border-2 border-teal-500' : 'hover:bg-slate-50/50'}`}
+                                            onDoubleClick={() => handleSlotClick(hour, dateIso)}
+                                            onDragOver={e => e.preventDefault()}
+                                            onDragEnter={() => setDragOverInfo({ colId, hour, dateIso })}
+                                            onDragLeave={() => setDragOverInfo(null)}
+                                            onDrop={(e) => handleDrop(e, colId, hour, dateIso)}
+                                        >
+                                            {slotAppointments.map(apt => {
+                                                const patient = getPatient(apt.patientId);
+                                                const provider = staff.find(s => s.id === apt.providerId);
+                                                const styles = getAppointmentBaseStyle(apt.type, apt.status, apt.isPendingSync, apt.entryMode);
+                                                
+                                                if (!patient && !apt.isBlock) return null;
+                                                
+                                                if(apt.isBlock) {
+                                                  return (
+                                                      <div key={apt.id} className="rounded-xl p-3 bg-slate-100 border-2 border-slate-200 text-slate-500 cursor-not-allowed">
+                                                          <div className="font-black text-sm uppercase tracking-tight truncate">{apt.title}</div>
+                                                          <div className="text-xs uppercase font-bold text-slate-400 mt-1 truncate">{apt.type}</div>
+                                                      </div>
+                                                  )
+                                                }
+
+                                                return (
+                                                    <div 
+                                                        key={apt.id} 
+                                                        draggable
+                                                        onDragStart={(e) => { 
+                                                            e.dataTransfer.setData('application/json', JSON.stringify({ appointmentId: apt.id })) 
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setInspected({ apt, patient: patient! });
+                                                        }}
+                                                        onDoubleClick={(e) => { e.stopPropagation(); openAppointmentModal(undefined, undefined, undefined, apt); }}
+                                                        className={`rounded-xl p-3 text-xs border-2 cursor-grab active:cursor-grabbing hover:shadow-xl transition-all mb-2 ${styles.bg} ${styles.border} ${styles.text}`} role="button" aria-label={`Actions for ${patient?.name || 'Admin Block'}`}>
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="font-black text-slate-600">{apt.time}</span>
+                                                            <div className="flex items-center gap-1">
+                                                                {apt.isWaitlistOverride && <span title="Booked from Waitlist (Manager Override)"><ShieldAlert size={14} className="text-red-700 animate-pulse"/></span>}
+                                                                {apt.entryMode === 'MANUAL' && <span title="Manual Downtime Entry"><AlertTriangle size={12} className="text-yellow-700 animate-pulse"/></span>}
+                                                                {apt.isPendingSync && <span title="Pending Offline Sync"><CloudOff size={12} className="text-lilac-700 animate-pulse"/></span>}
+                                                                {viewDimension === 'chair' && provider && 
+                                                                    <div className="w-5 h-5 rounded-full border border-white bg-teal-100 text-teal-700 flex items-center justify-center text-[8px] font-black" title={provider.name}>
+                                                                        {provider.name.replace('Dr. ', '').split(' ').map(n => n[0]).join('').substring(0,2)}
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        <div className="font-black text-sm uppercase tracking-tight truncate">{patient?.name || 'Clinical Block'}</div>
+                                                        <div className="text-xs uppercase font-black text-slate-500 mt-1 truncate">{apt.type}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
       </div>
 

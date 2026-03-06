@@ -5,7 +5,7 @@ import {
     Sliders, Flag, Monitor, CloudOff, Cloud, RefreshCcw, AlertTriangle, 
     ShieldAlert, Shield, ShieldCheck, StickyNote, 
     Send, CheckSquare, Plus, LogOut, Inbox, Trash2, Link as LinkIcon, User as UserIcon,
-    Sun, Moon, Search, HelpCircle
+    Sun, Moon, Search, HelpCircle, Bell
 } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
 import { SystemStatus } from '../types';
@@ -53,6 +53,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isTaskPopoverOpen, setIsTaskPopoverOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   
   // New Pinboard State
   const [pinboardTab, setPinboardTab] = useState<'inbox' | 'sent'>('inbox');
@@ -258,6 +259,72 @@ export const Layout: React.FC<LayoutProps> = ({
                     )}
                     {syncQueueCount > 0 && !isSyncing && (
                         <span>{syncQueueCount}</span>
+                    )}
+                </div>
+
+                {/* Notifications Panel */}
+                <div className="relative">
+                    <button
+                        onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+                        className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                            isNotificationPanelOpen
+                                ? 'bg-black/40 shadow-inner'
+                                : isDowntime
+                                    ? 'bg-black/50 text-white hover:bg-black/70'
+                                    : 'bg-white/10 hover:bg-white/20'
+                        }`}
+                        aria-label="Notifications"
+                        aria-haspopup="true"
+                        aria-expanded={isNotificationPanelOpen}
+                    >
+                        <Bell size={22} />
+                        <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-teal-800"></span>
+                    </button>
+                    {isNotificationPanelOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsNotificationPanelOpen(false)} />
+                            <div className="absolute right-0 top-full mt-4 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
+                                <div className="p-4 border-b border-border-primary bg-bg-tertiary flex justify-between items-center">
+                                    <p className="font-black text-sm text-text-primary uppercase tracking-widest">Notifications</p>
+                                    <button className="text-xs font-bold text-teal-600 hover:text-teal-700">Mark all as read</button>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto">
+                                    <div className="p-4 border-b border-border-primary hover:bg-bg-tertiary transition-colors cursor-pointer">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-1 bg-teal-100 text-teal-700 p-1.5 rounded-full"><Calendar size={14} /></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-text-primary">New Appointment</p>
+                                                <p className="text-xs text-text-secondary mt-1">John Doe scheduled for 2:00 PM</p>
+                                                <p className="text-[10px] text-text-secondary mt-2 font-bold uppercase">2 mins ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 border-b border-border-primary hover:bg-bg-tertiary transition-colors cursor-pointer">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-1 bg-amber-100 text-amber-700 p-1.5 rounded-full"><AlertTriangle size={14} /></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-text-primary">Low Inventory</p>
+                                                <p className="text-xs text-text-secondary mt-1">Composite Resin (A2) is below minimum stock level.</p>
+                                                <p className="text-[10px] text-text-secondary mt-2 font-bold uppercase">1 hour ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 hover:bg-bg-tertiary transition-colors cursor-pointer">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-1 bg-blue-100 text-blue-700 p-1.5 rounded-full"><ShieldCheck size={14} /></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-text-primary">Treatment Plan Approved</p>
+                                                <p className="text-xs text-text-secondary mt-1">Dr. Smith approved the plan for Jane Roe.</p>
+                                                <p className="text-[10px] text-text-secondary mt-2 font-bold uppercase">3 hours ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-3 border-t border-border-primary bg-bg-tertiary text-center">
+                                    <button className="text-xs font-black text-teal-600 uppercase tracking-widest hover:text-teal-700">View All</button>
+                                </div>
+                            </div>
+                        </>
                     )}
                 </div>
 

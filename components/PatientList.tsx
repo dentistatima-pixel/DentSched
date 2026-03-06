@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Patient } from '../types';
+import { Patient, TreatmentPlanStatus } from '../types';
 import { Search, ShieldAlert, ChevronRight, Baby, UserCircle, FileBadge2, CloudOff } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { useModal } from '../contexts/ModalContext';
@@ -155,6 +155,29 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
                         )}
                       </div>
                       <div className="text-xs font-mono text-text-secondary">{p.id}</div>
+                      {(() => {
+                          const activePlan = p.treatmentPlans?.find(tp => tp.status === TreatmentPlanStatus.APPROVED || tp.status === TreatmentPlanStatus.RECONFIRMED);
+                          if (activePlan && p.dentalChart) {
+                              const planEntries = p.dentalChart.filter(e => e.planId === activePlan.id);
+                              const total = planEntries.length;
+                              if (total > 0) {
+                                  const completed = planEntries.filter(e => e.status === 'Completed').length;
+                                  const pct = Math.round((completed / total) * 100);
+                                  return (
+                                      <div className="mt-2 w-full max-w-[150px]">
+                                          <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                                              <span>{completed} of {total} procedures</span>
+                                              <span>{pct}%</span>
+                                          </div>
+                                          <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                              <div className="bg-teal-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }}></div>
+                                          </div>
+                                      </div>
+                                  );
+                              }
+                          }
+                          return null;
+                      })()}
                     </td>
                     <td className="p-4" data-label="Alerts">
                         <div className="flex items-center gap-2.5">

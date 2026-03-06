@@ -1094,7 +1094,6 @@ export interface DentalChartEntry {
     hash: string;
   };
   originalNoteId?: string;
-  isBaseline?: boolean;
   informedRefusal?: {
     reason: string;
     risks: string[];

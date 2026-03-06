@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Patient, FieldSettings, User, EPrescription } from '../types';
+import { Patient, EPrescription } from '../types';
 import { X, Pill, Printer, ShieldAlert, Lock, Baby, CheckCircle, Fingerprint, Scale, Zap, FileWarning, BookOpen, HeartPulse } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { useToast } from './ToastSystem';
@@ -7,21 +7,22 @@ import CryptoJS from 'crypto-js';
 import { useSettings } from '../contexts/SettingsContext';
 import { calculateAge, isExpired, generateUid } from '../constants';
 import { useModal } from '../contexts/ModalContext';
+import { useAppContext } from '../contexts/AppContext';
+import { usePatient } from '../contexts/PatientContext';
 
 interface EPrescriptionModalProps {
     isOpen: boolean;
     onClose: () => void;
     patient: Patient;
-    fieldSettings: FieldSettings;
-    currentUser: User;
-    logAction?: (action: any, entity: any, id: string, details: string) => void;
-    onSavePrescription: (prescription: EPrescription) => void;
 }
 
-const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient, fieldSettings, currentUser, logAction, onSavePrescription }) => {
+const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose, patient }) => {
     const toast = useToast();
     const { fieldSettings: settings } = useSettings();
     const { showModal } = useModal();
+    const { currentUser, logAction } = useAppContext();
+    const { handleSavePatient } = usePatient();
+    
     const [selectedMedId, setSelectedMedId] = useState<string>('');
     const [dosage, setDosage] = useState('');
     const [instructions, setInstructions] = useState('');
@@ -37,7 +38,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const [patientWeight, setPatientWeight] = useState<string>(patient.weightKg?.toString() || '');
     const [isDosageVerified, setIsDosageVerified] = useState(false);
 
-    const medications = fieldSettings?.medications || [];
+    const medications = settings?.medications || [];
     const selectedMed = useMemo(() => medications.find(m => m.id === selectedMedId), [selectedMedId, medications]);
     
     const drugsAndMedsConsent = useMemo(() => {
@@ -49,7 +50,115 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const isPrcExpired = useMemo(() => isExpired(currentUser?.prcExpiry), [currentUser?.prcExpiry]);
     const isMalpracticeExpired = useMemo(() => isExpired(currentUser?.malpracticeExpiry), [currentUser?.malpracticeExpiry]);
     const isAuthorityLocked = isPrcExpired || isMalpracticeExpired; 
-    
+
+    // DIAGNOSIS ANCHOR LOGIC
+    const linkedDiagnosis = useMemo(() => {
+        if (!patient.dentalChart) return null;
+        const today = new Date().toISOString().split('T')[0];
+        return patient.dentalChart.find(entry => 
+            entry.date === today && 
+            entry.assessment && 
+            entry.assessment.trim().length > 0 &&
+            entry.sealedHash
+        );
+    }, [patient.dentalChart]);
+
+    const safetyViolation = useMemo(() => {
+        if (!isPediatric || !selectedMed || !patientWeight || !dosage) return null;
+        const weight = parseFloat(patientWeight);
+        if (isNaN(weight) || weight <= 0) return "Invalid Weight";
+        
+        const dosageMatch = dosage.match(/(\d+)/);
+        if (!dosageMatch || !selectedMed.maxMgPerKg) return null;
+        
+        const doseMg = parseFloat(dosageMatch[1]);
+        const maxSafeDose = selectedMed.maxMgPerKg * weight;
+        
+        if (doseMg > maxSafeDose) {
+            return `Dosage (${doseMg}mg) exceeds pediatric safety threshold (${maxSafeDose.toFixed(1)}mg) for this weight.`;
+        }
+        return null;
+    }, [isPediatric, selectedMed, patientWeight, dosage]);
+
+    const allergyConflict = useMemo(() => {
+        if (!selectedMed || !patient.allergies) return null;
+        return selectedMed.contraindicatedAllergies?.find(a => 
+            patient.allergies?.some(pa => pa.toLowerCase().trim() === a.toLowerCase().trim())
+        );
+    }, [selectedMed, patient.allergies]);
+
+    const drugInteraction = useMemo(() => {
+        if (!selectedMed || !patient.medicationDetails) return null;
+        const currentMedsStr = patient.medicationDetails.toLowerCase();
+        return selectedMed.interactions?.find(conflictDrug => currentMedsStr.includes(conflictDrug.toLowerCase()));
+    }, [selectedMed, patient.medicationDetails]);
+
+    const needsJustification = !!allergyConflict || !!drugInteraction || !!safetyViolation || !!interactionWarning;
+    const isJustificationValid = clinicalJustification.trim().length >= 20;
+
+    const isSafetyBlocked = isPediatric && (!patientWeight || !isDosageVerified || (safetyViolation && !isJustificationValid));
+
+    const handleMedicationSelect = (medId: string) => {
+        setSelectedMedId(medId);
+        const med = medications.find(m => m.id === medId);
+        if (med) { setDosage(med.dosage); setInstructions(med.instructions); }
+    };
+
+    const checkDrugInteractions = async (newMedName: string) => {
+        if (!patient?.medicationDetails) return;
+        
+        // setIsCheckingInteractions(true);
+        setInteractionWarning(null);
+
+        try {
+            // Extract existing meds from the free-text field (simple comma separation)
+            const existingMeds = patient.medicationDetails.split(',').map(m => m.trim()).filter(Boolean);
+            if (existingMeds.length === 0) {
+                // setIsCheckingInteractions(false);
+                return;
+            }
+
+            // OpenFDA API is free but rate-limited. We'll do a simple check.
+            // We query for the NEW med's label and see if it lists any of the EXISTING meds in its 'drug_interactions' section.
+            
+            const response = await fetch(`https://api.fda.gov/drug/label.json?search=drug_interactions:"${newMedName}"&limit=1`);
+            if (!response.ok) {
+                // If 404, maybe the drug isn't found or no interactions listed.
+                // setIsCheckingInteractions(false);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                const interactionsText = data.results[0].drug_interactions ? data.results[0].drug_interactions[0] : '';
+                
+                const foundInteractions = existingMeds.filter(existingMed => 
+                    interactionsText.toLowerCase().includes(existingMed.toLowerCase())
+                );
+
+                if (foundInteractions.length > 0) {
+                    setInteractionWarning(`⚠️ Potential Interaction: ${newMedName} may interact with patient's existing medication(s): ${foundInteractions.join(', ')}. (Source: OpenFDA)`);
+                }
+            }
+
+        } catch (error) {
+            console.error("Failed to check drug interactions", error);
+        } finally {
+            // setIsCheckingInteractions(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedMedId) {
+            const med = medications.find(m => m.id === selectedMedId);
+            if (med) {
+                checkDrugInteractions(med.genericName);
+            }
+        } else {
+            setInteractionWarning(null);
+        }
+    }, [selectedMedId, patient, medications]);
+
     // S2 Status Logic
     const s2Status = useMemo(() => {
         if (!selectedMed?.isS2Controlled) return { violation: false, reason: '' };
@@ -61,7 +170,7 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
     const handleLogS2 = () => {
         if (!yellowRxSerial.trim() || !consentAcknowledged || !selectedMed) return;
         if (logAction) {
-            logAction('SECURITY_ALERT', 'ClinicalNote', patient.id, `PDEA S2 REGISTRY: Manual Yellow Prescription issued for ${selectedMed?.genericName}. Serial: ${yellowRxSerial}. Issued by Dr. ${currentUser.name}.`);
+            logAction('SECURITY_ALERT', 'ClinicalNote', patient.id, `PDEA S2 REGISTRY: Manual Yellow Prescription issued for ${selectedMed?.genericName}. Serial: ${yellowRxSerial}. Issued by Dr. ${currentUser?.name || 'Unknown'}.`);
         }
 
         const newPrescription: EPrescription = {
@@ -74,9 +183,12 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
             quantity: parseInt(quantity) || 0,
             drugClassification: 'S2-Controlled',
             dohControlNumber: yellowRxSerial,
-            dentistS2License: currentUser.s2License
+            dentistS2License: currentUser?.s2License
         };
-        onSavePrescription(newPrescription);
+        handleSavePatient({ 
+            id: patient.id, 
+            prescriptions: [...(patient.prescriptions || []), newPrescription] 
+        });
 
         toast.success("S2 Issuance committed to digital logbook.");
         setYellowRxSerial('');
@@ -103,9 +215,9 @@ const EPrescriptionModal: React.FC<EPrescriptionModalProps> = ({ isOpen, onClose
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
 
-        doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text(currentUser.name.toUpperCase(), 74, 15, { align: 'center' });
-        doc.setFontSize(9); doc.text(`${currentUser.specialization || 'Dental Surgeon'}`, 74, 20, { align: 'center' });
-        doc.text(`PRC: ${currentUser.prcLicense} | PTR: ${currentUser.ptrNumber} | PDEA S2: ${currentUser.s2License || 'N/A'}`, 74, 25, { align: 'center' });
+        doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text((currentUser?.name || 'Unknown').toUpperCase(), 74, 15, { align: 'center' });
+        doc.setFontSize(9); doc.text(`${currentUser?.specialization || 'Dental Surgeon'}`, 74, 20, { align: 'center' });
+        doc.text(`PRC: ${currentUser?.prcLicense || 'N/A'} | PTR: ${currentUser?.ptrNumber || 'N/A'} | PDEA S2: ${currentUser?.s2License || 'N/A'}`, 74, 25, { align: 'center' });
         doc.line(10, 32, 138, 32);
 
         doc.setFontSize(10); doc.text(`PATIENT: ${patient.name}`, 15, 40);
