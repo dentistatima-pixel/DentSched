@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
+import { DEFAULT_SETTINGS } from '../constants';
 import { useToast } from './ToastSystem';
 import { useAppContext } from '../contexts/AppContext';
 import { DataService } from '../services/dataService';
@@ -277,74 +278,108 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
             </div>
 
             {activeTab === 'identity' && (
-                 <div className="bg-bg-secondary p-10 rounded-[2.5rem] border border-border-primary shadow-sm space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-8">
-                            <div>
-                                <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
-                                <input id="clinicName" type="text" value={localSettings.clinicName} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicName: e.target.value }))} className="input text-lg font-bold"/>
-                            </div>
-                            <div>
-                                <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
-                                <select id="clinicProfile" value={localSettings.clinicProfile} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicProfile: e.target.value as any }))} className="input text-lg font-bold"><option value="boutique">Boutique / Solo Practice</option><option value="corporate">Corporate / Multi-Branch</option></select>
-                            </div>
-                            <div>
-                                <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
-                                <input id="sessionTimeout" type="number" value={localSettings.sessionTimeoutMinutes} onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: parseInt(e.target.value) || 30 }))} className="input text-lg font-bold"/>
-                            </div>
+                 <div className="bg-bg-secondary p-10 rounded-[2.5rem] border border-border-primary shadow-sm space-y-12">
+                    {/* General Settings Section - Vertical Stack */}
+                    <div className="space-y-8 max-w-2xl">
+                        <div>
+                            <label htmlFor="clinicName" className="label text-sm">Main Practice Name</label>
+                            <input id="clinicName" type="text" value={localSettings.clinicName} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicName: e.target.value }))} className="input text-lg font-bold w-full"/>
                         </div>
+                        <div>
+                            <label htmlFor="clinicProfile" className="label text-sm">Clinic Profile Type</label>
+                            <select id="clinicProfile" value={localSettings.clinicProfile} onChange={(e) => setLocalSettings(prev => ({ ...prev, clinicProfile: e.target.value as any }))} className="input text-lg font-bold w-full">
+                                <option value="boutique">Boutique / Solo Practice</option>
+                                <option value="corporate">Corporate / Multi-Branch</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="sessionTimeout" className="label text-sm">Session Timeout (Minutes)</label>
+                            <input id="sessionTimeout" type="number" value={localSettings.sessionTimeoutMinutes} onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: parseInt(e.target.value) || 30 }))} className="input text-lg font-bold w-full"/>
+                        </div>
+                    </div>
+
+                    {/* Logo Management Section */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 px-2">
+                            <Sparkles size={18} className="text-teal-600" />
+                            <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Visual Branding Assets</h4>
+                        </div>
+                        
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Full Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Full Branding Logo</span>
-                                <div className="w-full aspect-video rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
                                     {localSettings.clinicLogoFull ? (
-                                        <img src={localSettings.clinicLogoFull} alt="Full Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                        <img src={localSettings.clinicLogoFull} alt="Full Logo" className="w-full h-full object-contain p-4" referrerPolicy="no-referrer" />
                                     ) : (
                                         <Building2 size={32} className="text-slate-300" />
                                     )}
                                 </div>
-                                <button onClick={() => fullLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
-                                    {isUploading === 'clinicLogoFull' ? 'Uploading...' : 'Upload Full'}
+                                <button onClick={() => fullLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
+                                    {isUploading === 'clinicLogoFull' ? 'Uploading...' : 'Update Full Logo'}
                                 </button>
                                 <input type="file" ref={fullLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoFull')} accept="image/*" className="hidden" />
                             </div>
 
                             {/* Compact Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Compact Nav Logo</span>
-                                <div className="w-full h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
                                     {localSettings.clinicLogoCompact ? (
-                                        <img src={localSettings.clinicLogoCompact} alt="Compact Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                        <img src={localSettings.clinicLogoCompact} alt="Compact Logo" className="w-full h-full object-contain p-4" referrerPolicy="no-referrer" />
                                     ) : (
                                         <Building2 size={24} className="text-slate-300" />
                                     )}
                                 </div>
-                                <button onClick={() => compactLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
-                                    {isUploading === 'clinicLogoCompact' ? 'Uploading...' : 'Upload Compact'}
+                                <button onClick={() => compactLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
+                                    {isUploading === 'clinicLogoCompact' ? 'Uploading...' : 'Update Compact Logo'}
                                 </button>
                                 <input type="file" ref={compactLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoCompact')} accept="image/*" className="hidden" />
                             </div>
 
                             {/* Icon Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-700">
+                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">System Icon</span>
-                                <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
-                                    {localSettings.clinicLogoIcon ? (
-                                        <img src={localSettings.clinicLogoIcon} alt="Icon Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <Building2 size={24} className="text-slate-300" />
-                                    )}
+                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
+                                    <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
+                                        {localSettings.clinicLogoIcon ? (
+                                            <img src={localSettings.clinicLogoIcon} alt="Icon Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <Building2 size={24} className="text-slate-300" />
+                                        )}
+                                    </div>
                                 </div>
-                                <button onClick={() => iconLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-black text-[10px] uppercase tracking-widest hover:border-teal-500 transition-colors">
-                                    {isUploading === 'clinicLogoIcon' ? 'Uploading...' : 'Upload Icon'}
+                                <button onClick={() => iconLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
+                                    {isUploading === 'clinicLogoIcon' ? 'Uploading...' : 'Update Icon'}
                                 </button>
                                 <input type="file" ref={iconLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoIcon')} accept="image/*" className="hidden" />
                             </div>
                         </div>
                     </div>
-                    <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
-                        <div><h4 className="font-bold text-text-primary">Interface Theme</h4><p className="text-sm text-text-secondary">Current: <span className="font-bold capitalize">{theme}</span></p></div>
+                            <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
+                                <div>
+                                    <h4 className="font-bold text-text-primary">Default Branding</h4>
+                                    <p className="text-sm text-text-secondary">Restore the original system-integrated logos.</p>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        setLocalSettings(prev => ({
+                                            ...prev,
+                                            clinicLogo: DEFAULT_SETTINGS.clinicLogo,
+                                            clinicLogoFull: DEFAULT_SETTINGS.clinicLogoFull,
+                                            clinicLogoCompact: DEFAULT_SETTINGS.clinicLogoCompact,
+                                            clinicLogoIcon: DEFAULT_SETTINGS.clinicLogoIcon
+                                        }));
+                                        toast.info("Logos reset to system defaults. Click Save to apply.");
+                                    }}
+                                    className="px-6 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                                >
+                                    Reset Logos
+                                </button>
+                            </div>
+                            <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
+                                <div><h4 className="font-bold text-text-primary">Interface Theme</h4><p className="text-sm text-text-secondary">Current: <span className="font-bold capitalize">{theme}</span></p></div>
                         <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                             <button onClick={() => theme === 'dark' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'light' ? 'bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Sun size={14}/> Light</button>
                             <button onClick={() => theme === 'light' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'dark' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Moon size={14}/> Dark</button>

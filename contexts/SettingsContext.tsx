@@ -27,7 +27,18 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     useEffect(() => {
         setIsLoading(true);
-        DataService.getSettings().then(setFieldSettings).catch(err => {
+        DataService.getSettings().then(settings => {
+            // Repair broken logos from previous sessions if they match the old guessed URLs
+            const repairedSettings = { ...settings };
+            const isOldUrl = (url?: string) => url?.includes('/api/files/') && (url?.includes('logo_full') || url?.includes('logo_icon'));
+            
+            if (isOldUrl(repairedSettings.clinicLogo)) repairedSettings.clinicLogo = DEFAULT_SETTINGS.clinicLogo;
+            if (isOldUrl(repairedSettings.clinicLogoFull)) repairedSettings.clinicLogoFull = DEFAULT_SETTINGS.clinicLogoFull;
+            if (isOldUrl(repairedSettings.clinicLogoCompact)) repairedSettings.clinicLogoCompact = DEFAULT_SETTINGS.clinicLogoCompact;
+            if (isOldUrl(repairedSettings.clinicLogoIcon)) repairedSettings.clinicLogoIcon = DEFAULT_SETTINGS.clinicLogoIcon;
+            
+            setFieldSettings(repairedSettings);
+        }).catch(err => {
             toast.error("Failed to load practice settings.");
             console.error(err);
         }).finally(() => setIsLoading(false));
