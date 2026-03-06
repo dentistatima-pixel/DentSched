@@ -394,30 +394,30 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     return (
         <div className="h-full flex flex-col bg-slate-100 animate-in fade-in duration-500">
-            <header className="bg-red-600 text-white p-6 rounded-b-[2.5rem] shadow-2xl z-10 shrink-0 flex justify-between items-center">
+            <header className="bg-red-600 text-white p-6 portrait:p-4 rounded-b-[2.5rem] shadow-2xl z-10 shrink-0 flex portrait:flex-col justify-between items-center portrait:items-stretch gap-4">
                 <div className="flex items-center gap-4">
                     <button onClick={props.onBack} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h2 className="text-2xl font-black">{patient.name}</h2>
+                        <h2 className="text-2xl portrait:text-xl font-black">{patient.name}</h2>
                         <div className="flex items-center gap-4 text-sm text-red-100 font-medium">
                             <span>ID: {patient.id}</span>
-                            <span>&bull;</span>
-                            <span>{patient.phone}</span>
+                            <span className="portrait:hidden">&bull;</span>
+                            <span className="portrait:hidden">{patient.phone}</span>
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                     <button onClick={() => props.showModal('ePrescription', { patient })} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Prescribe</button>
-                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Book Appointment</button>
-                     <button onClick={() => onEditPatient(patient)} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patient.registrationStatus === 'Provisional' ? 'bg-amber-400 text-amber-950 border-2 border-amber-400 shadow-lg shadow-amber-900/20 hover:bg-amber-300' : 'bg-transparent border-2 border-white text-white hover:bg-white/10'}`}>
-                        {patient.registrationStatus === 'Provisional' ? 'Resume Registration' : 'Edit Patient'}
+                <div className="flex items-center gap-3 portrait:grid portrait:grid-cols-3">
+                     <button onClick={() => props.showModal('ePrescription', { patient })} className="px-5 py-2.5 portrait:px-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Prescribe</button>
+                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 portrait:px-2 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Book Appt</button>
+                     <button onClick={() => onEditPatient(patient)} className={`px-5 py-2.5 portrait:px-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patient.registrationStatus === 'Provisional' ? 'bg-amber-400 text-amber-950 border-2 border-amber-400 shadow-lg shadow-amber-900/20 hover:bg-amber-300' : 'bg-transparent border-2 border-white text-white hover:bg-white/10'}`}>
+                        {patient.registrationStatus === 'Provisional' ? 'Resume' : 'Edit'}
                      </button>
                 </div>
             </header>
 
-            <nav className="flex items-center gap-1 px-4 border-b bg-white shadow-sm shrink-0">
+            <nav className="flex items-center gap-1 px-4 border-b bg-white shadow-sm shrink-0 overflow-x-auto no-scrollbar">
                 {mainTabs.map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-bold transition-all ${activeTab === tab.id ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
                          <tab.icon size={16}/> {tab.label}

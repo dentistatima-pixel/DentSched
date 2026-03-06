@@ -75,8 +75,8 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
 
   return (
     <div className="h-full w-full flex flex-col bg-bg-secondary rounded-[2.5rem] shadow-sm border border-border-primary">
-      <div className="p-6 flex items-center justify-between gap-4 shrink-0 border-b border-border-primary">
-        <div className="relative flex-1">
+      <div className="p-6 portrait:p-4 flex items-center portrait:flex-col justify-between gap-4 shrink-0 border-b border-border-primary">
+        <div className="relative flex-1 portrait:w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={20} />
           <input 
             type="text" 
@@ -89,7 +89,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
         </div>
         <button 
           onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })}
-          className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
+          className="bg-teal-600 text-white px-6 py-3 portrait:w-full portrait:justify-center rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
           aria-label="New Patient Registration"
         >
           New Registration

@@ -316,7 +316,17 @@
       /* Default (Portrait) */
       .orientation-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); }
       .orientation-flex { flex-direction: column; }
-      .vitals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .vitals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+      
+      .dashboard-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+      .dashboard-main { grid-column: span 1 / span 1; }
+      .dashboard-side { grid-column: span 1 / span 1; }
+      
+      .admin-hub-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+      
+      .patient-summary-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+      .diagnostic-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+
       .header-actions {
         width: 100%;
       }

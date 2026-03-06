@@ -203,6 +203,9 @@ export const MOCK_STOCK: StockItem[] = [
     { id: 'inst_scissors_surg', name: 'Surgical Scissors (Iris)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
     { id: 'inst_retractor_minn', name: 'Cheek Retractor (Minnesota)', category: StockCategory.INSTRUMENTS, quantity: 8, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
     { id: 'inst_mouth_prop', name: 'Mouth Prop (Bite Block)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_amalgam_carrier', name: 'Amalgam Carrier (Double Ended)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ging_knife', name: 'Gingivectomy Knife (Kirkland 15/16)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_debonding', name: 'Debonding Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
 
     // --- CONSUMABLES (Disposable) ---
     // PPE & Day-to-Day
@@ -222,6 +225,9 @@ export const MOCK_STOCK: StockItem[] = [
     { id: 'cons_cotton_ball', name: 'Cotton Balls', category: StockCategory.CONSUMABLES, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 500, location: 'Stock Room' },
     { id: 'cons_gauze_2x2', name: 'Gauze Sponges (2x2)', category: StockCategory.CONSUMABLES, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Sleeve', conversionFactor: 200, location: 'Stock Room' },
     { id: 'cons_alcohol', name: 'Alcohol (70% Ethyl)', category: StockCategory.CONSUMABLES, quantity: 10, lowStockThreshold: 3, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_amalgam', name: 'Amalgam Capsules (Non-Gamma 2)', category: StockCategory.RESTORATIVE, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Capsule', bulkUnit: 'Jar', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_biopsy_kit', name: 'Biopsy Transport Kit (Formalin)', category: StockCategory.SURGICAL, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_ssc_kit', name: 'Stainless Steel Crowns (Assorted Kit)', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Kit', location: 'Stock Room' },
 
     // Hygiene
     { id: 'cons_prophy_paste', name: 'Prophy Paste (Medium Mint)', category: StockCategory.PREVENTIVE, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Cup', bulkUnit: 'Box', conversionFactor: 200, location: 'Stock Room' },
@@ -1483,6 +1489,26 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_art_paper', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
+  { id: 'proc_amalgam', name: 'Amalgam Restoration (Silver Filling)', category: 'Restorative', defaultPrice: 1200, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_amalgam_carrier', quantity: 1 },
+    { stockItemId: 'inst_condenser', quantity: 1 },
+    { stockItemId: 'inst_burnisher', quantity: 1 },
+    { stockItemId: 'inst_carver', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_amalgam', quantity: 1 },
+    { stockItemId: 'cons_matrix_band', quantity: 1 },
+    { stockItemId: 'cons_wedges', quantity: 1 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ], traySetupInstructions: [
+    'Prepare amalgamator and capsules',
+    'Set up matrix band and retainer if interproximal',
+    'Arrange condensers, burnishers, and carvers in order of use',
+    'Ensure high-speed handpiece is lubricated'
+  ]},
 
   // C. Endodontics (Root Canals)
   { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
@@ -1543,6 +1569,18 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_cotton_ball', quantity: 2 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
+  { id: 'proc_pulp_cap', name: 'Pulp Capping (Direct/Indirect)', category: 'Endodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_spoon', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_dycal', quantity: 1 },
+    { stockItemId: 'cons_microbrush', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ], traySetupInstructions: [
+    'Prepare Calcium Hydroxide (Dycal) base and catalyst',
+    'Set up small spoon excavator for gentle caries removal',
+    'Ensure sterile cotton pellets are available for hemorrhage control'
+  ]},
 
   // D. Surgery & Extractions
   { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
@@ -1589,6 +1627,40 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_gauze_2x2', quantity: 10 },
     { stockItemId: 'cons_gloves_surg', quantity: 1 }
   ]},
+  { id: 'proc_alveoloplasty', name: 'Alveoloplasty (per quadrant)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresImaging: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'inst_bone_file', quantity: 1 },
+    { stockItemId: 'inst_rongeur', quantity: 1 },
+    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ], traySetupInstructions: [
+    'Set up surgical handpiece and bone burs',
+    'Arrange rongeurs and bone files for smoothing',
+    'Prepare suture material (3-0 Silk or 4-0 Vicryl)',
+    'Ensure sterile saline irrigation is ready'
+  ]},
+  { id: 'proc_biopsy', name: 'Biopsy of Oral Tissue', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 45, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'inst_hemostat', quantity: 1 },
+    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_biopsy_kit', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ], traySetupInstructions: [
+    'Prepare biopsy transport bottle with 10% Formalin',
+    'Set up tissue forceps (Adson) and surgical scissors',
+    'Label specimen bottle immediately after collection',
+    'Complete pathology lab referral form'
+  ]},
 
   // E. Prosthodontics (Crowns, Bridges, Dentures)
   { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
@@ -1634,6 +1706,89 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
+  { id: 'proc_crown_prep', name: 'Crown Preparation (Standalone)', category: 'Prosthodontics', defaultPrice: 5000, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_bridge_prep', name: 'Bridge Preparation (Standalone)', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 90, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.4 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_reline', name: 'Denture Adjustment / Relining', category: 'Prosthodontics', defaultPrice: 3500, defaultDurationMinutes: 45, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 0.3 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_jacket_cement', name: 'Jacket Crown Cementation', category: 'Prosthodontics', defaultPrice: 2000, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_gic', quantity: 1 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_srp', name: 'Scaling and Root Planing (Deep Cleaning)', category: 'Periodontics', defaultPrice: 3000, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_perio_probe', quantity: 1 },
+    { stockItemId: 'inst_ultrasonic_hp', quantity: 1 },
+    { stockItemId: 'inst_scaler_ant', quantity: 1 },
+    { stockItemId: 'inst_scaler_post', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_topical', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ], traySetupInstructions: [
+    'Set up ultrasonic scaler with subgingival tips',
+    'Arrange Gracey curettes for specific quadrants',
+    'Prepare topical anesthetic and local anesthetic carpules',
+    'Ensure sharp hand instruments'
+  ]},
+  { id: 'proc_gingivectomy', name: 'Gingivectomy (per segment)', category: 'Periodontics', defaultPrice: 4500, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'inst_ging_knife', quantity: 1 },
+    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ], traySetupInstructions: [
+    'Prepare Kirkland and Orban gingivectomy knives',
+    'Set up periodontal probe for pocket marking',
+    'Arrange surgical scissors and tissue forceps',
+    'Prepare periodontal dressing (Coepak) if needed'
+  ]},
+  { id: 'proc_curettage', name: 'Subgingival Curettage', category: 'Periodontics', defaultPrice: 2500, defaultDurationMinutes: 45, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_perio_probe', quantity: 1 },
+    { stockItemId: 'inst_scaler_ant', quantity: 1 },
+    { stockItemId: 'inst_scaler_post', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ssc', name: 'Stainless Steel Crown (Pediatric)', category: 'Pediatric', defaultPrice: 4000, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_ssc_kit', quantity: 1 },
+    { stockItemId: 'cons_cem_gic', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
 
   // F. Orthodontics
   { id: 'proc_ortho_consult', name: 'Orthodontic Consultation & Records', category: 'Orthodontics', defaultPrice: 2500, defaultDurationMinutes: 60, billOfMaterials: [
@@ -1675,6 +1830,14 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_mask_l2', quantity: 1 },
     { stockItemId: 'cons_ortho_niti', quantity: 1 },
     { stockItemId: 'cons_ortho_elastics_tie', quantity: 1 }
+  ]},
+  { id: 'proc_ortho_debond', name: 'Orthodontic Debonding & Retainer Fitting', category: 'Orthodontics', defaultPrice: 10000, defaultDurationMinutes: 60, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_debonding', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
 ];
 
@@ -2045,7 +2208,32 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   familyGroups: [
     { id: 'fam_scott_01', familyName: 'Scott-Schrute', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
   ],
-  clinicalProtocolRules: [],
+  clinicalProtocolRules: [
+    {
+      id: 'rule_surgery_clearance',
+      name: 'Medical Clearance for Oral Surgery',
+      triggerProcedureCategories: ['Surgery'],
+      requiresMedicalConditions: ['High Blood Pressure', 'Heart Disease', 'Bleeding Problems', 'Stroke'],
+      requiresDocumentCategory: 'Medical Clearance',
+      alertMessage: 'CRITICAL: This patient has a high-risk medical condition. A Medical Clearance document is required before proceeding with Oral Surgery.'
+    },
+    {
+      id: 'rule_rct_imaging',
+      name: 'Pre-Operative Imaging for Endodontics',
+      triggerProcedureCategories: ['Endodontics'],
+      requiresMedicalConditions: [],
+      requiresDocumentCategory: 'Imaging Results',
+      alertMessage: 'PROTOCOL: Pre-operative radiographs are mandatory for all Endodontic procedures to ensure accurate canal mapping.'
+    },
+    {
+      id: 'rule_ssc_pediatric',
+      name: 'Pediatric Consent for Crowns',
+      triggerProcedureCategories: ['Pediatric'],
+      requiresMedicalConditions: [],
+      requiresDocumentCategory: 'Informed Consent',
+      alertMessage: 'SAFETY: Ensure a Pediatric Consent form is signed by the legal guardian for this procedure.'
+    }
+  ],
   savedViews: [],
   dataProtectionOfficerId: undefined,
   privacyImpactAssessments: [],

@@ -222,26 +222,26 @@ const TodaysTimeline: React.FC<{
                             onClick={() => onEditAppointment(apt)}
                             className={`p-4 rounded-2xl transition-all duration-300 group cursor-pointer bg-bg-secondary hover:bg-bg-tertiary border border-border-secondary ${isDisappearing ? 'animate-slide-out-up' : 'animate-in fade-in'}`}
                         >
-                            <div className="flex items-start gap-4">
-                               <div className="w-20 shrink-0 text-center">
-                                    <div className="font-black text-text-primary text-lg">{apt.time}</div>
+                            <div className="flex items-start gap-4 portrait:gap-2">
+                               <div className="w-20 portrait:w-16 shrink-0 text-center">
+                                    <div className="font-black text-text-primary text-lg portrait:text-base">{apt.time}</div>
                                     <div className="text-xs font-bold text-slate-400">{apt.durationMinutes} min</div>
                                </div>
-                               <div className={`flex-1 min-w-0 border-l-4 ${statusColor} pl-4`}>
+                               <div className={`flex-1 min-w-0 border-l-4 ${statusColor} pl-4 portrait:pl-2`}>
                                    <div 
                                       onClick={(e) => { e.stopPropagation(); navigate(`patients/${apt.patientId}`); }}
-                                      className="font-black text-text-primary text-base uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200 hover:underline"
+                                      className="font-black text-text-primary text-base portrait:text-sm uppercase truncate group-hover:text-teal-900 dark:group-hover:text-teal-200 hover:underline"
                                       role="link"
                                       tabIndex={0}
                                       onKeyPress={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(`patients/${apt.patientId}`); } }}
                                     >
                                       {patient.name}
                                     </div>
-                                   <div className="text-text-secondary text-sm font-bold truncate">{apt.type}</div>
+                                   <div className="text-text-secondary text-sm portrait:text-xs font-bold truncate">{apt.type}</div>
                                    <StatusPipeline currentStatus={apt.status}/>
                                    <AppointmentAlerts patient={patient} settings={settings}/>
                                </div>
-                               <div className="w-40 shrink-0" onClick={e => e.stopPropagation()}>
+                               <div className="w-40 portrait:w-32 shrink-0" onClick={e => e.stopPropagation()}>
                                    <NextActionButton apt={apt} patient={patient} />
                                </div>
                             </div>
@@ -482,22 +482,22 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="flex items-center justify-between gap-6">
+      <div className="flex items-center portrait:flex-col portrait:items-start justify-between gap-6">
         <div>
-            <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{getGreeting()}, {currentUser.name.split(' ')[0]}!</h1>
+            <h1 className="text-4xl portrait:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{getGreeting()}, {currentUser.name.split(' ')[0]}!</h1>
             <div className="flex items-center gap-2 mt-2">
                 <Clock size={14} className="text-slate-400"/>
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
         </div>
-        <div className="flex items-center gap-3">
-            <button onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })} className="flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile">
+        <div className="flex items-center gap-3 portrait:w-full portrait:overflow-x-auto portrait:no-scrollbar portrait:pb-2">
+            <button onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-teal-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile shrink-0">
                 <UserPlus size={16}/> New Patient
             </button>
-            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-lilac-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile">
+            <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-lilac-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile shrink-0">
                 <CalendarPlus size={16}/> New Appt
             </button>
-            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 bg-red-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile">
+            <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-red-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile shrink-0">
                 <Zap size={16}/> Walk-In
             </button>
         </div>
@@ -505,7 +505,7 @@ export const Dashboard: React.FC = () => {
       
       <PracticeVitals />
 
-      <div className="grid gap-8 items-start dashboard-grid">
+      <div className="grid grid-cols-1 gap-8 items-start dashboard-grid">
         <div className="dashboard-main">
             {currentUser.role === UserRole.DENTAL_ASSISTANT ? (
                 <TrayPrepList 

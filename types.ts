@@ -441,6 +441,7 @@ export interface ProcedureItem {
   allowedLicenseCategories?: LicenseCategory[];
   riskDisclosures?: string[];
   billOfMaterials?: { stockItemId: string; quantity: number }[];
+  traySetupInstructions?: string[];
   riskAllergies?: string[];
   triggersPostOpSequence?: boolean;
   requiresWitness?: boolean;

@@ -116,7 +116,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const headerClass = isDowntime 
     ? "h-16 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_10px,#000_10px,#000_20px)] text-white flex items-center justify-between px-6 shadow-md z-50 sticky top-0 shrink-0 border-b-4 border-red-600"
-    : "h-24 backdrop-blur-xl text-white flex items-center justify-between px-8 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-black/20 dark:border-white/10 transition-all duration-500";
+    : "h-24 portrait:h-auto portrait:py-4 backdrop-blur-xl text-white flex items-center portrait:flex-col portrait:items-stretch justify-between px-8 portrait:px-4 shadow-2xl z-50 sticky top-0 shrink-0 border-b border-black/20 dark:border-white/10 transition-all duration-500";
 
   const handleTaskSubmit = () => {
     if (newTaskText.trim()) {
@@ -185,7 +185,7 @@ export const Layout: React.FC<LayoutProps> = ({
       <div className={`h-1.5 w-full shrink-0 transition-all duration-1000 ${isOnline ? 'bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.6)]' : 'bg-lilac-400 animate-pulse shadow-[0_0_15px_rgba(192,38,211,0.6)]'}`} />
 
       <header className={headerClass} style={{ backgroundColor: isDowntime ? undefined : `${branchColor}F2` }}>
-             <div className="flex items-center gap-6">
+             <div className="flex items-center justify-between portrait:mb-4 gap-6">
                 <div className="flex flex-col">
                      <div className="flex items-center gap-3">
                         {fieldSettings?.clinicLogoCompact ? (
@@ -198,10 +198,15 @@ export const Layout: React.FC<LayoutProps> = ({
                         <span className={`text-sm font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
                      </div>
                 </div>
+
+                <div className="hidden portrait:flex items-center gap-2">
+                    <button onClick={() => setIsCommandBarOpen(true)} className="p-3 bg-white/10 rounded-xl"><Search size={20}/></button>
+                    <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="p-3 bg-white/10 rounded-xl"><UserCircle size={20}/></button>
+                </div>
              </div>
              
             {/* --- Main Navigation --- */}
-            <nav className="flex items-center gap-2" role="tablist" aria-label="Main Navigation">
+            <nav className="flex portrait:hidden items-center gap-2" role="tablist" aria-label="Main Navigation">
                 {navItems.map((item) => (
                 <button 
                     key={item.id} 
@@ -224,10 +229,10 @@ export const Layout: React.FC<LayoutProps> = ({
                 ))}
             </nav>
 
-             <div className="flex items-center gap-4">
+             <div className="flex items-center portrait:justify-between gap-4">
                  <button
                     onClick={() => setIsCommandBarOpen(true)}
-                    className={`p-4 rounded-2xl transition-all focus:ring-offset-2 ${
+                    className={`p-4 portrait:p-3 rounded-2xl portrait:rounded-xl transition-all focus:ring-offset-2 portrait:hidden ${
                         isDowntime
                             ? 'bg-black/50 text-white hover:bg-black/70'
                             : 'bg-white/10 hover:bg-white/20'
@@ -239,7 +244,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
                  {/* Sync Status Indicator */}
                 <div 
-                    className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${
+                    className={`flex items-center gap-2 px-4 portrait:px-3 py-3 rounded-2xl portrait:rounded-xl text-sm font-black uppercase tracking-widest transition-all ${
                         isSyncing ? 'bg-blue-100 text-blue-700' :
                         syncQueueCount > 0 ? 'bg-lilac-100 text-lilac-700' :
                         'bg-teal-50 text-teal-700'
@@ -266,7 +271,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="relative">
                     <button
                         onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
-                        className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                        className={`p-4 portrait:p-3 rounded-2xl portrait:rounded-xl transition-all relative focus:ring-offset-2 ${
                             isNotificationPanelOpen
                                 ? 'bg-black/40 shadow-inner'
                                 : isDowntime
@@ -283,7 +288,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     {isNotificationPanelOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsNotificationPanelOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
+                            <div className="absolute right-0 portrait:-right-4 top-full mt-4 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
                                 <div className="p-4 border-b border-border-primary bg-bg-tertiary flex justify-between items-center">
                                     <p className="font-black text-sm text-text-primary uppercase tracking-widest">Notifications</p>
                                     <button className="text-xs font-bold text-teal-600 hover:text-teal-700">Mark all as read</button>
@@ -329,7 +334,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 </div>
 
                 {/* User Menu */}
-                <div className="relative">
+                <div className="relative portrait:hidden">
                     <button
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                         className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
@@ -383,7 +388,7 @@ export const Layout: React.FC<LayoutProps> = ({
                  <div className="relative">
                     <button
                         onClick={() => setIsTaskPopoverOpen(!isTaskPopoverOpen)}
-                        className={`p-4 rounded-2xl transition-all relative focus:ring-offset-2 ${
+                        className={`p-4 portrait:p-3 rounded-2xl portrait:rounded-xl transition-all relative focus:ring-offset-2 ${
                             isTaskPopoverOpen 
                                 ? 'bg-black/40 shadow-inner' 
                                 : isDowntime
@@ -399,7 +404,7 @@ export const Layout: React.FC<LayoutProps> = ({
                      {isTaskPopoverOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-[28rem] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
+                            <div className="absolute right-0 portrait:-right-4 top-full mt-4 w-[28rem] portrait:w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
                                 <div className="bg-bg-tertiary border-b border-border-primary p-3 flex justify-between items-center">
                                     <div className="flex items-center p-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-2xl">
                                         <button onClick={() => setPinboardTab('inbox')} className={`px-4 py-2 rounded-xl text-sm font-black uppercase flex items-center gap-2 ${pinboardTab === 'inbox' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Inbox size={14}/> Inbox</button>
@@ -504,13 +509,28 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      <main className="flex-1 flex flex-col bg-bg-primary relative overflow-auto no-scrollbar" role="main">
+      <main className="flex-1 flex flex-col bg-bg-primary relative overflow-auto no-scrollbar portrait:pb-24" role="main">
         <ErrorBoundary>
-            <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'flex flex-col p-2' : 'p-6'}`}>
+            <div className={`flex-1 ${activeTab === 'schedule' || activeTab === 'roster' ? 'flex flex-col p-2' : 'p-6 portrait:p-4'}`}>
                 {children}
             </div>
         </ErrorBoundary>
       </main>
+
+      {/* Portrait Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-border-primary hidden portrait:flex items-center justify-around px-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]" role="tablist">
+        {navItems.map((item) => (
+            <button 
+                key={item.id} 
+                onClick={() => navigate(item.id)}
+                className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-2xl transition-all ${activeTab === item.id ? 'text-teal-600' : 'text-slate-400'}`}
+            >
+                <item.icon size={24} strokeWidth={activeTab === item.id ? 3 : 2} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                {activeTab === item.id && <div className="w-1 h-1 bg-teal-600 rounded-full mt-0.5" />}
+            </button>
+        ))}
+      </nav>
 
       {/* PDA COMPLIANCE FOOTER */}
       <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-border-primary px-8 py-2 z-40 flex items-center justify-center gap-4 shrink-0" role="contentinfo">
