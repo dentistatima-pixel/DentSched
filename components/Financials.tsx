@@ -1,18 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { 
-    DollarSign, X, Plus, Calculator, ShieldCheck, History, Printer, ArrowLeft
+    DollarSign, X, Plus, Calculator, ShieldCheck, History, Printer, ArrowLeft,
+    BarChart2, TrendingUp
 } from 'lucide-react';
 import { 
     Expense, Patient, Appointment, FieldSettings, 
     User as StaffUser, AppointmentStatus, ReconciliationRecord, 
     ClinicalIncident, PayrollStatus, PriceBookEntry, CashSession, PayrollPeriod,
-    PayrollAdjustment, CommissionDispute, GovernanceTrack
+    PayrollAdjustment, CommissionDispute, GovernanceTrack, LedgerEntry, StockItem
 } from '../types';
 import { formatDate } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { useModal } from '../contexts/ModalContext';
+import { FinancialAnalyticsDashboard } from './financial/FinancialAnalyticsDashboard';
+import { PricingIntelligence } from './financial/PricingIntelligence';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -124,6 +127,8 @@ interface FinancialsProps {
   onCloseCashSession: (sessionId: string) => void;
   activeSubTab?: string;
   incidents: ClinicalIncident[];
+  ledger?: LedgerEntry[];
+  stockItems?: StockItem[];
 }
 
 const ExpensesTab: React.FC<{ expenses: Expense[], categories: string[], onAddExpense: (expense: Omit<Expense, 'id'>) => void, currentBranch: string }> = ({ expenses, categories, onAddExpense, currentBranch }) => {
@@ -268,31 +273,69 @@ const ReconciliationTab: React.FC<Pick<FinancialsProps, 'reconciliations'>> = ({
 export const Financials: React.FC<FinancialsProps> = (props) => {
     const { onBack, activeSubTab } = props;
     const { fieldSettings } = useSettings();
-    const [activeTab, setActiveTab] = useState(activeSubTab || 'expenses');
+    const [activeTab, setActiveTab] = useState(activeSubTab || 'analytics');
     const [showEODReport, setShowEODReport] = useState(false);
 
     const tabs = [
+        { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+        { id: 'pricing', label: 'Pricing Intel', icon: TrendingUp },
         { id: 'expenses', label: 'Expenses', icon: DollarSign },
         { id: 'payroll', label: 'Payroll', icon: Calculator },
         { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
     ];
     
+    const treatmentPlans = useMemo(() => {
+        return (props.patients || []).flatMap(p => p.treatmentPlans || []);
+    }, [props.patients]);
+
     return (
       <div className="p-8 space-y-8 animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
             {onBack && (<button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin"><ArrowLeft size={24} className="text-slate-600"/></button>)}
             <div className="bg-emerald-600 p-4 rounded-3xl text-white shadow-xl"><DollarSign size={36} /></div>
-            <div><h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Finance</h1><p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Finance</p></div>
+            <div><h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Finance</h1><p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Business Intelligence</p></div>
         </div>
-        <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm self-start flex gap-2">
-            {tabs.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500'}`}><tab.icon size={16} /> {tab.label}</button>))}
-             <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg"><History size={16}/> EOD Report</button>
+        
+        <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm self-start flex gap-2 overflow-x-auto">
+            {tabs.map(tab => (
+                <button 
+                    key={tab.id} 
+                    onClick={() => setActiveTab(tab.id)} 
+                    className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                    <tab.icon size={16} /> {tab.label}
+                </button>
+            ))}
+             <button onClick={() => setShowEODReport(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg ml-auto"><History size={16}/> EOD Report</button>
         </div>
-        <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-            {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
-            {activeTab === 'payroll' && <PayrollTab payrollPeriods={props.payrollPeriods} staff={props.staff} onAddPayrollPeriod={props.onAddPayrollPeriod} />}
-            {activeTab === 'reconciliation' && <ReconciliationTab reconciliations={props.reconciliations} />}
-        </div>
+
+        {activeTab === 'analytics' && (
+            <FinancialAnalyticsDashboard 
+                appointments={props.appointments || []}
+                ledger={props.ledger || []}
+                expenses={props.expenses}
+                procedures={fieldSettings.procedures}
+                staff={props.staff || []}
+                treatmentPlans={treatmentPlans}
+            />
+        )}
+
+        {activeTab === 'pricing' && (
+            <PricingIntelligence 
+                procedures={fieldSettings.procedures}
+                stockItems={props.stockItems || []}
+                ledger={props.ledger || []}
+            />
+        )}
+
+        {(activeTab === 'expenses' || activeTab === 'payroll' || activeTab === 'reconciliation') && (
+            <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+                {activeTab === 'expenses' && <ExpensesTab expenses={props.expenses} categories={fieldSettings.expenseCategories || []} onAddExpense={props.onAddExpense} currentBranch={props.currentBranch} />}
+                {activeTab === 'payroll' && <PayrollTab payrollPeriods={props.payrollPeriods} staff={props.staff} onAddPayrollPeriod={props.onAddPayrollPeriod} />}
+                {activeTab === 'reconciliation' && <ReconciliationTab reconciliations={props.reconciliations} />}
+            </div>
+        )}
+
         <DailyReportModal isOpen={showEODReport} onClose={() => setShowEODReport(false)} appointments={props.appointments || []} patients={props.patients || []} incidents={props.incidents} fieldSettings={fieldSettings} />
       </div>
     );

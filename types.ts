@@ -350,6 +350,7 @@ export interface StockItem {
   quantity: number;
   physicalCount?: number; 
   lastVerifiedAt?: string; 
+  unitCost?: number;
   lowStockThreshold: number;
   lastRestockDate?: string;
   expiryDate?: string;
@@ -445,6 +446,29 @@ export interface ProcedureItem {
   riskAllergies?: string[];
   triggersPostOpSequence?: boolean;
   requiresWitness?: boolean;
+  defaultLabFee?: number;
+}
+
+export interface ProviderPerformance {
+  providerId: string;
+  providerName: string;
+  production: number;
+  collections: number;
+  patientCount: number;
+}
+
+export interface CaseAcceptanceMetrics {
+  period: string;
+  presentedValue: number;
+  acceptedValue: number;
+  acceptanceRate: number;
+  unscheduledValue: number;
+}
+
+export interface HourlyOverhead {
+  totalFixedExpenses: number;
+  clinicalHours: number;
+  costPerHour: number;
 }
 
 export interface RolePermissions {
@@ -1150,6 +1174,10 @@ export interface LedgerEntry {
   paidAmount?: number;
   reconciliationId?: string;
   planId?: string;
+  // New fields for Pricing Intelligence
+  procedureId?: string;
+  materialCost?: number;
+  labFee?: number;
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';

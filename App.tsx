@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppContext } from './contexts/AppContext';
 import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
+import { SearchProvider } from './contexts/SearchContext';
 import { routes } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
 import { sendSms } from './services/smsService';
@@ -296,7 +297,7 @@ export const App: React.FC = () => {
   if (isInKioskMode) return <KioskView onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} />;
 
   return (
-    <>
+    <SearchProvider>
       {isSessionLocked && currentUser && <LockScreen onUnlockAttempt={handleUnlockAttempt} user={currentUser} />}
       {isLockWarningVisible && <SessionWarningModal onStayActive={resetIdleTimer} onLogout={logout} countdown={warningCountdown} />}
       <Layout>
@@ -307,6 +308,6 @@ export const App: React.FC = () => {
         </Suspense>
       </Layout>
       <ModalManager />
-    </>
+    </SearchProvider>
   );
 }

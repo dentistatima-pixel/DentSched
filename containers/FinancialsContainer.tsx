@@ -4,7 +4,9 @@ import { useAppointments } from '../contexts/AppointmentContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
 import { useStaff } from '../contexts/StaffContext';
 import { useAppContext } from '../contexts/AppContext';
+import { useInventory } from '../contexts/InventoryContext';
 import { Financials } from '../components/Financials';
+import { useMemo } from 'react';
 
 function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { 
@@ -20,6 +22,11 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { staff } = useStaff();
     const { currentUser, currentBranch, governanceTrack, setGovernanceTrack } = useAppContext();
     const { incidents } = useClinicalOps();
+    const { stock } = useInventory();
+
+    const ledger = useMemo(() => {
+        return patients.flatMap(p => p.ledger || []);
+    }, [patients]);
 
     return <Financials 
         expenses={expenses} onAddExpense={handleAddExpense}
@@ -37,6 +44,8 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
         setGovernanceTrack={setGovernanceTrack}
         activeSubTab={route.param || undefined}
         incidents={incidents}
+        ledger={ledger}
+        stockItems={stock}
     />;
 }
 

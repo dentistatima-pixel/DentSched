@@ -13,7 +13,6 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { ClinicalOpsProvider } from './contexts/ClinicalOpsContext';
 import { DocentProvider } from './contexts/DocentContext';
 import { Router } from './contexts/RouterContext';
-import { SearchProvider } from './contexts/SearchContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const rootElement = document.getElementById('root');
@@ -28,7 +27,6 @@ root.render(
         <ToastProvider>
             <AppProvider>
                 <SettingsProvider>
-                  <SearchProvider>
                       <ModalProvider>
                         <PatientProvider>
                             <StaffProvider>
@@ -48,7 +46,6 @@ root.render(
                             </StaffProvider>
                         </PatientProvider>
                       </ModalProvider>
-                  </SearchProvider>
                 </SettingsProvider>
             </AppProvider>
         </ToastProvider>

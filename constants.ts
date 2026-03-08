@@ -209,11 +209,11 @@ export const MOCK_STOCK: StockItem[] = [
 
     // --- CONSUMABLES (Disposable) ---
     // PPE & Day-to-Day
-    { id: 'cons_bib', name: 'Patient Bibs', category: StockCategory.PPE, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 500, location: 'Stock Room' },
+    { id: 'cons_bib', name: 'Patient Bibs', category: StockCategory.PPE, quantity: 500, unitCost: 1.50, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 500, location: 'Stock Room' },
     { id: 'cons_saliva_ejector', name: 'Saliva Ejectors (Low Vol)', category: StockCategory.CONSUMABLES, quantity: 300, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
     { id: 'cons_hve_tip', name: 'HVE Suction Tips', category: StockCategory.CONSUMABLES, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 50, location: 'Stock Room' },
     { id: 'cons_gloves_s', name: 'Exam Gloves (Small)', category: StockCategory.PPE, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
-    { id: 'cons_gloves_m', name: 'Exam Gloves (Medium)', category: StockCategory.PPE, quantity: 1500, lowStockThreshold: 300, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_m', name: 'Exam Gloves (Medium)', category: StockCategory.PPE, quantity: 1500, unitCost: 3.00, lowStockThreshold: 300, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
     { id: 'cons_gloves_l', name: 'Exam Gloves (Large)', category: StockCategory.PPE, quantity: 1000, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
     { id: 'cons_gloves_surg', name: 'Surgical Gloves (Sterile)', category: StockCategory.PPE, quantity: 50, lowStockThreshold: 20, dispensingUnit: 'Pair', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
     { id: 'cons_mask_l2', name: 'Face Masks (Level 2)', category: StockCategory.PPE, quantity: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
@@ -237,24 +237,24 @@ export const MOCK_STOCK: StockItem[] = [
     { id: 'cons_fluoride', name: 'Fluoride Varnish', category: StockCategory.PREVENTIVE, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Dose', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
 
     // Restorative
-    { id: 'cons_comp_a2', name: 'Composite Resin (Shade A2)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_comp_a2', name: 'Composite Resin (Shade A2)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 2500.00, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
     { id: 'cons_comp_a3', name: 'Composite Resin (Shade A3)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
-    { id: 'cons_bond', name: 'Bonding Agent (Adhesive)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Cold Storage' },
-    { id: 'cons_etch', name: 'Etchant Gel', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_bond', name: 'Bonding Agent (Adhesive)', category: StockCategory.RESTORATIVE, quantity: 3, unitCost: 1800.00, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Cold Storage' },
+    { id: 'cons_etch', name: 'Etchant Gel', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 500.00, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
     { id: 'cons_flowable', name: 'Flowable Composite (A2)', category: StockCategory.RESTORATIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
     { id: 'cons_sealant', name: 'Pit & Fissure Sealant', category: StockCategory.PREVENTIVE, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
-    { id: 'cons_art_paper', name: 'Articulating Paper (Blue)', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Booklet', location: 'Stock Room' },
+    { id: 'cons_art_paper', name: 'Articulating Paper (Blue)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 5.00, lowStockThreshold: 2, dispensingUnit: 'Booklet', location: 'Stock Room' },
     { id: 'cons_mylar', name: 'Mylar Strips', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
     { id: 'cons_polishing_strip', name: 'Polishing Strips', category: StockCategory.RESTORATIVE, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
     { id: 'cons_matrix_band', name: 'Matrix Bands (Universal)', category: StockCategory.RESTORATIVE, quantity: 50, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 12, location: 'Stock Room' },
     { id: 'cons_wedges', name: 'Wooden Wedges (Assorted)', category: StockCategory.RESTORATIVE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 400, location: 'Stock Room' },
     { id: 'cons_teflon', name: 'Teflon Tape', category: StockCategory.RESTORATIVE, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Roll', location: 'Stock Room' },
-    { id: 'cons_microbrush', name: 'Microbrushes', category: StockCategory.RESTORATIVE, quantity: 200, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Tube', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_microbrush', name: 'Microbrushes', category: StockCategory.RESTORATIVE, quantity: 200, unitCost: 2.00, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Tube', conversionFactor: 100, location: 'Stock Room' },
     { id: 'cons_bur_diamond_round', name: 'Bur - Diamond Round (High Speed)', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 5, location: 'Stock Room' },
     { id: 'cons_bur_fissure', name: 'Bur - Fissure (High Speed)', category: StockCategory.RESTORATIVE, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 5, location: 'Stock Room' },
 
     // Surgical
-    { id: 'cons_lido', name: 'Lidocaine 2% w/ Epi', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Carpule', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_lido', name: 'Lidocaine 2% w/ Epi', category: StockCategory.SURGICAL, quantity: 100, unitCost: 45.00, lowStockThreshold: 20, dispensingUnit: 'Carpule', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
     { id: 'cons_topical', name: 'Topical Anesthetic Gel', category: StockCategory.SURGICAL, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Jar', location: 'Stock Room' },
     { id: 'cons_needle_short', name: 'Dental Needles (27G Short)', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
     { id: 'cons_needle_long', name: 'Dental Needles (30G Long)', category: StockCategory.SURGICAL, quantity: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
@@ -1422,7 +1422,14 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   ]},
 
   // B. Restorative Dentistry
-  { id: 'proc_restor1', name: 'Composite Restoration (1 Surface)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_restor_add', name: 'Additional (Liner, Base, Cement)', category: 'Restorative', defaultPrice: 500, defaultDurationMinutes: 15, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_dycal', quantity: 0.1 },
+    { stockItemId: 'cons_cem_gic', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_restor_c1', name: 'Composite Restoration (Class 1 - Simple)', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_explorer', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
@@ -1440,7 +1447,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_art_paper', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_restor2', name: 'Composite Restoration (2 Surfaces)', category: 'Restorative', defaultPrice: 2500, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_restor_c2', name: 'Composite Restoration (Class 2 - Moderate)', category: 'Restorative', defaultPrice: 1000, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_explorer', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
@@ -1460,7 +1467,27 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_art_paper', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_restor3', name: 'Composite Restoration (3+ Surfaces)', category: 'Restorative', defaultPrice: 3500, defaultDurationMinutes: 75, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_restor_c3', name: 'Composite Restoration (Class 3 - Anterior)', category: 'Restorative', defaultPrice: 1200, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_explorer', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'inst_composite_placement', quantity: 1 },
+    { stockItemId: 'inst_curing_light', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_needle_short', quantity: 1 },
+    { stockItemId: 'cons_bur_diamond_round', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_comp_a2', quantity: 0.2 },
+    { stockItemId: 'cons_mylar', quantity: 1 },
+    { stockItemId: 'cons_polishing_strip', quantity: 1 },
+    { stockItemId: 'cons_microbrush', quantity: 2 },
+    { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_restor_c4', name: 'Composite Restoration (Class 4 - Angle)', category: 'Restorative', defaultPrice: 1500, defaultDurationMinutes: 75, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_explorer', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
@@ -1474,10 +1501,16 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_etch', quantity: 0.1 },
     { stockItemId: 'cons_bond', quantity: 0.1 },
     { stockItemId: 'cons_comp_a2', quantity: 0.3 },
-    { stockItemId: 'cons_matrix_band', quantity: 2 },
-    { stockItemId: 'cons_wedges', quantity: 2 },
+    { stockItemId: 'cons_mylar', quantity: 1 },
+    { stockItemId: 'cons_polishing_strip', quantity: 1 },
     { stockItemId: 'cons_microbrush', quantity: 3 },
     { stockItemId: 'cons_art_paper', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_laser_bleach', name: 'Laser Bleaching (Whitening)', category: 'Restorative', defaultPrice: 10000, defaultDurationMinutes: 90, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
   { id: 'proc_temp_filling', name: 'Temporary Filling', category: 'Restorative', defaultPrice: 800, defaultDurationMinutes: 30, triggersPostOpSequence: true, billOfMaterials: [
@@ -1511,7 +1544,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   ]},
 
   // C. Endodontics (Root Canals)
-  { id: 'proc_rct_ant', name: 'Anterior Root Canal Therapy', category: 'Endodontics', defaultPrice: 8000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_rct_ant_ortho', name: 'Anterior Root Canal Therapy (Ortho Patient)', category: 'Endodontics', defaultPrice: 5000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_endo_explorer', quantity: 1 },
     { stockItemId: 'inst_rd_forceps', quantity: 1 },
@@ -1529,22 +1562,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_cem_irm', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_rct_pre', name: 'Premolar Root Canal Therapy', category: 'Endodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
-    { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_endo_explorer', quantity: 1 },
-    { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_lido', quantity: 2 },
-    { stockItemId: 'cons_needle_short', quantity: 2 },
-    { stockItemId: 'cons_rd_sheets', quantity: 1 },
-    { stockItemId: 'cons_endo_kfile', quantity: 1 },
-    { stockItemId: 'cons_endo_naocl', quantity: 0.2 },
-    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
-    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
-    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
-    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
-    { stockItemId: 'cons_gloves_m', quantity: 2 }
-  ]},
-  { id: 'proc_rct_mol', name: 'Molar Root Canal Therapy', category: 'Endodontics', defaultPrice: 12000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_rct_post_ortho', name: 'Posterior Root Canal Therapy (Ortho Patient)', category: 'Endodontics', defaultPrice: 6500, defaultDurationMinutes: 120, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_endo_explorer', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
@@ -1559,7 +1577,50 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_cem_irm', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 3500, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_rct_ant_nonortho', name: 'Anterior Root Canal Therapy (Non-Ortho)', category: 'Endodontics', defaultPrice: 5500, defaultDurationMinutes: 90, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_endo_explorer', quantity: 1 },
+    { stockItemId: 'inst_rd_forceps', quantity: 1 },
+    { stockItemId: 'inst_rd_punch', quantity: 1 },
+    { stockItemId: 'inst_rd_clamps', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
+    { stockItemId: 'cons_endo_kfile', quantity: 1 },
+    { stockItemId: 'cons_endo_naocl', quantity: 0.2 },
+    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_rct_post_nonortho', name: 'Posterior Root Canal Therapy (Non-Ortho)', category: 'Endodontics', defaultPrice: 7000, defaultDurationMinutes: 120, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_endo_explorer', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 3 },
+    { stockItemId: 'cons_needle_short', quantity: 3 },
+    { stockItemId: 'cons_rd_sheets', quantity: 1 },
+    { stockItemId: 'cons_endo_kfile', quantity: 1 },
+    { stockItemId: 'cons_endo_naocl', quantity: 0.3 },
+    { stockItemId: 'cons_endo_paper_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_gp_pts', quantity: 1 },
+    { stockItemId: 'cons_endo_sealer', quantity: 0.2 },
+    { stockItemId: 'cons_cem_irm', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_apico', name: 'Apicoectomy', category: 'Endodontics', defaultPrice: 4000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_pulpotomy', name: 'Pulpotomy (Primary Tooth)', category: 'Endodontics', defaultPrice: 2000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_spoon', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
@@ -1567,6 +1628,12 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_needle_short', quantity: 1 },
     { stockItemId: 'cons_cem_irm', quantity: 0.1 },
     { stockItemId: 'cons_cotton_ball', quantity: 2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_pulp_regen', name: 'Pulp Regeneration', category: 'Endodontics', defaultPrice: 2000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
   { id: 'proc_pulp_cap', name: 'Pulp Capping (Direct/Indirect)', category: 'Endodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
@@ -1583,7 +1650,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   ]},
 
   // D. Surgery & Extractions
-  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 1500, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_ext_simple', name: 'Simple Extraction (Uncomplicated)', category: 'Surgery', defaultPrice: 800, defaultDurationMinutes: 30, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_elevator_straight', quantity: 1 },
     { stockItemId: 'inst_forceps_150', quantity: 1 },
@@ -1594,49 +1661,72 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_gauze_2x2', quantity: 4 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_ext_surg', name: 'Surgical Extraction (Complicated/Erupted)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_ext_comp', name: 'Complicated Extraction', category: 'Surgery', defaultPrice: 2500, defaultDurationMinutes: 45, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_elevator_straight', quantity: 1 },
+    { stockItemId: 'inst_forceps_150', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 3 },
+    { stockItemId: 'cons_needle_short', quantity: 3 },
+    { stockItemId: 'cons_gauze_2x2', quantity: 6 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_odon_upper', name: 'Odontectomy (Wisdom Tooth - Upper)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_scalpel_handle', quantity: 1 },
     { stockItemId: 'inst_elevator_periosteal', quantity: 1 },
-    { stockItemId: 'inst_elevator_straight', quantity: 1 },
-    { stockItemId: 'inst_forceps_150', quantity: 1 },
-    { stockItemId: 'inst_needle_holder', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_lido', quantity: 2 },
-    { stockItemId: 'cons_needle_short', quantity: 2 },
+    { stockItemId: 'cons_lido', quantity: 3 },
+    { stockItemId: 'cons_needle_short', quantity: 3 },
     { stockItemId: 'cons_blade_15', quantity: 1 },
     { stockItemId: 'cons_suture_silk', quantity: 1 },
-    { stockItemId: 'cons_saline', quantity: 0.2 },
-    { stockItemId: 'cons_gauze_2x2', quantity: 6 },
+    { stockItemId: 'cons_surg_gelfoam', quantity: 1 },
     { stockItemId: 'cons_gloves_surg', quantity: 1 }
   ]},
-  { id: 'proc_ext_imp', name: 'Surgical Extraction (Wisdom Tooth/Impacted)', category: 'Surgery', defaultPrice: 12000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_odon_lower', name: 'Odontectomy (Wisdom Tooth - Lower)', category: 'Surgery', defaultPrice: 8000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_scalpel_handle', quantity: 1 },
     { stockItemId: 'inst_elevator_periosteal', quantity: 1 },
-    { stockItemId: 'inst_elevator_straight', quantity: 1 },
-    { stockItemId: 'inst_forceps_150', quantity: 1 },
-    { stockItemId: 'inst_needle_holder', quantity: 1 },
-    { stockItemId: 'inst_hemostat', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
     { stockItemId: 'cons_lido', quantity: 4 },
     { stockItemId: 'cons_needle_short', quantity: 4 },
     { stockItemId: 'cons_blade_15', quantity: 1 },
     { stockItemId: 'cons_suture_silk', quantity: 1 },
-    { stockItemId: 'cons_saline', quantity: 0.5 },
-    { stockItemId: 'cons_gauze_2x2', quantity: 10 },
+    { stockItemId: 'cons_surg_gelfoam', quantity: 1 },
     { stockItemId: 'cons_gloves_surg', quantity: 1 }
   ]},
-  { id: 'proc_alveoloplasty', name: 'Alveoloplasty (per quadrant)', category: 'Surgery', defaultPrice: 5000, defaultDurationMinutes: 60, requiresImaging: true, billOfMaterials: [
+  { id: 'proc_odon_severe', name: 'Odontectomy (Severe)', category: 'Surgery', defaultPrice: 10000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_scalpel_handle', quantity: 1 },
-    { stockItemId: 'inst_bone_file', quantity: 1 },
-    { stockItemId: 'inst_rongeur', quantity: 1 },
-    { stockItemId: 'inst_needle_holder', quantity: 1 },
+    { stockItemId: 'inst_elevator_periosteal', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_lido', quantity: 4 },
+    { stockItemId: 'cons_needle_short', quantity: 4 },
     { stockItemId: 'cons_blade_15', quantity: 1 },
     { stockItemId: 'cons_suture_silk', quantity: 1 },
+    { stockItemId: 'cons_surg_gelfoam', quantity: 1 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ]},
+  { id: 'proc_alveoloplasty', name: 'Alveoloplasty (Bone Reshaping)', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_rongeur', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ]},
+  { id: 'proc_frenectomy', name: 'Frenectomy', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 45, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_scalpel_handle', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_blade_15', quantity: 1 },
+    { stockItemId: 'cons_gloves_surg', quantity: 1 }
+  ]},
+  { id: 'proc_gingivoplasty', name: 'Gingivoplasty (Gum Reshaping)', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ging_knife', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 2 },
     { stockItemId: 'cons_gloves_surg', quantity: 1 }
   ], traySetupInstructions: [
     'Set up surgical handpiece and bone burs',
@@ -1644,7 +1734,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     'Prepare suture material (3-0 Silk or 4-0 Vicryl)',
     'Ensure sterile saline irrigation is ready'
   ]},
-  { id: 'proc_biopsy', name: 'Biopsy of Oral Tissue', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 45, billOfMaterials: [
+  { id: 'proc_biopsy', name: 'Biopsy of Oral Tissue', category: 'Surgery', defaultPrice: 4000, defaultDurationMinutes: 45, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_scalpel_handle', quantity: 1 },
     { stockItemId: 'inst_hemostat', quantity: 1 },
@@ -1663,7 +1753,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   ]},
 
   // E. Prosthodontics (Crowns, Bridges, Dentures)
-  { id: 'proc_crown_pfm', name: 'Porcelain-Fused-to-Metal Crown', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_crown_pfm', name: 'Porcelain to Non-precious Metal (PFM NP)', category: 'Prosthodontics', defaultPrice: 5000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
     { stockItemId: 'inst_hp_low', quantity: 1 },
@@ -1676,18 +1766,170 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_cem_temp', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_crown_zirc', name: 'Zirconia Crown (High Translucency)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_crown_pfm_premium', name: 'Porcelain to Metal (Noritake/IPS Ivoclar)', category: 'Prosthodontics', defaultPrice: 8000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
     { stockItemId: 'cons_lido', quantity: 1 },
-    { stockItemId: 'cons_needle_short', quantity: 1 },
     { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
-    { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
     { stockItemId: 'cons_cem_temp', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_crown_full_metal', name: 'Full Metal Crown (Non-Precious)', category: 'Prosthodontics', defaultPrice: 5500, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 2500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_full_tilite', name: 'Full Metal Crown (Tilite Metal)', category: 'Prosthodontics', defaultPrice: 8500, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 3500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_emax', name: 'E-Max Crown', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_zirc_pf', name: 'Zirconia Crown (Porcelain Fused)', category: 'Prosthodontics', defaultPrice: 18000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_zirc_full', name: 'Zirconia Crown (Full)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_pink_gum', name: 'Additional Zirconia/Emax Pink Gum', category: 'Prosthodontics', defaultPrice: 1500, defaultDurationMinutes: 15, billOfMaterials: [] },
+  { id: 'proc_crown_tilite', name: 'Porcelain to Tilite (PFM Tilite)', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_3d', name: '3D Printed Crown', category: 'Prosthodontics', defaultPrice: 5000, defaultDurationMinutes: 45, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 2000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_lido', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_temp', name: 'Temporary Crown', category: 'Prosthodontics', defaultPrice: 2000, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_veneer_comp', name: 'Direct Composite Veneer', category: 'Prosthodontics', defaultPrice: 2500, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_comp_a2', quantity: 0.5 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_veneer_ceramage', name: 'Indirect Ceramage Veneer', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_veneer_emax', name: 'E-Max Veneer', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_veneer_zirc', name: 'Zirconia Veneer', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_bridge_maryland', name: 'Maryland Bridge (Non-Precious)', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.3 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_inlay_metal', name: 'Inlay/Onlay (Non-Precious Metal)', category: 'Prosthodontics', defaultPrice: 3500, defaultDurationMinutes: 60, triggersPostOpSequence: true, defaultLabFee: 2000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_inlay_tilite', name: 'Inlay/Onlay (Tilite Metal)', category: 'Prosthodontics', defaultPrice: 5500, defaultDurationMinutes: 60, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_inlay_ceramage', name: 'Inlay/Onlay (Ceramage)', category: 'Prosthodontics', defaultPrice: 8000, defaultDurationMinutes: 60, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_post_core_np', name: 'Post & Core (Non-Precious)', category: 'Prosthodontics', defaultPrice: 3500, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_post_core_tilite', name: 'Post & Core (Tilite)', category: 'Prosthodontics', defaultPrice: 5500, defaultDurationMinutes: 45, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_recement', name: 'Recementation', category: 'Prosthodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_cem_gic', quantity: 0.5 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_crown_removal', name: 'Crown Removal', category: 'Prosthodontics', defaultPrice: 2000, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_bridge_3u_pfm', name: '3-Unit Bridge (PFM)', category: 'Prosthodontics', defaultPrice: 45000, defaultDurationMinutes: 120, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 9000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_hp_high', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
@@ -1698,7 +1940,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_cem_temp', quantity: 0.2 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_denture_comp', name: 'Complete Denture (per arch)', category: 'Prosthodontics', defaultPrice: 20000, defaultDurationMinutes: 60, triggersPostOpSequence: true, billOfMaterials: [
+  { id: 'proc_denture_comp', name: 'Complete Denture (Ordinary Acrylic - per arch)', category: 'Prosthodontics', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 2000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_imp_tray', quantity: 2 },
     { stockItemId: 'cons_bib', quantity: 1 },
@@ -1706,25 +1948,91 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_imp_pvs_light', quantity: 0.5 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_crown_prep', name: 'Crown Preparation (Standalone)', category: 'Prosthodontics', defaultPrice: 5000, defaultDurationMinutes: 60, billOfMaterials: [
+  { id: 'proc_denture_lucitone', name: 'Branded Resin Base (Lucitone)', category: 'Prosthodontics', defaultPrice: 8000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_lido', quantity: 1 },
-    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.2 },
-    { stockItemId: 'cons_cem_temp', quantity: 0.1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_bridge_prep', name: 'Bridge Preparation (Standalone)', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 90, billOfMaterials: [
+  { id: 'proc_denture_hi_impact', name: 'Branded Resin Base (Hi-Impact)', category: 'Prosthodontics', defaultPrice: 8000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_hp_high', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_lido', quantity: 2 },
-    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.4 },
-    { stockItemId: 'cons_cem_temp', quantity: 0.2 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_denture_reline', name: 'Denture Adjustment / Relining', category: 'Prosthodontics', defaultPrice: 3500, defaultDurationMinutes: 45, billOfMaterials: [
+  { id: 'proc_denture_vertex', name: 'Branded Resin Base (Vertex)', category: 'Prosthodontics', defaultPrice: 10000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_ivocap', name: 'Ivocap System Denture (per arch)', category: 'Prosthodontics', defaultPrice: 25000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 8000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_flex_partial', name: 'Flexible Denture (Partial)', category: 'Prosthodontics', defaultPrice: 12000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_flex_full', name: 'Flexible Denture (Full)', category: 'Prosthodontics', defaultPrice: 15000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_flex_combo', name: 'Flexible Denture (Combination Metal/Flexite)', category: 'Prosthodontics', defaultPrice: 18000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 6000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_flexicryl', name: 'Flexible Denture (Flexicryl)', category: 'Prosthodontics', defaultPrice: 16000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 5000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_thermosen', name: 'Flexible Denture (Thermosen)', category: 'Prosthodontics', defaultPrice: 16500, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 5500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_metal_1_8', name: 'Metal Framework Denture (1-8 Pontic)', category: 'Prosthodontics', defaultPrice: 7500, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 3000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_metal_9plus', name: 'Metal Framework Denture (9+ Pontic)', category: 'Prosthodontics', defaultPrice: 10500, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 4000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_metal_acrylic', name: 'Metal Framework w/ Acrylic Base', category: 'Prosthodontics', defaultPrice: 12500, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, defaultLabFee: 4500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_denture_reline', name: 'Denture Adjustment / Relining', category: 'Prosthodontics', defaultPrice: 3500, defaultDurationMinutes: 45, defaultLabFee: 1500, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_hp_low', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
@@ -1739,7 +2047,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     { stockItemId: 'cons_art_paper', quantity: 0.1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_srp', name: 'Scaling and Root Planing (Deep Cleaning)', category: 'Periodontics', defaultPrice: 3000, defaultDurationMinutes: 60, billOfMaterials: [
+  { id: 'proc_srp', name: 'Scaling and Root Planing (Deep Cleaning)', category: 'Periodontics', defaultPrice: 3000, defaultDurationMinutes: 60, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_perio_probe', quantity: 1 },
     { stockItemId: 'inst_ultrasonic_hp', quantity: 1 },
@@ -1755,7 +2063,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     'Prepare topical anesthetic and local anesthetic carpules',
     'Ensure sharp hand instruments'
   ]},
-  { id: 'proc_gingivectomy', name: 'Gingivectomy (per segment)', category: 'Periodontics', defaultPrice: 4500, defaultDurationMinutes: 60, billOfMaterials: [
+  { id: 'proc_gingivectomy', name: 'Gingivectomy (per segment)', category: 'Periodontics', defaultPrice: 4500, defaultDurationMinutes: 60, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_scalpel_handle', quantity: 1 },
     { stockItemId: 'inst_ging_knife', quantity: 1 },
@@ -1771,7 +2079,7 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
     'Arrange surgical scissors and tissue forceps',
     'Prepare periodontal dressing (Coepak) if needed'
   ]},
-  { id: 'proc_curettage', name: 'Subgingival Curettage', category: 'Periodontics', defaultPrice: 2500, defaultDurationMinutes: 45, billOfMaterials: [
+  { id: 'proc_curettage', name: 'Subgingival Curettage', category: 'Periodontics', defaultPrice: 2500, defaultDurationMinutes: 45, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
     { stockItemId: 'inst_perio_probe', quantity: 1 },
     { stockItemId: 'inst_scaler_ant', quantity: 1 },
@@ -1791,50 +2099,301 @@ export const DEFAULT_PROCEDURES: ProcedureItem[] = [
   ]},
 
   // F. Orthodontics
-  { id: 'proc_ortho_consult', name: 'Orthodontic Consultation & Records', category: 'Orthodontics', defaultPrice: 2500, defaultDurationMinutes: 60, billOfMaterials: [
+  { id: 'proc_ortho_consult', name: 'Orthodontic Consultation', category: 'Orthodontics', defaultPrice: 1500, defaultDurationMinutes: 45, requiresImaging: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_explorer', quantity: 1 },
-    { stockItemId: 'inst_cotton_pliers', quantity: 1 },
     { stockItemId: 'inst_imp_tray', quantity: 2 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_cup', quantity: 1 },
-    { stockItemId: 'cons_gloves_m', quantity: 2 },
-    { stockItemId: 'cons_mask_l2', quantity: 1 },
     { stockItemId: 'cons_imp_alginate', quantity: 1 },
-    { stockItemId: 'cons_imp_bite_reg', quantity: 0.2 }
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_ortho_bond', name: 'Full Arch Brackets Bonding', category: 'Orthodontics', defaultPrice: 35000, defaultDurationMinutes: 90, billOfMaterials: [
+  { id: 'proc_ortho_metal_c1', name: 'Metal Brackets (Class 1)', category: 'Orthodontics', defaultPrice: 35000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_ortho_bracket_tweezer', quantity: 1 },
-    { stockItemId: 'inst_ortho_mathieu', quantity: 1 },
-    { stockItemId: 'inst_curing_light', quantity: 1 },
-    { stockItemId: 'inst_retractor_minn', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_gloves_m', quantity: 2 },
-    { stockItemId: 'cons_mask_l2', quantity: 1 },
-    { stockItemId: 'cons_ortho_brackets', quantity: 1 },
-    { stockItemId: 'cons_ortho_niti', quantity: 1 },
-    { stockItemId: 'cons_ortho_adhesive', quantity: 0.5 },
-    { stockItemId: 'cons_ortho_primer', quantity: 0.2 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
     { stockItemId: 'cons_etch', quantity: 0.2 },
-    { stockItemId: 'cons_microbrush', quantity: 4 }
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_ortho_adj', name: 'Orthodontic Adjustment / Wire Change', category: 'Orthodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
+  { id: 'proc_ortho_metal_c2', name: 'Metal Brackets (Class 2)', category: 'Orthodontics', defaultPrice: 45000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_ortho_distal_cutter', quantity: 1 },
-    { stockItemId: 'inst_ortho_lig_cutter', quantity: 1 },
-    { stockItemId: 'inst_ortho_weingart', quantity: 1 },
-    { stockItemId: 'inst_ortho_mathieu', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
     { stockItemId: 'cons_bib', quantity: 1 },
-    { stockItemId: 'cons_gloves_m', quantity: 2 },
-    { stockItemId: 'cons_mask_l2', quantity: 1 },
-    { stockItemId: 'cons_ortho_niti', quantity: 1 },
-    { stockItemId: 'cons_ortho_elastics_tie', quantity: 1 }
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
   ]},
-  { id: 'proc_ortho_debond', name: 'Orthodontic Debonding & Retainer Fitting', category: 'Orthodontics', defaultPrice: 10000, defaultDurationMinutes: 60, billOfMaterials: [
+  { id: 'proc_ortho_metal_c3', name: 'Metal Brackets (Class 3)', category: 'Orthodontics', defaultPrice: 50000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
     { stockItemId: 'inst_mirror', quantity: 1 },
-    { stockItemId: 'inst_ortho_debonding', quantity: 1 },
-    { stockItemId: 'inst_hp_low', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_ceramic_c1', name: 'Ceramic Brackets (Class 1)', category: 'Orthodontics', defaultPrice: 45000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_ceramic_c2', name: 'Ceramic Brackets (Class 2)', category: 'Orthodontics', defaultPrice: 50000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_ceramic_c3', name: 'Ceramic Brackets (Class 3)', category: 'Orthodontics', defaultPrice: 55000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sapphire_c1', name: 'Sapphire Brackets (Class 1)', category: 'Orthodontics', defaultPrice: 50000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sapphire_c2', name: 'Sapphire Brackets (Class 2)', category: 'Orthodontics', defaultPrice: 55000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sapphire_c3', name: 'Sapphire Brackets (Class 3)', category: 'Orthodontics', defaultPrice: 60000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_swlf_c1', name: 'SWLF Brackets (Class 1)', category: 'Orthodontics', defaultPrice: 60000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_swlf_c2', name: 'SWLF Brackets (Class 2)', category: 'Orthodontics', defaultPrice: 65000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_swlf_c3', name: 'SWLF Brackets (Class 3)', category: 'Orthodontics', defaultPrice: 70000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_std_c1', name: 'Self-Ligating (Standard) (Class 1)', category: 'Orthodontics', defaultPrice: 60000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_std_c2', name: 'Self-Ligating (Standard) (Class 2)', category: 'Orthodontics', defaultPrice: 65000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_std_c3', name: 'Self-Ligating (Standard) (Class 3)', category: 'Orthodontics', defaultPrice: 70000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_brand_c1', name: 'Self-Ligating (Damon/Empower) (Class 1)', category: 'Orthodontics', defaultPrice: 70000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_brand_c2', name: 'Self-Ligating (Damon/Empower) (Class 2)', category: 'Orthodontics', defaultPrice: 75000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_brand_c3', name: 'Self-Ligating (Damon/Empower) (Class 3)', category: 'Orthodontics', defaultPrice: 80000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_cer_c1', name: 'Self-Ligating (Ceramic) (Class 1)', category: 'Orthodontics', defaultPrice: 80000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_cer_c2', name: 'Self-Ligating (Ceramic) (Class 2)', category: 'Orthodontics', defaultPrice: 85000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_sl_cer_c3', name: 'Self-Ligating (Ceramic) (Class 3)', category: 'Orthodontics', defaultPrice: 90000, defaultDurationMinutes: 90, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_etch', quantity: 0.2 },
+    { stockItemId: 'cons_bond', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_aligner', name: 'Clear Aligners (Invisalign/ClearCorrect)', category: 'Orthodontics', defaultPrice: 80000, defaultDurationMinutes: 45, requiresLeadApproval: true, requiresImaging: true, triggersPostOpSequence: true, defaultLabFee: 50000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_pvs_putty', quantity: 0.4 },
+    { stockItemId: 'cons_imp_pvs_light', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_adj', name: 'Orthodontic Adjustment', category: 'Orthodontics', defaultPrice: 1000, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_ligature', quantity: 20 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_wire', name: 'Archwire Change', category: 'Orthodontics', defaultPrice: 1500, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_wire_ni_ti', quantity: 2 },
+    { stockItemId: 'cons_ortho_ligature', quantity: 20 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_rebond', name: 'Bracket Rebonding', category: 'Orthodontics', defaultPrice: 500, defaultDurationMinutes: 15, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_full_rebond', name: 'Bracket Placement Full Arch', category: 'Orthodontics', defaultPrice: 5000, defaultDurationMinutes: 60, requiresLeadApproval: true, triggersPostOpSequence: true, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_ortho_plier', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.5 },
+    { stockItemId: 'cons_bond', quantity: 0.5 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_lost_bracket', name: 'Lost Bracket Fee', category: 'Orthodontics', defaultPrice: 500, defaultDurationMinutes: 15, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 0.05 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_ortho_lost_tube', name: 'Lost Buccal Tube Fee', category: 'Orthodontics', defaultPrice: 800, defaultDurationMinutes: 15, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_ortho_bracket_kit', quantity: 0.05 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_retainer_imp', name: 'Impression for Retainer', category: 'Orthodontics', defaultPrice: 1000, defaultDurationMinutes: 30, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_imp_alginate', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_retainer_fit_hawley', name: 'Retainer Fitting (Hawley)', category: 'Orthodontics', defaultPrice: 5000, defaultDurationMinutes: 30, defaultLabFee: 1500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_retainer_fit_clear', name: 'Retainer Fitting (Clear/Essix)', category: 'Orthodontics', defaultPrice: 4000, defaultDurationMinutes: 30, defaultLabFee: 1000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_retainer_fit_lingual', name: 'Retainer Fitting (Fixed Lingual)', category: 'Orthodontics', defaultPrice: 3000, defaultDurationMinutes: 45, defaultLabFee: 1000, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'cons_bib', quantity: 1 },
+    { stockItemId: 'cons_etch', quantity: 0.1 },
+    { stockItemId: 'cons_bond', quantity: 0.1 },
+    { stockItemId: 'cons_comp_flow', quantity: 0.2 },
+    { stockItemId: 'cons_gloves_m', quantity: 2 }
+  ]},
+  { id: 'proc_mouthguard', name: 'Mouthguard (Sports/Night)', category: 'Orthodontics', defaultPrice: 5000, defaultDurationMinutes: 30, defaultLabFee: 1500, billOfMaterials: [
+    { stockItemId: 'inst_mirror', quantity: 1 },
+    { stockItemId: 'inst_imp_tray', quantity: 2 },
     { stockItemId: 'cons_bib', quantity: 1 },
     { stockItemId: 'cons_imp_alginate', quantity: 1 },
     { stockItemId: 'cons_gloves_m', quantity: 2 }
@@ -2204,7 +2763,7 @@ export const DEFAULT_SETTINGS: FieldSettings = {
       { id: 'adj1', label: 'Perfect Attendance Bonus', type: 'Credit', category: 'Incentives', defaultAmount: 500 },
       { id: 'adj2', label: 'Tardiness Deduction', type: 'Debit', category: 'Attendance' },
   ],
-  expenseCategories: ['Office Supplies', 'Utilities', 'Lab Fees', 'Rent', 'Salaries'],
+  expenseCategories: ['Supplies', 'Salaries', 'Rent/Utilities', 'Marketing', 'Lab Fees', 'Maintenance', 'Other'],
   familyGroups: [
     { id: 'fam_scott_01', familyName: 'Scott-Schrute', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
   ],
