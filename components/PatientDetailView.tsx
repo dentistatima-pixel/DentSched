@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { Patient, Appointment, User, FieldSettings, AuditLogEntry, ClinicalIncident, Referral, GovernanceTrack, ConsentCategory, DentalChartEntry, ClinicalProtocolRule, StockItem, TreatmentPlan, TreatmentPlanStatus } from '../types';
-import { Phone, Mail, MapPin, Stethoscope, Briefcase, BookUser, AlertCircle, ClipboardList, User as UserIcon, Heart, Activity, CheckCircle, ArrowLeft, ShieldCheck, MessageSquare, ChevronDown, Loader, Image as ImageIconLucide, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon, FileText, Shield, DollarSign, History } from 'lucide-react';
+import { Phone, Mail, MapPin, Stethoscope, Briefcase, BookUser, AlertCircle, ClipboardList, User as UserIcon, Heart, Activity, CheckCircle, ArrowLeft, ShieldCheck, MessageSquare, ChevronDown, Loader, Image as ImageIconLucide, Users, Droplet, Scale, XCircle, HeartPulse as HeartPulseIcon, FileText, Shield, DollarSign, History, Clock } from 'lucide-react';
 import { formatDate, calculateAge } from '../constants';
 import { usePatient } from '../contexts/PatientContext';
 import AuditTrailViewer from './AuditTrailViewer';
@@ -17,6 +17,7 @@ const PatientLedger = React.lazy(() => import('./PatientLedger').then(module => 
 const PatientAppointmentsView = React.lazy(() => import('./PatientAppointmentsView').then(module => ({ default: module.PatientAppointmentsView })));
 const DiagnosticGallery = React.lazy(() => import('./DiagnosticGallery'));
 const PatientComplianceView = React.lazy(() => import('./PatientComplianceView'));
+const PatientTimeline = React.lazy(() => import('./PatientTimeline').then(module => ({ default: module.PatientTimeline })));
 
 
 interface PatientDetailViewProps {
@@ -25,6 +26,7 @@ interface PatientDetailViewProps {
   staff: User[];
   stock?: StockItem[];
   currentUser: User;
+  currentBranch: string;
   onQuickUpdatePatient: (patient: Partial<Patient>) => Promise<void>;
   onBookAppointment: (patientId: string) => void;
   onEditPatient: (patient: Patient) => void; 
@@ -322,7 +324,7 @@ const PatientDetailsTabContent: React.FC<{ patient: Patient; fieldSettings: Fiel
 };
 
 export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
-    const { patient, onBookAppointment, onEditPatient, fieldSettings, currentUser, onQuickUpdatePatient, activeTab, setActiveTab, onUpdateAppointment } = props;
+    const { patient, onBookAppointment, onEditPatient, fieldSettings, currentUser, currentBranch, onQuickUpdatePatient, activeTab, setActiveTab, onUpdateAppointment } = props;
     // const toast = useToast(); // Removed unused toast
 
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -359,6 +361,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
 
     const mainTabs = [
         { id: 'details', label: 'Details', icon: FileText },
+        { id: 'timeline', label: 'Timeline', icon: Clock },
         { id: 'strategy', label: 'Treatment Plan', icon: ClipboardList },
         { id: 'notes', label: 'Clinical Notes', icon: FileText },
         { id: 'chart', label: 'Chart', icon: Stethoscope },
@@ -378,12 +381,13 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
         if (!patient) return null;
         switch(activeTab) {
             case 'details': return <PatientDetailsTabContent patient={patient} fieldSettings={fieldSettings} />;
+            case 'timeline': return <PatientTimeline patient={patient} appointments={props.appointments.filter(a => a.patientId === patient.id)} />;
             case 'strategy': return <TreatmentPlanModule {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'notes': return <ClinicalNotes {...props} patient={patient} entries={patient.dentalChart || []} editingNote={editingNote} setEditingNote={setEditingNote} onQuickUpdatePatient={onQuickUpdatePatient} procedures={fieldSettings.procedures} onUpdateAppointment={onUpdateAppointment} onAssignToPlan={() => setActiveTab('strategy')} />;
             case 'chart': return <Odontogram chart={patient.dentalChart || []} onToothClick={handleToothClick} currentUser={currentUser} onChartUpdate={(entry) => onQuickUpdatePatient({ id: patient.id, dentalChart: [...(patient.dentalChart || []), entry] })} />;
             case 'perio': return <PerioChart data={patient.perioChart || []} dentalChart={patient.dentalChart || []} onSave={(newData) => onQuickUpdatePatient({ id: patient.id, perioChart: newData })} />;
             case 'imaging': return <DiagnosticGallery patient={patient} onQuickUpdatePatient={onQuickUpdatePatient} />;
-            case 'ledger': return <PatientLedger {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
+            case 'ledger': return <PatientLedger {...props} patient={patient} onUpdatePatient={onQuickUpdatePatient} currentBranch={currentBranch} />;
             case 'appointments': return <PatientAppointmentsView appointments={props.appointments.filter(a => a.patientId === patient.id)} />;
             case 'comms': return <CommunicationLog patient={patient} onUpdatePatient={onQuickUpdatePatient} />;
             case 'compliance': return <PatientComplianceView patient={patient} />;

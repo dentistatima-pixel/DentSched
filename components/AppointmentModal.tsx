@@ -116,6 +116,14 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     const timeSlots = useMemo(() => {
         if (!date || !providerId || !operationalHours) return [];
         
+        const provider = staff.find(s => s.id === providerId);
+        const shortDay = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+        
+        // Enforce Roster Check
+        if (provider?.roster && provider.roster[shortDay] !== currentBranch) {
+            return []; // Provider is not rostered at this branch on this day
+        }
+
         const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof typeof operationalHours;
         const hours = operationalHours[dayOfWeek];
         if (!hours || hours.isClosed || !hours.start || !hours.end) return [];

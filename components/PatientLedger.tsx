@@ -11,9 +11,10 @@ interface PatientLedgerProps {
     readOnly?: boolean;
     governanceTrack?: GovernanceTrack;
     onRecordPaymentWithReceipt?: (patientId: string, paymentDetails: { description: string; date: string; amount: number; orNumber: string; }) => void;
+    currentBranch: string;
 }
 
-export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, governanceTrack, onRecordPaymentWithReceipt }) => {
+export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdatePatient, readOnly, governanceTrack, onRecordPaymentWithReceipt, currentBranch }) => {
     const toast = useToast();
     const isBirMode = governanceTrack === 'STATUTORY';
     const { fieldSettings, handleUpdateSettings } = useSettings();
@@ -55,7 +56,7 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
 
         const newBalance = currentBalance + total;
         const newEntry: LedgerEntry = {
-            id: generateUid('l'), date, description, type: 'Charge', amount: total, balanceAfter: newBalance
+            id: generateUid('l'), date, description, type: 'Charge', amount: total, balanceAfter: newBalance, branch: currentBranch
         };
 
         await onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
@@ -87,7 +88,8 @@ export const PatientLedger: React.FC<PatientLedgerProps> = ({ patient, onUpdateP
                 amount: val, 
                 balanceAfter: newBalance,
                 orNumber: orNumStr,
-                orDate: new Date().toISOString()
+                orDate: new Date().toISOString(),
+                branch: currentBranch
             };
             await onUpdatePatient({ ...patient, ledger: [...(patient.ledger || []), newEntry], currentBalance: newBalance });
             const nextOr = nextOrNumber + 1;

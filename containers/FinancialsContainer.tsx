@@ -24,19 +24,24 @@ function FinancialsContainer({ route }: { route: { param: string | null } }) {
     const { incidents } = useClinicalOps();
     const { stock } = useInventory();
 
+    const filteredExpenses = useMemo(() => expenses.filter(e => e.branch === currentBranch), [expenses, currentBranch]);
+    const filteredReconciliations = useMemo(() => reconciliations.filter(r => r.branch === currentBranch), [reconciliations, currentBranch]);
+    const filteredCashSessions = useMemo(() => cashSessions.filter(s => s.branch === currentBranch), [cashSessions, currentBranch]);
+    const filteredAppointments = useMemo(() => appointments.filter(a => a.branch === currentBranch), [appointments, currentBranch]);
+
     const ledger = useMemo(() => {
-        return patients.flatMap(p => p.ledger || []);
-    }, [patients]);
+        return patients.flatMap(p => p.ledger || []).filter(l => l.branch === currentBranch);
+    }, [patients, currentBranch]);
 
     return <Financials 
-        expenses={expenses} onAddExpense={handleAddExpense}
-        reconciliations={reconciliations} onSaveReconciliation={handleSaveReconciliation}
-        cashSessions={cashSessions} onStartCashSession={(bal) => handleStartCashSession(bal, currentBranch)} onCloseCashSession={handleCloseCashSession}
+        expenses={filteredExpenses} onAddExpense={handleAddExpense}
+        reconciliations={filteredReconciliations} onSaveReconciliation={handleSaveReconciliation}
+        cashSessions={filteredCashSessions} onStartCashSession={(bal) => handleStartCashSession(bal, currentBranch)} onCloseCashSession={handleCloseCashSession}
         payrollPeriods={payrollPeriods} onAddPayrollPeriod={handleAddPayrollPeriod} onUpdatePayrollPeriod={handleUpdatePayrollPeriod}
         payrollAdjustments={payrollAdjustments} onAddPayrollAdjustment={handleAddPayrollAdjustment} onApproveAdjustment={handleApproveAdjustment}
         commissionDisputes={commissionDisputes} onAddCommissionDispute={handleAddCommissionDispute} onResolveCommissionDispute={handleResolveCommissionDispute}
         patients={patients}
-        appointments={appointments}
+        appointments={filteredAppointments}
         staff={staff}
         currentUser={currentUser!}
         currentBranch={currentBranch}

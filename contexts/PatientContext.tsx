@@ -75,7 +75,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     const toastRef = useRef(toast);
     useEffect(() => { toastRef.current = toast; }, [toast]);
 
-    const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction } = useAppContext();
+    const { isOnline, logAction, currentUser, isAuthorityLocked, enqueueAction, currentBranch } = useAppContext();
     const { fieldSettings, handleUpdateSettings, addScheduledSms } = useSettings();
     const [patients, dispatch] = useReducer(patientReducer, []);
     const [isLoading, setIsLoading] = useState(true);
@@ -180,6 +180,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
         const newLedgerEntry: LedgerEntry = {
             id: generateUid('l'), date: paymentDetails.date, description: paymentDetails.description, type: 'Payment',
             amount: paymentDetails.amount, balanceAfter: newBalance, orNumber: paymentDetails.orNumber, orDate: paymentDetails.date,
+            branch: currentBranch
         };
 
         await handleSavePatient({ id: patient.id, ledger: [...(patient.ledger || []), newLedgerEntry], currentBalance: newBalance });

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent } from '../types';
+import { Appointment, AppointmentStatus, UserRole, TreatmentPlanStatus, SignatureChainEntry, PediatricConsent, CommunicationChannel } from '../types';
 import { APPOINTMENTS, PROCEDURE_TO_CONSENT_MAP } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { useAppContext } from './AppContext';
@@ -37,7 +37,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const toast = useToast();
     const { isOnline, logAction, currentUser, enqueueAction } = useAppContext();
     const { showModal, hideModal } = useModal();
-    const { patients } = usePatient();
+    const { patients, addCommunicationLog } = usePatient();
     const { fieldSettings, addScheduledSms, invalidateFutureRecalls } = useSettings();
     const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
     const { staff } = useStaff();
@@ -251,7 +251,7 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
         const patient = patients.find(p => p.id === aptToUpdate.patientId);
         const provider = staff.find(s => s.id === aptToUpdate.providerId);
     
-        if (status === AppointmentStatus.TREATING && !bypassProtocol && patient && provider && fieldSettings) {
+        if (status === AppointmentStatus.IN_TREATMENT && !bypassProtocol && patient && provider && fieldSettings) {
             const block = canStartTreatment(aptToUpdate, patient, provider, fieldSettings);
             if (block.isBlocked) {
                 toast.error(block.reason, { duration: 8000 });
@@ -314,16 +314,48 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
             setAppointments(prev => prev.map(apt => apt.id === appointmentId ? { ...updatedApt, isPendingSync: false } : apt));
             logAction('UPDATE_STATUS', 'Appointment', appointmentId, `Status changed to ${status}.`);
             
+            if (status === AppointmentStatus.CONFIRMED && aptToUpdate.status !== AppointmentStatus.CONFIRMED) {
+                const patient = patients.find(p => p.id === aptToUpdate.patientId);
+                const template = fieldSettings.smsTemplates['appointment_reminder']; // Or a specific confirmation template
+                if (patient && template && template.enabled && patient.phone) {
+                    const data = {
+                        PatientName: patient.firstName || patient.name.split(' ')[0],
+                        ClinicName: fieldSettings.clinicName || 'Clinic',
+                        Date: aptToUpdate.date,
+                        Time: aptToUpdate.time
+                    };
+                    const msg = formatSmsTemplate(template.text, data);
+                    sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
+                    
+                    // Also log to communication log
+                    addCommunicationLog(patient.id, CommunicationChannel.SMS, `Auto-SMS: Appointment Confirmed. Message: ${msg}`);
+                }
+            }
+
             if (status === AppointmentStatus.COMPLETED && aptToUpdate.status !== AppointmentStatus.COMPLETED) {
                 const procedure = fieldSettings.procedures.find(p => p.name === aptToUpdate.type);
+                const patient = patients.find(p => p.id === aptToUpdate.patientId);
                 
                 if (procedure) {
                     deductStockForProcedure(procedure);
                 }
 
+                // Send immediate post-treatment SMS
+                const postTreatmentTemplate = fieldSettings.smsTemplates['post_treatment_24hr']; // Using this as a proxy for immediate post-op if no specific one exists, or we can just send a generic one.
+                if (patient && patient.phone && postTreatmentTemplate && postTreatmentTemplate.enabled) {
+                     const data = {
+                        PatientName: patient.firstName || patient.name.split(' ')[0],
+                        ClinicName: fieldSettings.clinicName || 'Clinic',
+                        Date: aptToUpdate.date,
+                        Time: aptToUpdate.time
+                    };
+                    const msg = formatSmsTemplate(postTreatmentTemplate.text, data);
+                    sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
+                    addCommunicationLog(patient.id, CommunicationChannel.SMS, `Auto-SMS: Post-Treatment. Message: ${msg}`);
+                }
+
                 if (procedure?.triggersPostOpSequence) {
                     const now = new Date();
-                    const patient = patients.find(p => p.id === aptToUpdate.patientId);
                     if (patient) {
                         const data = { PatientName: patient.firstName, ClinicName: fieldSettings.clinicName };
 

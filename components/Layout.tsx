@@ -17,6 +17,7 @@ import { useRouter, useNavigate } from '../contexts/RouterContext';
 import { useAuthorization } from '../hooks/useAuthorization';
 import { usePatient } from '../contexts/PatientContext';
 import { CommandBar } from './CommandBar';
+import { BranchSwitcher } from './BranchSwitcher';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useFinancials } from '../contexts/FinancialContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
@@ -197,6 +198,10 @@ export const Layout: React.FC<LayoutProps> = ({
                      <div className="flex items-center gap-2 mt-2">
                         <span className={`text-sm font-black uppercase tracking-widest leading-none ${isDowntime ? 'text-white drop-shadow-md' : 'text-teal-400'}`}>Logged In: {currentUser.name}</span>
                      </div>
+                </div>
+
+                <div className="hidden md:block">
+                    <BranchSwitcher />
                 </div>
 
                 <div className="hidden portrait:flex items-center gap-2">

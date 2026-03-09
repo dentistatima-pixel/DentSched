@@ -32,7 +32,7 @@ export enum AppointmentStatus {
   SCHEDULED = 'Scheduled',
   CONFIRMED = 'Confirmed',
   ARRIVED = 'Arrived',
-  TREATING = 'Treating',
+  IN_TREATMENT = 'In Treatment',
   COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
   NO_SHOW = 'No Show'
@@ -1178,6 +1178,7 @@ export interface LedgerEntry {
   procedureId?: string;
   materialCost?: number;
   labFee?: number;
+  branch?: string;
 }
 
 export type ConsentCategory = 'Clinical' | 'Marketing' | 'ThirdParty';

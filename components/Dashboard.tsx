@@ -78,7 +78,7 @@ const PIPELINE_STAGES: AppointmentStatus[] = [
     AppointmentStatus.SCHEDULED,
     AppointmentStatus.CONFIRMED,
     AppointmentStatus.ARRIVED,
-    AppointmentStatus.TREATING,
+    AppointmentStatus.IN_TREATMENT,
 ];
 
 const StatusPipeline: React.FC<{ currentStatus: AppointmentStatus }> = ({ currentStatus }) => {
@@ -152,8 +152,8 @@ const TodaysTimeline: React.FC<{
         const actions: Partial<Record<AppointmentStatus, { label: string, icon: React.ElementType, nextStatus: AppointmentStatus, color: string }>> = {
             [AppointmentStatus.SCHEDULED]: { label: 'Confirm', icon: CheckSquare, nextStatus: AppointmentStatus.CONFIRMED, color: 'bg-blue-600 shadow-blue-900/30' },
             [AppointmentStatus.CONFIRMED]: { label: 'Arrive', icon: LogIn, nextStatus: AppointmentStatus.ARRIVED, color: 'bg-orange-600 shadow-orange-900/30' },
-            [AppointmentStatus.ARRIVED]: { label: 'Start Treatment', icon: Play, nextStatus: AppointmentStatus.TREATING, color: 'bg-lilac-600 shadow-lilac-900/30' },
-            [AppointmentStatus.TREATING]: { label: 'Complete Session', icon: Check, nextStatus: AppointmentStatus.COMPLETED, color: 'bg-teal-600 shadow-teal-900/30' },
+            [AppointmentStatus.ARRIVED]: { label: 'Start Treatment', icon: Play, nextStatus: AppointmentStatus.IN_TREATMENT, color: 'bg-lilac-600 shadow-lilac-900/30' },
+            [AppointmentStatus.IN_TREATMENT]: { label: 'Complete Session', icon: Check, nextStatus: AppointmentStatus.COMPLETED, color: 'bg-teal-600 shadow-teal-900/30' },
         };
         const action = actions[apt.status];
         if (!action) return null;
@@ -213,7 +213,7 @@ const TodaysTimeline: React.FC<{
 
                     const statusColor = ({
                         [AppointmentStatus.ARRIVED]: 'border-orange-500',
-                        [AppointmentStatus.TREATING]: 'border-lilac-500',
+                        [AppointmentStatus.IN_TREATMENT]: 'border-lilac-500',
                     } as any)[apt.status] || 'border-teal-500';
 
                     return (
@@ -403,7 +403,7 @@ export const Dashboard: React.FC = () => {
       AppointmentStatus.SCHEDULED,
       AppointmentStatus.CONFIRMED,
       AppointmentStatus.ARRIVED,
-      AppointmentStatus.TREATING
+      AppointmentStatus.IN_TREATMENT
     ];
     return appointments
       .filter(a => a.date === todayStr && a.branch === currentBranch && (nonTerminalStatuses.includes(a.status) || disappearingApts.includes(a.id)))

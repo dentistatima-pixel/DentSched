@@ -47,7 +47,7 @@ const PatientDetailContainer: React.FC<{
   const { appointments, handleSaveAppointment, handleUpdateAppointmentStatus } = useAppointments();
   const { staff } = useStaff();
   const { stock } = useInventory();
-  const { currentUser, logAction, governanceTrack, isReadOnly, auditLog } = useAppContext();
+  const { currentUser, logAction, governanceTrack, isReadOnly, auditLog, currentBranch } = useAppContext();
   const { fieldSettings, handleUpdateSettings } = useSettings();
   const { incidents, referrals, handleSaveIncident, handleSaveReferral, handleAddToWaitlist } = useClinicalOps();
   const { showModal } = useModal();
@@ -71,7 +71,7 @@ const PatientDetailContainer: React.FC<{
     initialPatientId: pId, 
     onSave: handleSaveAppointment,
     onAddToWaitlist: handleAddToWaitlist,
-    currentBranch: currentUser.defaultBranch
+    currentBranch: currentBranch
   });
   const onEditPatient = (p: Patient) => showModal('patientRegistration', { initialData: p, onSave: handleSavePatient });
   const onOpenRevocationModal = (p: Patient, category: ConsentCategory) => showModal('privacyRevocation', { patient: p, category, onConfirm: (reason: string, notes: string) => handleConfirmRevocation(p, category, reason, notes) });
@@ -102,6 +102,7 @@ const PatientDetailContainer: React.FC<{
         staff={staff}
         stock={stock}
         currentUser={currentUser}
+        currentBranch={currentBranch}
         onQuickUpdatePatient={handleSavePatient}
         onBookAppointment={onBookAppointment}
         onEditPatient={onEditPatient}

@@ -170,30 +170,31 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
     return staff.filter(s => s.role === UserRole.ADMIN || s.role === UserRole.DENTIST);
   }, [staff]);
 
-  const appointmentsByDate = useMemo(() => {
-    const map = new Map<string, Appointment[]>();
-    appointments.forEach(apt => {
-        const list = map.get(apt.date) || [];
-        list.push(apt);
-        map.set(apt.date, list);
-    });
-    return map;
-  }, [appointments]);
-
   const filteredAppointments = useMemo(() => {
+      // Filter by branch first
+      const branchAppointments = (appointments || []).filter(a => a.branch === currentBranch);
+      
+      // Create a map for the filtered appointments
+      const branchMap = new Map<string, Appointment[]>();
+      branchAppointments.forEach(apt => {
+        const list = branchMap.get(apt.date) || [];
+        list.push(apt);
+        branchMap.set(apt.date, list);
+      });
+
       if (viewMode === 'week') {
-          const weekApts = weekDates.flatMap(d => appointmentsByDate.get(d.iso) || []);
+          const weekApts = weekDates.flatMap(d => branchMap.get(d.iso) || []);
           return weekApts.filter(a => a.providerId === activeProviderId || a.isBlock);
       } else if (viewMode === 'month') {
-          const monthApts = monthDates.flatMap(d => appointmentsByDate.get(d.iso) || []);
+          const monthApts = monthDates.flatMap(d => branchMap.get(d.iso) || []);
           return monthApts.filter(a => a.providerId === activeProviderId || a.isBlock);
       } else {
-          const dayApts = appointmentsByDate.get(formattedDate) || [];
+          const dayApts = branchMap.get(formattedDate) || [];
           const visibleIds = visibleProviders.map(p => p.id);
           const visibleResIds = visibleResources.map(r => r.id);
           return dayApts.filter(a => a.isBlock || visibleIds.includes(a.providerId) || (a.resourceId && visibleResIds.includes(a.resourceId)));
       }
-  }, [appointmentsByDate, viewMode, formattedDate, weekDates, monthDates, activeProviderId, visibleProviders, visibleResources]);
+  }, [appointments, viewMode, formattedDate, weekDates, monthDates, activeProviderId, visibleProviders, visibleResources, currentBranch]);
 
   const timeSlots = Array.from({ length: 16 }, (_, i) => i + 7); 
   const getPatient = (id: string) => patients.find(p => p.id === id);
@@ -202,7 +203,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
      let styles = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'text-slate-600' };
      if (status === AppointmentStatus.ARRIVED) styles = { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', icon: 'text-orange-700' };
      // FIX: Removed reference to `AppointmentStatus.SEATED` which does not exist in the enum.
-     else if (status === AppointmentStatus.TREATING) styles = { bg: 'bg-lilac-50', border: 'border-lilac-300', text: 'text-lilac-900', icon: 'text-lilac-700' };
+     else if (status === AppointmentStatus.IN_TREATMENT) styles = { bg: 'bg-lilac-50', border: 'border-lilac-300', text: 'text-lilac-900', icon: 'text-lilac-700' };
      else {
         const typeLower = type.toLowerCase();
         if (typeLower.includes('surg') || typeLower.includes('extract') || typeLower.includes('root canal')) {

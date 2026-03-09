@@ -12,7 +12,7 @@ const statusIcons: { [key in AppointmentStatus]: React.ElementType } = {
   [AppointmentStatus.SCHEDULED]: Calendar,
   [AppointmentStatus.CONFIRMED]: Calendar,
   [AppointmentStatus.ARRIVED]: UserCheck,
-  [AppointmentStatus.TREATING]: Armchair,
+  [AppointmentStatus.IN_TREATMENT]: Armchair,
   [AppointmentStatus.COMPLETED]: CheckCircle,
   [AppointmentStatus.CANCELLED]: XCircle,
   [AppointmentStatus.NO_SHOW]: UserX,

@@ -25,17 +25,22 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
   const navigate = useNavigate();
   const { currentBranch } = useAppContext();
   
-  const fuse = useMemo(() => new Fuse(patients, {
-    keys: ['name', 'id', 'phone', 'nickname'],
-    threshold: 0.3,
-  }), [patients]);
+  const fuse = useMemo(() => {
+    const branchPatients = patients.filter(p => p.registrationBranch === currentBranch);
+    return new Fuse(branchPatients, {
+      keys: ['name', 'id', 'phone', 'nickname'],
+      threshold: 0.3,
+    });
+  }, [patients, currentBranch]);
 
   const filteredPatients = useMemo(() => {
+    const branchPatients = patients.filter(p => p.registrationBranch === currentBranch);
+    
     if (!debouncedSearchTerm.trim()) {
-      return patients;
+      return branchPatients;
     }
     return fuse.search(debouncedSearchTerm).map(result => result.item);
-  }, [patients, debouncedSearchTerm, fuse]);
+  }, [patients, debouncedSearchTerm, fuse, currentBranch]);
 
   const onSelectPatient = (id: string | null) => {
     if (id) {

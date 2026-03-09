@@ -96,7 +96,7 @@ export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
     AppointmentStatus.SCHEDULED,
     AppointmentStatus.CONFIRMED,
     AppointmentStatus.ARRIVED,
-    AppointmentStatus.TREATING,
+    AppointmentStatus.IN_TREATMENT,
     AppointmentStatus.COMPLETED,
 ];
 
@@ -122,8 +122,8 @@ const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, AppointmentStatusConf
         icon: UserCheck,
         badgeClass: 'bg-orange-100 text-orange-700',
     },
-    [AppointmentStatus.TREATING]: {
-        label: 'Treating',
+    [AppointmentStatus.IN_TREATMENT]: {
+        label: 'In Treatment',
         icon: Activity,
         badgeClass: 'bg-lilac-200 text-lilac-800',
     },
@@ -1324,7 +1324,7 @@ export const APPOINTMENTS: Appointment[] = [
     { id: 'apt_today_02', patientId: 'p_risk_02', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '10:00', durationMinutes: 60, type: 'Oral Prophylaxis (Heavy w/ Stain Removal)', status: AppointmentStatus.ARRIVED },
     { id: 'apt_today_03', patientId: 'p_reliable_01', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '11:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CONFIRMED },
     { id: 'apt_today_04', patientId: 'p_pediatric_05', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '14:00', durationMinutes: 45, type: 'Topical Fluoride Application', status: AppointmentStatus.ARRIVED },
-    { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.TREATING },
+    { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.IN_TREATMENT },
 
     // Past appointments
     { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
