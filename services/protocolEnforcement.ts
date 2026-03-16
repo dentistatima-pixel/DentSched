@@ -1,5 +1,5 @@
 
-import { Patient, ProcedureItem, ClinicalProtocolRule, ClearanceRequest } from '../types';
+import { Patient, ProcedureItem, ClinicalProtocolRule } from '../types';
 
 export const checkClinicalProtocols = (
   patient: Patient,

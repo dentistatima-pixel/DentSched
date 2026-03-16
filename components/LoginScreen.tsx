@@ -68,11 +68,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, fieldSettings
           <div className="mb-10">
             <div className="flex items-center justify-start gap-5 mb-6">
                 <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center overflow-hidden border-2 border-white/20 shadow-2xl">
-                    {fieldSettings?.clinicLogoFull ? (
-                        <img src={fieldSettings.clinicLogoFull} alt={fieldSettings.clinicName} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                    ) : (
-                        <Building2 size={48} className="text-teal-300" />
-                    )}
+                    <Building2 size={48} className="text-teal-300" />
                 </div>
                 <div>
                     <h1 className="text-5xl font-black text-white uppercase tracking-tighter leading-none">{fieldSettings?.clinicName || 'DentSched'}</h1>

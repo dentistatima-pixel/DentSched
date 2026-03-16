@@ -1,4 +1,3 @@
-import React from 'react';
 import RecallCenter from '../components/RecallCenter';
 import { usePatient } from '../contexts/PatientContext';
 import { useNavigate } from '../contexts/RouterContext';

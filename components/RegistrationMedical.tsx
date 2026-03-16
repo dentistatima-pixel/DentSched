@@ -1,6 +1,6 @@
 
 
-import React, { useMemo } from 'react';
+import { useMemo, FC, ChangeEvent, ReactNode, Key, ElementType } from 'react';
 // FIX: Added missing types Patient and FieldSettings from ../types
 import { Patient, FieldSettings, RegistrationField } from '../types';
 import { Check, ShieldAlert, Pill, Stethoscope, Activity, Edit3, HeartPulse, Calendar } from 'lucide-react';
@@ -11,13 +11,13 @@ import DocentSparkle from './DocentSparkle';
  * It directly uses the `value` and `onChange` props from its parent.
  * The internal state and useEffect have been removed to prevent re-render loops.
  */
-const ControlledTextarea: React.FC<{
+const ControlledTextarea: FC<{
   name: string;
   value: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
 }> = ({ name, value, placeholder, className, disabled, onChange }) => {
   return (
     <textarea
@@ -36,14 +36,14 @@ const ControlledTextarea: React.FC<{
  * It directly uses the `value` and `onChange` props from its parent.
  * The internal state and useEffect have been removed to prevent re-render loops.
  */
-const ControlledInput: React.FC<{
+const ControlledInput: FC<{
   name: string;
   value: string;
   type?: string;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }> = ({ name, value, type = "text", placeholder, className, disabled, onChange }) => {
   return (
     <input
@@ -58,7 +58,7 @@ const ControlledInput: React.FC<{
   );
 };
 
-const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'question' | 'condition' | 'allergy' | 'physician' | 'identity', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
+const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'question' | 'condition' | 'allergy' | 'physician' | 'identity', children?: ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: Key }) => {
   const isSelected = selectedFieldId === id;
   if (!designMode) return <div className={className}>{children}</div>;
   
@@ -78,7 +78,7 @@ const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, on
 interface BooleanFieldProps {
     label: string;
     q: string;
-    icon?: React.ElementType;
+    icon?: ElementType;
     alert?: boolean;
     type?: 'question' | 'condition' | 'allergy' | 'physician';
     className?: string;
@@ -93,7 +93,7 @@ interface BooleanFieldProps {
     onFieldClick?: any;
 }
 
-const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, registryAnswers, onRegistryChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
+const BooleanField: FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert = false, type = 'question', className = "md:col-span-12", placeholder = "Specify condition, medication, or reason...", showDate = false, registryAnswers, onRegistryChange, readOnly, fieldSettings, designMode, selectedFieldId, onFieldClick }) => {
     const val = registryAnswers?.[q];
     const isYes = val === 'Yes';
     const subVal = (registryAnswers?.[`${q}_details`] as string) || '';
@@ -113,7 +113,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
         onRegistryChange(newAnswers);
     };
 
-    const handleDetailChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>, detailType: 'details' | 'date') => {
+    const handleDetailChange = (e: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>, detailType: 'details' | 'date') => {
         if (readOnly) return;
         const newAnswers = { ...registryAnswers, [`${q}_${detailType}`]: e.target.value };
         onRegistryChange(newAnswers);
@@ -177,7 +177,7 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ label, q, icon: Icon, alert
 
 interface RegistrationMedicalProps {
   formData: Partial<Patient>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
   onCustomChange?: (fieldName: string, value: any, type: RegistrationField['type']) => void;
   registryAnswers: Record<string, any>;
   onRegistryChange: (newAnswers: Record<string, any>) => void;
@@ -193,7 +193,7 @@ interface RegistrationMedicalProps {
   selectedFieldId?: string;
 }
 
-const RegistrationMedical: React.FC<RegistrationMedicalProps> = ({ 
+const RegistrationMedical: FC<RegistrationMedicalProps> = ({ 
     formData,
     handleChange,
     registryAnswers,

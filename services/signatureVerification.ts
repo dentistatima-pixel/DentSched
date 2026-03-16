@@ -1,5 +1,4 @@
 import { SignatureChainEntry } from '../types';
-import CryptoJS from 'crypto-js';
 
 export const validateSignatureChain = (chain: SignatureChainEntry[]): {
   valid: boolean;

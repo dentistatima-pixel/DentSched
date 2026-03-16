@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-    Search, TrendingUp, TrendingDown, Calculator, DollarSign, Clock, Beaker 
+    Search, TrendingUp, TrendingDown, Calculator, DollarSign, Clock 
 } from 'lucide-react';
 import { ProcedureItem, StockItem, LedgerEntry } from '../../types';
 

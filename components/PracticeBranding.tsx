@@ -1,11 +1,9 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
 import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
-import { DEFAULT_SETTINGS } from '../constants';
 import { useToast } from './ToastSystem';
 import { useAppContext } from '../contexts/AppContext';
-import { DataService } from '../services/dataService';
 import { useModal } from '../contexts/ModalContext';
 
 interface BranchEditorModalProps {
@@ -26,9 +24,6 @@ const defaultHours: OperationalHours = {
 
 const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, onSave }) => {
     const [formData, setFormData] = useState<Partial<Branch>>(branch || { operationalHours: defaultHours });
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const toast = useToast();
     
     useEffect(() => {
         if (branch) {
@@ -58,22 +53,6 @@ const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, 
         }));
     };
     
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploading(true);
-        try {
-            const logoUrl = await DataService.uploadFile(file);
-            setFormData(prev => ({ ...prev, logoUrl }));
-            toast.success("Logo uploaded successfully.");
-        } catch (error: any) {
-            toast.error(`Logo upload failed: ${error.message}`);
-        } finally {
-            setIsUploading(false);
-        }
-    };
-
     const handleSave = () => {
         if (!formData.name || !formData.legalEntityName || !formData.address || !formData.contactNumber || !formData.email) {
             alert('Please fill all required fields.');
@@ -101,16 +80,6 @@ const BranchEditorModal: React.FC<BranchEditorModalProps> = ({ branch, onClose, 
                         <div><label className="label text-xs">Branch Display Name *</label><input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="input"/></div>
                         <div><label className="label text-xs">Legal Entity Name *</label><input type="text" name="legalEntityName" value={formData.legalEntityName || ''} onChange={handleChange} className="input"/></div>
                         <div><label className="label text-xs">Full Address *</label><input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="input"/></div>
-                        <div>
-                            <label className="label text-xs">Logo</label>
-                            <div className="flex items-center gap-4">
-                                {formData.logoUrl && <img src={formData.logoUrl} alt="Branch logo" className="w-16 h-16 rounded-lg object-cover border-2 border-slate-200" />}
-                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="flex-1 input flex items-center justify-center text-slate-500 hover:border-teal-500 hover:text-teal-700 transition-colors">
-                                    {isUploading ? 'Uploading...' : 'Upload Logo'}
-                                </button>
-                                <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
-                            </div>
-                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="label text-xs">Contact Number *</label><input type="text" name="contactNumber" value={formData.contactNumber || ''} onChange={handleChange} className="input"/></div>
                             <div><label className="label text-xs">Email Address *</label><input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input"/></div>
@@ -166,11 +135,6 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
 
-    const [isUploading, setIsUploading] = useState<string | null>(null);
-    const fullLogoRef = useRef<HTMLInputElement>(null);
-    const compactLogoRef = useRef<HTMLInputElement>(null);
-    const iconLogoRef = useRef<HTMLInputElement>(null);
-
     // FIX: Add local state for the identity form
     const [localSettings, setLocalSettings] = useState(settings);
 
@@ -183,34 +147,10 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
         toast.success("Global profile updated successfully.");
     };
 
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'clinicLogoFull' | 'clinicLogoCompact' | 'clinicLogoIcon') => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploading(type);
-        try {
-            const url = await DataService.uploadFile(file);
-            setLocalSettings(prev => ({ 
-                ...prev, 
-                [type]: url,
-                // Fallback logic: if clinicLogo is empty, set it to the first uploaded logo
-                clinicLogo: prev.clinicLogo || url 
-            }));
-            toast.success("Logo uploaded successfully.");
-        } catch (error: any) {
-            toast.error(`Logo upload failed: ${error.message}`);
-        } finally {
-            setIsUploading(null);
-        }
-    };
 
     const isIdentityChanged = useMemo(() => {
         return settings.clinicName !== localSettings.clinicName ||
                settings.clinicProfile !== localSettings.clinicProfile ||
-               settings.clinicLogo !== localSettings.clinicLogo ||
-               settings.clinicLogoFull !== localSettings.clinicLogoFull ||
-               settings.clinicLogoCompact !== localSettings.clinicLogoCompact ||
-               settings.clinicLogoIcon !== localSettings.clinicLogoIcon ||
                settings.sessionTimeoutMinutes !== localSettings.sessionTimeoutMinutes;
     }, [settings, localSettings]);
 
@@ -298,87 +238,7 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                         </div>
                     </div>
 
-                    {/* Logo Management Section */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 px-2">
-                            <Sparkles size={18} className="text-teal-600" />
-                            <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Visual Branding Assets</h4>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Full Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Full Branding Logo</span>
-                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
-                                    {localSettings.clinicLogoFull ? (
-                                        <img src={localSettings.clinicLogoFull} alt="Full Logo" className="w-full h-full object-contain p-4" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <Building2 size={32} className="text-slate-300" />
-                                    )}
-                                </div>
-                                <button onClick={() => fullLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
-                                    {isUploading === 'clinicLogoFull' ? 'Uploading...' : 'Update Full Logo'}
-                                </button>
-                                <input type="file" ref={fullLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoFull')} accept="image/*" className="hidden" />
-                            </div>
-
-                            {/* Compact Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Compact Nav Logo</span>
-                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
-                                    {localSettings.clinicLogoCompact ? (
-                                        <img src={localSettings.clinicLogoCompact} alt="Compact Logo" className="w-full h-full object-contain p-4" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <Building2 size={24} className="text-slate-300" />
-                                    )}
-                                </div>
-                                <button onClick={() => compactLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
-                                    {isUploading === 'clinicLogoCompact' ? 'Uploading...' : 'Update Compact Logo'}
-                                </button>
-                                <input type="file" ref={compactLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoCompact')} accept="image/*" className="hidden" />
-                            </div>
-
-                            {/* Icon Logo Slot */}
-                            <div className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">System Icon</span>
-                                <div className="w-full aspect-video rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 mb-4">
-                                    <div className="w-16 h-16 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
-                                        {localSettings.clinicLogoIcon ? (
-                                            <img src={localSettings.clinicLogoIcon} alt="Icon Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                                        ) : (
-                                            <Building2 size={24} className="text-slate-300" />
-                                        )}
-                                    </div>
-                                </div>
-                                <button onClick={() => iconLogoRef.current?.click()} disabled={!!isUploading} className="w-full py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:border-teal-500 hover:text-teal-600 transition-all">
-                                    {isUploading === 'clinicLogoIcon' ? 'Uploading...' : 'Update Icon'}
-                                </button>
-                                <input type="file" ref={iconLogoRef} onChange={(e) => handleLogoUpload(e, 'clinicLogoIcon')} accept="image/*" className="hidden" />
-                            </div>
-                        </div>
-                    </div>
-                            <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
-                                <div>
-                                    <h4 className="font-bold text-text-primary">Default Branding</h4>
-                                    <p className="text-sm text-text-secondary">Restore the original system-integrated logos.</p>
-                                </div>
-                                <button 
-                                    onClick={() => {
-                                        setLocalSettings(prev => ({
-                                            ...prev,
-                                            clinicLogo: DEFAULT_SETTINGS.clinicLogo,
-                                            clinicLogoFull: DEFAULT_SETTINGS.clinicLogoFull,
-                                            clinicLogoCompact: DEFAULT_SETTINGS.clinicLogoCompact,
-                                            clinicLogoIcon: DEFAULT_SETTINGS.clinicLogoIcon
-                                        }));
-                                        toast.info("Logos reset to system defaults. Click Save to apply.");
-                                    }}
-                                    className="px-6 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
-                                >
-                                    Reset Logos
-                                </button>
-                            </div>
-                            <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
+                    <div className="flex justify-between items-center bg-bg-tertiary p-6 rounded-2xl border border-border-secondary">
                                 <div><h4 className="font-bold text-text-primary">Interface Theme</h4><p className="text-sm text-text-secondary">Current: <span className="font-bold capitalize">{theme}</span></p></div>
                         <div className="flex bg-slate-50 dark:bg-slate-900 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                             <button onClick={() => theme === 'dark' && toggleTheme()} className={`px-6 py-2 rounded-full text-xs font-black uppercase flex items-center gap-2 ${theme === 'light' ? 'bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-md' : 'text-slate-500 dark:text-slate-400'}`}><Sun size={14}/> Light</button>

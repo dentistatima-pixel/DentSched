@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { User } from '../types';
 import { useStaff } from '../contexts/StaffContext';
 import { isExpired, isWithin30Days, formatDate } from '../constants';
 

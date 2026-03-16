@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { User, Appointment, AppointmentStatus, ProcedureItem, UserRole } from '../../types';
 

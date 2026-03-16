@@ -1,4 +1,3 @@
-import React from 'react';
 import PersonalProfile from '../components/PersonalProfile';
 import { useAppContext } from '../contexts/AppContext';
 import { useStaff } from '../contexts/StaffContext';

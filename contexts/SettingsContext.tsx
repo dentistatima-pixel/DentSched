@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { FieldSettings, ScheduledSms, SmsCategory } from '../types';
+import { FieldSettings, ScheduledSms } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import { DataService } from '../services/dataService';

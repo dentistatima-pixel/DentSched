@@ -1,5 +1,5 @@
 
-import { Patient, Appointment, FieldSettings, Branch } from '../types';
+import { Patient, Appointment, FieldSettings } from '../types';
 import { 
     PATIENTS, APPOINTMENTS, 
     DEFAULT_SETTINGS

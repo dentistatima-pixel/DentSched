@@ -148,11 +148,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
         <div className="bg-white p-6 shadow-sm flex justify-between items-center relative border-b border-slate-100">
             <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-600/20 overflow-hidden">
-                    {fieldSettings?.clinicLogoIcon ? (
-                        <img src={fieldSettings.clinicLogoIcon} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                    ) : (
-                        <Building2 size={24} className="text-white" />
-                    )}
+                    <Building2 size={24} className="text-white" />
                 </div>
                 <div>
                     <h1 className="font-bold text-xl tracking-tight leading-none">{fieldSettings?.clinicName || 'DentSched'}</h1>

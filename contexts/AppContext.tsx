@@ -1,7 +1,7 @@
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo, FC } from 'react';
 import { User, SystemStatus, AuditLogEntry, GovernanceTrack, SyncIntent } from '../types';
-import { STAFF, MOCK_AUDIT_LOG, generateUid } from '../constants';
+import { MOCK_AUDIT_LOG, generateUid } from '../constants';
 import { useToast } from '../components/ToastSystem';
 import CryptoJS from 'crypto-js';
 import { db } from '../services/db';
@@ -49,7 +49,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AppProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const toast = useToast();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [originalUser, setOriginalUser] = useState<User | null>(null);

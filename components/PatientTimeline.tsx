@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Patient, Appointment } from '../types';
-import { Clock, FileText, ShieldCheck, MessageSquare, Calendar, DollarSign, Printer, Activity } from 'lucide-react';
+import { Clock, ShieldCheck, MessageSquare, Calendar, DollarSign, Printer, Activity } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 

@@ -1,5 +1,3 @@
-import { SyncIntent } from '../types';
-
 const DB_NAME = 'dentsched-db';
 const DB_VERSION = 1;
 const STORES = ['actionQueue', 'syncConflicts', 'patients', 'appointments', 'settings'];
@@ -12,7 +10,7 @@ const openDB = (): Promise<IDBDatabase> => {
 
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onerror = (event) => reject('Error opening IndexedDB');
+        request.onerror = () => reject('Error opening IndexedDB');
         request.onsuccess = (event) => {
             dbConnection = (event.target as IDBOpenDBRequest).result;
             resolve(dbConnection);

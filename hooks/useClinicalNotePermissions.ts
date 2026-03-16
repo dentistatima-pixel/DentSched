@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { User, Patient, Appointment, ClinicalIncident, UserRole, AuthorityLevel, ProcedureItem } from '../types';
+import { User, Patient, Appointment, ClinicalIncident, AuthorityLevel, ProcedureItem } from '../types';
 import { calculateAge } from '../constants';
 
 export const useClinicalNotePermissions = (

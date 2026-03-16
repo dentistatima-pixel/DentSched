@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Calendar, Clock } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 const LogoShowcase: React.FC = () => {
     return (

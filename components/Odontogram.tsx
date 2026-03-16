@@ -138,7 +138,7 @@ const GeometricTooth: React.FC<{
             role="button"
             aria-label={`Tooth #${number}, ${toothEntries.length} clinical records`}
             className={`flex flex-col items-center justify-center relative transition-all duration-500 touch-manipulation select-none ${!readOnly ? "hover:scale-105 active:scale-95" : ""} ${isSelected ? 'z-10 scale-110' : ''}`}
-            style={{ width: isDeciduous ? '48px' : '64px', height: isDeciduous ? '60px' : '80px', minWidth: isDeciduous ? '48px' : '64px' }}
+            style={{ width: isDeciduous ? '64px' : '80px', height: isDeciduous ? '80px' : '100px', minWidth: isDeciduous ? '64px' : '80px' }}
             onClick={(e) => !readOnly && onToothClick(e, number)}
         >
             <span className={`font-black font-mono absolute transition-all duration-500 ${isUpper ? '-top-3' : '-bottom-3'} ${isSelected ? 'text-teal-700 bg-teal-50 px-3 py-1 rounded-full shadow-lg border border-teal-100 scale-110 z-20' : 'text-slate-400'} text-sm ${isPatientPerspective ? 'scale-x-[-1]' : ''}`} aria-hidden="true">
@@ -193,34 +193,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
   const [dentitionMode, setDentitionMode] = useState<'Permanent' | 'Mixed'>('Permanent');
   
   const [contextMenu, setContextMenu] = useState<{ tooth: number; x: number; y: number } | null>(null);
-  const [scale, setScale] = useState(1);
   const chartRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!chartRef.current) return;
-    
-    let animationFrameId: number;
-    
-    const observer = new ResizeObserver((entries) => {
-      // Debounce with requestAnimationFrame to prevent "ResizeObserver loop limit exceeded"
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      
-      animationFrameId = requestAnimationFrame(() => {
-        for (let entry of entries) {
-          const width = entry.contentRect.width;
-          // Base width for full arch is roughly 1100px
-          const newScale = Math.min(1, (width - 32) / 1100);
-          setScale(newScale);
-        }
-      });
-    });
-    
-    observer.observe(chartRef.current);
-    return () => {
-      observer.disconnect();
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
 
   const activeTool = TOOLS.find(t => t.id === activeToolId) || TOOLS[0];
 
@@ -324,9 +297,9 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
 
   return (
     <div className="flex flex-col gap-6 relative h-full">
-         <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
+         <div className="flex flex-wrap justify-center items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] gap-4 border border-teal-50 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sticky top-0 z-50">
              {!readOnly && (
-                <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1 py-1" role="toolbar" aria-label="Clinical charting palette">
+                <div className="flex flex-wrap gap-2.5 px-1 py-1" role="toolbar" aria-label="Clinical charting palette">
                     {TOOLS.map(tool => (
                         <button 
                             key={tool.id} 
@@ -342,7 +315,7 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                 </div>
              )}
              
-             <div className="flex gap-3 ml-auto items-center">
+             <div className="flex flex-wrap gap-3 items-center">
                  <div className="flex items-center gap-4 mr-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
                      <div className="flex flex-col items-center">
                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Decayed</span>
@@ -360,10 +333,6 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                      </div>
                  </div>
 
-                 <button onClick={handlePrint} className="p-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-teal-50 hover:text-teal-700 transition-colors" aria-label="Print Odontogram">
-                     <FileText size={20} />
-                 </button>
-
                  <div className="bg-slate-50 rounded-2xl p-1.5 border-2 border-slate-100 flex shadow-inner gap-1" role="group" aria-label="Arch dentition mode">
                     <button onClick={() => setDentitionMode('Permanent')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 ${dentitionMode === 'Permanent' ? 'bg-white text-teal-800 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ADULT</button>
                     <button onClick={() => setDentitionMode('Mixed')} className={`px-5 py-2 rounded-xl text-xs font-black transition-all duration-300 flex items-center gap-2 ${dentitionMode === 'Mixed' ? 'bg-white text-lilac-800 shadow-xl' : 'text-slate-400 hover:text-lilac-600'}`}><Baby size={12}/> MIXED</button>
@@ -375,12 +344,16 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                  >
                      <Clock size={14}/> {showBaseline ? 'BASELINE' : 'ACTIVE'}
                  </button>
+
+                 <button onClick={handlePrint} className="p-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-teal-50 hover:text-teal-700 transition-colors" aria-label="Print Odontogram">
+                     <FileText size={20} />
+                 </button>
              </div>
         </div>
 
         <div 
           ref={chartRef}
-          className="bg-white rounded-[4rem] border-4 border-white overflow-hidden shadow-[inset_0_2px_15px_rgba(0,0,0,0.02),0_10px_40px_rgba(0,0,0,0.03)] relative min-h-[400px] flex flex-col justify-center items-center transition-all duration-700 group/canvas"
+          className="bg-white rounded-[4rem] border-4 border-white overflow-visible shadow-[inset_0_2px_15px_rgba(0,0,0,0.02),0_10px_40px_rgba(0,0,0,0.03)] relative min-h-[500px] flex flex-col justify-center items-center transition-all duration-700 group/canvas pb-12"
           role="img"
           aria-label="Clinical Odontogram"
         >
@@ -400,14 +373,9 @@ const OdontogramComponent: React.FC<OdontogramProps> = ({ chart, readOnly, onToo
                 </div>
             )}
 
-            <div className="w-full overflow-hidden flex justify-center px-4">
+            <div className="w-full overflow-x-auto flex justify-start px-4 pb-4 scroll-smooth [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
                 <div 
-                  style={{ 
-                    transform: `scale(${scale})`, 
-                    transformOrigin: 'top center',
-                    marginBottom: `-${(1 - scale) * 400}px` // Compensate for scale height
-                  }}
-                  className="flex flex-col gap-8 items-center py-8 transition-all duration-500"
+                  className={`flex flex-col items-start py-8 ${dentitionMode === 'Mixed' ? 'gap-8' : 'gap-2'} transition-all duration-500 px-8 min-w-max`}
                 >
                     {/* UPPER ARCH */}
                     <div className="flex flex-col items-center gap-2">

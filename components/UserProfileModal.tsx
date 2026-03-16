@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { X, Shield, DollarSign, Server, Edit2 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
-import { useAppContext } from '../contexts/AppContext';
 
 interface UserProfileModalProps {
   user: User;

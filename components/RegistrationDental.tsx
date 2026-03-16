@@ -1,9 +1,9 @@
-import React from 'react';
+import { FC, ReactNode, Key, ChangeEvent } from 'react';
 import { Patient, FieldSettings } from '../types';
 import { Activity, History, MessageSquare, Edit3 } from 'lucide-react';
 import DocentSparkle from './DocentSparkle';
 
-const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'dentalCore' | 'dentalQuestion', children?: React.ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: React.Key }) => {
+const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, onFieldClick, designMode }: { id: string, type: 'dentalCore' | 'dentalQuestion', children?: ReactNode, className?: string, selectedFieldId?: string, onFieldClick?: any, designMode: boolean, key?: Key }) => {
   const isSelected = selectedFieldId === id;
   if (!designMode) return <div className={className}>{children}</div>;
   
@@ -20,7 +20,7 @@ const DesignWrapper = ({ id, type, children, className = "", selectedFieldId, on
   );
 };
 
-const DentalHistoryQuestion: React.FC<{
+const DentalHistoryQuestion: FC<{
     q: string;
     registryAnswers: Record<string, any>;
     onRegistryChange: (newAnswers: Record<string, any>) => void;
@@ -63,7 +63,7 @@ const DentalHistoryQuestion: React.FC<{
 
 interface RegistrationDentalProps {
     formData: Partial<Patient>;
-    handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+    handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
     readOnly?: boolean;
     fieldSettings: FieldSettings;
     registryAnswers: Record<string, any>;
@@ -73,7 +73,7 @@ interface RegistrationDentalProps {
     selectedFieldId?: string;
 }
 
-const RegistrationDental: React.FC<RegistrationDentalProps> = ({
+const RegistrationDental: FC<RegistrationDentalProps> = ({
     formData, handleChange, readOnly, fieldSettings, registryAnswers, onRegistryChange,
     designMode = false, onFieldClick, selectedFieldId
 }) => {

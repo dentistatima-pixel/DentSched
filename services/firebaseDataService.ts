@@ -5,10 +5,10 @@ const notImplemented = () => Promise.reject(new Error("Firebase service not impl
 
 export const FirebaseDataService = {
     getPatients: (): Promise<Patient[]> => notImplemented(),
-    savePatient: (patientData: Partial<Patient>): Promise<Patient> => notImplemented(),
+    savePatient: (_patientData: Partial<Patient>): Promise<Patient> => notImplemented(),
     getAppointments: (): Promise<Appointment[]> => notImplemented(),
-    saveAppointment: (appointmentData: Appointment): Promise<Appointment> => notImplemented(),
+    saveAppointment: (_appointmentData: Appointment): Promise<Appointment> => notImplemented(),
     getSettings: (): Promise<FieldSettings> => notImplemented(),
-    saveSettings: (newSettings: FieldSettings): Promise<FieldSettings> => notImplemented(),
-    uploadFile: (file: File): Promise<string> => notImplemented(),
+    saveSettings: (_newSettings: FieldSettings): Promise<FieldSettings> => notImplemented(),
+    uploadFile: (_file: File): Promise<string> => notImplemented(),
 };

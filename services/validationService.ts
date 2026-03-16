@@ -1,4 +1,4 @@
-import { Patient, Appointment, User, FieldSettings, UserRole, RegistrationField } from '../types';
+import { Patient, Appointment, User, FieldSettings, UserRole } from '../types';
 
 // Valid 3-digit prefixes (after the initial '0')
 export const PH_MOBILE_PREFIXES = new Set([

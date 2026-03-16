@@ -88,15 +88,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
     }, [patients, appointments, fieldSettings, staff]);
 
     const StatCard = ({ title, value, icon: Icon, colorClass, unit = '' }: { title: string, value: string, icon: React.ElementType, colorClass: string, unit?: string }) => (
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-6 relative overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
-            <div className={`p-4 rounded-2xl shadow-lg ${colorClass}`} aria-hidden="true">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4 relative overflow-visible transition-all hover:shadow-xl hover:-translate-y-1 min-w-[240px]">
+            <div className={`p-4 rounded-2xl shadow-lg ${colorClass} shrink-0`} aria-hidden="true">
                 <Icon size={28} className="text-white"/>
             </div>
-            <div>
-                <span className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1">{title}</span>
-                <span className="text-4xl font-black tracking-tighter text-slate-800">
+            <div className="min-w-0">
+                <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{title}</span>
+                <span className="text-3xl font-black tracking-tighter text-slate-800 block">
                     {value}
-                    <span className="text-2xl font-bold ml-1">{unit}</span>
+                    <span className="text-xl font-bold ml-1">{unit}</span>
                 </span>
             </div>
         </div>
@@ -109,7 +109,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Overview</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 gap-6 pr-8 overflow-visible">
                 <StatCard title="Total Production (YTD)" value={`₱${Math.round(stats.totalRevenue / 1000)}k`} icon={DollarSign} colorClass="bg-teal-600 shadow-teal-600/20" />
                 <StatCard title="Projected Revenue" value={`₱${Math.round(stats.projectedRevenue / 1000)}k`} icon={TrendingUp} colorClass="bg-emerald-600 shadow-emerald-600/20" />
                 <StatCard title="New Patients (YTD)" value={stats.newPatientsYtd.toString()} icon={UserPlus} colorClass="bg-blue-600 shadow-blue-600/20" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { FC, useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
 import ModalManager from './components/ModalManager';
@@ -18,10 +18,10 @@ import { User } from './types';
 import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
-const FormBuilder = React.lazy(() => import('./components/FormBuilder'));
+const FormBuilder = lazy(() => import('./components/FormBuilder'));
 
 
-const SessionWarningModal: React.FC<{ onStayActive: () => void; onLogout: () => void; countdown: number }> = ({ onStayActive, onLogout, countdown }) => {
+const SessionWarningModal: FC<{ onStayActive: () => void; onLogout: () => void; countdown: number }> = ({ onStayActive, onLogout, countdown }) => {
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[998] flex flex-col items-center justify-center text-white p-8 animate-in fade-in duration-500">
             <div className="text-center bg-white/10 p-12 rounded-3xl border border-white/20">
@@ -37,7 +37,7 @@ const SessionWarningModal: React.FC<{ onStayActive: () => void; onLogout: () => 
     );
 };
 
-const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: User }> = ({ onUnlockAttempt, user }) => {
+const LockScreen: FC<{ onUnlockAttempt: (pin: string) => boolean; user: User }> = ({ onUnlockAttempt, user }) => {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
 
@@ -113,7 +113,7 @@ const LockScreen: React.FC<{ onUnlockAttempt: (pin: string) => boolean; user: Us
 };
 
 
-export const App: React.FC = () => {
+export const App: FC = () => {
   const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout, setIsAuthorityLocked } = useAppContext();
   const { fieldSettings, isLoading: areSettingsLoading } = useSettings();
   const { route } = useRouter();
