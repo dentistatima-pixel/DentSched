@@ -16,7 +16,7 @@ export const TrayPrepList: React.FC<TrayPrepListProps> = ({ appointments, patien
         // Filter for upcoming appointments today that are not yet completed or cancelled
         const upcoming = appointments.filter(a => 
             [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED, AppointmentStatus.ARRIVED].includes(a.status)
-        ).sort((a, b) => a.time.localeCompare(b.time));
+        ).sort((a, b) => a.time.localeCompare(b.time)).slice(0, 3);
 
         return upcoming.map(apt => {
             const patient = patients.find(p => p.id === apt.patientId);

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
-  Calendar, UserPlus, CalendarPlus, Activity, DollarSign, Heart, FileBadge2, ShieldAlert, CheckSquare, LogIn, Play, Check, UserCheck, UserX, CheckCircle, Flag, Beaker, Clock, Zap
+  Calendar, UserPlus, CalendarPlus, Activity, DollarSign, Heart, FileBadge2, ShieldAlert, CheckSquare, LogIn, Play, Check, UserCheck, UserX, CheckCircle, Flag, Beaker, Clock, Zap, AlertCircle, Users
 } from 'lucide-react';
 import { 
   Appointment, AppointmentStatus, Patient, 
@@ -8,7 +8,8 @@ import {
   RegistrationStatus,
   RecallStatus,
   LabStatus,
-  UserRole
+  UserRole,
+  StockItem
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';
@@ -17,6 +18,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClinicalOps } from '../contexts/ClinicalOpsContext';
+import { useInventory } from '../contexts/InventoryContext';
 import { useNavigate } from '../contexts/RouterContext';
 import { TrayPrepList } from './TrayPrepList';
 
@@ -253,8 +255,9 @@ const TodaysTimeline: React.FC<{
     )
 }
 
-const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[] }> = ({ dailyKPIs, myTasks, onToggleTask, appointments, patients }) => {
+const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: any, appointments: Appointment[], patients: Patient[], userRole: UserRole }> = ({ dailyKPIs, myTasks, onToggleTask, appointments, patients, userRole }) => {
     const { showModal } = useModal();
+    const { stock } = useInventory();
     const todayStr = new Date().toLocaleDateString('en-CA');
     const completedToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.COMPLETED);
     const noShowsToday = appointments.filter(a => a.date === todayStr && a.status === AppointmentStatus.NO_SHOW);
@@ -285,6 +288,62 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
         </button>
     )
 
+    const renderAssistantWidgets = () => {
+        const activeApts = appointments.filter(a => a.date === todayStr && [AppointmentStatus.ARRIVED, AppointmentStatus.IN_TREATMENT].includes(a.status));
+        const lowStock = stock.filter(s => s.quantity <= (s.lowStockThreshold || 0));
+
+        return (
+            <div className="space-y-4">
+                <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2 flex items-center gap-2">
+                        <Users size={14} className="text-teal-600" />
+                        Patient Flow Tracker
+                    </h4>
+                    <div className="space-y-2">
+                        {activeApts.map(apt => {
+                            const p = patients.find(p => p.id === apt.patientId);
+                            const isArrived = apt.status === AppointmentStatus.ARRIVED;
+                            return (
+                                <div key={apt.id} className="flex items-center justify-between p-3 bg-bg-tertiary rounded-xl border border-border-secondary">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-text-primary truncate">{p?.name}</p>
+                                        <p className="text-xs text-text-secondary truncate">{apt.type}</p>
+                                    </div>
+                                    <div className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 ${isArrived ? 'bg-orange-100 text-orange-700' : 'bg-lilac-100 text-lilac-700'}`}>
+                                        {isArrived ? 'Waiting Room' : 'In Treatment'}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {activeApts.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">No patients currently in clinic.</p>}
+                    </div>
+                </div>
+
+                <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
+                    <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2 flex items-center gap-2">
+                        <AlertCircle size={14} className="text-amber-500" />
+                        Critical Inventory Alerts
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
+                        {lowStock.map(item => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-amber-900 dark:text-amber-500 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-amber-700 dark:text-amber-600 uppercase tracking-widest">{item.category}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <p className="text-sm font-black text-amber-900 dark:text-amber-500">{item.quantity} <span className="text-[10px] font-bold">{item.dispensingUnit}</span></p>
+                                    <p className="text-[10px] text-amber-700 dark:text-amber-600 uppercase tracking-widest">Min: {item.lowStockThreshold}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {lowStock.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">Inventory levels are healthy.</p>}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-4">
              <div className="flex items-center gap-3 px-2">
@@ -292,11 +351,13 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
                 <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-[0.2em]">Tasks & Alerts</h3>
             </div>
             <div className="space-y-4">
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-                    <StatWidget title="Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
-                    <StatWidget title="Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
-                    <StatWidget title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
-                </div>
+                {userRole === UserRole.DENTAL_ASSISTANT ? renderAssistantWidgets() : (
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                        <StatWidget title="Production" value={<AnimatedCounter value={dailyKPIs.production} isCurrency={true}/>} icon={DollarSign} color="bg-teal-600 shadow-teal-900/30" />
+                        <StatWidget title="Seen" value={<AnimatedCounter value={dailyKPIs.patientsSeen}/>} icon={UserCheck} color="bg-blue-600 shadow-blue-900/30" onClick={showCompletedList} />
+                        <StatWidget title="No-Shows" value={<AnimatedCounter value={dailyKPIs.noShows}/>} icon={UserX} color="bg-red-600 shadow-red-900/30" onClick={showNoShowList} />
+                    </div>
+                )}
                 
                  <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
                     <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2">Tasks ({myTasks.length})</h4>
@@ -531,6 +592,7 @@ export const Dashboard: React.FC = () => {
               onToggleTask={handleToggleTask} 
               appointments={allTodaysAppointments} 
               patients={patients} 
+              userRole={currentUser.role}
             />
         </div>
       </div>
