@@ -1,8 +1,10 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useStaff } from '../contexts/StaffContext';
+import { useInventory } from '../contexts/InventoryContext';
+import { useAppContext } from '../contexts/AppContext';
 
 const Analytics = React.lazy(() => import('../components/Analytics'));
 
@@ -20,6 +22,15 @@ function AnalyticsContainer() {
     const { appointments } = useAppointments();
     const { fieldSettings } = useSettings();
     const { staff } = useStaff();
+    const { stock } = useInventory();
+    const { currentBranch } = useAppContext();
+    const { currentUser } = useAppContext();
+
+    const ledger = useMemo(() => {
+        return patients.flatMap(p => p.ledger || []).filter(l => l.branch === currentBranch);
+    }, [patients, currentBranch]);
+
+    const providerId = currentUser?.role === 'Dentist' ? currentUser.id : undefined;
 
     return (
         <Suspense fallback={<PageLoader />}>
@@ -28,6 +39,9 @@ function AnalyticsContainer() {
                 appointments={appointments}
                 fieldSettings={fieldSettings}
                 staff={staff}
+                stockItems={stock}
+                ledger={ledger}
+                providerId={providerId}
             />
         </Suspense>
     );

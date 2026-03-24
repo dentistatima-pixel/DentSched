@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { LeaveRequest, User, FieldSettings, UserRole } from '../types';
-import { Check, X, Plus, UserX, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { Check, X, Plus, UserX, ArrowLeft, User as UserIcon, Users, Calendar } from 'lucide-react';
 import { formatDate } from '../constants';
 
-interface LeaveAndShiftManagerProps {
+interface TeamManagementProps {
     staff: User[];
     currentUser: User;
     leaveRequests: LeaveRequest[];
@@ -15,29 +15,47 @@ interface LeaveAndShiftManagerProps {
     onUpdateStaffRoster?: (staffId: string, day: string, branch: string) => void; // For Roster management
 }
 
-const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, currentUser, leaveRequests, onApproveLeaveRequest, fieldSettings, onBack, onUpdateStaffRoster }) => {
+const TeamManagement: React.FC<TeamManagementProps> = ({ staff, currentUser, leaveRequests, onApproveLeaveRequest, fieldSettings, onBack, onUpdateStaffRoster }) => {
+    const [activeTab, setActiveTab] = useState<'roster' | 'leave'>('roster');
     const isAdmin = currentUser.role === UserRole.ADMIN;
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dentists = staff.filter(s => s.role === UserRole.DENTIST);
 
     return (
         <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 pb-24">
-            <div className="flex items-center gap-4">
-                {onBack && (
-                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
-                      <ArrowLeft size={24} className="text-slate-600"/>
-                  </button>
-                )}
-                <div className="bg-rose-600 p-4 rounded-3xl text-white shadow-xl"><UserX size={36} /></div>
-                <div>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Leave & Roster</h1>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Staff Roster</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    {onBack && (
+                      <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
+                          <ArrowLeft size={24} className="text-slate-600"/>
+                      </button>
+                    )}
+                    <div className="bg-sky-600 p-4 rounded-3xl text-white shadow-xl"><Users size={36} /></div>
+                    <div>
+                        <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Team Management</h1>
+                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Roster & Leave</p>
+                    </div>
+                </div>
+                <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm flex gap-2 overflow-x-auto">
+                    <button 
+                        onClick={() => setActiveTab('roster')} 
+                        className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'roster' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        <Calendar size={16} /> Roster
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('leave')} 
+                        className={`flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'leave' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        <UserX size={16} /> Leave
+                    </button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <div className="lg:col-span-3 space-y-8">
-                    <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
+                    {activeTab === 'leave' && (
+                        <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Pending Leave Requests</h3>
                             {!isAdmin && <button onClick={() => {}} className="bg-teal-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center gap-2"><Plus size={16}/> Submit Request</button>}
@@ -65,8 +83,10 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                             {leaveRequests.filter(r => r.status === 'Pending').length === 0 && <p className="text-center text-sm text-slate-400 font-bold p-10 italic">No pending requests.</p>}
                         </div>
                     </div>
+                    )}
                     
                     {/* Shift Management Section */}
+                    {activeTab === 'roster' && (
                     <div className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm">
                         <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter mb-6">Weekly Shift Roster</h3>
                         <div className="overflow-x-auto">
@@ -114,10 +134,11 @@ const LeaveAndShiftManager: React.FC<LeaveAndShiftManagerProps> = ({ staff, curr
                             </table>
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
 
-export default LeaveAndShiftManager;
+export default TeamManagement;

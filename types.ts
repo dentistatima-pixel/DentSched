@@ -719,6 +719,8 @@ export interface Appointment {
   durationMinutes: number;
   type: string;
   status: AppointmentStatus;
+  actualStartTime?: string;
+  actualEndTime?: string;
   isBlock?: boolean;
   title?: string;
   notes?: string;

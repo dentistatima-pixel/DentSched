@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX, Users2, Activity } from 'lucide-react';
+import { BarChart2, ShieldCheck, DollarSign, Package, Users, Users2, Activity } from 'lucide-react';
 import InspectorPanel from './InspectorPanel';
 
 interface AdminDashboardProps {
@@ -15,11 +15,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     { id: 'governance', title: 'Compliance', description: 'Manage compliance, audit trails, and legal forms.', icon: ShieldCheck, color: 'bg-lilac-600' },
     { id: 'financials', title: 'Finance', description: 'Handle claims, expenses, and reconciliation.', icon: DollarSign, color: 'bg-emerald-600' },
     { id: 'inventory', title: 'Supplies', description: 'Manage stock levels.', icon: Package, color: 'bg-blue-600' },
-    { id: 'roster', title: 'Roster', description: 'View and manage weekly staff assignments.', icon: Users, color: 'bg-sky-600' },
-    { id: 'familygroups', title: 'Family Groups', description: 'Manage family units and shared accounts.', icon: Users2, color: 'bg-pink-600' },
-    { id: 'recall', title: 'Recall', description: 'Manage patient recall and retention workflows.', icon: History, color: 'bg-rose-600' },
-    { id: 'referrals', title: 'Referrals', description: 'Track incoming and outgoing patient referrals.', icon: Send, color: 'bg-amber-600' },
-    { id: 'leave', title: 'Leave', description: 'Approve or reject staff leave applications.', icon: UserX, color: 'bg-violet-600' },
+    { id: 'team-management', title: 'Team Management', description: 'View and manage weekly staff assignments and leave applications.', icon: Users, color: 'bg-sky-600' },
+    { id: 'patient-engagement', title: 'Patient Engagement', description: 'Manage family units, patient recall, and referrals.', icon: Users2, color: 'bg-pink-600' },
   ];
 
   return (

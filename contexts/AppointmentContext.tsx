@@ -299,7 +299,14 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
              return;
         }
     
-        const updatedApt = { ...aptToUpdate, status, ...additionalData };
+        let timeUpdates = {};
+        if (status === AppointmentStatus.IN_TREATMENT && aptToUpdate.status !== AppointmentStatus.IN_TREATMENT) {
+            timeUpdates = { actualStartTime: new Date().toISOString() };
+        } else if (status === AppointmentStatus.COMPLETED && aptToUpdate.status !== AppointmentStatus.COMPLETED) {
+            timeUpdates = { actualEndTime: new Date().toISOString() };
+        }
+
+        const updatedApt = { ...aptToUpdate, status, ...additionalData, ...timeUpdates };
     
         if (!isOnline) {
             const offlineApt = { ...updatedApt, isPendingSync: true };
@@ -393,6 +400,9 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
                     const msg = formatSmsTemplate(template.text, data);
                     sendSms(patient.phone, sanitizeSmsContent(msg), fieldSettings.smsConfig).catch(console.error);
                 }
+
+                // Check waitlist for potential matches
+                showModal('waitlistOffer', { appointment: updatedApt });
             }
         } catch (e) {
             toast.error('Failed to update appointment status.');

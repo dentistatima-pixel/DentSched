@@ -14,7 +14,7 @@ interface KioskViewProps {
   fieldSettings?: FieldSettings;
 }
 
-type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affirmation' | 'update' | 'thankyou';
+type KioskStep = 'welcome' | 'identify' | 'verify' | 'notice' | 'anchor' | 'affirmation' | 'update' | 'thankyou' | 'register';
 
 export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fieldSettings }) => {
   const toast = useToast();
@@ -197,8 +197,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
                             <div className="w-24 h-24 bg-lilac-50 text-lilac-600 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-lilac-600 group-hover:text-white transition-all">
                                 <UserCheck size={48} />
                             </div>
-                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Existing Patient</h3>
-                            <p className="text-slate-500 mt-2 font-medium">Verify your ID to update medical or contact details.</p>
+                            <h3 className="text-2xl font-black text-lilac-900 uppercase tracking-tighter">Digital Intake</h3>
+                            <p className="text-slate-500 mt-2 font-medium">Update your medical history, demographics, and sign consents.</p>
                         </button>
                     </div>
                 </div>

@@ -40,6 +40,7 @@ const ClinicalCheckoutModal = React.lazy(() => import('./ClinicalCheckoutModal')
 const ConfirmModal = React.lazy(() => import('./ConfirmModal'));
 const PromptModal = React.lazy(() => import('./PromptModal'));
 const CancellationModal = React.lazy(() => import('./CancellationModal'));
+const WaitlistOfferModal = React.lazy(() => import('./WaitlistOfferModal'));
 
 
 import { useModal } from '../contexts/ModalContext';
@@ -85,6 +86,7 @@ const modalMap: { [key: string]: React.LazyExoticComponent<React.ComponentType<a
     confirm: ConfirmModal,
     prompt: PromptModal,
     cancellation: CancellationModal,
+    waitlistOffer: WaitlistOfferModal,
 };
 
 const ModalManager: React.FC = () => {

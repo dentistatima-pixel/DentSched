@@ -1,9 +1,11 @@
 import React, { Suspense } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePatient } from '../contexts/PatientContext';
+import { useClinicalOps } from '../contexts/ClinicalOpsContext';
+import { useStaff } from '../contexts/StaffContext';
 import { useNavigate } from '../contexts/RouterContext';
 
-const FamilyGroupManager = React.lazy(() => import('../components/FamilyGroupManager'));
+const PatientEngagement = React.lazy(() => import('../components/PatientEngagement'));
 
 const PageLoader: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
@@ -14,22 +16,27 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
-
-function FamilyGroupManagerContainer() {
+function PatientEngagementContainer() {
     const { fieldSettings, handleUpdateSettings } = useSettings();
-    const { patients } = usePatient();
+    const { patients, handleUpdatePatientRecall } = usePatient();
+    const { referrals, handleSaveReferral } = useClinicalOps();
+    const { staff } = useStaff();
     const navigate = useNavigate();
 
     return (
         <Suspense fallback={<PageLoader />}>
-            <FamilyGroupManager
+            <PatientEngagement
                 settings={fieldSettings}
                 onUpdateSettings={handleUpdateSettings}
                 patients={patients}
+                referrals={referrals}
+                onSaveReferral={handleSaveReferral}
+                staff={staff}
+                onUpdatePatientRecall={handleUpdatePatientRecall}
                 onBack={() => navigate('admin')}
             />
         </Suspense>
     );
 }
 
-export default FamilyGroupManagerContainer;
+export default PatientEngagementContainer;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart2, ShieldCheck, DollarSign, Package, Users, History, Send, UserX, Users2, LayoutGrid, ArrowLeft } from 'lucide-react';
+import { BarChart2, ShieldCheck, DollarSign, Package, Users, Users2, LayoutGrid, ArrowLeft } from 'lucide-react';
 import { useNavigate } from '../contexts/RouterContext';
 
 interface AdminLayoutProps {
@@ -13,11 +13,8 @@ const adminSections = [
     { id: 'governance', title: 'Compliance', icon: ShieldCheck },
     { id: 'financials', title: 'Finance & Payroll', icon: DollarSign },
     { id: 'inventory', title: 'Inventory', icon: Package },
-    { id: 'roster', title: 'Roster', icon: Users },
-    { id: 'familygroups', title: 'Family Groups', icon: Users2 },
-    { id: 'recall', title: 'Recall', icon: History },
-    { id: 'referrals', title: 'Referrals', icon: Send },
-    { id: 'leave', title: 'Leave', icon: UserX },
+    { id: 'team-management', title: 'Team Management', icon: Users },
+    { id: 'patient-engagement', title: 'Patient Engagement', icon: Users2 },
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage }) => {

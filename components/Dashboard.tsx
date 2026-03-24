@@ -8,8 +8,7 @@ import {
   RegistrationStatus,
   RecallStatus,
   LabStatus,
-  UserRole,
-  StockItem
+  UserRole
 } from '../types';
 import { formatDate } from '../constants';
 import { useModal } from '../contexts/ModalContext';

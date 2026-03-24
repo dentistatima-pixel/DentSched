@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Fingerprint, Scale, Shield, FileSignature, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Scale, Shield, ShieldCheck, AlertTriangle } from 'lucide-react';
 import AuditTrailViewer from './AuditTrailViewer';
 import LegalActions from './LegalActions';
 import ComplianceCenter from './ComplianceCenter';
-import ConsentFormManager from './ConsentFormManager';
 import { Patient, AuditLogEntry, FieldSettings, ClinicalIncident } from '../types';
 
 interface BreachNotificationCountdownProps {
@@ -91,7 +90,6 @@ const ComplianceDashboard: React.FC<ComplianceDashboardProps> = (props) => {
     { id: 'audit', label: 'Audit Trail', icon: Fingerprint, color: 'text-teal-600' },
     { id: 'compliance', label: 'Compliance Center', icon: Shield, color: 'text-blue-600' },
     { id: 'breaches', label: 'Breaches', icon: AlertTriangle, color: 'text-red-600' },
-    { id: 'consent', label: 'Consent Forms', icon: FileSignature, color: 'text-lilac-600' },
     { id: 'legal', label: 'Legal & Incidents', icon: Scale, color: 'text-amber-600' },
   ];
 
@@ -116,8 +114,6 @@ const ComplianceDashboard: React.FC<ComplianceDashboardProps> = (props) => {
                 {breachIncidents.length === 0 && <p className="text-center italic text-slate-400 p-8">No data breaches have been logged.</p>}
             </div>
         )
-      case 'consent':
-        return <ConsentFormManager settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
       case 'legal':
         return <LegalActions patients={props.patients} showModal={props.showModal} />;
       default:

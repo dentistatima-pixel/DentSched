@@ -8,11 +8,8 @@ import InventoryContainer from './InventoryContainer';
 import AnalyticsContainer from './AnalyticsContainer';
 import ComplianceContainer from './ComplianceContainer';
 import CommunicationContainer from './CommunicationContainer';
-import RecallCenterContainer from './RecallCenterContainer';
-import ReferralManagerContainer from './ReferralManagerContainer';
-import RosterViewContainer from './RosterViewContainer';
-import LeaveAndShiftManagerContainer from './LeaveAndShiftManagerContainer';
-import FamilyGroupManagerContainer from './FamilyGroupManagerContainer';
+import PatientEngagementContainer from './PatientEngagementContainer';
+import TeamManagementContainer from './TeamManagementContainer';
 import { AdminLayout } from '../components/AdminLayout';
 
 
@@ -42,16 +39,10 @@ function AdminContainer({ route }: { route: { param: string | null } }) {
                 return <ComplianceContainer onNavigate={navigate} />;
             case 'communications':
                 return <CommunicationContainer />;
-            case 'recall':
-                return <RecallCenterContainer />;
-            case 'referrals':
-                return <ReferralManagerContainer />;
-            case 'roster':
-                return <RosterViewContainer />;
-            case 'leave':
-                return <LeaveAndShiftManagerContainer />;
-            case 'familygroups':
-                return <FamilyGroupManagerContainer />;
+            case 'patient-engagement':
+                return <PatientEngagementContainer />;
+            case 'team-management':
+                return <TeamManagementContainer />;
             default:
                 // If no param, show the main Admin Hub dashboard
                 return <AdminDashboard onNavigate={navigate} />;

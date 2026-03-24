@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
     DollarSign, X, Plus, Calculator, ShieldCheck, History, Printer, ArrowLeft,
-    BarChart2, TrendingUp
+    BarChart2
 } from 'lucide-react';
 import { 
     Expense, Patient, Appointment, FieldSettings, 
@@ -15,7 +15,6 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { useModal } from '../contexts/ModalContext';
 import { FinancialAnalyticsDashboard } from './financial/FinancialAnalyticsDashboard';
-import { PricingIntelligence } from './financial/PricingIntelligence';
 
 interface DailyReportModalProps {
   isOpen: boolean;
@@ -278,7 +277,6 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
 
     const tabs = [
         { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-        { id: 'pricing', label: 'Pricing Intel', icon: TrendingUp },
         { id: 'expenses', label: 'Expenses', icon: DollarSign },
         { id: 'payroll', label: 'Payroll', icon: Calculator },
         { id: 'reconciliation', label: 'Reconciliation', icon: ShieldCheck },
@@ -317,14 +315,6 @@ export const Financials: React.FC<FinancialsProps> = (props) => {
                 procedures={fieldSettings.procedures}
                 staff={props.staff || []}
                 treatmentPlans={treatmentPlans}
-            />
-        )}
-
-        {activeTab === 'pricing' && (
-            <PricingIntelligence 
-                procedures={fieldSettings.procedures}
-                stockItems={props.stockItems || []}
-                ledger={props.ledger || []}
             />
         )}
 
