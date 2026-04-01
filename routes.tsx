@@ -1,14 +1,13 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { UserRole } from './types';
-import { Dashboard } from './components/Dashboard';
-import CalendarView from './components/CalendarView';
 
 // Import newly created container components
-import AdminContainer from './containers/AdminContainer';
-import FieldManagementContainer from './containers/FieldManagementContainer';
-import PatientListLayout from './containers/PatientListLayout';
-import PersonalProfileContainer from './containers/PersonalProfileContainer';
-
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const CalendarView = lazy(() => import('./components/CalendarView'));
+const AdminContainer = lazy(() => import('./containers/AdminContainer'));
+const FieldManagementContainer = lazy(() => import('./containers/FieldManagementContainer'));
+const PatientListLayout = lazy(() => import('./containers/PatientListLayout'));
+const PersonalProfileContainer = lazy(() => import('./containers/PersonalProfileContainer'));
 
 export interface RouteConfig {
   path: string;
