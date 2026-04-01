@@ -414,7 +414,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = (props) => {
                 </div>
                 <div className="flex items-center gap-3 portrait:grid portrait:grid-cols-3">
                      <button onClick={() => props.showModal('ePrescription', { patient })} className="px-5 py-2.5 portrait:px-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">Prescribe</button>
-                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 portrait:px-2 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Book Appt</button>
+                     <button onClick={() => onBookAppointment(patient.id)} className="px-5 py-2.5 portrait:px-2 bg-white/90 text-red-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Book Appointment</button>
                      <button onClick={() => onEditPatient(patient)} className={`px-5 py-2.5 portrait:px-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patient.registrationStatus === 'Provisional' ? 'bg-amber-400 text-amber-950 border-2 border-amber-400 shadow-lg shadow-amber-900/20 hover:bg-amber-300' : 'bg-transparent border-2 border-white text-white hover:bg-white/10'}`}>
                         {patient.registrationStatus === 'Provisional' ? 'Resume' : 'Edit'}
                      </button>

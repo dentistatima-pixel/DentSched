@@ -55,6 +55,27 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationPanelRef = useRef<HTMLDivElement>(null);
+  const taskPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+      if (notificationPanelRef.current && !notificationPanelRef.current.contains(event.target as Node)) {
+        setIsNotificationPanelOpen(false);
+      }
+      if (taskPopoverRef.current && !taskPopoverRef.current.contains(event.target as Node)) {
+        setIsTaskPopoverOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
   // New Pinboard State
   const [pinboardTab, setPinboardTab] = useState<'inbox' | 'sent'>('inbox');
   const [newTaskText, setNewTaskText] = useState('');
@@ -105,8 +126,8 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard, visible: true },
-    { id: 'schedule', label: 'Appt', icon: Calendar, visible: true },
-    { id: 'patients', label: 'PT', icon: Users, visible: true },
+    { id: 'schedule', label: 'APPT', icon: Calendar, visible: true },
+    { id: 'patients', label: 'Patients', icon: Users, visible: true },
     { id: 'admin', label: 'Admin', icon: Sliders, visible: can('manage:admin') },
   ].filter(item => item.visible);
 
@@ -284,12 +305,10 @@ export const Layout: React.FC<LayoutProps> = ({
                         <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-teal-800"></span>
                     </button>
                     {isNotificationPanelOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsNotificationPanelOpen(false)} />
-                            <div className="absolute right-0 portrait:-right-4 top-full mt-4 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
+                            <div ref={notificationPanelRef} className="absolute right-0 portrait:-right-4 top-full mt-4 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
                                 <div className="p-4 border-b border-border-primary bg-bg-tertiary flex justify-between items-center">
                                     <p className="font-black text-sm text-text-primary uppercase tracking-widest">Notifications</p>
-                                    <button className="text-xs font-bold text-teal-600 hover:text-teal-700">Mark all as read</button>
+                                    <button onClick={() => setIsNotificationPanelOpen(false)} className="text-xs font-bold text-teal-600 hover:text-teal-700">Mark all as read</button>
                                 </div>
                                 <div className="max-h-[300px] overflow-y-auto">
                                     <div className="p-4 border-b border-border-primary hover:bg-bg-tertiary transition-colors cursor-pointer">
@@ -324,10 +343,9 @@ export const Layout: React.FC<LayoutProps> = ({
                                     </div>
                                 </div>
                                 <div className="p-3 border-t border-border-primary bg-bg-tertiary text-center">
-                                    <button className="text-xs font-black text-teal-600 uppercase tracking-widest hover:text-teal-700">View All</button>
+                                    <button onClick={() => setIsNotificationPanelOpen(false)} className="text-xs font-black text-teal-600 uppercase tracking-widest hover:text-teal-700">View All</button>
                                 </div>
                             </div>
-                        </>
                     )}
                 </div>
 
@@ -349,9 +367,7 @@ export const Layout: React.FC<LayoutProps> = ({
                         <UserCircle size={22} />
                     </button>
                      {isUserMenuOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsUserMenuOpen(false)} />
-                            <div className="absolute right-0 top-full mt-4 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
+                            <div ref={userMenuRef} className="absolute right-0 top-full mt-4 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="menu">
                                 <div className="p-4 border-b border-border-primary bg-bg-tertiary">
                                     <p className="font-black text-sm text-text-primary truncate">{currentUser.name}</p>
                                     <p className="text-sm text-text-secondary font-bold">{currentUser.role}</p>
@@ -368,17 +384,16 @@ export const Layout: React.FC<LayoutProps> = ({
                                     <button onClick={toggleTheme} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />} Theme ({theme})
                                     </button>
-                                    <button onClick={() => showModal('shortcutHelp')} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
+                                    <button onClick={() => { showModal('shortcutHelp'); setIsUserMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors" role="menuitem">
                                         <HelpCircle size={16} /> Shortcuts
                                     </button>
                                 </div>
                                 <div className="p-2 border-t border-border-primary">
-                                    <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors" role="menuitem">
+                                    <button onClick={() => { handleLogout(); setIsUserMenuOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors" role="menuitem">
                                         <LogOut size={16}/> Logout & Secure
                                     </button>
                                 </div>
                             </div>
-                        </>
                     )}
                 </div>
 
@@ -400,15 +415,13 @@ export const Layout: React.FC<LayoutProps> = ({
                         {myActiveTasks.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-sm font-black flex items-center justify-center rounded-full border-2" style={{borderColor: branchColor}}>{myActiveTasks.length}</span>}
                     </button>
                      {isTaskPopoverOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsTaskPopoverOpen(false)} />
-                            <div className="absolute right-0 portrait:-right-4 top-full mt-4 w-[28rem] portrait:w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
+                            <div ref={taskPopoverRef} className="absolute right-0 portrait:-right-4 top-full mt-4 w-[28rem] portrait:w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl border border-border-primary overflow-hidden z-20 animate-in fade-in zoom-in-95 text-slate-800 dark:text-slate-100" role="dialog" aria-labelledby="task-title">
                                 <div className="bg-bg-tertiary border-b border-border-primary p-3 flex justify-between items-center">
                                     <div className="flex items-center p-1 bg-slate-200/50 dark:bg-slate-700/50 rounded-2xl">
                                         <button onClick={() => setPinboardTab('inbox')} className={`px-4 py-2 rounded-xl text-sm font-black uppercase flex items-center gap-2 ${pinboardTab === 'inbox' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Inbox size={14}/> Inbox</button>
                                         <button onClick={() => setPinboardTab('sent')} className={`px-4 py-2 rounded-xl text-sm font-black uppercase flex items-center gap-2 ${pinboardTab === 'sent' ? 'bg-white dark:bg-slate-800 shadow' : ''}`}><Send size={14}/> Sent</button>
                                     </div>
-                                    {pinboardTab === 'inbox' && <button onClick={() => handleClearCompletedTasks(currentUser.id)} className="text-sm font-black text-slate-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12}/> Clear Completed</button>}
+                                    {pinboardTab === 'inbox' && <button onClick={() => { handleClearCompletedTasks(currentUser.id); setIsTaskPopoverOpen(false); }} className="text-sm font-black text-slate-400 hover:text-red-500 flex items-center gap-1"><Trash2 size={12}/> Clear Completed</button>}
                                 </div>
                                 <div className="max-h-96 overflow-y-auto p-3 no-scrollbar">
                                     <div className="space-y-2 p-2">
@@ -464,7 +477,6 @@ export const Layout: React.FC<LayoutProps> = ({
                                     </div>
                                 </div>
                             </div>
-                        </>
                     )}
                  </div>
 

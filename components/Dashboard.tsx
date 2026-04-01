@@ -296,7 +296,7 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
                 <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
                     <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2 flex items-center gap-2">
                         <Users size={14} className="text-teal-600" />
-                        PT Flow Tracker
+                        Patients Flow Tracker
                     </h4>
                     <div className="space-y-2">
                         {activeApts.map(apt => {
@@ -505,7 +505,7 @@ export const Dashboard: React.FC = () => {
       const content = pendingLabs.length > 0
           ? pendingLabs.map(a => {
               const p = patients.find(pt => pt.id === a.patientId);
-              return `- **${p?.name || 'Unknown'}**: *${a.type}* (Appt: ${formatDate(a.date)})`;
+              return `- **${p?.name || 'Unknown'}**: *${a.type}* (Appointment: ${formatDate(a.date)})`;
           }).join('\n')
           : 'No lab cases are currently pending.';
       showModal('infoDisplay', { title: `Pending Lab Cases (${pendingLabs.length})`, content });
@@ -522,7 +522,7 @@ export const Dashboard: React.FC = () => {
       const content = outstandingBalances.length > 0
           ? outstandingBalances.map(p => `- **${p.name}**: ₱${p.currentBalance?.toLocaleString()}`).join('\n')
           : 'No patients with outstanding balances.';
-      showModal('infoDisplay', { title: `PT with Balances (${outstandingBalances.length})`, content });
+      showModal('infoDisplay', { title: `Patients with Balances (${outstandingBalances.length})`, content });
   };
 
 
@@ -552,10 +552,10 @@ export const Dashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-3 portrait:w-full portrait:overflow-x-auto portrait:no-scrollbar portrait:pb-2">
             <button onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-teal-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-teal-900/40 btn-tactile shrink-0">
-                <UserPlus size={16}/> New PT
+                <UserPlus size={16}/> New Patient
             </button>
             <button onClick={() => showModal('appointment', { onSave: handleSaveAppointment, onAddToWaitlist: handleAddToWaitlist, currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-lilac-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-lilac-900/40 btn-tactile shrink-0">
-                <CalendarPlus size={16}/> New Appt
+                <CalendarPlus size={16}/> New Appointment
             </button>
             <button onClick={() => showModal('quickTriage', { currentBranch })} className="flex items-center justify-center gap-3 px-6 py-4 portrait:px-4 portrait:py-3 bg-red-600 text-white rounded-2xl font-black text-sm portrait:text-xs uppercase tracking-widest shadow-lg shadow-red-900/40 btn-tactile shrink-0">
                 <Zap size={16}/> Walk-In

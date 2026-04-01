@@ -8,12 +8,12 @@ interface AdminLayoutProps {
 }
 
 const adminSections = [
-    { id: 'analytics', title: 'Stats', icon: BarChart2 },
-    { id: 'governance', title: 'Legal', icon: ShieldCheck },
-    { id: 'financials', title: 'Money', icon: DollarSign },
-    { id: 'inventory', title: 'Stock', icon: Package },
-    { id: 'team-management', title: 'Staff', icon: Users },
-    { id: 'patient-engagement', title: 'PT', icon: Users2 },
+    { id: 'analytics', title: 'Analytics', icon: BarChart2 },
+    { id: 'governance', title: 'Compliance', icon: ShieldCheck },
+    { id: 'financials', title: 'Finance', icon: DollarSign },
+    { id: 'inventory', title: 'Inventory', icon: Package },
+    { id: 'team-management', title: 'Team', icon: Users },
+    { id: 'patient-engagement', title: 'Patients', icon: Users2 },
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage }) => {

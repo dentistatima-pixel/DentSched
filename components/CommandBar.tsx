@@ -28,8 +28,8 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   const patientFuse = useMemo(() => new Fuse(patients, { keys: ['name', 'id', 'phone', 'nickname'], threshold: 0.3 }), [patients]);
   
   const staticActions: CommandBarAction[] = useMemo(() => [
-    { id: 'newPatient', name: 'New PT Registration', icon: User, section: 'Actions', perform: () => onNavigate('action', 'newPatient') },
-    { id: 'newAppointment', name: 'New Appt Booking', icon: Calendar, section: 'Actions', perform: () => onNavigate('action', 'newAppointment') },
+    { id: 'newPatient', name: 'New Patient Registration', icon: User, section: 'Actions', perform: () => onNavigate('action', 'newPatient') },
+    { id: 'newAppointment', name: 'New Appointment Booking', icon: Calendar, section: 'Actions', perform: () => onNavigate('action', 'newAppointment') },
   ], [onNavigate]);
 
   const allResults = useMemo(() => {
@@ -129,7 +129,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 h-fit max-h-[70vh]" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b border-slate-100 flex items-center gap-4">
           <Search size={20} className="text-slate-400 shrink-0 ml-2" />
-          <input ref={inputRef} type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Find patients, appts, or actions..." className="w-full bg-transparent text-lg font-medium text-slate-800 placeholder:text-slate-400 outline-none" />
+          <input ref={inputRef} type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Find patients, appointments, or actions..." className="w-full bg-transparent text-lg font-medium text-slate-800 placeholder:text-slate-400 outline-none" />
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 rounded-lg"><X size={20}/></button>
         </div>
         <div ref={resultsRef} className="flex-1 overflow-y-auto p-2">
@@ -139,7 +139,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
                 <div className="p-16 text-center text-slate-400">
                     <Command size={48} className="mx-auto mb-4 opacity-50"/>
                     <p className="font-bold">Instant Command Center</p>
-                    <p className="text-sm mt-1">Search PT by name, ID, or nickname.</p>
+                    <p className="text-sm mt-1">Search Patients by name, ID, or nickname.</p>
                 </div>
             )}
         </div>

@@ -87,7 +87,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
             type="text" 
             placeholder="Search registry..."
             className="input w-full pl-12"
-            aria-label="Search PT"
+            aria-label="Search Patients"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -95,7 +95,7 @@ export const PatientList: React.FC<PatientListProps> = ({ selectedPatientId }) =
         <button 
           onClick={() => showModal('patientRegistration', { currentBranch, onSave: handleSavePatient })}
           className="bg-teal-600 text-white px-6 py-3 portrait:w-full portrait:justify-center rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/30 hover:bg-teal-700 active:scale-95 transition-all flex items-center"
-          aria-label="New PT Registration"
+          aria-label="New Patient Registration"
         >
           New Registration
         </button>

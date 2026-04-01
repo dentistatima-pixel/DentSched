@@ -95,8 +95,8 @@ const CommunicationCenter: React.FC = () => {
     if (selectedPatient) {
         content = content.replace(/{patientName}/g, selectedPatient.name);
         // Simplified appointment details for now
-        const nextApptDate = selectedPatient.nextVisit;
-        content = content.replace(/{appointmentDate}/g, nextApptDate ? formatDate(nextApptDate) : '[APPOINTMENT DATE]');
+        const nextAppointmentDate = selectedPatient.nextVisit;
+        content = content.replace(/{appointmentDate}/g, nextAppointmentDate ? formatDate(nextAppointmentDate) : '[APPOINTMENT DATE]');
         content = content.replace(/{appointmentTime}/g, '[APPOINTMENT TIME]');
     } else {
         content = content.replace(/{patientName}/g, '[PATIENT NAME]');

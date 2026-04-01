@@ -84,7 +84,7 @@ export const ProviderPerformance: React.FC<ProviderPerformanceProps> = ({
                     <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500">
                         <tr>
                             <th className="px-4 py-3 rounded-l-lg">Provider</th>
-                            <th className="px-4 py-3 text-right">PT Seen</th>
+                            <th className="px-4 py-3 text-right">Patients Seen</th>
                             <th className="px-4 py-3 text-right">Completed Apts</th>
                             <th className="px-4 py-3 text-right rounded-r-lg">Est. Production</th>
                         </tr>

@@ -391,7 +391,7 @@ const CalendarView: React.FC<CalendarViewProps> = () => {
                         className="bg-teal-600 text-white p-2.5 rounded-lg shadow-lg shadow-teal-900/20 hover:bg-teal-700 transition-all flex items-center gap-2 text-sm font-bold"
                         aria-label="Create new appointment"
                     >
-                        <CalendarPlus size={18}/> <span className="hidden lg:inline">New Appt</span>
+                        <CalendarPlus size={18}/> <span className="hidden lg:inline">New Appointment</span>
                     </button>
                      <button onClick={() => setShowWaitlist(!showWaitlist)} aria-expanded={showWaitlist} className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 text-sm font-bold ${showWaitlist ? 'bg-teal-600 text-white border-teal-700 shadow-lg' : 'bg-white border-slate-300 text-slate-700 hover:border-teal-600'}`}><Users size={16}/> Waitlist</button>
                 </div>
