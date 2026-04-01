@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.30.0",
+    "@google/genai": "^1.47.0",
     "crypto-js": "^4.2.0",
     "firebase": "^12.6.0",
     "fuse.js": "^7.0.0",

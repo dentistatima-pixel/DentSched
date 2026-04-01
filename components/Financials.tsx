@@ -60,8 +60,8 @@ export const DailyReportModal: React.FC<DailyReportModalProps> = ({ isOpen, onCl
             body: [
                 ['Total Production', `PHP ${reportData.production.toLocaleString()}`],
                 ['Estimated Collections', `PHP ${reportData.collections.toLocaleString()}`],
-                ['Patients Seen', reportData.patientsSeen],
-                ['New Patients', reportData.newPatients],
+                ['PT Seen', reportData.patientsSeen],
+                ['New PT', reportData.newPatients],
                 ['No-Shows / Cancellations', reportData.noShows],
                 ['Clinical Incidents Logged', reportData.incidents.length],
             ],

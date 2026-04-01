@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart2, ShieldCheck, DollarSign, Package, Users, Users2, LayoutGrid, ArrowLeft } from 'lucide-react';
+import { BarChart2, ShieldCheck, DollarSign, Package, Users, Users2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from '../contexts/RouterContext';
 
 interface AdminLayoutProps {
@@ -8,40 +8,36 @@ interface AdminLayoutProps {
 }
 
 const adminSections = [
-    { id: 'hub', title: 'Admin', icon: LayoutGrid },
-    { id: 'analytics', title: 'Analytics', icon: BarChart2 },
-    { id: 'governance', title: 'Compliance', icon: ShieldCheck },
-    { id: 'financials', title: 'Finance & Payroll', icon: DollarSign },
-    { id: 'inventory', title: 'Inventory', icon: Package },
-    { id: 'team-management', title: 'Team Management', icon: Users },
-    { id: 'patient-engagement', title: 'Patient Engagement', icon: Users2 },
+    { id: 'analytics', title: 'Stats', icon: BarChart2 },
+    { id: 'governance', title: 'Legal', icon: ShieldCheck },
+    { id: 'financials', title: 'Money', icon: DollarSign },
+    { id: 'inventory', title: 'Stock', icon: Package },
+    { id: 'team-management', title: 'Staff', icon: Users },
+    { id: 'patient-engagement', title: 'PT', icon: Users2 },
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activePage }) => {
     const navigate = useNavigate();
 
     return (
-        <div className="h-full flex">
-            <nav className="w-64 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col p-4">
-                <div className="p-4 mb-4">
-                     <h2 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Admin</h2>
-                </div>
-                <div className="space-y-1">
+        <div className="h-full flex flex-col">
+            <nav className="w-full bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 py-2 gap-2 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1">
                     {adminSections.map(section => (
                         <button 
                             key={section.id} 
-                            onClick={() => navigate(section.id === 'hub' ? 'admin' : `admin/${section.id}`)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-bold text-sm transition-colors ${activePage === section.id ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                            onClick={() => navigate(`admin/${section.id}`)}
+                            className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-colors ${activePage === section.id ? 'bg-teal-600 text-white shadow-lg' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                         >
-                            <section.icon size={18} />
+                            <section.icon size={16} />
                             {section.title}
                         </button>
                     ))}
                 </div>
-                <div className="mt-auto">
-                    <button onClick={() => navigate('dashboard')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-bold text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <ArrowLeft size={18} />
-                        Exit Admin
+                <div className="ml-auto">
+                    <button onClick={() => navigate('dashboard')} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <ArrowLeft size={16} />
+                        Back
                     </button>
                 </div>
             </nav>

@@ -11,12 +11,13 @@ interface SignatureCaptureOverlayProps {
   instruction: string;
   themeColor: 'teal' | 'lilac';
   contextSummary?: React.ReactNode;
+  language?: 'en' | 'tl';
 }
 
 const SIGNATURE_TIMEOUT_SECONDS = 120; // 2 minutes
 
 const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
-  isOpen, onClose, onSave, title, instruction, themeColor, contextSummary
+  isOpen, onClose, onSave, title, instruction, themeColor, contextSummary, language = 'en'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -24,6 +25,7 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
   const toast = useToast();
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [hasInk, setHasInk] = useState(false);
   const [affirmations, setAffirmations] = useState({
     isTrue: false,
@@ -134,46 +136,56 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
     }
   };
 
+  const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+    try {
+        // Stop existing tracks
+        if (videoRef.current?.srcObject) {
+            const oldStream = videoRef.current.srcObject as MediaStream;
+            oldStream.getTracks().forEach(t => t.stop());
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 160 }, 
+                height: { ideal: 160 }, 
+                facingMode: mode 
+            } 
+        });
+        
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setIsCameraActive(true);
+            setFacingMode(mode);
+            setTimeout(() => setIsFaceDetected(true), 1500);
+        }
+    } catch (err) {
+        console.warn("Witness camera access restricted.");
+    }
+  };
+
+  const toggleCamera = () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    startCamera(newMode);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
-    let stream: MediaStream | null = null;
-    let isCancelled = false;
-    
-    const start = async () => {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 160, facingMode: 'user' } });
-            if (isCancelled) {
-                stream.getTracks().forEach(track => track.stop());
-                return;
-            }
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                setIsCameraActive(true);
-                setTimeout(() => { if (!isCancelled) setIsFaceDetected(true); }, 1500);
-            }
-        } catch (err) {
-            console.warn("Witness camera access restricted.");
-        }
-    };
-
     setTimeout(setupCanvas, 100);
-    start();
+    startCamera();
     setHasInk(false);
     setAffirmations({ isTrue: true, isPrivacyRead: true, isFeesAcknowledged: true });
     
     const timer = setTimeout(() => {
-        if (!isCancelled) {
-            toast.error('Signature session expired for security reasons.', { duration: 5000 });
-            onClose();
-            console.warn('SECURITY_ALERT: Signature capture timed out.');
-        }
+        toast.error('Signature session expired for security reasons.', { duration: 5000 });
+        onClose();
+        console.warn('SECURITY_ALERT: Signature capture timed out.');
     }, SIGNATURE_TIMEOUT_SECONDS * 1000);
 
     return () => {
-        isCancelled = true;
         clearTimeout(timer);
-        if (stream) {
+        if (videoRef.current?.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach(track => track.stop());
         }
         if (videoRef.current) {
@@ -252,11 +264,30 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
           {!contextSummary && (
             <div className="flex justify-between items-start gap-4">
               <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <p className="text-sm text-slate-600 font-bold leading-relaxed">{instruction}</p>
+                <p className="text-sm text-slate-600 font-bold leading-relaxed">
+                  {language === 'en' ? instruction : 'Mangyaring suriin ang buod ng iyong impormasyon sa itaas. Ang iyong lagda sa ibaba ay legal na nagbubuklod sa rekord na ito, kabilang ang iyong pahintulot sa aming Patakaran sa Pagkapribado ng Data at mga tuntunin ng paggamot.'}
+                </p>
               </div>
               <div className={`w-20 h-20 rounded-full border-4 overflow-hidden bg-slate-200 relative ${isFaceDetected ? 'border-teal-500' : 'border-red-500 animate-pulse'}`}>
-                {isCameraActive ? <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <Camera className="w-8 h-8 text-slate-400 m-6" />}
-                {isFaceDetected && <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center"><UserCheck size={32} className="text-teal-600 opacity-60" /></div>}
+                {isCameraActive ? (
+                    <>
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
+                        />
+                        <button 
+                            onClick={toggleCamera}
+                            className="absolute bottom-1 right-1 bg-white/40 backdrop-blur-md p-1 rounded-full text-slate-800 hover:bg-white/60 transition-all z-20"
+                        >
+                            <Camera size={12} />
+                        </button>
+                    </>
+                ) : (
+                    <Camera className="w-8 h-8 text-slate-400 m-6" />
+                )}
+                {isFaceDetected && <div className="absolute inset-0 bg-teal-500/10 flex items-center justify-center pointer-events-none"><UserCheck size={32} className="text-teal-600 opacity-60" /></div>}
               </div>
             </div>
           )}
@@ -265,15 +296,21 @@ const SignatureCaptureOverlay: React.FC<SignatureCaptureOverlayProps> = ({
             <div className="space-y-3">
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isTrue} onChange={e => setAffirmations(p => ({ ...p, isTrue: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I certify that the information I have provided is true and correct to the best of my knowledge.</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {language === 'en' ? 'I certify that the information I have provided is true and correct to the best of my knowledge.' : 'Pinapatunayan ko na ang impormasyong ibinigay ko ay totoo at tama sa abot ng aking kaalaman.'}
+                  </span>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isPrivacyRead} onChange={e => setAffirmations(p => ({ ...p, isPrivacyRead: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information.</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {language === 'en' ? "I have read and understood the clinic's Data Privacy Policy and consent to the processing of my health information." : "Nabasa ko at naunawaan ang Patakaran sa Pagkapribado ng Data ng klinika at pumapayag sa pagproseso ng aking impormasyong pangkalusugan."}
+                  </span>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                   <input type="checkbox" checked={affirmations.isFeesAcknowledged} onChange={e => setAffirmations(p => ({ ...p, isFeesAcknowledged: e.target.checked }))} className="w-5 h-5 accent-teal-600 mt-0.5" />
-                  <span className="text-sm font-medium text-slate-700">I acknowledge that I am responsible for all fees associated with my treatment.</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {language === 'en' ? 'I acknowledge that I am responsible for all fees associated with my treatment.' : 'Kinikilala ko na ako ang responsable sa lahat ng bayarin na nauugnay sa aking paggamot.'}
+                  </span>
               </label>
             </div>
           )}

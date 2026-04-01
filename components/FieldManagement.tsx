@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
 import { 
-  Settings, ChevronRight, Box, User as UserIcon, 
+  Settings, Box, User as UserIcon, 
   Sparkles, Wrench, LayoutPanelLeft, FileSignature, Printer, Smartphone, Receipt
 } from 'lucide-react';
 
@@ -43,15 +43,15 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
     const { handleSaveStaff, staff, handleDeactivateStaff, onDeleteStaff, onStartImpersonating } = useStaff();
 
     const sidebarItems = [
-        { id: 'branding', label: 'My Profile', icon: Sparkles },
-        { id: 'patient_registry_form', label: 'Registration Form', icon: LayoutPanelLeft },
-        { id: 'consent_forms', label: 'Consent Forms', icon: FileSignature },
-        { id: 'sms_manager', label: 'Communications', icon: Smartphone },
+        { id: 'branding', label: 'Profile', icon: Sparkles },
+        { id: 'patient_registry_form', label: 'Reg Form', icon: LayoutPanelLeft },
+        { id: 'consent_forms', label: 'Consent', icon: FileSignature },
+        { id: 'sms_manager', label: 'Comms', icon: Smartphone },
         { id: 'print_manager', label: 'Reports', icon: Printer },
         { id: 'staff_registry', label: 'Staff', icon: UserIcon },
-        { id: 'clinical_catalog', label: 'Procedures & Catalog', icon: Box },
-        { id: 'finance_manager', label: 'Finance & Payroll', icon: Receipt },
-        { id: 'infrastructure', label: 'Equipment & Resources', icon: Wrench },
+        { id: 'clinical_catalog', label: 'Catalog', icon: Box },
+        { id: 'finance_manager', label: 'Finance', icon: Receipt },
+        { id: 'infrastructure', label: 'Equip', icon: Wrench },
     ];
 
     const handleOpenStaffModal = (staffMember: Partial<User> | null) => {
@@ -91,19 +91,16 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                             <Settings size={48} className="text-slate-300 dark:text-slate-600" />
                         </div>
                         <h3 className="text-2xl font-black text-slate-400 dark:text-slate-500">Settings</h3>
-                        <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">Select a configuration module from the sidebar to manage practice-wide settings and registries.</p>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">Select a configuration module from the top bar to manage practice-wide settings and registries.</p>
                     </div>
                 );
         }
     };
 
     return (
-        <div className="flex h-full overflow-hidden relative">
-            <div className="w-64 bg-teal-900 text-white flex flex-col shrink-0 shadow-2xl z-40 overflow-y-auto no-scrollbar transition-all duration-500">
-                <div className="p-8 border-b border-white/10 shrink-0">
-                    <h2 className="text-sm font-black uppercase tracking-[0.3em] text-teal-400">Settings</h2>
-                </div>
-                <div className="flex-1 p-4 space-y-1">
+        <div className="flex flex-col h-full overflow-hidden relative">
+            <div className="w-full bg-teal-900 text-white flex shrink-0 shadow-2xl z-40 overflow-x-auto no-scrollbar transition-all duration-500 border-b border-teal-800">
+                <div className="flex p-2 gap-1 items-center">
                     {sidebarItems.map(item => (
                         <button
                             key={item.id}
@@ -117,17 +114,14 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                                     setActiveRegistry(item.id);
                                 }
                             }}
-                            className={`w-full flex justify-between items-center px-4 py-3 rounded-2xl text-left text-sm font-bold transition-all ${
+                            className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                                 activeRegistry === item.id 
                                 ? 'bg-teal-600 text-white shadow-lg' 
                                 : 'text-teal-200 hover:bg-white/10 hover:text-white'
                             }`}
                         >
-                            <div className="flex items-center gap-3">
-                                <item.icon size={18} />
-                                <span>{item.label}</span>
-                            </div>
-                            {activeRegistry === item.id && <ChevronRight size={18}/>}
+                            <item.icon size={14} />
+                            <span>{item.label}</span>
                         </button>
                     ))}
                 </div>

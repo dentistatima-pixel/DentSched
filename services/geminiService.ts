@@ -65,3 +65,27 @@ export const generateSoapNote = async (data: any): Promise<string> => {
     return "An error occurred while generating the SOAP note.";
   }
 };
+
+export const translateToTagalog = async (text: string): Promise<string> => {
+  const ai = getAiInstance();
+  if (!ai) return "AI features are currently unavailable.";
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Translate the following English text to Tagalog. Provide ONLY the translated text, no explanations or additional context.
+
+Text: ${text}`,
+      config: {
+        temperature: 0.1,
+        topP: 0.95,
+        topK: 64,
+      },
+    });
+
+    return response.text || "Translation failed";
+  } catch (error) {
+    console.error("Error translating to Tagalog:", error);
+    return "Translation failed";
+  }
+};

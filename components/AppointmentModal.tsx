@@ -174,7 +174,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
     const handleWaitlist = () => {
         if (!patientId || !procedureType || !duration) {
-            toast.error("Patient, procedure, and duration are required to add to waitlist.");
+            toast.error("PT, procedure, and duration are required to add to waitlist.");
             return;
         }
         onAddToWaitlist({
@@ -247,7 +247,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             await onSave(appointmentData as Appointment);
             onClose();
         } catch (error: any) {
-            toast.error(error.message || "Could not save appointment.");
+            toast.error(error.message || "Could not save appt.");
         } finally {
             setIsSaving(false);
         }
@@ -261,14 +261,14 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="bg-teal-100 p-3 rounded-xl text-teal-700"><Calendar size={24} /></div>
-                        <h2 className="text-xl font-bold text-slate-800">{existingAppointment ? 'Edit Appointment' : 'New Appointment'}</h2>
+                        <h2 className="text-xl font-bold text-slate-800">{existingAppointment ? 'Edit Appt' : 'New Appt'}</h2>
                     </div>
                     <button onClick={onClose}><X size={24} className="text-slate-500" /></button>
                 </div>
 
                 <form id="appointment-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
                     <div className="relative">
-                        <label className="label">Patient</label>
+                        <label className="label">PT</label>
                         <input type="text" value={patientSearch} onChange={handleSearch} className="input" placeholder="Search by name, ID, or phone" disabled={readOnly} />
                         {searchResults.length > 0 && (
                             <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-10">
@@ -347,7 +347,7 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
                     <div>
                         <label className="label">Notes</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24" placeholder="Clinical notes for the appointment..." disabled={readOnly}></textarea>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input h-24" placeholder="Clinical notes for the appt..." disabled={readOnly}></textarea>
                     </div>
                 </form>
 

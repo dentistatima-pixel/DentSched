@@ -23,16 +23,24 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
 
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
     const [viewAngle, setViewAngle] = useState<'Buccal' | 'Lingual' | 'Occlusal' | 'Lateral' | 'Intraoral' | 'Extraoral'>('Intraoral');
     const [purpose, setPurpose] = useState<'Diagnostic' | 'Treatment Planning' | 'Progress' | 'Complication' | 'Marketing'>('Diagnostic');
     const [isLoading, setIsLoading] = useState(false);
     const [deviceInfo, setDeviceInfo] = useState('Unknown Device');
     const [canCapture, setCanCapture] = useState(false);
 
-    const startCamera = async () => {
+    const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
         setIsLoading(true);
+        stopCamera(); // Ensure previous stream is stopped
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'environment' } });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 }, 
+                    facingMode: mode 
+                } 
+            });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 const videoTrack = stream.getVideoTracks()[0];
@@ -40,6 +48,7 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                 setDeviceInfo(`${settings.width}x${settings.height} ${videoTrack.label}`);
             }
             setIsCameraActive(true);
+            setFacingMode(mode);
         } catch (err) {
             toast.error("Camera access failed. Please check permissions.");
             console.error(err);
@@ -47,6 +56,11 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const toggleCamera = () => {
+        const newMode = facingMode === 'user' ? 'environment' : 'user';
+        startCamera(newMode);
     };
 
     const stopCamera = () => {
@@ -154,7 +168,21 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 p-6 min-h-0">
                     <div className="md:col-span-2 bg-slate-900 rounded-2xl flex items-center justify-center relative">
                         {isLoading && <p className="text-white">Initializing Camera...</p>}
-                        <video ref={videoRef} autoPlay playsInline className={`w-full h-full object-contain ${isCameraActive ? '' : 'hidden'}`} />
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            className={`w-full h-full object-contain ${isCameraActive ? '' : 'hidden'} ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
+                        />
+                        {isCameraActive && !capturedImage && (
+                            <button 
+                                onClick={toggleCamera}
+                                className="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/40 transition-all z-20"
+                                title="Switch Camera"
+                            >
+                                <RefreshCw size={20} />
+                            </button>
+                        )}
                         {capturedImage && <img src={capturedImage} alt="Captured" className="max-h-full max-w-full object-contain"/>}
                         <canvas ref={canvasRef} className="hidden" />
                     </div>

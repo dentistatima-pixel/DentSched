@@ -1345,7 +1345,8 @@ export interface FieldSettings {
   };
   kioskSettings: {
     welcomeMessage: string;
-    privacyNotice: string;
+    privacyNotice_en: string;
+    privacyNotice_tl: string;
   };
   instrumentSets?: InstrumentSet[];
   stockItems?: StockItem[];

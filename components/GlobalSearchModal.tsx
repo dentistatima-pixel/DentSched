@@ -28,8 +28,8 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   }), [patients]);
 
   const staticActions = useMemo(() => [
-    { id: 'newPatient', name: 'New Patient Registration', icon: User },
-    { id: 'newAppointment', name: 'New Appointment Booking', icon: Calendar },
+    { id: 'newPatient', name: 'New PT Registration', icon: User },
+    { id: 'newAppointment', name: 'New Appt Booking', icon: Calendar },
   ], []);
 
   const searchResults = useMemo(() => {
@@ -95,7 +95,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             <div className="p-2 space-y-4">
               {searchResults.patients.length > 0 && (
                 <section>
-                  <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Patients</h3>
+                  <h3 className="px-3 text-xs font-bold text-slate-400 uppercase tracking-wider">PT</h3>
                   <ul className="mt-2 space-y-1">
                     {searchResults.patients.map(p => (
                       <li key={p.id}>
@@ -157,7 +157,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             <div className="p-16 text-center text-slate-400">
                 <Command size={48} className="mx-auto mb-4 opacity-50"/>
                 <p className="font-bold">Instant Command Center</p>
-                <p className="text-sm mt-1">Quickly find patients, appts, and perform actions.</p>
+                <p className="text-sm mt-1">Quickly find PT, appts, and perform actions.</p>
             </div>
           )}
         </div>

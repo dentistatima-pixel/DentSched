@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FieldSettings, ConsentFormTemplate } from '../types';
-import { FileSignature, Save } from 'lucide-react';
+import { FileSignature, Save, Languages, Loader2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
+import { translateToTagalog } from '../services/geminiService';
 
 interface ConsentFormManagerProps {
     settings: FieldSettings;
@@ -13,6 +14,7 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
     const [selectedTemplate, setSelectedTemplate] = useState<ConsentFormTemplate | null>(null);
     const [editedContentEn, setEditedContentEn] = useState('');
     const [editedContentTl, setEditedContentTl] = useState('');
+    const [isTranslating, setIsTranslating] = useState(false);
 
     useEffect(() => {
         if (selectedTemplate) {
@@ -34,6 +36,24 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
         onUpdateSettings({ ...settings, consentFormTemplates: updatedTemplates });
         toast.success(`Consent form "${selectedTemplate.name}" has been updated.`);
         setSelectedTemplate(null);
+    };
+
+    const handleTranslate = async () => {
+        if (!editedContentEn.trim()) {
+            toast.error("Please enter English content first.");
+            return;
+        }
+
+        setIsTranslating(true);
+        try {
+            const translation = await translateToTagalog(editedContentEn);
+            setEditedContentTl(translation);
+            toast.success("Translation generated successfully.");
+        } catch (error) {
+            toast.error("Failed to generate translation.");
+        } finally {
+            setIsTranslating(false);
+        }
     };
 
     return (
@@ -64,7 +84,7 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
                         </div>
                         <div className="flex-1 grid grid-cols-2 gap-4 p-4 min-h-0">
                              <div className="flex flex-col">
-                                <label className="label text-xs">English (Official)</label>
+                                <label className="label text-xs">English</label>
                                 <textarea
                                     value={editedContentEn}
                                     onChange={(e) => setEditedContentEn(e.target.value)}
@@ -73,7 +93,17 @@ const ConsentFormManager: React.FC<ConsentFormManagerProps> = ({ settings, onUpd
                                 />
                              </div>
                              <div className="flex flex-col">
-                                <label className="label text-xs">Tagalog (For Understanding)</label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="label text-xs">Tagalog</label>
+                                    <button 
+                                        onClick={handleTranslate}
+                                        disabled={isTranslating}
+                                        className="text-[10px] font-black uppercase tracking-widest text-teal-600 hover:text-teal-700 flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                        {isTranslating ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                                        {isTranslating ? 'Translating...' : 'Auto-Translate'}
+                                    </button>
+                                </div>
                                 <textarea
                                     value={editedContentTl}
                                     readOnly

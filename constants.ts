@@ -2782,7 +2782,11 @@ export const DEFAULT_SETTINGS: FieldSettings = {
   currentPrivacyVersion: '1.2',
   acknowledgedAlertIds: [],
   retentionPolicy: { archivalYears: 10, purgeYears: 15 },
-  kioskSettings: { welcomeMessage: 'Welcome to our clinic!', privacyNotice: 'Your data is safe with us.'},
+  kioskSettings: { 
+    welcomeMessage: 'Welcome to our clinic!', 
+    privacyNotice_en: 'Your data is stored in encrypted cloud environments located in the Asia-Southeast1 region. No remote access is allowed once you exit this terminal.',
+    privacyNotice_tl: 'Ang iyong data ay naka-imbak sa mga naka-encrypt na cloud environment na matatagpuan sa rehiyon ng Asia-Southeast1. Walang remote access ang pinapayagan kapag lumabas ka sa terminal na ito.'
+  },
   instrumentSets: [
       { id: 'set1', name: 'Basic Exam Set', status: 'Sterile', branch: 'Makati Main' },
       { id: 'set2', name: 'Surgical Set', status: 'Used', branch: 'Makati Main' },

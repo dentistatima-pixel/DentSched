@@ -74,7 +74,7 @@ const ReferralManager: React.FC<ReferralManagerProps> = ({ patients, referrals, 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                            <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Referred Patients</div>
+                            <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Referred PT</div>
                             <div className="text-5xl font-black text-teal-700">{incomingStats.totalReferred}</div>
                         </div>
                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">

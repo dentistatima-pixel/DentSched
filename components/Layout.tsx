@@ -105,8 +105,8 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard, visible: true },
-    { id: 'schedule', label: 'Calendar', icon: Calendar, visible: true },
-    { id: 'patients', label: 'Patients', icon: Users, visible: true },
+    { id: 'schedule', label: 'Appt', icon: Calendar, visible: true },
+    { id: 'patients', label: 'PT', icon: Users, visible: true },
     { id: 'admin', label: 'Admin', icon: Sliders, visible: can('manage:admin') },
   ].filter(item => item.visible);
 

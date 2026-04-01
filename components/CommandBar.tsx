@@ -28,8 +28,8 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   const patientFuse = useMemo(() => new Fuse(patients, { keys: ['name', 'id', 'phone', 'nickname'], threshold: 0.3 }), [patients]);
   
   const staticActions: CommandBarAction[] = useMemo(() => [
-    { id: 'newPatient', name: 'New Patient Registration', icon: User, section: 'Actions', perform: () => onNavigate('action', 'newPatient') },
-    { id: 'newAppointment', name: 'New Appointment Booking', icon: Calendar, section: 'Actions', perform: () => onNavigate('action', 'newAppointment') },
+    { id: 'newPatient', name: 'New PT Registration', icon: User, section: 'Actions', perform: () => onNavigate('action', 'newPatient') },
+    { id: 'newAppointment', name: 'New Appt Booking', icon: Calendar, section: 'Actions', perform: () => onNavigate('action', 'newAppointment') },
   ], [onNavigate]);
 
   const allResults = useMemo(() => {
@@ -139,7 +139,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
                 <div className="p-16 text-center text-slate-400">
                     <Command size={48} className="mx-auto mb-4 opacity-50"/>
                     <p className="font-bold">Instant Command Center</p>
-                    <p className="text-sm mt-1">Search patients by name, ID, or nickname.</p>
+                    <p className="text-sm mt-1">Search PT by name, ID, or nickname.</p>
                 </div>
             )}
         </div>

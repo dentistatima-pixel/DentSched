@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { FieldSettings, HospitalAffiliation, Branch, OperationalHours, DaySchedule } from '../types';
-import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit } from 'lucide-react';
+import { Sparkles, Save, Sun, Moon, MapPin, Building2, Plus, Trash2, X, Edit, Monitor, Languages, Loader2 } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useAppContext } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
+import { translateToTagalog } from '../services/geminiService';
 
 interface BranchEditorModalProps {
     branch: Partial<Branch> | null;
@@ -134,6 +135,25 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     
     const [editingBranch, setEditingBranch] = useState<Partial<Branch> | null>(null);
     const [newAffiliation, setNewAffiliation] = useState<Partial<HospitalAffiliation>>({ name: '', location: '', hotline: '' });
+    const [isTranslating, setIsTranslating] = useState(false);
+    const [apiCheckStatus, setApiCheckStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+
+    const checkApiKey = async () => {
+        setApiCheckStatus('checking');
+        try {
+            const result = await translateToTagalog("Hello");
+            if (result && result !== "Translation failed" && !result.includes("API key missing") && !result.includes("unavailable")) {
+                setApiCheckStatus('valid');
+                toast.success("Gemini API Key is CORRECT and working!");
+            } else {
+                setApiCheckStatus('invalid');
+                toast.error("Gemini API Key is INCORRECT or missing.");
+            }
+        } catch (error) {
+            setApiCheckStatus('invalid');
+            toast.error("Error checking API Key.");
+        }
+    };
 
     // FIX: Add local state for the identity form
     const [localSettings, setLocalSettings] = useState(settings);
@@ -145,6 +165,30 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     const handleIdentitySave = () => {
         onUpdateSettings(localSettings);
         toast.success("Global profile updated successfully.");
+    };
+
+    const handleTranslateKioskNotice = async () => {
+        if (!localSettings.kioskSettings.privacyNotice_en.trim()) {
+            toast.error("Please enter English notice first.");
+            return;
+        }
+
+        setIsTranslating(true);
+        try {
+            const translation = await translateToTagalog(localSettings.kioskSettings.privacyNotice_en);
+            setLocalSettings(prev => ({
+                ...prev,
+                kioskSettings: {
+                    ...prev.kioskSettings,
+                    privacyNotice_tl: translation
+                }
+            }));
+            toast.success("Translation generated successfully.");
+        } catch (error) {
+            toast.error("Failed to generate translation.");
+        } finally {
+            setIsTranslating(false);
+        }
     };
 
 
@@ -198,6 +242,7 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
     
     const tabs = [
         { id: 'identity', label: 'Global Profile', icon: Sparkles },
+        { id: 'kiosk', label: 'Kiosk Setup', icon: Monitor },
         { id: 'branches', label: 'Branch Management', icon: MapPin },
         { id: 'referrals', label: 'Referral Network', icon: Building2 },
     ];
@@ -248,6 +293,83 @@ const PracticeBranding: React.FC<PracticeBrandingProps> = ({ settings, onUpdateS
                      <div className="pt-8 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                         <button onClick={handleIdentitySave} disabled={!isIdentityChanged} className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 disabled:opacity-50 disabled:grayscale flex items-center gap-3">
                             <Save size={16} /> Save Changes
+                        </button>
+                    </div>
+                </div>
+            )}
+            
+            {activeTab === 'kiosk' && (
+                <div className="bg-white dark:bg-slate-800 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm space-y-12">
+                    <div className="bg-teal-50 dark:bg-teal-900/20 p-6 rounded-3xl border border-teal-100 dark:border-teal-800 flex justify-between items-center">
+                        <div>
+                            <h4 className="font-bold text-teal-900 dark:text-teal-100">AI Translation Engine</h4>
+                            <p className="text-sm text-teal-600 dark:text-teal-400">Verify if your Google Gemini API Key is correctly configured.</p>
+                        </div>
+                        <button 
+                            onClick={checkApiKey} 
+                            disabled={apiCheckStatus === 'checking'}
+                            className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 ${
+                                apiCheckStatus === 'valid' ? 'bg-green-500 text-white' : 
+                                apiCheckStatus === 'invalid' ? 'bg-red-500 text-white' : 
+                                'bg-teal-600 text-white hover:bg-teal-700'
+                            }`}
+                        >
+                            {apiCheckStatus === 'checking' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                            {apiCheckStatus === 'checking' ? 'Checking...' : 
+                             apiCheckStatus === 'valid' ? 'API Key Valid' : 
+                             apiCheckStatus === 'invalid' ? 'API Key Invalid' : 'Check API Key'}
+                        </button>
+                    </div>
+
+                    <div className="space-y-8 max-w-4xl">
+                        <div>
+                            <label className="label text-sm">Welcome Message</label>
+                            <input 
+                                type="text" 
+                                value={localSettings.kioskSettings.welcomeMessage} 
+                                onChange={(e) => setLocalSettings(prev => ({ ...prev, kioskSettings: { ...prev.kioskSettings, welcomeMessage: e.target.value } }))} 
+                                className="input text-lg font-bold w-full"
+                            />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                                <label className="label text-sm">English</label>
+                                <textarea 
+                                    value={localSettings.kioskSettings.privacyNotice_en} 
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, kioskSettings: { ...prev.kioskSettings, privacyNotice_en: e.target.value } }))} 
+                                    className="input h-64 resize-none font-mono text-xs"
+                                    placeholder="Enter English privacy notice..."
+                                />
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="label text-sm">Tagalog</label>
+                                    <button 
+                                        onClick={handleTranslateKioskNotice}
+                                        disabled={isTranslating}
+                                        className="text-[10px] font-black uppercase tracking-widest text-teal-600 hover:text-teal-700 flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                        {isTranslating ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                                        {isTranslating ? 'Translating...' : 'Auto-Translate'}
+                                    </button>
+                                </div>
+                                <textarea 
+                                    value={localSettings.kioskSettings.privacyNotice_tl} 
+                                    readOnly
+                                    className="input h-64 resize-none font-mono text-xs bg-slate-50 dark:bg-slate-900"
+                                    placeholder="Tagalog translation will appear here..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-8 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                        <button 
+                            onClick={handleIdentitySave} 
+                            className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-600/30 flex items-center gap-3"
+                        >
+                            <Save size={16} /> Save Kiosk Settings
                         </button>
                     </div>
                 </div>

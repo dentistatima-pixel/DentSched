@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Patient, AuditLogEntry, AuthorityLevel, FieldSettings } from '../types';
-import { UserPlus, UserCheck, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Lock, Building2 } from 'lucide-react';
+import { UserPlus, UserCheck, ArrowLeft, Phone, Cake, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Lock, Building2, Languages, RefreshCw } from 'lucide-react';
 import PatientRegistrationModal from './PatientRegistrationModal';
 import { useToast } from './ToastSystem';
 import CryptoJS from 'crypto-js';
@@ -21,6 +21,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
   const { showModal } = useModal();
   const { patients, handleSavePatient: onUpdatePatient } = usePatient();
   const [step, setStep] = useState<KioskStep>('welcome');
+  const [language, setLanguage] = useState<'en' | 'tl'>('en');
   
   const [identifier, setIdentifier] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
@@ -29,6 +30,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
   // Camera engine for Visual Identity Anchor
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [capturedThumb, setCapturedThumb] = useState<string | null>(null);
@@ -65,13 +67,26 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
       }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
     setCameraLoading(true);
+    // Stop existing tracks
+    if (videoRef.current?.srcObject) {
+        const oldStream = videoRef.current.srcObject as MediaStream;
+        oldStream.getTracks().forEach(t => t.stop());
+    }
+    
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 320, height: 320 } });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: mode, 
+                width: { ideal: 320 }, 
+                height: { ideal: 320 } 
+            } 
+        });
         if (videoRef.current) {
             videoRef.current.srcObject = stream;
             setIsCameraActive(true);
+            setFacingMode(mode);
         }
     } catch (err) {
         toast.error("Camera access denied. Visual Anchor required for digital intake.");
@@ -79,6 +94,11 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
     } finally {
         setCameraLoading(false);
     }
+  };
+
+  const toggleCamera = () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    startCamera(newMode);
   };
 
   const captureAnchor = () => {
@@ -254,38 +274,38 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
             {step === 'notice' && (
                 <div className="w-full max-w-2xl animate-in slide-in-from-bottom-10 duration-300">
                     <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col h-[70vh]">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-sm"><ShieldCheck size={32}/></div>
-                            <div>
-                                <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter leading-none">Privacy Notice</h3>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Data Privacy (RA 10173)</p>
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-sm"><ShieldCheck size={32}/></div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-teal-900 uppercase tracking-tighter leading-none">
+                                        {language === 'en' ? 'Privacy Notice' : 'Paunawa sa Pagkapribado'}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Data Privacy (RA 10173)</p>
+                                </div>
                             </div>
+                            <button 
+                                onClick={() => setLanguage(l => l === 'en' ? 'tl' : 'en')}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-200 transition-all"
+                            >
+                                <Languages size={14} />
+                                {language === 'en' ? 'Tagalog' : 'English'}
+                            </button>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto pr-4 mb-8 space-y-6 text-sm text-slate-600 leading-relaxed no-scrollbar border-y py-6">
-                            <p>Before providing your personal data, please read our <strong>Privacy Policy</strong>:</p>
-                            <section>
-                                <h4 className="font-black text-slate-800 uppercase text-[10px] tracking-widest mb-1">1. Collection Purpose</h4>
-                                <p>We collect your medical history, personal identifiers, and a <strong>photo</strong> strictly for clinical diagnosis, treatment planning, and ensuring the authenticity of medical records.</p>
-                            </section>
-                            <section>
-                                <h4 className="font-black text-slate-800 uppercase text-[10px] tracking-widest mb-1">2. Visual Identity Proof</h4>
-                                <p>Pursuant to the Rules on Electronic Evidence, a low-resolution snapshot of the person providing consent is required to prove physical presence at the terminal and prevent unauthorized staff-only entries.</p>
-                            </section>
-                            <section>
-                                <h4 className="font-black text-slate-800 uppercase text-[10px] tracking-widest mb-1">3. Data Residency</h4>
-                                <p>Your data is stored in encrypted cloud environments located in the Asia-Southeast1 region. No remote patient access is permitted once you exit this terminal.</p>
-                            </section>
-                            <p className="bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200 text-xs italic">
-                                "I acknowledge that I have been informed of the purposes for which my data will be processed and my rights as a data subject under the Data Privacy Act of 2012."
-                            </p>
+                            {language === 'en' ? (
+                                <div className="whitespace-pre-wrap">{fieldSettings?.kioskSettings?.privacyNotice_en}</div>
+                            ) : (
+                                <div className="whitespace-pre-wrap">{fieldSettings?.kioskSettings?.privacyNotice_tl}</div>
+                            )}
                         </div>
 
                         <button 
                             onClick={() => setStep('anchor')}
                             className="w-full py-6 bg-teal-600 text-white font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-teal-600/20 hover:scale-105 transition-all"
                         >
-                            I Have Been Informed & Proceed
+                            {language === 'en' ? 'I Have Been Informed & Proceed' : 'Nabatid Ko Na Ito at Magpatuloy'}
                         </button>
                     </div>
                 </div>
@@ -304,7 +324,20 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
                                 <div className="w-[180px] h-[230px] rounded-[50%]" style={{boxShadow: '0 0 0 999px rgba(0,0,0,0.3)'}}/>
                             </div>
                             {isCameraActive ? (
-                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                                <>
+                                    <video 
+                                        ref={videoRef} 
+                                        autoPlay 
+                                        playsInline 
+                                        className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
+                                    />
+                                    <button 
+                                        onClick={toggleCamera}
+                                        className="absolute top-2 right-2 bg-white/40 backdrop-blur-md p-2 rounded-full text-slate-800 hover:bg-white/60 transition-all z-20"
+                                    >
+                                        <RefreshCw size={16} />
+                                    </button>
+                                </>
                             ) : (
                                 <Camera size={48} className="text-slate-300"/>
                             )}
@@ -319,7 +352,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
                             </button>
                         ) : (
                             <button 
-                                onClick={startCamera}
+                                onClick={() => startCamera()}
                                 disabled={cameraLoading}
                                 className="w-full py-5 bg-teal-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl hover:scale-105 transition-all"
                             >
@@ -409,6 +442,8 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
                     onSave={handlePatientSave}
                     initialData={foundPatient}
                     isKiosk={true} 
+                    language={language}
+                    onLanguageToggle={() => setLanguage(l => l === 'en' ? 'tl' : 'en')}
                  />
             </div>
         )}

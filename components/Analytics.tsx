@@ -180,7 +180,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ patients, appointments, fieldSett
                         <StatCard title="Projected Revenue" value={`₱${Math.round(stats.projectedRevenue / 1000)}k`} icon={TrendingUp} colorClass="bg-emerald-600 shadow-emerald-600/20" />
                         <StatCard title="Treatment Acceptance" value={stats.treatmentAcceptanceRate.toFixed(1)} unit="%" icon={CheckSquare} colorClass="bg-indigo-600 shadow-indigo-600/20" />
                         <StatCard title="Chair Time Utilization" value={stats.chairTimeUtilization.toFixed(1)} unit="%" icon={Clock} colorClass="bg-amber-600 shadow-amber-600/20" />
-                        <StatCard title="New Patients (YTD)" value={stats.newPatientsYtd.toString()} icon={UserPlus} colorClass="bg-blue-600 shadow-blue-600/20" />
+                        <StatCard title="New PT (YTD)" value={stats.newPatientsYtd.toString()} icon={UserPlus} colorClass="bg-blue-600 shadow-blue-600/20" />
                         <StatCard title="No-Show Rate" value={stats.noShowRate.toFixed(1)} unit="%" icon={CalendarX} colorClass="bg-red-600 shadow-red-600/20" />
                     </div>
                     

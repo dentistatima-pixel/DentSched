@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Lock, FileText, Heart, CheckCircle, Scale, Activity, ArrowLeft, ArrowRight, FileSearch } from 'lucide-react';
+import { X, Lock, FileText, Heart, CheckCircle, Scale, Activity, ArrowLeft, ArrowRight, FileSearch, Languages } from 'lucide-react';
 import { Patient, RegistrationStatus, RegistrationField } from '../types';
 import RegistrationBasicInfo from './RegistrationBasicInfo';
 import RegistrationMedical from './RegistrationMedical';
@@ -25,6 +25,8 @@ interface PatientRegistrationModalProps {
   initialData?: Patient | null;
   isKiosk?: boolean; 
   currentBranch?: string;
+  language?: 'en' | 'tl';
+  onLanguageToggle?: () => void;
 }
 
 const stepsInfo = [
@@ -387,7 +389,7 @@ const useRegistrationWorkflow = ({ initialData, onSave, onClose, currentBranch, 
 };
 
 
-const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch }) => {
+const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isOpen, onClose, onSave, readOnly = false, initialData = null, isKiosk = false, currentBranch, language = 'en', onLanguageToggle }) => {
   const workflow = useRegistrationWorkflow({ initialData, onSave, onClose, currentBranch, readOnly });
   const { 
       step, animationDirection, formData, isSaving, formStatus, showSuccess,
@@ -408,7 +410,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
         <div className={`flex items-center justify-between h-14 px-6 border-b border-teal-800 bg-teal-900 text-white shrink-0 ${!isKiosk && 'rounded-t-3xl'}`}>
           <div className="flex items-center gap-3">
              <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center font-black text-[10px] shadow-inner text-teal-400">DS</div>
-             <h2 className="text-[10px] font-black uppercase tracking-widest hidden md:block opacity-60">New Patient</h2>
+             <h2 className="text-[10px] font-black uppercase tracking-widest hidden md:block opacity-60">New PT</h2>
           </div>
           
           <div className="flex items-center gap-2">
@@ -434,6 +436,15 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
           </div>
 
           <div className="flex items-center gap-4">
+             {isKiosk && onLanguageToggle && (
+                <button 
+                    onClick={onLanguageToggle}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/20 transition-all"
+                >
+                    <Languages size={14} />
+                    {language === 'en' ? 'Tagalog' : 'English'}
+                </button>
+             )}
              {!isKiosk && (
                 <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
                     <X size={18} />
@@ -451,14 +462,27 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             <div className="grid grid-cols-2 gap-4 pt-8 border-t border-slate-100">
                                <label className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer border-2 transition-all ${formData.dpaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white'} ${errors?.dpaConsent ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'}`}>
                                     <input type="checkbox" name="dpaConsent" checked={!!formData.dpaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
-                                    <div><span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Lock size={12}/> RA 10173 DPA CONSENT *</span><p className="text-[11px] text-slate-600 mt-1 font-bold">I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.</p></div>
+                                    <div>
+                                        <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1">
+                                            <Lock size={12}/> {language === 'en' ? 'RA 10173 DPA CONSENT *' : 'RA 10173 DPA PAHINTULOT *'}
+                                        </span>
+                                        <p className="text-[11px] text-slate-600 mt-1 font-bold">
+                                            {language === 'en' ? 'I authorize the standard processing of my personal data for clinical diagnosis and treatment planning.' : 'Pinahihintulutan ko ang karaniwang pagproseso ng aking personal na data para sa klinikal na diagnosis at pagpaplano ng paggamot.'}
+                                        </p>
+                                    </div>
                                </label>
                                <label className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all ${formData.clinicalMediaConsent ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white'} ${errors?.clinicalMediaConsent ? 'border-red-500 ring-2 ring-red-200' : 'border-slate-200'}`}>
                                     <input type="checkbox" name="clinicalMediaConsent" checked={!!formData.clinicalMediaConsent} onChange={handleChange} className="w-8 h-8 accent-teal-600 rounded mt-1 shrink-0" />
                                     <div>
-                                        <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1"><Scale size={12}/> TREATMENT AUTHORIZATION *</span>
+                                        <span className="font-black text-teal-950 uppercase text-[10px] tracking-widest flex items-center gap-1">
+                                            <Scale size={12}/> {language === 'en' ? 'TREATMENT AUTHORIZATION *' : 'PAHINTULOT SA PAGGAMOT *'}
+                                        </span>
                                         <p className="text-[11px] text-slate-600 mt-1 font-bold">
-                                            I certify that I have read the <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsViewingConsent(true); }} className="text-teal-600 underline font-black">General Authorization</button> and agree to the terms of clinical care and liability.
+                                            {language === 'en' ? 'I certify that I have read the ' : 'Pinapatunayan ko na nabasa ko ang '}
+                                            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsViewingConsent(true); }} className="text-teal-600 underline font-black">
+                                                {language === 'en' ? 'General Authorization' : 'Pangkalahatang Pahintulot'}
+                                            </button>
+                                            {language === 'en' ? ' and agree to the terms of clinical care and liability.' : ' at sumasang-ayon sa mga tuntunin ng klinikal na pangangalaga at pananagutan.'}
                                         </p>
                                     </div>
                                </label>
@@ -475,10 +499,11 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                             isOpen={true} 
                             onClose={onClose} 
                             onSave={handleSignatureCaptured}
-                            title="Finalize & Sign"
-                            instruction="Please review the summary of your information above. Your signature below legally binds this record, including your consent to our Data Privacy Policy and terms of treatment."
+                            title={language === 'en' ? "Finalize & Sign" : "Tapusin at Lagdaan"}
+                            instruction={language === 'en' ? "Please review the summary of your information above. Your signature below legally binds this record, including your consent to our Data Privacy Policy and terms of treatment." : "Mangyaring suriin ang buod ng iyong impormasyon sa itaas. Ang iyong lagda sa ibaba ay legal na nagbubuklod sa rekord na ito, kabilang ang iyong pahintulot sa aming Patakaran sa Pagkapribado ng Data at mga tuntunin ng paggamot."}
                             themeColor="teal"
                             contextSummary={<RegistrationSummary formData={formData} />}
+                            language={language}
                         />
                     </div>
                 )}
@@ -516,7 +541,7 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                       <button onClick={() => setIsViewingConsent(false)}><X/></button>
                   </div>
                   <div className="p-8 overflow-y-auto text-sm text-slate-600">
-                      <p style={{ whiteSpace: 'pre-wrap' }}>{generalConsent.content_en}</p>
+                      <p style={{ whiteSpace: 'pre-wrap' }}>{language === 'en' ? generalConsent.content_en : generalConsent.content_tl}</p>
                   </div>
                   <div className="p-4 border-t flex justify-end">
                       <button onClick={() => setIsViewingConsent(false)} className="px-6 py-3 bg-teal-600 text-white rounded-xl font-bold">Close</button>
@@ -533,8 +558,8 @@ const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> = ({ isO
                   <div className="w-24 h-24 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-6">
                       <CheckCircle size={48} />
                   </div>
-                  <h2 className="text-2xl font-black text-slate-800 mb-2">Patient Added</h2>
-                  <p className="text-slate-500">The patient record has been successfully saved and verified.</p>
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">PT Added</h2>
+                  <p className="text-slate-500">The PT record has been successfully saved and verified.</p>
               </div>
           </div>
       )}
