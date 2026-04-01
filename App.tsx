@@ -1,7 +1,6 @@
 import { FC, useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { LoginScreen } from './components/LoginScreen';
-import ModalManager from './components/ModalManager';
 import { KioskView } from './components/KioskView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -19,6 +18,7 @@ import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
 // Lazy load components for the full-screen workspace
 const FormBuilder = lazy(() => import('./components/FormBuilder'));
+const ModalManager = lazy(() => import('./components/ModalManager'));
 
 
 const SessionWarningModal: FC<{ onStayActive: () => void; onLogout: () => void; countdown: number }> = ({ onStayActive, onLogout, countdown }) => {
@@ -307,7 +307,9 @@ export const App: FC = () => {
           </ErrorBoundary>
         </Suspense>
       </Layout>
-      <ModalManager />
+      <Suspense fallback={null}>
+        <ModalManager />
+      </Suspense>
     </SearchProvider>
   );
 }
