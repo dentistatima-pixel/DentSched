@@ -870,6 +870,7 @@ export const STAFF: User[] = [
   { 
       id: 'ARCHITECT_01', 
       name: 'Ashwin Fernandes', 
+      email: 'ashwin@ivorydental.ph',
       role: UserRole.SYSTEM_ARCHITECT, 
       phone: '+639170000000',
       pin: '0000',
@@ -883,6 +884,7 @@ export const STAFF: User[] = [
   { 
       id: 'doc1', 
       name: 'Dr. Nadzra Awali', 
+      email: 'nadzra@ivorydental.ph',
       role: UserRole.ADMIN, 
       phone: '+639172222222',
       pin: '4321',
@@ -905,6 +907,7 @@ export const STAFF: User[] = [
   { 
       id: 'doc3', 
       name: 'Dr. Fatima Awali', 
+      email: 'fatima@ivorydental.ph',
       role: UserRole.ADMIN, 
       phone: '+639173333333',
       pin: '5678',
@@ -917,9 +920,10 @@ export const STAFF: User[] = [
       commissionRate: 0.30,
       status: 'Active',
   },
-  {
+  { 
       id: 'asst2',
       name: 'Indah Awali',
+      email: 'indah@ivorydental.ph',
       role: UserRole.DENTAL_ASSISTANT,
       phone: '+639175555555',
       pin: '2222',

@@ -637,6 +637,7 @@ export interface PrivacyImpactAssessment {
 export interface User {
   id: string;
   name: string;
+  email?: string;
   role: UserRole;
   phone?: string;
   pin?: string;

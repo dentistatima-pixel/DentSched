@@ -183,7 +183,7 @@ export const KioskView: React.FC<KioskViewProps> = ({ onExitKiosk, logAction, fi
             )}
 
             {step === 'welcome' && (
-                <button onDoubleClick={handleExitClick} className="opacity-10 hover:opacity-100 transition-opacity p-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <button onClick={handleExitClick} className="opacity-10 hover:opacity-100 transition-opacity p-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Staff Exit
                 </button>
             )}

@@ -9,12 +9,19 @@ import { useAppContext } from './contexts/AppContext';
 import { useSettings } from './contexts/SettingsContext';
 import { useRouter } from './contexts/RouterContext';
 import { SearchProvider } from './contexts/SearchContext';
+import { useModal } from './contexts/ModalContext';
+import { useAppointments } from './contexts/AppointmentContext';
 import { routes } from './routes';
 import { useLicenseValidation } from './hooks/useLicenseValidation';
 import { sendSms } from './services/smsService';
 
 import { User } from './types';
 import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
+
+// Mobile Components
+import { MobileLayout } from './components/MobileLayout';
+import { MobileAppointmentView } from './components/MobileAppointmentView';
+import { MobileProfileView } from './components/MobileProfileView';
 
 // Lazy load components for the full-screen workspace
 const FormBuilder = lazy(() => import('./components/FormBuilder'));
@@ -114,13 +121,34 @@ const LockScreen: FC<{ onUnlockAttempt: (pin: string) => boolean; user: User }> 
 
 
 export const App: FC = () => {
-  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout, setIsAuthorityLocked } = useAppContext();
+  const { currentUser, setCurrentUser, fullScreenView, setFullScreenView, isInKioskMode, setIsInKioskMode, logout, setIsAuthorityLocked, currentBranch } = useAppContext();
   const { fieldSettings, isLoading: areSettingsLoading } = useSettings();
   const { route } = useRouter();
+  const { showModal } = useModal();
+  const { handleSaveAppointment } = useAppointments();
   
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const [isLockWarningVisible, setIsLockWarningVisible] = useState(false);
   const [warningCountdown, setWarningCountdown] = useState(60);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileTab, setMobileTab] = useState('schedule');
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleMobileTabChange = (tab: string) => {
+    if (tab === 'new-appointment') {
+      showModal('appointment', {
+        onSave: handleSaveAppointment,
+        currentBranch
+      });
+    } else {
+      setMobileTab(tab);
+    }
+  };
 
   const idleTimerRef = useRef<number | null>(null);
   const warningTimerRef = useRef<number | null>(null);
@@ -294,7 +322,30 @@ export const App: FC = () => {
     return routeContent;
   };
 
-  if (isInKioskMode) return <KioskView onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} />;
+  if (isInKioskMode) return (
+    <>
+        <KioskView onExitKiosk={() => setIsInKioskMode(false)} fieldSettings={fieldSettings} />
+        <Suspense fallback={null}>
+            <ModalManager />
+        </Suspense>
+    </>
+  );
+
+  if (isMobile && !isInKioskMode) {
+    return (
+      <SearchProvider>
+        {isSessionLocked && currentUser && <LockScreen onUnlockAttempt={handleUnlockAttempt} user={currentUser} />}
+        {isLockWarningVisible && <SessionWarningModal onStayActive={resetIdleTimer} onLogout={logout} countdown={warningCountdown} />}
+        <MobileLayout activeTab={mobileTab} onTabChange={handleMobileTabChange}>
+          {mobileTab === 'schedule' && <MobileAppointmentView />}
+          {mobileTab === 'profile' && <MobileProfileView />}
+        </MobileLayout>
+        <Suspense fallback={null}>
+          <ModalManager />
+        </Suspense>
+      </SearchProvider>
+    );
+  }
 
   return (
     <SearchProvider>
