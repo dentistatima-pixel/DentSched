@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { FieldSettings, User, AuditLogEntry, Patient, Appointment } from '../types';
+import { FieldSettings, User, AuditLogEntry, Patient, Appointment, StockItem } from '../types';
 import { 
   Settings, Box, User as UserIcon, 
-  Sparkles, Wrench, LayoutPanelLeft, FileSignature, Printer, Smartphone, Receipt
+  Sparkles, Wrench, LayoutPanelLeft, FileSignature, Printer, Smartphone, Receipt, Package
 } from 'lucide-react';
 
 
@@ -16,6 +16,7 @@ import InfrastructureManager from './InfrastructureManager';
 import PrintManager from './PrintManager';
 
 
+import ConsumablesCatalog from './ConsumablesCatalog';
 import ConsentFormManager from './ConsentFormManager';
 import ClinicalCatalog from './ClinicalCatalog';
 
@@ -33,6 +34,8 @@ interface FieldManagementProps {
   appointments: Appointment[];
   currentUser: User;
   showModal: (type: string, props: any) => void;
+  stock: StockItem[];
+  onUpdateStock: (updatedStock: StockItem[]) => void;
 }
 
 import { useAppContext } from '../contexts/AppContext';
@@ -50,6 +53,7 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
         { id: 'print_manager', label: 'Reports', icon: Printer },
         { id: 'staff_registry', label: 'Staff', icon: UserIcon },
         { id: 'clinical_catalog', label: 'Catalog', icon: Box },
+        { id: 'consumables_catalog', label: 'Materials', icon: Package },
         { id: 'finance_manager', label: 'Finance', icon: Receipt },
         { id: 'infrastructure', label: 'Equip', icon: Wrench },
     ];
@@ -74,7 +78,9 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
 
             // Procedures & Catalog
             case 'clinical_catalog':
-                return <ClinicalCatalog settings={props.settings} onUpdateSettings={props.onUpdateSettings} />;
+                return <ClinicalCatalog settings={props.settings} onUpdateSettings={props.onUpdateSettings} stock={props.stock} />;
+            case 'consumables_catalog':
+                return <ConsumablesCatalog stock={props.stock} onUpdateStock={props.onUpdateStock} />;
             
             // Finance & Payroll
             case 'finance_manager':

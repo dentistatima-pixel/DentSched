@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { StockItem, StockTransfer, ProcedureItem, StockCategory } from '../types';
+import { StockItem, StockTransfer, ProcedureItem } from '../types';
 import { MOCK_STOCK } from '../constants';
 import { useToast } from '../components/ToastSystem';
 
@@ -30,40 +30,10 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
         };
     };
     
-    const deductStockForProcedure = (procedure: ProcedureItem) => {
-        if (!procedure.billOfMaterials) return;
-        
-        setStock(prevStock => {
-            const newStock = [...prevStock];
-            const lowStockItems: string[] = [];
-
-            procedure.billOfMaterials!.forEach(bom => {
-                const itemIndex = newStock.findIndex(s => s.id === bom.stockItemId);
-                if (itemIndex > -1) {
-                    const item = newStock[itemIndex];
-                    // Only deduct if NOT an instrument
-                    if (item.category !== StockCategory.INSTRUMENTS) {
-                        const newQty = Number((item.quantity - bom.quantity).toFixed(2));
-                        newStock[itemIndex] = {
-                            ...item,
-                            quantity: Math.max(0, newQty)
-                        };
-
-                        // Check for low stock alert
-                        const reorderPoint = item.lowStockThreshold || 0;
-                        if (newStock[itemIndex].quantity <= reorderPoint) {
-                            lowStockItems.push(item.name);
-                        }
-                    }
-                }
-            });
-
-            if (lowStockItems.length > 0) {
-                toast.warning(`Low Stock Alert: ${lowStockItems.join(', ')}. Please reorder.`);
-            }
-
-            return newStock;
-        });
+    const deductStockForProcedure = (_procedure: ProcedureItem) => {
+        // Consumables are no longer actively tracked by quantity (reducing balance).
+        // They are only used for cost modeling and setup checklists.
+        return;
     };
     
     const value = { 

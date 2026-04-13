@@ -351,6 +351,8 @@ export interface StockItem {
   physicalCount?: number; 
   lastVerifiedAt?: string; 
   unitCost?: number;
+  boxPrice?: number;
+  unitsPerBox?: number;
   lowStockThreshold: number;
   lastRestockDate?: string;
   expiryDate?: string;

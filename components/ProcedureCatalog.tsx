@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FieldSettings, ProcedureItem, LicenseCategory, StockCategory } from '../types';
+import { FieldSettings, ProcedureItem, LicenseCategory, StockCategory, StockItem } from '../types';
 import { Plus, Edit2, Trash2, Stethoscope, Bone, Send, Package, PenTool } from 'lucide-react';
 import { useToast } from './ToastSystem';
 import { useModal } from '../contexts/ModalContext';
@@ -8,6 +8,7 @@ import { useInventory } from '../contexts/InventoryContext';
 interface ProcedureCatalogProps {
     settings: FieldSettings;
     onUpdateSettings: (newSettings: FieldSettings) => void;
+    stock?: StockItem[];
 }
 
 const CheckboxField: React.FC<{ label: string; checked: boolean; onChange: (checked: boolean) => void; icon: React.ElementType }> = ({ label, checked, onChange, icon: Icon }) => (
@@ -150,7 +151,17 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
                                         {proc.billOfMaterials && proc.billOfMaterials.length > 0 && <span title="Has Bill of Materials"><Package size={16} className="text-amber-500"/></span>}
                                     </div>
                                 </td>
-                                <td className="p-3 text-right font-black text-slate-900">₱{proc.defaultPrice.toLocaleString()}</td>
+                                <td className="p-3 text-right font-black text-slate-900">
+                                    ₱{proc.defaultPrice.toLocaleString()}
+                                    {proc.billOfMaterials && proc.billOfMaterials.length > 0 && stock && (
+                                        <div className="text-[10px] text-slate-400 font-normal mt-1">
+                                            Cost: ₱{proc.billOfMaterials.reduce((total, bom) => {
+                                                const sItem = stock.find(s => s.id === bom.stockItemId);
+                                                return total + ((sItem?.unitCost || 0) * bom.quantity);
+                                            }, 0).toFixed(2)}
+                                        </div>
+                                    )}
+                                </td>
                                 <td className="p-3 text-right"><div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleOpenEditModal(proc)} className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all"><Edit2 size={16}/></button><button onClick={() => handleDeleteProcedure(proc.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16}/></button></div></td>
                             </tr>
                         ))}
@@ -215,9 +226,19 @@ const ProcedureCatalog: React.FC<ProcedureCatalogProps> = ({ settings, onUpdateS
 
                                     {/* Consumables Section */}
                                     <div className="mb-6">
-                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                            <Package size={14} /> Required Materials (Consumables)
-                                        </h4>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Package size={14} /> Required Materials (Consumables)
+                                            </h4>
+                                            {editingProcedure.billOfMaterials && stock && (
+                                                <div className="text-xs font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">
+                                                    Total Cost: ₱{editingProcedure.billOfMaterials.reduce((total, bom) => {
+                                                        const sItem = stock.find(s => s.id === bom.stockItemId);
+                                                        return total + ((sItem?.unitCost || 0) * bom.quantity);
+                                                    }, 0).toFixed(2)}
+                                                </div>
+                                            )}
+                                        </div>
                                         {editingProcedure.billOfMaterials && editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category !== StockCategory.INSTRUMENTS).length > 0 ? (
                                             <div className="space-y-2">
                                                 {editingProcedure.billOfMaterials.filter(item => stock.find(s => s.id === item.stockItemId)?.category !== StockCategory.INSTRUMENTS).map(item => {

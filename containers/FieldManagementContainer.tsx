@@ -4,6 +4,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { usePatient } from '../contexts/PatientContext';
 import { useAppointments } from '../contexts/AppointmentContext';
 import { useModal } from '../contexts/ModalContext';
+import { useInventory } from '../contexts/InventoryContext';
 
 function FieldManagementContainer() {
     const { fieldSettings, handleUpdateSettings } = useSettings();
@@ -11,6 +12,7 @@ function FieldManagementContainer() {
     const { patients, handleAnonymizePatient: handlePurgePatient } = usePatient();
     const { appointments } = useAppointments();
     const { showModal } = useModal();
+    const { stock, onUpdateStock } = useInventory();
 
     return <FieldManagement
         settings={fieldSettings} onUpdateSettings={handleUpdateSettings}
@@ -21,6 +23,8 @@ function FieldManagementContainer() {
         appointments={appointments}
         currentUser={currentUser!}
         showModal={showModal}
+        stock={stock}
+        onUpdateStock={onUpdateStock}
     />;
 }
 

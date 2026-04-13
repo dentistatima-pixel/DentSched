@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, X, Save, Edit2, Boxes, ArrowRightLeft, TrendingUp, Scale, ShoppingBag, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
+import { Package, Plus, Search, X, Save, Edit2, ArrowRightLeft, TrendingUp, Scale, ShoppingBag, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
 import { StockItem, StockCategory, User, StockTransfer, Patient, FieldSettings, Appointment, AuditLogEntry, AppointmentStatus } from '../types';
 import { useToast } from './ToastSystem';
 import { formatDate } from '../constants';
@@ -124,7 +124,7 @@ const Inventory: React.FC<InventoryProps> = ({
   const filteredStock = branchStock.filter(s => {
       const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
       const isInstrument = s.category === StockCategory.INSTRUMENTS;
-      return isManagingSets ? (matchesSearch && isInstrument) : (matchesSearch && !isInstrument);
+      return matchesSearch && isInstrument;
   });
 
   const predictiveMetrics = useMemo(() => {
@@ -245,11 +245,11 @@ const Inventory: React.FC<InventoryProps> = ({
                 <div className="flex gap-2 pt-2">
                     <button 
                         role="tab"
-                        aria-selected={activeTab === 'stock' && !isManagingSets}
+                        aria-selected={activeTab === 'stock'}
                         onClick={() => { setActiveTab('stock'); setIsManagingSets(false); }} 
-                        className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' && !isManagingSets ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
+                        className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
                     >
-                        <Boxes size={18} aria-hidden="true"/> Stock Registry
+                        <Armchair size={18} aria-hidden="true"/> Instruments
                     </button>
                     {isAdvanced && (
                         <>
@@ -260,14 +260,6 @@ const Inventory: React.FC<InventoryProps> = ({
                                 className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
                             >
                                 <ArrowRightLeft size={18} aria-hidden="true"/> Stock Transfers
-                            </button>
-                            <button 
-                                role="tab"
-                                aria-selected={activeTab === 'stock' && isManagingSets}
-                                onClick={() => { setActiveTab('stock'); setIsManagingSets(true); setAuditMode(false); }} 
-                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' && isManagingSets ? 'border-lilac-600 text-lilac-900 bg-white' : 'border-transparent text-slate-500 hover:text-lilac-700 hover:bg-white/50'}`}
-                            >
-                                <Armchair size={18} aria-hidden="true"/> Instruments
                             </button>
                              <button 
                                 role="tab"

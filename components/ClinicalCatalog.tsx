@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FieldSettings } from '../types';
+import { FieldSettings, StockItem } from '../types';
 import ProcedureCatalog from './ProcedureCatalog';
 import PharmacyRegistry from './PharmacyRegistry';
 import MaterialsRegistry from './MaterialsRegistry';
@@ -8,9 +8,10 @@ import { DollarSign, Pill, Layers } from 'lucide-react';
 interface ClinicalCatalogProps {
     settings: FieldSettings;
     onUpdateSettings: (newSettings: FieldSettings) => void;
+    stock?: StockItem[];
 }
 
-const ClinicalCatalog: React.FC<ClinicalCatalogProps> = ({ settings, onUpdateSettings }) => {
+const ClinicalCatalog: React.FC<ClinicalCatalogProps> = ({ settings, onUpdateSettings, stock = [] }) => {
     const [activeTab, setActiveTab] = useState('procedures');
     
     const tabs = [
@@ -22,7 +23,7 @@ const ClinicalCatalog: React.FC<ClinicalCatalogProps> = ({ settings, onUpdateSet
     const renderContent = () => {
         switch (activeTab) {
             case 'procedures':
-                return <ProcedureCatalog settings={settings} onUpdateSettings={onUpdateSettings} />;
+                return <ProcedureCatalog settings={settings} onUpdateSettings={onUpdateSettings} stock={stock} />;
             case 'medications':
                 return <PharmacyRegistry settings={settings} onUpdateSettings={onUpdateSettings} />;
             case 'materials':
