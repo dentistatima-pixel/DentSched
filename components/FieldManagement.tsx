@@ -105,8 +105,8 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden relative">
-            <div className="w-full bg-teal-900 text-white flex shrink-0 shadow-2xl z-40 overflow-x-auto no-scrollbar transition-all duration-500 border-b border-teal-800">
-                <div className="flex p-2 gap-1 items-center">
+            <div className="w-full bg-teal-900 text-white flex shrink-0 shadow-2xl z-40 overflow-x-auto no-scrollbar transition-all duration-500 border-b border-teal-800 justify-center">
+                <div className="flex p-1.5 gap-0.5 items-center">
                     {sidebarItems.map(item => (
                         <button
                             key={item.id}
@@ -120,9 +120,9 @@ const FieldManagement: React.FC<FieldManagementProps> = (props) => {
                                     setActiveRegistry(item.id);
                                 }
                             }}
-                            className={`whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            className={`whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                                 activeRegistry === item.id 
-                                ? 'bg-teal-600 text-white shadow-lg' 
+                                ? 'bg-teal-600 text-white shadow-md' 
                                 : 'text-teal-200 hover:bg-white/10 hover:text-white'
                             }`}
                         >
