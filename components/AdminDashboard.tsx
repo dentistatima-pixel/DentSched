@@ -14,7 +14,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     { id: 'analytics', title: 'Analytics', description: 'View performance dashboards and generate reports.', icon: BarChart2, color: 'bg-teal-600' },
     { id: 'governance', title: 'Compliance', description: 'Manage compliance, audit trails, and legal forms.', icon: ShieldCheck, color: 'bg-lilac-600' },
     { id: 'financials', title: 'Finance', description: 'Handle claims, expenses, and reconciliation.', icon: DollarSign, color: 'bg-emerald-600' },
-    { id: 'inventory', title: 'Inventory', description: 'Manage stock levels.', icon: Package, color: 'bg-blue-600' },
+    { id: 'inventory', title: 'Instruments', description: 'Manage instruments and tools.', icon: Package, color: 'bg-blue-600' },
     { id: 'team-management', title: 'Team', description: 'View and manage weekly staff assignments and leave applications.', icon: Users, color: 'bg-sky-600' },
     { id: 'patient-engagement', title: 'Patients', description: 'Manage family units, patient recall, and referrals.', icon: Users2, color: 'bg-pink-600' },
   ];

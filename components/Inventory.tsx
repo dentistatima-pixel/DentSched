@@ -200,7 +200,7 @@ const Inventory: React.FC<InventoryProps> = ({
             const physicalCount = sessionPhysicalCounts[item.id];
             const variance = physicalCount - item.quantity;
             if (variance !== 0) {
-                logAction?.('AUDIT', 'StockItem', item.id, `Inventory audit variance: ${variance}. System: ${item.quantity}, Physical: ${physicalCount}`);
+                logAction?.('AUDIT', 'StockItem', item.id, `Instrument audit variance: ${variance}. System: ${item.quantity}, Physical: ${physicalCount}`);
             }
             return { ...item, physicalCount, lastVerifiedAt: today, quantity: physicalCount }; // Update quantity to match physical count
         }
@@ -209,7 +209,7 @@ const Inventory: React.FC<InventoryProps> = ({
     onUpdateStock(updatedStock);
     setAuditMode(false);
     setShowAuditSummary(false);
-    toast.success("Inventory audit finalized and system levels updated.");
+    toast.success("Instrument audit finalized and system levels updated.");
   };
 
   return (
@@ -223,15 +223,15 @@ const Inventory: React.FC<InventoryProps> = ({
                 )}
                 <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-xl" aria-hidden="true"><Package size={36} /></div>
                 <div>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Supplies</h1>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Manage stock levels and orders.</p>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Instruments</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Manage instruments.</p>
                 </div>
             </div>
             {isAdvanced && (
                 <div className="flex gap-2">
                     <div className="bg-white px-6 py-3 rounded-2xl border-2 border-slate-100 shadow-sm flex items-center gap-4 group hover:border-teal-500 transition-all">
                         <div className="text-right">
-                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Stock & Inventory</div>
+                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Instruments & Tools</div>
                             <div className={`text-2xl font-black leading-none mt-1 ${realityScore > 90 ? 'text-teal-700' : 'text-orange-700'}`}>{realityScore}%</div>
                         </div>
                         <Scale size={24} className={realityScore > 90 ? 'text-teal-500' : 'text-orange-500'} aria-hidden="true"/>
@@ -241,7 +241,7 @@ const Inventory: React.FC<InventoryProps> = ({
         </header>
 
         <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white flex-1 flex flex-col overflow-hidden relative">
-            <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar justify-between items-center" role="tablist" aria-label="Inventory Sections">
+            <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar justify-between items-center" role="tablist" aria-label="Instrument Sections">
                 <div className="flex gap-2 pt-2">
                     <button 
                         role="tab"
@@ -251,34 +251,6 @@ const Inventory: React.FC<InventoryProps> = ({
                     >
                         <Armchair size={18} aria-hidden="true"/> Instruments
                     </button>
-                    {isAdvanced && (
-                        <>
-                            <button 
-                                role="tab"
-                                aria-selected={activeTab === 'transfers'}
-                                onClick={() => setActiveTab('transfers')} 
-                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'transfers' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
-                            >
-                                <ArrowRightLeft size={18} aria-hidden="true"/> Stock Transfers
-                            </button>
-                             <button 
-                                role="tab"
-                                aria-selected={activeTab === 'forecasting'}
-                                onClick={() => setActiveTab('forecasting')} 
-                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'forecasting' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
-                            >
-                                <TrendingUp size={18} aria-hidden="true"/> Forecasting
-                            </button>
-                            <button 
-                                role="tab"
-                                aria-selected={activeTab === 'procurement'}
-                                onClick={() => setActiveTab('procurement')} 
-                                className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'procurement' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
-                            >
-                                <ShoppingBag size={18} aria-hidden="true"/> Procurement
-                            </button>
-                        </>
-                    )}
                 </div>
             </div>
             
@@ -297,20 +269,18 @@ const Inventory: React.FC<InventoryProps> = ({
                                 {auditMode && !isManagingSets ? (
                                     <button onClick={handleFinalizeAudit} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Finalize Audit</button>
                                 ) : (
-                                    <button onClick={() => setEditItem({ name: '', quantity: 0, lowStockThreshold: 5, category: isManagingSets ? StockCategory.INSTRUMENTS : StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
+                                    <button onClick={() => setEditItem({ name: '', quantity: 0, category: isManagingSets ? StockCategory.INSTRUMENTS : StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
                                 )}
                             </div>
                         </div>
 
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-sm" role="table" aria-label="Inventory Table">
+                            <table className="w-full text-sm" role="table" aria-label="Instrument Table">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs font-black uppercase text-slate-500 tracking-[0.2em]">
                                     <tr>
                                         <th className="p-3 text-left">Items</th>
                                         {isAdvanced && !isManagingSets && <th className="p-3 text-left">Classification</th>}
                                         {!isManagingSets && <th className="p-3 text-right">{auditMode ? 'Blind Count' : 'Stock'}</th>}
-                                        {!isManagingSets && <th className="p-3 text-right">Min Buffer</th>}
-                                        {isAdvanced && !isManagingSets && <th className="p-3 text-right">Limit</th>}
                                         <th className="p-3 text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -333,15 +303,12 @@ const Inventory: React.FC<InventoryProps> = ({
                                                             />
                                                         ) : (
                                                             <div className="flex flex-col items-end">
-                                                                <span className={`text-xl font-black leading-none ${item.quantity <= (item.lowStockThreshold || 0) ? 'text-red-600' : 'text-slate-800'}`}>{item.quantity}</span>
+                                                                <span className="text-xl font-black leading-none text-slate-800">{item.quantity}</span>
                                                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{item.dispensingUnit || 'Units'}</span>
-                                                                {item.quantity <= (item.lowStockThreshold || 0) && <span className="text-[10px] font-black text-red-500 uppercase tracking-widest mt-1">Reorder</span>}
                                                             </div>
                                                         )}
                                                     </td>
                                                 )}
-                                                {!isManagingSets && <td className="p-3 text-right font-mono text-slate-500 font-bold">{item.lowStockThreshold || '-'}</td>}
-                                                {isAdvanced && !isManagingSets && <td className="p-3 text-right text-slate-500 font-black text-sm uppercase">{item.lowStockThreshold}</td>}
                                                 <td className="p-3 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditItem(item)} className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all" aria-label={`Edit ${item.name}`}><Edit2 size={18}/></button></div></td>
                                             </tr>
                                         );
@@ -506,7 +473,7 @@ const Inventory: React.FC<InventoryProps> = ({
                             <div className="bg-white/20 p-3 rounded-xl"><Package size={24} /></div>
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight">{editItem.id ? 'Edit Stock Item' : 'Register New Item'}</h3>
-                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Supplies</p>
+                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Instruments</p>
                             </div>
                         </div>
                         <button onClick={() => setEditItem(null)}><X size={24} /></button>
@@ -514,14 +481,9 @@ const Inventory: React.FC<InventoryProps> = ({
 
                     <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50">
                         <div><label className="label">Item Narrative</label><input type="text" value={editItem.name || ''} onChange={e => handleFormChange('name', e.target.value)} className="input" /></div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div><label className="label">Classification</label><select value={editItem.category} onChange={e => handleFormChange('category', e.target.value)} className="input">{Object.values(StockCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                             <div><label className="label">Registry Level</label><input type="number" value={editItem.quantity ?? ''} onChange={e => handleFormChange('quantity', parseInt(e.target.value))} className="input" /></div>
-                            <div><label className="label">Low Stock Threshold</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" /></div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div><label className="label">Min Buffer (Reorder Point)</label><input type="number" value={editItem.lowStockThreshold ?? ''} onChange={e => handleFormChange('lowStockThreshold', parseInt(e.target.value))} className="input" placeholder="Optional" /></div>
-                            <div className="md:col-span-2"><label className="label">Expiry Date</label><input type="date" value={editItem.expiryDate || ''} onChange={e => handleFormChange('expiryDate', e.target.value)} className="input" /></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div><label className="label">Batch Number</label><input type="text" value={editItem.batchNumber || ''} onChange={e => handleFormChange('batchNumber', e.target.value)} className="input" /></div>

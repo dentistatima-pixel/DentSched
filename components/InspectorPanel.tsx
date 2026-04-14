@@ -29,7 +29,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ inspected, mode = 'clin
             // Simulate fetching recent audit logs
             setAuditTail([
                 `[${new Date().toLocaleTimeString()}] System: Inspector Panel opened`,
-                `[${new Date(Date.now() - 60000).toLocaleTimeString()}] Sync: Inventory delta received`,
+                `[${new Date(Date.now() - 60000).toLocaleTimeString()}] Sync: Instrument delta received`,
                 `[${new Date(Date.now() - 120000).toLocaleTimeString()}] Auth: User ${currentUser?.name} active`,
             ]);
         }

@@ -325,7 +325,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                         <div className="flex items-start gap-3">
                                             <div className="mt-1 bg-amber-100 text-amber-700 p-1.5 rounded-full"><AlertTriangle size={14} /></div>
                                             <div>
-                                                <p className="text-sm font-bold text-text-primary">Low Inventory</p>
+                                                <p className="text-sm font-bold text-text-primary">Low Stock</p>
                                                 <p className="text-xs text-text-secondary mt-1">Composite Resin (A2) is below minimum stock level.</p>
                                                 <p className="text-[10px] text-text-secondary mt-2 font-bold uppercase">1 hour ago</p>
                                             </div>

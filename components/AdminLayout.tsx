@@ -11,7 +11,7 @@ const adminSections = [
     { id: 'analytics', title: 'Analytics', icon: BarChart2 },
     { id: 'governance', title: 'Compliance', icon: ShieldCheck },
     { id: 'financials', title: 'Finance', icon: DollarSign },
-    { id: 'inventory', title: 'Inventory', icon: Package },
+    { id: 'inventory', title: 'Instruments', icon: Package },
     { id: 'team-management', title: 'Team', icon: Users },
     { id: 'patient-engagement', title: 'Patients', icon: Users2 },
 ];

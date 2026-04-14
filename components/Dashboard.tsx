@@ -321,7 +321,7 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
                 <div className="bg-bg-secondary rounded-[2rem] border border-border-primary shadow-sm p-4">
                     <h4 className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] mb-3 px-2 flex items-center gap-2">
                         <AlertCircle size={14} className="text-amber-500" />
-                        Critical Inventory Alerts
+                        Critical Instrument Alerts
                     </h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
                         {lowStock.map(item => (
@@ -336,7 +336,7 @@ const ActionWidgets: React.FC<{ dailyKPIs: any, myTasks: any[], onToggleTask: an
                                 </div>
                             </div>
                         ))}
-                        {lowStock.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">Inventory levels are healthy.</p>}
+                        {lowStock.length === 0 && <p className="text-sm text-text-secondary italic text-center py-4">Instrument levels are healthy.</p>}
                     </div>
                 </div>
             </div>

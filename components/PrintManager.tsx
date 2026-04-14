@@ -50,7 +50,7 @@ const documentGroups = [
             { id: 'eod_report', name: 'End of Day (EOD) Report', isPatientSpecific: false },
             { id: 'collections_report', name: 'Collections & Aging Report', isPatientSpecific: false },
             { id: 'practitioner_production_report', name: 'Practitioner Production Report', isPatientSpecific: false },
-            { id: 'inventory_report', name: 'Inventory & Stock Level Report', isPatientSpecific: false },
+            { id: 'inventory_report', name: 'Instruments & Materials Report', isPatientSpecific: false },
             { id: 'appointment_analysis_report', name: 'Appointment Analysis Report', isPatientSpecific: false },
         ]
     },
