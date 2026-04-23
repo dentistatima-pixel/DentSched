@@ -339,7 +339,8 @@ export enum StockCategory {
   SURGICAL = 'Surgical',
   ENDODONTIC = 'Endodontic',
   PREVENTIVE = 'Preventive',
-  PPE = 'PPE'
+  PPE = 'PPE',
+  MEDICATIONS = 'Medications'
 }
 
 export interface StockItem {
@@ -1430,3 +1431,8 @@ export interface PediatricConsent {
         timestamp: string;
     };
 }
+
+export interface Medication extends StockItem {} 
+
+export interface Instrument extends StockItem {}
+export interface Consumable extends StockItem {}
