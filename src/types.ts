@@ -1432,7 +1432,5 @@ export interface PediatricConsent {
     };
 }
 
-export interface Medication extends StockItem {} 
-
 export interface Instrument extends StockItem {}
 export interface Consumable extends StockItem {}
