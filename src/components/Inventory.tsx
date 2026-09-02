@@ -1,0 +1,556 @@
+import React, { useState, useMemo } from 'react';
+import { Package, Plus, Search, X, Save, Edit2, Scale, BarChart2, Armchair, ArrowLeft } from 'lucide-react';
+import { StockItem, StockCategory, User, StockTransfer, Patient, FieldSettings, Appointment, AuditLogEntry, AppointmentStatus } from '../types';
+import { useToast } from './ToastSystem';
+import { formatDate } from '../constants';
+
+import { useSearchPersistence } from '../hooks/useSearchPersistence';
+
+interface InventoryProps {
+  stock: StockItem[];
+  onUpdateStock: (updatedStock: StockItem[]) => void;
+  currentUser: User;
+  currentBranch: string;
+  availableBranches: string[];
+  transfers: StockTransfer[];
+  onPerformTransfer: (t: StockTransfer) => void;
+  patients?: Patient[];
+  fieldSettings?: FieldSettings;
+  onUpdateSettings?: (s: FieldSettings) => void;
+  appointments?: Appointment[];
+  logAction?: (action: AuditLogEntry['action'], entity: AuditLogEntry['entity'], entityId: string, details: string) => void;
+  onBack?: () => void;
+}
+
+const TOLERANCE_MAP: Record<StockCategory, number> = {
+    [StockCategory.CONSUMABLES]: 0.10,
+    [StockCategory.RESTORATIVE]: 0.05,
+    [StockCategory.INSTRUMENTS]: 0,
+    [StockCategory.PROSTHODONTIC]: 0,
+    [StockCategory.OFFICE]: 0.10,
+    [StockCategory.SURGICAL]: 0.05,
+    [StockCategory.ENDODONTIC]: 0.05,
+    [StockCategory.PREVENTIVE]: 0.10,
+    [StockCategory.PPE]: 0.10,
+    [StockCategory.MEDICATIONS]: 0.05
+};
+
+const Inventory: React.FC<InventoryProps> = ({ 
+    stock, onUpdateStock, currentUser, 
+    currentBranch, availableBranches, transfers = [], onPerformTransfer, fieldSettings,
+    appointments = [], logAction, onBack
+}) => {
+  const toast = useToast();
+  const complexity = fieldSettings?.features.inventoryComplexity || 'SIMPLE';
+  const isAdvanced = complexity === 'ADVANCED';
+
+  const [activeTab, setActiveTab] = useState<'stock' | 'transfers' | 'forecasting' | 'procurement'>('stock');
+  const [searchTerm, setSearchTerm] = useSearchPersistence('inventory');
+  const [editItem, setEditItem] = useState<Partial<StockItem> | null>(null);
+  const [auditMode, setAuditMode] = useState(false);
+  
+  // --- UPGRADE 1: SET MANAGEMENT STATE ---
+  const [isManagingSets, setIsManagingSets] = useState(false);
+
+  const [sessionPhysicalCounts, setSessionPhysicalCounts] = useState<Record<string, number>>({});
+  const [showAuditSummary, setShowAuditSummary] = useState(false);
+
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [transferData, setTransferData] = useState({ itemId: '', quantity: 1, toBranch: '' });
+
+  // Purchase Order State
+  const [poVendor, setPoVendor] = useState('');
+  const [poDate, setPoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [poItems, setPoItems] = useState<{itemId: string, quantity: number}[]>([]);
+  const [currentPoItem, setCurrentPoItem] = useState<{itemId: string, quantity: number}>({ itemId: '', quantity: 1 });
+
+  const handleAddPoItem = () => {
+      if (!currentPoItem.itemId || currentPoItem.quantity <= 0) return;
+      setPoItems(prev => [...prev, currentPoItem]);
+      setCurrentPoItem({ itemId: '', quantity: 1 });
+  };
+
+  const handleRemovePoItem = (index: number) => {
+      setPoItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitPO = () => {
+      if (!poVendor || poItems.length === 0) {
+          toast.error("Please select a vendor and add at least one item.");
+          return;
+      }
+      
+      // In a real app, this would save to a database
+      console.log("Submitting PO:", { vendor: poVendor, date: poDate, items: poItems });
+      toast.success(`Purchase Order to ${poVendor} submitted successfully.`);
+      
+      // Reset form
+      setPoVendor('');
+      setPoDate(new Date().toISOString().split('T')[0]);
+      setPoItems([]);
+  };
+
+  const handleTransfer = () => {
+    if (!transferData.itemId || transferData.quantity <= 0 || !transferData.toBranch) {
+        toast.error("All transfer fields are required.");
+        return;
+    }
+    const item = stock.find(s => s.id === transferData.itemId);
+    if (!item) return;
+    if (item.quantity < transferData.quantity) {
+        toast.error("Insufficient stock for transfer.");
+        return;
+    }
+    const newTransfer: StockTransfer = {
+        id: `xfer_${Date.now()}`,
+        date: new Date().toISOString(),
+        itemId: item.id,
+        itemName: item.name,
+        fromBranch: currentBranch,
+        toBranch: transferData.toBranch,
+        quantity: transferData.quantity,
+        initiatedBy: currentUser.name,
+        status: 'Completed'
+    };
+    onPerformTransfer(newTransfer);
+    setShowTransferForm(false);
+    setTransferData({ itemId: '', quantity: 1, toBranch: '' });
+    toast.success("Stock transfer logged.");
+  };
+
+  const branchStock = useMemo(() => {
+      return stock.filter(s => s.branch === currentBranch || !s.branch);
+  }, [stock, currentBranch]);
+
+  const filteredStock = branchStock.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const isInstrument = s.category === StockCategory.INSTRUMENTS;
+      return matchesSearch && isInstrument;
+  });
+
+  const predictiveMetrics = useMemo(() => {
+    const metrics: Record<string, { burnRate: number, daysLeft: number, isAtRisk: boolean }> = {};
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const relevantApts = appointments?.filter(a => a.status === AppointmentStatus.COMPLETED && new Date(a.date) >= thirtyDaysAgo) || [];
+    branchStock.forEach(item => {
+        let totalConsumed = 0;
+        relevantApts.forEach(apt => {
+            const proc = fieldSettings?.procedures.find(p => p.name === apt.type);
+            const bomItem = proc?.billOfMaterials?.find(b => b.stockItemId === item.id);
+            if (bomItem) totalConsumed += bomItem.quantity;
+        });
+        const dailyBurn = totalConsumed / 30;
+        const daysLeft = dailyBurn > 0 ? item.quantity / dailyBurn : 999;
+        const leadTime = item.leadTimeDays || 3;
+        const isAtRisk = dailyBurn > 0 && daysLeft <= leadTime;
+        metrics[item.id] = { burnRate: dailyBurn, daysLeft, isAtRisk };
+    });
+    return metrics;
+  }, [branchStock, appointments, fieldSettings]);
+
+  const realityScore = useMemo(() => {
+    if (branchStock.length === 0) return 100;
+    const withinTolerance = branchStock.filter(s => {
+        if (s.physicalCount === undefined) return true;
+        const diff = Math.abs(s.quantity - s.physicalCount);
+        const toleranceVal = s.quantity * (TOLERANCE_MAP[s.category] || 0);
+        return diff <= toleranceVal;
+    }).length;
+    return Math.round((withinTolerance / branchStock.length) * 100);
+  }, [branchStock]);
+
+  const handleFormChange = (field: keyof StockItem, value: any) => {
+    if (editItem) {
+        setEditItem({ ...editItem, [field]: value });
+    }
+  };
+
+  const handleSaveItem = () => {
+    if (!editItem || !editItem.name?.trim()) {
+        toast.error("Item name is required.");
+        return;
+    }
+    const updatedItem = { ...editItem, branch: currentBranch }; // Ensure branch is set
+
+    const isNew = !updatedItem.id;
+    const newStock = isNew
+        ? [...stock, { ...updatedItem, id: `stk_${Date.now()}` } as StockItem]
+        : stock.map(s => s.id === updatedItem.id ? updatedItem as StockItem : s);
+
+    onUpdateStock(newStock);
+    logAction?.(isNew ? 'CREATE' : 'UPDATE', 'StockItem', updatedItem.id || `stk_${Date.now()}`, `Item ${updatedItem.name} saved.`);
+    setEditItem(null);
+    toast.success(`Item "${updatedItem.name}" saved successfully.`);
+  };
+
+  const updatePhysicalCount = (id: string, count: string) => {
+      const val = parseInt(count);
+      const finalVal = isNaN(val) ? 0 : Math.max(0, val);
+      setSessionPhysicalCounts(prev => ({ ...prev, [id]: finalVal }));
+  };
+
+  const handleFinalizeAudit = () => {
+    setShowAuditSummary(true);
+  };
+
+  const confirmFinalizeAudit = () => {
+    const today = new Date().toISOString();
+    const updatedStock = stock.map(item => {
+        if (sessionPhysicalCounts.hasOwnProperty(item.id)) {
+            const physicalCount = sessionPhysicalCounts[item.id];
+            const variance = physicalCount - item.quantity;
+            if (variance !== 0) {
+                logAction?.('AUDIT', 'StockItem', item.id, `Instrument audit variance: ${variance}. System: ${item.quantity}, Physical: ${physicalCount}`);
+            }
+            return { ...item, physicalCount, lastVerifiedAt: today, quantity: physicalCount }; // Update quantity to match physical count
+        }
+        return item;
+    });
+    onUpdateStock(updatedStock);
+    setAuditMode(false);
+    setShowAuditSummary(false);
+    toast.success("Instrument audit finalized and system levels updated.");
+  };
+
+  return (
+    <div className="h-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20" role="main" aria-label="Supply Chain System">
+        <header className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="flex items-center gap-4">
+                {onBack && (
+                  <button onClick={onBack} className="bg-white p-4 rounded-full shadow-sm border hover:bg-slate-100 transition-all active:scale-90" aria-label="Back to Admin">
+                      <ArrowLeft size={24} className="text-slate-600"/>
+                  </button>
+                )}
+                <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-xl" aria-hidden="true"><Package size={36} /></div>
+                <div>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">Instruments</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Manage instruments.</p>
+                </div>
+            </div>
+            {isAdvanced && (
+                <div className="flex gap-2">
+                    <div className="bg-white px-6 py-3 rounded-2xl border-2 border-slate-100 shadow-sm flex items-center gap-4 group hover:border-teal-500 transition-all">
+                        <div className="text-right">
+                            <div className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Instruments & Tools</div>
+                            <div className={`text-2xl font-black leading-none mt-1 ${realityScore > 90 ? 'text-teal-700' : 'text-orange-700'}`}>{realityScore}%</div>
+                        </div>
+                        <Scale size={24} className={realityScore > 90 ? 'text-teal-500' : 'text-orange-500'} aria-hidden="true"/>
+                    </div>
+                </div>
+            )}
+        </header>
+
+        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-900/5 border-2 border-white flex-1 flex flex-col overflow-hidden relative">
+            <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50 overflow-x-auto no-scrollbar justify-between items-center" role="tablist" aria-label="Instrument Sections">
+                <div className="flex gap-2 pt-2">
+                    <button 
+                        role="tab"
+                        aria-selected={activeTab === 'stock'}
+                        onClick={() => { setActiveTab('stock'); setIsManagingSets(false); }} 
+                        className={`py-6 px-6 font-black text-xs uppercase tracking-widest border-b-4 flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'stock' ? 'border-teal-600 text-teal-900 bg-white' : 'border-transparent text-slate-500 hover:text-teal-700 hover:bg-white/50'}`}
+                    >
+                        <Armchair size={18} aria-hidden="true"/> Instruments
+                    </button>
+                </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/30 no-scrollbar">
+                {activeTab === 'stock' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="flex flex-col md:flex-row justify-between gap-6">
+                            <div className="relative w-full md:w-96 group">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={20} />
+                                <input type="text" placeholder="Search items..." aria-label="Search items" className="input pl-12" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex gap-3">
+                                {!isManagingSets && (
+                                    <button onClick={() => setAuditMode(!auditMode)} className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 ${auditMode ? 'bg-red-600 text-white shadow-red-600/30 animate-pulse' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-slate-400'}`}><Scale size={20}/> {auditMode ? 'Exit Audit' : 'Audit Mode'}</button>
+                                )}
+                                {auditMode && !isManagingSets ? (
+                                    <button onClick={handleFinalizeAudit} className="bg-lilac-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-lilac-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><BarChart2 size={20}/> Finalize Audit</button>
+                                ) : (
+                                    <button onClick={() => setEditItem({ name: '', quantity: 0, category: isManagingSets ? StockCategory.INSTRUMENTS : StockCategory.CONSUMABLES, bulkUnit: 'Box', dispensingUnit: 'Unit', conversionFactor: 1, leadTimeDays: 3 })} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> Register Item</button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-sm" role="table" aria-label="Instrument Table">
+                                <thead className="bg-slate-50 border-b border-slate-100 text-xs font-black uppercase text-slate-500 tracking-[0.2em]">
+                                    <tr>
+                                        <th className="p-3 text-left">Items</th>
+                                        {isAdvanced && !isManagingSets && <th className="p-3 text-left">Classification</th>}
+                                        {!isManagingSets && <th className="p-3 text-right">{auditMode ? 'Blind Count' : 'Stock'}</th>}
+                                        <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredStock.map(item => {
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-50/50 group transition-colors">
+                                                <td className="p-3"><div className="font-black text-slate-800 uppercase tracking-tight">{item.name}</div></td>
+                                                {isAdvanced && !isManagingSets && (<td className="p-3"><span className="text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter border border-slate-200">{item.category}</span></td>)}
+                                                {!isManagingSets && (
+                                                    <td className="p-3 text-right">
+                                                        {auditMode ? (
+                                                            <input 
+                                                                type="number" 
+                                                                aria-label={`Audit count for ${item.name}`}
+                                                                value={sessionPhysicalCounts[item.id] ?? ''} 
+                                                                onChange={e => updatePhysicalCount(item.id, e.target.value)}
+                                                                className="w-28 p-2 text-right border-2 border-lilac-200 rounded-xl font-black text-xl text-lilac-900 focus:border-lilac-500 outline-none shadow-inner"
+                                                                placeholder="0"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-xl font-black leading-none text-slate-800">{item.quantity}</span>
+                                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{item.dispensingUnit || 'Units'}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                )}
+                                                <td className="p-3 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditItem(item)} className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all" aria-label={`Edit ${item.name}`}><Edit2 size={18}/></button></div></td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            {filteredStock.length === 0 && <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">No items found in branch registry.</div>}
+                        </div>
+                    </div>
+                )}
+                 {activeTab === 'transfers' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Stock Transfers</h3>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Branch Transfers</p>
+                            </div>
+                            <button onClick={() => setShowTransferForm(true)} className="bg-teal-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-teal-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-3"><Plus size={20}/> New Transfer</button>
+                        </div>
+                        {showTransferForm && (
+                            <div className="bg-white p-8 rounded-[2.5rem] border-2 border-teal-100 shadow-2xl space-y-6 animate-in zoom-in-95">
+                                <h4 className="font-black text-teal-800 uppercase tracking-widest text-sm">Initiate Transfer</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <select value={transferData.itemId} onChange={e => setTransferData({...transferData, itemId: e.target.value})} className="input md:col-span-2"><option value="">- Select Item -</option>{branchStock.map(i => <option key={i.id} value={i.id}>{i.name} (Available: {i.quantity})</option>)}</select>
+                                    <input type="number" value={transferData.quantity} onChange={e => setTransferData({...transferData, quantity: parseInt(e.target.value)})} className="input" placeholder="Quantity"/>
+                                </div>
+                                <select value={transferData.toBranch} onChange={e => setTransferData({...transferData, toBranch: e.target.value})} className="input"><option value="">- Destination Branch -</option>{availableBranches.filter(b=>b !== currentBranch).map(b => <option key={b} value={b}>{b}</option>)}</select>
+                                <div className="flex gap-4"><button onClick={() => setShowTransferForm(false)} className="flex-1 py-3 bg-slate-100 rounded-xl text-xs font-black uppercase">Cancel</button><button onClick={handleTransfer} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-xs font-black uppercase">Execute</button></div>
+                            </div>
+                        )}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500 tracking-widest">
+                                    <tr><th className="p-4 text-left">Date</th><th className="p-4 text-left">Item</th><th className="p-4 text-center">Qty</th><th className="p-4 text-left">From</th><th className="p-4 text-left">To</th><th className="p-4 text-left">Initiated By</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {transfers.map(t => (
+                                        <tr key={t.id} className="hover:bg-slate-50">
+                                            <td className="p-4 font-mono text-xs">{formatDate(t.date)}</td>
+                                            <td className="p-4 font-bold">{t.itemName}</td>
+                                            <td className="p-4 font-black text-center">{t.quantity}</td>
+                                            <td className="p-4">{t.fromBranch}</td>
+                                            <td className="p-4">{t.toBranch}</td>
+                                            <td className="p-4 text-xs font-bold uppercase text-slate-500">{t.initiatedBy}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                 )}
+                 {activeTab === 'forecasting' && (
+                    <div className="space-y-6">
+                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Stock Forecasting</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {branchStock.map(item => {
+                                const metric = predictiveMetrics[item.id];
+                                return (
+                                    <div key={item.id} className={`p-6 rounded-3xl border-2 shadow-sm ${metric.isAtRisk ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100'}`}>
+                                        <div className="font-black text-slate-800 uppercase">{item.name}</div>
+                                        <div className="flex justify-between items-end mt-4">
+                                            <div>
+                                                <div className="text-xs font-bold text-slate-500">Days Left</div>
+                                                <div className={`text-3xl font-black ${metric.daysLeft < 999 ? 'text-teal-700' : 'text-slate-400'}`}>{metric.daysLeft < 999 ? Math.round(metric.daysLeft) : '∞'}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs font-bold text-slate-500">Monthly Spend</div>
+                                                <div className="text-lg font-bold text-slate-600">{metric.burnRate.toFixed(2)}/day</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                 )}
+                 {activeTab === 'procurement' && (
+                    <div className="space-y-6">
+                         <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Procurement & Orders</h3>
+                         <div className="bg-white p-8 rounded-3xl border shadow-sm">
+                            <h4 className="font-bold text-lg mb-4">Order Supplies</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <select 
+                                    className="input"
+                                    value={poVendor}
+                                    onChange={(e) => setPoVendor(e.target.value)}
+                                >
+                                    <option value="">Select Vendor</option>
+                                    {fieldSettings?.vendors?.map(v => (
+                                        <option key={v.id} value={v.name}>{v.name}</option>
+                                    ))}
+                                    {!fieldSettings?.vendors?.length && <option value="Generic Supplier">Generic Supplier</option>}
+                                </select>
+                                <input 
+                                    type="date" 
+                                    className="input"
+                                    value={poDate}
+                                    onChange={(e) => setPoDate(e.target.value)}
+                                />
+                            </div>
+                            
+                            {/* PO Items List */}
+                            {poItems.length > 0 && (
+                                <div className="mt-4 space-y-2">
+                                    {poItems.map((item, idx) => {
+                                        const stockItem = stock.find(s => s.id === item.itemId);
+                                        return (
+                                            <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-sm">
+                                                <span>{stockItem?.name || 'Unknown Item'} (x{item.quantity})</span>
+                                                <button onClick={() => handleRemovePoItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="mt-4 border-t pt-4">
+                                <p className="font-bold mb-2">Add Item</p>
+                                <div className="flex gap-4 items-center">
+                                    <select 
+                                        className="input flex-1"
+                                        value={currentPoItem.itemId}
+                                        onChange={(e) => setCurrentPoItem(prev => ({ ...prev, itemId: e.target.value }))}
+                                    >
+                                        <option value="">Select Item</option>
+                                        {stock.map(s => <option key={s.id} value={s.id}>{s.name} (Current: {s.quantity})</option>)}
+                                    </select>
+                                    <input 
+                                        type="number" 
+                                        placeholder="Qty" 
+                                        className="input w-24"
+                                        value={currentPoItem.quantity}
+                                        onChange={(e) => setCurrentPoItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+                                    />
+                                    <button 
+                                        onClick={handleAddPoItem}
+                                        className="p-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200"
+                                        disabled={!currentPoItem.itemId || currentPoItem.quantity <= 0}
+                                    >
+                                        <Plus size={16}/>
+                                    </button>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleSubmitPO} 
+                                className="mt-6 bg-teal-600 text-white px-6 py-3 rounded-lg text-sm font-bold w-full hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                disabled={!poVendor || poItems.length === 0}
+                            >
+                                Submit Purchase Order
+                            </button>
+                         </div>
+                    </div>
+                 )}
+            </div>
+        </div>
+
+        {editItem && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex justify-center items-center p-4 animate-in fade-in duration-300">
+                <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="bg-teal-900 p-6 text-white flex justify-between items-center shrink-0 rounded-t-[2.5rem]">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-3 rounded-xl"><Package size={24} /></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">{editItem.id ? 'Edit Stock Item' : 'Register New Item'}</h3>
+                                <p className="text-xs text-teal-300 font-bold uppercase tracking-widest">Instruments</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setEditItem(null)}><X size={24} /></button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/50">
+                        <div><label className="label">Item Narrative</label><input type="text" value={editItem.name || ''} onChange={e => handleFormChange('name', e.target.value)} className="input" /></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div><label className="label">Classification</label><select value={editItem.category} onChange={e => handleFormChange('category', e.target.value)} className="input">{Object.values(StockCategory).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                            <div><label className="label">Registry Level</label><input type="number" value={editItem.quantity ?? ''} onChange={e => handleFormChange('quantity', parseInt(e.target.value))} className="input" /></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div><label className="label">Batch Number</label><input type="text" value={editItem.batchNumber || ''} onChange={e => handleFormChange('batchNumber', e.target.value)} className="input" /></div>
+                            <div><label className="label">Supplier</label><input type="text" value={editItem.supplier || ''} onChange={e => handleFormChange('supplier', e.target.value)} className="input" /></div>
+                        </div>
+                        {isAdvanced && (
+                             <div className="pt-6 border-t border-slate-200 mt-6 space-y-6">
+                                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Full Audit Trail</h4>
+                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                     <div><label className="label text-xs">Bulk Unit</label><input type="text" value={editItem.bulkUnit || ''} onChange={e => handleFormChange('bulkUnit', e.target.value)} className="input" /></div>
+                                     <div><label className="label text-xs">Dispensing Unit</label><input type="text" value={editItem.dispensingUnit || ''} onChange={e => handleFormChange('dispensingUnit', e.target.value)} className="input" /></div>
+                                     <div><label className="label text-xs">Conversion</label><input type="number" value={editItem.conversionFactor ?? ''} onChange={e => handleFormChange('conversionFactor', parseFloat(e.target.value))} className="input" /></div>
+                                     <div><label className="label text-xs">Lead Time (Days)</label><input type="number" value={editItem.leadTimeDays ?? ''} onChange={e => handleFormChange('leadTimeDays', parseInt(e.target.value))} className="input" /></div>
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+
+                    <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-[2.5rem]">
+                        <button onClick={() => setEditItem(null)} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
+                        <button onClick={handleSaveItem} className="px-12 py-4 bg-teal-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-teal-700 transition-all flex items-center gap-3">
+                            <Save size={20} /> Save to Registry
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+            {showAuditSummary && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex justify-center items-center p-4">
+                    <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3"><BarChart2 className="text-lilac-600"/> Audit Summary</h2>
+                            <button onClick={() => setShowAuditSummary(false)} className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-600 transition-colors"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">
+                                    <tr><th className="pb-3">Item</th><th className="pb-3 text-right">Expected</th><th className="pb-3 text-right">Actual</th><th className="pb-3 text-right">Variance</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {stock.filter(item => sessionPhysicalCounts.hasOwnProperty(item.id)).map(item => {
+                                        const actual = sessionPhysicalCounts[item.id];
+                                        const variance = actual - item.quantity;
+                                        return (
+                                            <tr key={item.id}>
+                                                <td className="py-3 font-bold text-slate-800">{item.name}</td>
+                                                <td className="py-3 text-right text-slate-500">{item.quantity}</td>
+                                                <td className="py-3 text-right font-bold">{actual}</td>
+                                                <td className={`py-3 text-right font-black ${variance > 0 ? 'text-teal-600' : variance < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                                                    {variance > 0 ? '+' : ''}{variance}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                            <button onClick={() => setShowAuditSummary(false)} className="px-6 py-3 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">Cancel</button>
+                            <button onClick={confirmFinalizeAudit} className="px-6 py-3 rounded-2xl font-black text-white bg-lilac-600 hover:bg-lilac-700 shadow-lg shadow-lilac-600/30 transition-all">Confirm Adjustments</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+    </div>
+  );
+};
+
+export default Inventory;

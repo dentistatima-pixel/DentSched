@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "staff": {
+      ".read": "auth != null",
+      "$staffId": {
+        ".write": "['Administrator', 'System Architect'].contains(root.child('staff').child(auth.uid).child('role').val())"
+      }
+    },
+    "patients": {
+      ".read": "auth != null && ['Administrator', 'System Architect', 'Dentist'].contains(root.child('staff').child(auth.uid).child('role').val())",
+      "$patientId": {
+        ".write": "(newData.exists() && ['Administrator', 'System Architect', 'Dentist'].contains(root.child('staff').child(auth.uid).child('role').val())) || (!newData.exists() && ['Administrator', 'System Architect'].contains(root.child('staff').child(auth.uid).child('role').val()))"
+      }
+    },
+    "appointments": {
+      ".read": "auth != null && ['Administrator', 'System Architect', 'Dentist'].contains(root.child('staff').child(auth.uid).child('role').val())",
+      "$appointmentId": {
+        ".write": "auth != null && ['Administrator', 'System Architect', 'Dentist'].contains(root.child('staff').child(auth.uid).child('role').val())"
+      }
+    },
+    "settings": {
+      ".read": "auth != null",
+      ".write": "['Administrator', 'System Architect'].contains(root.child('staff').child(auth.uid).child('role').val())"
+    },
+    "inventory": {
+      ".read": "auth != null && ['Administrator', 'System Architect', 'Dentist', 'Dental Assistant'].contains(root.child('staff').child(auth.uid).child('role').val())",
+      "$itemId": {
+        ".write": "auth != null && ['Administrator', 'System Architect', 'Dentist', 'Dental Assistant'].contains(root.child('staff').child(auth.uid).child('role').val())"
+      }
+    },
+    "financials": {
+       ".read": "['Administrator', 'System Architect'].contains(root.child('staff').child(auth.uid).child('role').val())",
+      "$recordId": {
+        ".write": "['Administrator', 'System Architect'].contains(root.child('staff').child(auth.uid).child('role').val())"
+      }
+    }
+  }
+}

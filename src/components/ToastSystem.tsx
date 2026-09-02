@@ -1,0 +1,98 @@
+
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+interface Toast {
+    id: string;
+    type: ToastType;
+    message: string;
+}
+
+interface ToastOptions {
+    duration?: number;
+}
+
+interface ToastContextType {
+    addToast: (message: string, type: ToastType, options?: ToastOptions) => void;
+    removeToast: (id: string) => void;
+}
+
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
+
+export const useToast = () => {
+    const context = useContext(ToastContext);
+    if (!context) {
+        throw new Error('useToast must be used within a ToastProvider');
+    }
+    return useMemo(() => ({
+        success: (msg: string, options?: ToastOptions) => context.addToast(msg, 'success', options),
+        error: (msg: string, options?: ToastOptions) => context.addToast(msg, 'error', options),
+        warning: (msg: string, options?: ToastOptions) => context.addToast(msg, 'warning', options),
+        info: (msg: string, options?: ToastOptions) => context.addToast(msg, 'info', options),
+    }), [context]);
+};
+
+export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [toasts, setToasts] = useState<Toast[]>([]);
+
+    const removeToast = useCallback((id: string) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+    }, []);
+
+    const addToast = useCallback((message: string, type: ToastType, options: ToastOptions = {}) => {
+        const id = Math.random().toString(36).substr(2, 9);
+        setToasts(prev => [...prev, { id, message, type }]);
+        
+        const duration = options.duration || 4000;
+        
+        setTimeout(() => {
+            removeToast(id);
+        }, duration);
+    }, [removeToast]);
+
+    const icons: Record<ToastType, React.ElementType> = {
+        success: CheckCircle,
+        error: AlertCircle,
+        warning: AlertTriangle,
+        info: Info,
+    };
+    const colors: Record<ToastType, string> = {
+        success: 'bg-teal-500 border-teal-600',
+        error: 'bg-red-500 border-red-600',
+        warning: 'bg-amber-500 border-amber-600',
+        info: 'bg-blue-500 border-blue-600',
+    };
+
+    const contextValue = useMemo(() => ({ addToast, removeToast }), [addToast, removeToast]);
+
+    return (
+        <ToastContext.Provider value={contextValue}>
+            {children}
+            {/* TOAST CONTAINER */}
+            <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+                {toasts.map(toast => {
+                    const Icon = icons[toast.type];
+                    return (
+                        <div 
+                            key={toast.id}
+                            className={`
+                                pointer-events-auto min-w-[300px] max-w-[400px] p-4 rounded-xl shadow-2xl text-white
+                                flex items-start gap-3 border-b-4
+                                ${colors[toast.type]}
+                                animate-in slide-in-from-top-4 fade-in duration-300
+                            `}
+                        >
+                            <Icon size={20} className="mt-0.5 shrink-0" />
+                            <p className="flex-1 text-sm font-bold leading-snug">{toast.message}</p>
+                            <button onClick={() => removeToast(toast.id)} className="p-1 -mr-1 -mt-1 rounded-full hover:bg-white/20 transition-colors">
+                                <X size={16} />
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+        </ToastContext.Provider>
+    );
+};

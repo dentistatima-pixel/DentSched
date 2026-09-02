@@ -1,0 +1,1756 @@
+
+
+// FIX: Imported missing financial types
+import { User, UserRole, Patient, Appointment, AppointmentStatus, LabStatus, FieldSettings, StockItem, StockCategory, Expense, TreatmentPlanStatus, AuditLogEntry, ProcedureItem, WaitlistEntry, CommunicationChannel, Branch, CommunicationTemplate, ConsentFormTemplate, RecallStatus, RegistrationStatus, Medication, AuthorityLevel, VerificationMethod, SmsTemplates, ResourceType } from './types';
+import { MEDICATIONS } from "./data/inventory/medications";
+import { INSTRUMENTS } from "./data/inventory/instruments";
+import { Calendar, CheckCircle, UserCheck, Activity, CheckCircle2 as CompletedIcon, XCircle, UserX } from 'lucide-react';
+import type { ElementType } from 'react';
+
+// Helper for new patient ID format
+const generateRandomAlpha = (length: number): string => {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+};
+
+// Generators for mock data
+export const generateUid = (prefix = 'id') => {
+    // The user wants a specific format for patient IDs.
+    // New format: 8-digit number + 5 alpha characters, e.g. 17765432QASGT
+    if (prefix === 'p') {
+        const timestampPart = Date.now().toString().slice(-8);
+        const randomAlphaPart = generateRandomAlpha(5);
+        return `${timestampPart}${randomAlphaPart}`;
+    }
+    
+    // Keep original format for other IDs (appointments, notes, etc.)
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+};
+
+// --- DATE UTILITY ---
+const getTodayStr = () => new Date().toLocaleDateString('en-CA');
+const getPastDateStr = (days: number, date = new Date()) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - days);
+    return d.toLocaleDateString('en-CA');
+}
+const getFutureDateStr = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString('en-CA');
+}
+
+export const formatDate = (dateStr: string | undefined | null) => {
+  if (!dateStr) return '-';
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateStr.split('-');
+    return `${month}/${day}/${year}`;
+  }
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  });
+};
+
+export const calculateAge = (dob: string | null | undefined): number | undefined => {
+    if (!dob) return undefined;
+    try {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    } catch {
+        return undefined;
+    }
+};
+
+export const isExpired = (dateStr?: string | null): boolean => {
+    if (!dateStr) return false;
+    // Set to end of day to be inclusive of the expiry date
+    const expiryDate = new Date(dateStr);
+    expiryDate.setHours(23, 59, 59, 999);
+    return expiryDate < new Date();
+};
+
+export const isWithin30Days = (dateStr?: string | null): boolean => {
+    if (!dateStr) return false;
+    const expiryDate = new Date(dateStr);
+    // FIX: Declared today with const to resolve "Cannot find name" error
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    return expiryDate > today && expiryDate <= thirtyDaysFromNow;
+};
+
+export const APPOINTMENT_STATUS_WORKFLOW: AppointmentStatus[] = [
+    AppointmentStatus.SCHEDULED,
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.ARRIVED,
+    AppointmentStatus.IN_TREATMENT,
+    AppointmentStatus.COMPLETED,
+];
+
+interface AppointmentStatusConfig {
+    label: string;
+    icon: ElementType;
+    badgeClass: string;
+}
+
+const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, AppointmentStatusConfig> = {
+    [AppointmentStatus.SCHEDULED]: {
+        label: 'Scheduled',
+        icon: Calendar,
+        badgeClass: 'bg-slate-100 text-slate-700',
+    },
+    [AppointmentStatus.CONFIRMED]: {
+        label: 'Confirmed',
+        icon: CheckCircle,
+        badgeClass: 'bg-blue-100 text-blue-700',
+    },
+    [AppointmentStatus.ARRIVED]: {
+        label: 'Arrived',
+        icon: UserCheck,
+        badgeClass: 'bg-orange-100 text-orange-700',
+    },
+    [AppointmentStatus.IN_TREATMENT]: {
+        label: 'In Treatment',
+        icon: Activity,
+        badgeClass: 'bg-lilac-200 text-lilac-800',
+    },
+    [AppointmentStatus.COMPLETED]: {
+        label: 'Completed',
+        icon: CompletedIcon,
+        badgeClass: 'bg-teal-100 text-teal-700',
+    },
+    [AppointmentStatus.CANCELLED]: {
+        label: 'Cancelled',
+        icon: XCircle,
+        badgeClass: 'bg-red-100 text-red-700',
+    },
+    [AppointmentStatus.NO_SHOW]: {
+        label: 'No Show',
+        icon: UserX,
+        badgeClass: 'bg-red-200 text-red-800',
+    },
+};
+
+export const getAppointmentStatusConfig = (status: AppointmentStatus): AppointmentStatusConfig => {
+    return APPOINTMENT_STATUS_CONFIG[status];
+};
+
+export const PDA_FORBIDDEN_COMMERCIAL_TERMS = ['cheap', 'discount', 'best', 'sale', 'promo', 'off', 'bargain', 'limited time'];
+export const CRITICAL_CLEARANCE_CONDITIONS = ['High BP', 'Heart Disease', 'Diabetes', 'Bleeding Issues', 'High Blood Pressure', 'Taking Blood Thinners? (Aspirin, Warfarin, etc.)'];
+
+export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
+    { id: 'al_1', timestamp: getPastDateStr(1), userId: 'doc1', userName: 'Dr. Alexander Crentist', action: 'LOGIN', entity: 'System', entityId: 'doc1', details: 'User logged in successfully.' },
+    { id: 'al_2', timestamp: getTodayStr(), userId: 'admin1', userName: 'Sarah Connor', action: 'CREATE', entity: 'Appointment', entityId: 'apt_today_01', details: 'Created new appointment for Michael Scott.' }
+];
+
+export const MOCK_STOCK: StockItem[] = [
+    ...INSTRUMENTS,
+
+    // --- CONSUMABLES (Disposable) ---
+    // PPE & Day-to-Day
+    { id: 'cons_bib', name: 'Patient Bibs', category: StockCategory.PPE, quantity: 500, unitCost: 1.20, boxPrice: 600, unitsPerBox: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 500, location: 'Stock Room' },
+    { id: 'cons_saliva_ejector', name: 'Saliva Ejectors (Low Vol)', category: StockCategory.CONSUMABLES, quantity: 300, unitCost: 1.20, boxPrice: 120, unitsPerBox: 100, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_hve_tip', name: 'HVE Suction Tips', category: StockCategory.CONSUMABLES, quantity: 200, unitCost: 3.00, boxPrice: 150, unitsPerBox: 50, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_gloves_s', name: 'Exam Gloves (Small)', category: StockCategory.PPE, quantity: 1000, unitCost: 3.00, boxPrice: 300, unitsPerBox: 100, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_m', name: 'Exam Gloves (Medium)', category: StockCategory.PPE, quantity: 1500, unitCost: 3.00, boxPrice: 300, unitsPerBox: 100, lowStockThreshold: 300, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_l', name: 'Exam Gloves (Large)', category: StockCategory.PPE, quantity: 1000, unitCost: 3.00, boxPrice: 300, unitsPerBox: 100, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_gloves_surg', name: 'Surgical Gloves (Sterile)', category: StockCategory.PPE, quantity: 50, unitCost: 18.00, boxPrice: 900, unitsPerBox: 50, lowStockThreshold: 20, dispensingUnit: 'Pair', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_mask_l2', name: 'Face Masks (Level 2)', category: StockCategory.PPE, quantity: 500, unitCost: 2.40, boxPrice: 120, unitsPerBox: 50, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_headcap', name: 'Head Caps (Bouffant)', category: StockCategory.PPE, quantity: 200, unitCost: 1.50, boxPrice: 150, unitsPerBox: 100, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_shoecover', name: 'Shoe Covers', category: StockCategory.PPE, quantity: 200, unitCost: 2.00, boxPrice: 200, unitsPerBox: 100, lowStockThreshold: 50, dispensingUnit: 'Pair', bulkUnit: 'Bag', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_cup', name: 'Paper Cups', category: StockCategory.CONSUMABLES, quantity: 500, unitCost: 1.00, boxPrice: 50, unitsPerBox: 50, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Sleeve', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_tissue', name: 'Facial Tissues', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 60.00, boxPrice: 60, unitsPerBox: 1, lowStockThreshold: 5, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_cotton_roll', name: 'Cotton Rolls (Size 2)', category: StockCategory.CONSUMABLES, quantity: 1000, unitCost: 1.00, boxPrice: 50, unitsPerBox: 50, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Roll', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_cotton_ball', name: 'Cotton Balls', category: StockCategory.CONSUMABLES, quantity: 500, unitCost: 0.20, boxPrice: 100, unitsPerBox: 500, lowStockThreshold: 100, dispensingUnit: 'Piece', bulkUnit: 'Bag', conversionFactor: 500, location: 'Stock Room' },
+    { id: 'cons_gauze_2x2', name: 'Gauze Sponges (2x2)', category: StockCategory.CONSUMABLES, quantity: 1000, unitCost: 0.75, boxPrice: 150, unitsPerBox: 200, lowStockThreshold: 200, dispensingUnit: 'Piece', bulkUnit: 'Sleeve', conversionFactor: 200, location: 'Stock Room' },
+    { id: 'cons_alcohol', name: 'Alcohol (70% Ethyl)', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 80.00, boxPrice: 80, unitsPerBox: 1, lowStockThreshold: 3, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_amalgam', name: 'Amalgam Capsules (Non-Gamma 2)', category: StockCategory.RESTORATIVE, quantity: 50, unitCost: 40.00, boxPrice: 2000, unitsPerBox: 50, lowStockThreshold: 10, dispensingUnit: 'Capsule', bulkUnit: 'Jar', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_biopsy_kit', name: 'Biopsy Transport Kit (Formalin)', category: StockCategory.SURGICAL, quantity: 5, unitCost: 500.00, boxPrice: 500, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_ssc_kit', name: 'Stainless Steel Crowns (Assorted Kit)', category: StockCategory.RESTORATIVE, quantity: 2, unitCost: 5000.00, boxPrice: 5000, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Kit', location: 'Stock Room' },
+
+    // Hygiene
+    { id: 'cons_prophy_paste', name: 'Prophy Paste (Medium Mint)', category: StockCategory.PREVENTIVE, quantity: 100, unitCost: 7.50, boxPrice: 1500, unitsPerBox: 200, lowStockThreshold: 20, dispensingUnit: 'Cup', bulkUnit: 'Box', conversionFactor: 200, location: 'Stock Room' },
+    { id: 'cons_prophy_brush', name: 'Prophy Brushes', category: StockCategory.PREVENTIVE, quantity: 100, unitCost: 5.56, boxPrice: 800, unitsPerBox: 144, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 144, location: 'Stock Room' },
+    { id: 'cons_pumice', name: 'Pumice Powder', category: StockCategory.PREVENTIVE, quantity: 2, unitCost: 200.00, boxPrice: 200, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Jar', location: 'Lab' },
+    { id: 'cons_h2o2', name: 'Hydrogen Peroxide 3%', category: StockCategory.PREVENTIVE, quantity: 5, unitCost: 50.00, boxPrice: 50, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_fluoride', name: 'Fluoride Varnish', category: StockCategory.PREVENTIVE, quantity: 50, unitCost: 70.00, boxPrice: 3500, unitsPerBox: 50, lowStockThreshold: 10, dispensingUnit: 'Dose', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+
+    // Restorative
+    { id: 'cons_comp_a2', name: 'Composite Resin (Shade A2)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 2000.00, boxPrice: 2000, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_comp_a3', name: 'Composite Resin (Shade A3)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 2000.00, boxPrice: 2000, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_bond', name: 'Bonding Agent (Adhesive)', category: StockCategory.RESTORATIVE, quantity: 3, unitCost: 1800.00, boxPrice: 1800, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Cold Storage' },
+    { id: 'cons_etch', name: 'Etchant Gel', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 400.00, boxPrice: 400, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_flowable', name: 'Flowable Composite (A2)', category: StockCategory.RESTORATIVE, quantity: 3, unitCost: 1500.00, boxPrice: 1500, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_sealant', name: 'Pit & Fissure Sealant', category: StockCategory.PREVENTIVE, quantity: 3, unitCost: 1200.00, boxPrice: 1200, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Cold Storage' },
+    { id: 'cons_art_paper', name: 'Articulating Paper (Blue)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 100.00, boxPrice: 100, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Booklet', location: 'Stock Room' },
+    { id: 'cons_mylar', name: 'Mylar Strips', category: StockCategory.RESTORATIVE, quantity: 2, unitCost: 150.00, boxPrice: 150, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_polishing_strip', name: 'Polishing Strips', category: StockCategory.RESTORATIVE, quantity: 2, unitCost: 300.00, boxPrice: 300, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_matrix_band', name: 'Matrix Bands (Universal)', category: StockCategory.RESTORATIVE, quantity: 50, unitCost: 12.50, boxPrice: 150, unitsPerBox: 12, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Pack', conversionFactor: 12, location: 'Stock Room' },
+    { id: 'cons_wedges', name: 'Wooden Wedges (Assorted)', category: StockCategory.RESTORATIVE, quantity: 200, unitCost: 1.00, boxPrice: 400, unitsPerBox: 400, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 400, location: 'Stock Room' },
+    { id: 'cons_teflon', name: 'Teflon Tape', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 20.00, boxPrice: 20, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Roll', location: 'Stock Room' },
+    { id: 'cons_microbrush', name: 'Microbrushes', category: StockCategory.RESTORATIVE, quantity: 200, unitCost: 1.50, boxPrice: 150, unitsPerBox: 100, lowStockThreshold: 50, dispensingUnit: 'Piece', bulkUnit: 'Tube', conversionFactor: 100, location: 'Stock Room' },
+
+    ...MEDICATIONS,
+
+    // Surgical
+    { id: 'cons_lido', name: 'Lidocaine 2% w/ Epi', category: StockCategory.SURGICAL, quantity: 100, unitCost: 24.00, boxPrice: 1200, unitsPerBox: 50, lowStockThreshold: 20, dispensingUnit: 'Carpule', bulkUnit: 'Box', conversionFactor: 50, location: 'Stock Room' },
+    { id: 'cons_topical', name: 'Topical Anesthetic Gel', category: StockCategory.SURGICAL, quantity: 2, unitCost: 350.00, boxPrice: 350, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Jar', location: 'Stock Room' },
+    { id: 'cons_needle_short', name: 'Dental Needles (27G Short)', category: StockCategory.SURGICAL, quantity: 100, unitCost: 4.00, boxPrice: 400, unitsPerBox: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_needle_long', name: 'Dental Needles (30G Long)', category: StockCategory.SURGICAL, quantity: 100, unitCost: 4.00, boxPrice: 400, unitsPerBox: 100, lowStockThreshold: 20, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_blade_15', name: 'Surgical Blade #15', category: StockCategory.SURGICAL, quantity: 50, unitCost: 3.00, boxPrice: 300, unitsPerBox: 100, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+    { id: 'cons_suture_silk', name: 'Suture Silk 3-0', category: StockCategory.SURGICAL, quantity: 24, unitCost: 50.00, boxPrice: 600, unitsPerBox: 12, lowStockThreshold: 6, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 12, location: 'Stock Room' },
+    { id: 'cons_saline', name: 'Sterile Saline Solution', category: StockCategory.SURGICAL, quantity: 10, unitCost: 100.00, boxPrice: 100, unitsPerBox: 1, lowStockThreshold: 3, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_betadine', name: 'Betadine Gargle', category: StockCategory.SURGICAL, quantity: 5, unitCost: 250.00, boxPrice: 250, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_syringe_irr', name: 'Disposable Syringe 10cc', category: StockCategory.SURGICAL, quantity: 50, unitCost: 5.00, boxPrice: 500, unitsPerBox: 100, lowStockThreshold: 10, dispensingUnit: 'Piece', bulkUnit: 'Box', conversionFactor: 100, location: 'Stock Room' },
+
+    // --- NEW INSTRUMENTS (General & Ortho) ---
+    { id: 'inst_bur_diamond_round', name: 'Bur - Diamond Round (High Speed)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_bur_fissure', name: 'Bur - Fissure (High Speed)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rd_punch', name: 'Rubber Dam Punch', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rd_forceps', name: 'Rubber Dam Forceps', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_rd_clamps', name: 'Rubber Dam Clamps (Assorted)', category: StockCategory.INSTRUMENTS, quantity: 15, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_explorer', name: 'Endo Explorer (DG16)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_excavator', name: 'Endo Excavator', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_spreader', name: 'Root Canal Spreader', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_endo_plugger', name: 'Root Canal Plugger', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_imp_tray', name: 'Metal Impression Trays (Assorted)', category: StockCategory.INSTRUMENTS, quantity: 20, lowStockThreshold: 5, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_cement_spatula', name: 'Cement Spatula', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_alginate_spatula', name: 'Alginate Spatula', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_plaster_bowl', name: 'Plaster Bowl', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_crown_remover', name: 'Crown Remover', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_dappen_dish', name: 'Dappen Dish (Glass/Metal)', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_syr_aspirator', name: 'Syringe Aspirator', category: StockCategory.INSTRUMENTS, quantity: 10, lowStockThreshold: 4, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_plier', name: 'Orthodontic Pliers (Universal)', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_distal_cutter', name: 'Distal End Cutter', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_lig_cutter', name: 'Pin & Ligature Cutter', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_weingart', name: 'Weingart Utility Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_mathieu', name: 'Mathieu Needle Holder', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_howe', name: 'Howe Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bird_beak', name: 'Bird Beak Pliers', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bracket_tweezer', name: 'Bracket Placement Tweezers', category: StockCategory.INSTRUMENTS, quantity: 5, lowStockThreshold: 2, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_band_pusher', name: 'Band Pusher/Seater', category: StockCategory.INSTRUMENTS, quantity: 3, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_bracket_remover', name: 'Bracket Remover Pliers', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+    { id: 'inst_ortho_adhesive_remover', name: 'Adhesive Removing Pliers', category: StockCategory.INSTRUMENTS, quantity: 2, lowStockThreshold: 1, dispensingUnit: 'Piece', location: 'Sterilization Room' },
+
+    // --- NEW CONSUMABLES (General & Ortho) ---
+    { id: 'cons_endo_kfile', name: 'K-Files (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 58.33, boxPrice: 350, unitsPerBox: 6, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_hfile', name: 'H-Files (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 58.33, boxPrice: 350, unitsPerBox: 6, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_rotary', name: 'Rotary NiTi Files', category: StockCategory.CONSUMABLES, quantity: 15, unitCost: 250.00, boxPrice: 1500, unitsPerBox: 6, lowStockThreshold: 4, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_endo_paper_pts', name: 'Paper Points (Assorted)', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 2.00, boxPrice: 200, unitsPerBox: 100, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_gp_pts', name: 'Gutta-Percha Points', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 2.50, boxPrice: 250, unitsPerBox: 100, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_sealer', name: 'Root Canal Sealer', category: StockCategory.CONSUMABLES, quantity: 3, unitCost: 2500.00, boxPrice: 2500, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_rd_sheets', name: 'Rubber Dam Sheets', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 9.72, boxPrice: 350, unitsPerBox: 36, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_endo_naocl', name: 'Sodium Hypochlorite (NaOCl)', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 150.00, boxPrice: 150, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_endo_edta', name: 'EDTA Solution', category: StockCategory.CONSUMABLES, quantity: 3, unitCost: 450.00, boxPrice: 450, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_imp_alginate', name: 'Alginate Powder', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 350.00, boxPrice: 350, unitsPerBox: 1, lowStockThreshold: 3, dispensingUnit: 'Bag', location: 'Stock Room' },
+    { id: 'cons_imp_pvs_putty', name: 'PVS Putty (Base/Catalyst)', category: StockCategory.CONSUMABLES, quantity: 4, unitCost: 1250.00, boxPrice: 2500, unitsPerBox: 2, lowStockThreshold: 1, dispensingUnit: 'Tub', location: 'Stock Room' },
+    { id: 'cons_imp_pvs_light', name: 'PVS Light Body (Wash)', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 600.00, boxPrice: 1200, unitsPerBox: 2, lowStockThreshold: 3, dispensingUnit: 'Cartridge', location: 'Stock Room' },
+    { id: 'cons_imp_bite_reg', name: 'Bite Registration Paste', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 750.00, boxPrice: 1500, unitsPerBox: 2, lowStockThreshold: 2, dispensingUnit: 'Cartridge', location: 'Stock Room' },
+    { id: 'cons_imp_mix_tips', name: 'Disposable Mixing Tips', category: StockCategory.CONSUMABLES, quantity: 100, unitCost: 10.00, boxPrice: 500, unitsPerBox: 50, lowStockThreshold: 20, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_cem_gic', name: 'Glass Ionomer Cement (GIC)', category: StockCategory.RESTORATIVE, quantity: 5, unitCost: 1800.00, boxPrice: 1800, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_cem_dycal', name: 'Calcium Hydroxide (Dycal)', category: StockCategory.RESTORATIVE, quantity: 3, unitCost: 800.00, boxPrice: 800, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_cem_temp', name: 'Temporary Cement (Temp-Bond)', category: StockCategory.RESTORATIVE, quantity: 4, unitCost: 600.00, boxPrice: 600, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Tube', location: 'Stock Room' },
+    { id: 'cons_cem_irm', name: 'IRM (Intermediate Restorative)', category: StockCategory.RESTORATIVE, quantity: 3, unitCost: 1200.00, boxPrice: 1200, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_inf_pouches', name: 'Autoclave Pouches (Assorted)', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 2.00, boxPrice: 400, unitsPerBox: 200, lowStockThreshold: 3, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_inf_ind_tape', name: 'Sterilization Indicator Tape', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 250.00, boxPrice: 250, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Roll', location: 'Stock Room' },
+    { id: 'cons_inf_wipes', name: 'Surface Disinfectant Wipes', category: StockCategory.CONSUMABLES, quantity: 12, unitCost: 3.75, boxPrice: 600, unitsPerBox: 160, lowStockThreshold: 4, dispensingUnit: 'Tub', location: 'Stock Room' },
+    { id: 'cons_inf_enzymatic', name: 'Ultrasonic Enzymatic Solution', category: StockCategory.CONSUMABLES, quantity: 4, unitCost: 1500.00, boxPrice: 1500, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Gallon', location: 'Stock Room' },
+    { id: 'cons_surg_gelfoam', name: 'Hemostatic Agent (Gelfoam)', category: StockCategory.SURGICAL, quantity: 5, unitCost: 80.00, boxPrice: 800, unitsPerBox: 10, lowStockThreshold: 2, dispensingUnit: 'Box', location: 'Stock Room' },
+    { id: 'cons_ortho_brackets', name: 'Metal Brackets (MBT/Roth)', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 75.00, boxPrice: 1500, unitsPerBox: 20, lowStockThreshold: 5, dispensingUnit: 'Kit', location: 'Stock Room' },
+    { id: 'cons_ortho_bands', name: 'Molar Bands (Assorted)', category: StockCategory.CONSUMABLES, quantity: 50, unitCost: 100.00, boxPrice: 1000, unitsPerBox: 10, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_ortho_tubes', name: 'Buccal Tubes', category: StockCategory.CONSUMABLES, quantity: 50, unitCost: 80.00, boxPrice: 800, unitsPerBox: 10, lowStockThreshold: 10, dispensingUnit: 'Piece', location: 'Stock Room' },
+    { id: 'cons_ortho_niti', name: 'NiTi Archwires (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 50.00, boxPrice: 500, unitsPerBox: 10, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_ortho_ss', name: 'SS Archwires (Assorted)', category: StockCategory.CONSUMABLES, quantity: 20, unitCost: 40.00, boxPrice: 400, unitsPerBox: 10, lowStockThreshold: 5, dispensingUnit: 'Pack', location: 'Stock Room' },
+    { id: 'cons_ortho_elastics_tie', name: 'Elastomeric Ligature Ties', category: StockCategory.CONSUMABLES, quantity: 50, unitCost: 0.25, boxPrice: 250, unitsPerBox: 1000, lowStockThreshold: 10, dispensingUnit: 'Stick', location: 'Stock Room' },
+    { id: 'cons_ortho_powerchain', name: 'Power Chain (Spool)', category: StockCategory.CONSUMABLES, quantity: 10, unitCost: 350.00, boxPrice: 350, unitsPerBox: 1, lowStockThreshold: 3, dispensingUnit: 'Spool', location: 'Stock Room' },
+    { id: 'cons_ortho_elastics_io', name: 'Intraoral Elastics (Rubber Bands)', category: StockCategory.CONSUMABLES, quantity: 30, unitCost: 1.50, boxPrice: 150, unitsPerBox: 100, lowStockThreshold: 10, dispensingUnit: 'Bag', location: 'Stock Room' },
+    { id: 'cons_ortho_lig_wire', name: 'Steel Ligature Wire', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 200.00, boxPrice: 200, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Tube', location: 'Stock Room' },
+    { id: 'cons_ortho_adhesive', name: 'Orthodontic Adhesive (LC)', category: StockCategory.CONSUMABLES, quantity: 5, unitCost: 1200.00, boxPrice: 1200, unitsPerBox: 1, lowStockThreshold: 2, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_ortho_primer', name: 'Orthodontic Primer', category: StockCategory.CONSUMABLES, quantity: 3, unitCost: 800.00, boxPrice: 800, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Bottle', location: 'Stock Room' },
+    { id: 'cons_ortho_band_cem', name: 'Band Cement (GIC)', category: StockCategory.CONSUMABLES, quantity: 3, unitCost: 1500.00, boxPrice: 1500, unitsPerBox: 1, lowStockThreshold: 1, dispensingUnit: 'Syringe', location: 'Stock Room' },
+    { id: 'cons_ortho_wax', name: 'Orthodontic Patient Wax', category: StockCategory.CONSUMABLES, quantity: 50, unitCost: 50.00, boxPrice: 50, unitsPerBox: 1, lowStockThreshold: 10, dispensingUnit: 'Pack', location: 'Stock Room' }
+];
+
+export const MOCK_EXPENSES: Expense[] = [
+    { id: 'exp_01', date: getPastDateStr(5), category: 'Office Supplies', description: 'Bond paper and pens', amount: 1500, branch: 'Makati Main' },
+];
+
+export const MOCK_WAITLIST: WaitlistEntry[] = [
+    { id: 'wl_1', patientId: 'p_reliable_01', patientName: 'Eleanor Shellstrop', procedure: 'Oral Prophylaxis', durationMinutes: 45, priority: 'Normal' },
+    { id: 'wl_2', patientId: 'p_credit_03', patientName: 'Maria Clara', procedure: 'Consultation', durationMinutes: 30, priority: 'Low' },
+];
+
+export const PROCEDURE_TO_CONSENT_MAP: Record<string, string> = {
+    'extraction': 'EXTRACTION',
+    'root canal': 'ROOT_CANAL',
+    'crown': 'CROWNS_BRIDGES',
+    'bridge': 'CROWNS_BRIDGES',
+    'cap': 'CROWNS_BRIDGES',
+    'periodontal': 'PERIODONTAL',
+    'filling': 'FILLINGS',
+    'restoration': 'FILLINGS',
+    'denture': 'DENTURES',
+    'flexible': 'DENTURES',
+    'thermosen': 'DENTURES',
+    'x-ray': 'RADIOGRAPH',
+    'radiograph': 'RADIOGRAPH'
+};
+
+export const DEFAULT_CONSENT_FORM_TEMPLATES: ConsentFormTemplate[] = [
+    { id: 'GENERAL_AUTHORIZATION', name: 'General Authorization', content_en: "I understand that dentistry is not an exact science and that no dentist can properly guarantee accurate results all the time. I hereby authorize any of the doctors/dental auxiliaries to proceed with & perform the dental restorations & treatments as explained to me. I understand that these are subject to modification depending on undiagnosable circumstances that may arise during the course of treatment. I understand that regardless of any dental insurance coverage I may have, I am responsible for payment of dental fees, I agree to pay any attorney's fees, collection fee, or court costs that may be incurred to satisfy any obligation to this office. All treatment were properly explained to me & any untoward circumstances that may arise during the procedure, the attending dentist will not be held liable since it is my free will, with full trust & confidence in him/her, to undergo dental treatment under his/her care.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagdedentista ay hindi isang eksaktong agham at walang dentista ang makakapaggarantiya ng tumpak na mga resulta sa lahat ng oras. Pinahihintulutan ko ang sinuman sa mga doktor/dental auxiliaries na magpatuloy at isagawa ang mga dental restoration at paggamot na ipinaliwanag sa akin. Nauunawaan ko na ang mga ito ay maaaring baguhin depende sa mga hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng paggamot. Nauunawaan ko na, anuman ang aking dental insurance, ako ang may pananagutan sa pagbabayad ng mga bayarin sa ngipin, at sumasang-ayon akong bayaran ang anumang mga bayarin sa abogado, bayarin sa koleksyon, o gastos sa korte na maaaring magastos upang matugunan ang anumang obligasyon sa opisina na ito. Ang lahat ng paggamot ay ipinaliwanag nang maayos sa akin at anumang hindi inaasahang pangyayari na maaaring lumitaw sa panahon ng pamamaraan, ang dumadating na dentista ay hindi mananagot dahil ito ay aking malayang kalooban, na may buong tiwala at kumpiyansa sa kanya, na sumailalim sa paggamot sa ngipin sa ilalim ng kanyang pangangalaga." },
+    { id: 'TREATMENT_DONE', name: 'Treatment To Be Done', content_en: "I understand and consent to have any treatment done by the dentist after the procedure, the risks & benefits & cost have been fully explained. These treatments include, but are not limited to, x-rays, cleanings, periodontal treatments, fillings, crowns, bridges, all types of extraction, root canals, &/or dentures, local anesthetics & surgical cases.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan at pumapayag ako na isagawa ang anu-anong paggamot ng dentista pagkatapos ng pamamaraan, ang mga panganib at benepisyo at gastos ay ganap na naipaliwanag. Kasama sa mga paggamot na ito, ngunit hindi limitado sa, x-ray, paglalinis, paggamot sa periodontal, pasta, korona, tulay, lahat ng uri ng pagbunot, root canal, at/o pustiso, lokal na anestisya at mga kaso ng operasyon." },
+    { id: 'DRUGS_MEDICATIONS', name: 'Drugs & Medications', content_en: "I understand that antibiotics, analgesics & other medications can cause allergic reactions like redness & swelling of tissues, pain, itching, vomiting, &/or anaphylactic shock.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang mga antibiotic, analgesic at iba pang mga gamot ay maaaring magdulot ng mga reaksiyong alerhiya tulad ng pamumula at pamamaga ng mga tisyu, sakit, pangangati, pagsusuka, at/o anaphylactic shock." },
+    { id: 'TREATMENT_CHANGES', name: 'Changes in Treatment Plan', content_en: "I understand that during treatment it may be necessary to change/ add procedures because of conditions found while working on the teeth that was not discovered during examination. For example, root canal therapy may be needed following routine restorative procedures. I give my permission to the dentist to make any/all changes and additions as necessary w/ my responsibility to pay all the costs agreed.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na sa panahon ng paggamot maaaring kailanganing baguhin/magdagdag ng mga pamamaraan dahil sa mga kondisyon na natagpuan habang ginagawa ang mga ngipin na hindi natuklasan sa panahon ng pagsusuri. Halimbawa, maaaring kailanganin ang root canal therapy kasunod ng mga karaniwang pamamaraan ng pagpapanumbalik. Ibinibigay ko ang aking pahintulot sa dentista na gumawa ng anuman/lahat ng mga pagbabago at karagan kung kinakailangang kasama ang aking responsibilidad na bayaran ang lahat ng napagkasunduang gastos." },
+    { id: 'RADIOGRAPH', name: 'Radiograph', content_en: "I understand that an x-ray shot or a radiograph maybe necessary as part of diagnostic aid to come up with tentative diagnosis of my dental problem and to make a good treatment plan, but, this will not give me a 100% assurance for the accuracy of the treatment since all dental treatments are subject to unpredictable complications that later on may lead to sudden change of treatment plan and subject to new charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang isang x-ray shot o radiograph ay maaaring kailanganin bilang bahagi ng tulong sa pag-diagnose upang makabuo ng pansamantalang diagnosis ng aking problema sa ngipin at gumawa ng isang mahusay na plano sa paggamot, ngunit, hindi ito magbibigay sa akin ng 100% kasiguruhan para sa katumpakan ng paggamot dahil ang lahat ng paggamot sa ngipin ay napapailalim sa hindi mahuhulaan na mga komplikasyon na sa kalaunan ay maaaring humantong sa biglaang pagbabago ng plano sa paggamot at napapailalim sa mga bagong singil." },
+    { id: 'EXTRACTION', name: 'Removal of Teeth', content_en: "I understand that alternatives to tooth removal (root canal therapy, crowns & periodontal surgery, etc.) & I completely understand these alternatives, including their risk & benefits prior to authorizing the dentist to remove teeth & any other structures necessary for reasons above. I understand that removing teeth does not always remove all the infections, if present, & it may be necessary to have further treatment. I understand the risk involved in having teeth removed, such as pain, swelling, spread of infection, dry socket, fractured jaw, loss of feeling on the teeth, lips, tongue & surrounding tissue that can last for an indefinite period of time. I understand that I may need further treatment under a specialist if complications arise during or following treatment.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko ang mga alternatibo sa pagbunot ng ngipin (root canal therapy, korona at periodontal surgery, atbp.) at lubos kong nauunawaan ang mga alternatibong ito, kabilang ang kanilang mga panganib at benepisyo bago pahintulutan ang dentista na bunutin ang mga ngipin at anumang iba pang mga istraktura na kinakailangang para sa mga dahilan sa itaas. Nauunawaan ko na ang pagbunot ng mga ngipin ay hindi palaging nag-aalis ng lahat ng impeksyon, kung mayroon, at maaaring kailanganin na magkaroon ng karagdagang paggamot. Nauunawaan ko ang mga panganib na kasangkot sa pagbunot ng ngipin, tulad ng sakit, pamamaga, pagkalat ng impeksyon, dry socket, bali ng panga, pagkawala ng pakiramdam sa ngipin, labi, dila at nakapaligid na tisyu na maaaring tumagal nang walang katiyakan. Nauunawaan ko na maaaring kailanganin ko ng karagdagang paggamot sa ilalim ng isang espesyalista kung magkakaroon ng mga komplikasyon sa panahon o pagkatapos ng paggamot." },
+    { id: 'CROWNS_BRIDGES', name: 'Crowns, Caps & Bridges', content_en: "Preparing a tooth may irritate the nerve tissue in the center of the tooth, leaving the tooth extra sensitive to heat, cold & pressure. Treating such irritation may involve using special toothpastes, mouth rinses or root canal therapy. I understand that sometimes it is not possible to match the color of natural teeth exactly with artificial teeth. I further understand that I may be wearing temporary crowns, which may come off easily & that I must be careful to ensure that they are kept on until the permanent crowns are delivered. It is my responsibility to return for permanent cementation within 20 days from tooth preparation, as excessive days delay may allow for tooth movement, which may necessitate a remake of the crown, bridge/ cap. I understand there will be additional charges for remakes due to my delaying of permanent cementation, & I realize that final opportunity to make changes in my new crown, bridges or cap (including shape, fit, size, & color) will be before permanent cementation.", content_tl: "[Pagsasalin sa Tagalog]: Ang paghahanda ng ngipin ay maaaring makairita sa tisyu ng nerbiyos sa gitna ng ngipin, na nag-iiwan sa ngipin na sobrang sensitibo sa init, lamig at presyon. Ang paggamot sa naturang pangangati ay maaaring kasangkot sa paggamit ng mga espesyal na toothpaste, mouth rinses o root canal therapy. Nauunawaan ko na kung minsan ay hindi posible na eksaktong tumugma sa kulay ng mga natural na ngipin sa mga artipisiyal na ngipin. Higit pa rito, nauunawaan ko na maaaring ako ay nagsusuot ng mga pansamantalang korona, na maaaring madaling matanggal at dapat akong mag-ingat upang matiyaky na mananatili ang mga ito hanggang sa maihatid ang mga permanenteng korona. Responsibilidad kong bumalik para sa permanenteng sementasyon sa loob ng 20 araw mula sa paghahanda ng ngipin, dahil ang labis na araw ng pagkaantala ay maaaring magbigay-daan para sa paggalaw ng ngipin, na maaaring mangailangan ng muling paggawa ng korona, tulay/ takip. Nauunawaan ko na magkakaroon ng mga karagdagang singil para sa muling paggawa dahil sa aking pagkaantala ng permanenteng sementasyon, at napagtanto ko na ang huling pagkakataon na gumawa ng mga pagbabago sa aking bagong korona, tulay o takip (kabilang ang hugis, sukat, laki, at kulay) ay bago ang permanenteng sementasyon." },
+    { id: 'ROOT_CANAL', name: 'Endodontics (Root Canal)', content_en: "I understand there is no guarantee that a root canal treatment will save a tooth & that complications can occur from the treatment & that occasionally root canal filling materials may extend through the tooth which does not necessarily effect the success of the treatment. I understand that endodontic files & drills are very fine instruments & stresses vented in their manufacture & calcifications present in teeth can cause them to break during use. I understand that referral to the endodontist for additional treatments may be necessary following any root canal treatment & I agree that I am responsible for any additional cost for treatment performed by the endodontist. I understand that a tooth may require removal in spite of all efforts to save it.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na walang garantiya na ang isang root canal treatment ay makakapagligtas sa isang ngipin at maaaring magkakaroon ng mga komplikasyon mula sa paggamot at na paminsan-minsan ang mga materyales sa pagpuno ng root canal ay maaaring lumampas sa ngipin na hindi kinakailangang makaapekto sa tagumpay ng paggamot. Nauunawaan ko na ang mga endodontic file at drill ay napakapinong mga instrumento at ang mga stress na ibinubuga sa kanilang paggawa at mga calcification na naroroon sa mga ngipin ay maaaring maging sanhi ng pagkasira nito sa panahon ng paggamit. Nauunawaan ko na ang referral sa endodontist para sa mga karagdagang paggamot ay maaaring kailanganin kasunod ng anumang root canal treatment at sumasang-ayon ako na ako ang may pananagutan para sa anumang karagdagang gastos para sa paggamot na ginawa ng endodontist. Nauunawaan ko na ang isang ngipin ay maaaring kailanganing tanggalin sa kabila ng lahat ng pagsisikap na iligtas ito." },
+    { id: 'PERIODONTAL', name: 'Periodontal Disease', content_en: "I understand that periodontal disease is a serious condition causing gum & bone inflammation &/or loss & that can lead eventually to the loss of my teeth. I understand the alternative treatment plans to correct periodontal disease, including gum surgery tooth extractions with or without replacement. I understand that undertaking any dental procedures may have future adverse effect on my periodontal Conditions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang periodontal disease ay isang seryesong kondisyon na nagdudulot ng pamamaga at/o pagkawala ng gilagid at buto at maaaring humantong sa pagkawala ng aking mga ngipin. Nauunawaan ko ang mga alternatibong plano sa paggamot upang itama ang periodontal disease, kabilang ang operasyon sa gilagid, pagbunot ng ngipin na mayroon o walang kapalit. Nauunawaan ko na ang pagsasagawa ng anumang mga pamamaraan sa ngipin ay maaaring magkaroon ng masamang epekto sa hinaharap sa aking mga kondisyon sa periodontal." },
+    { id: 'FILLINGS', name: 'Fillings', content_en: "I understand that care must be exercised in chewing on fillings, especially during the first 24 hours to avoid breakage. I understand that a more extensive filling or a crown may be required, as additional decay or fracture may become evident after initial excavation. I understand that significant sensitivity is a common, but usually temporary, after-effect of a newly placed filling. I further understand that filling a tooth may irritate the nerve tissue creating sensitivity & treating such sensitivity could require root canal therapy or extractions.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na dapat mag-ingat sa pagnguya sa mga pasta, lalo na sa unang 24 na oras upang maiwasan ang pagkasira. Nauunawaan ko na maaaring kailanganin ang isang mas malawak na pasta o korona, dahil maaaring maging malinaw ang karagdagang pagkabulok o bali pagkatapos ng paunang paghuhukay. Nauunawaan ko na ang makabuluhang pagiging sensitibo ay isang karaniwan, ngunit kadalasang pansamantala, na epekto pagkatapos ng isang bagong inilagay na pasta. Higit pa rito, nauunawaan ko na ang pagpasta sa isang ngipin ay maaaring makairita sa tisyu ng nerbiyos na lumilikha ng pagiging sensitibo at ang paggamot sa naturang pagiging sensitibo ay maaaring mangailangan ng root canal therapy o pagbunot." },
+    { id: 'DENTURES', name: 'Dentures', content_en: "I understand that wearing of dentures can be difficult. Sore spots, altered speech & difficulty in eating are common problems. Immediate dentures (placement of denture immediately after extractions) may be painful. Immediate dentures may require considerable adjusting & several relines. I understand that it is my responsibility to return for delivery of dentures. I understand that failure to keep my delivery appointment may result in poorly fitted dentures. If a remake is required due to my delays of more than 30 days, there will be additional charges. A permanent reline will be needed later, which is not included in the initial fee. I understand that all adjustment or alterations of any kind after this initial period is subject to charges.", content_tl: "[Pagsasalin sa Tagalog]: Nauunawaan ko na ang pagsusuot ng pustiso ay maaaring mahirap. Ang mga masakit na bahagi, nabagong pagsasalita at kahirapan sa pagkain ay mga karaniwang problema. Ang mga agarang pustiso (paglalagay ng pustiso kaagad pagkatapos ng pagbunot) ay maaaring masakit. Ang mga agarang pustiso ay maaaring mangailangan ng malaking pagsasaayos at ilang reline. Nauunawaan ko na responsibilidad kong bumalik para sa paghahatid ng pustiso. Nauunawaan ko na ang hindi pagtupad sa aking appointment sa paghahatid ay maaaring magresulta sa hindi magandang pagkakalagay ng pustiso. Kung kinakailangan ang muling paggawa dahil sa aking mga pagkaantala ng higit sa 30 araw, magkakaroon ng mga karagdagang singil. Kakailanganin ang isang permanenteng reline sa kalaunan, na hindi kasama sa paunang bayad. Nauunawaan ko na ang lahat ng pagsasaayos o pagbabago ng anumang uri pagkatapos ng paunang panahon na ito ay napapailalim sa mga singil." },
+    { id: 'MEDIA_CONSENT', name: 'Clinical Media Consent', content_en: `I, the undersigned, hereby authorize the dental professionals at this clinic to capture, use, and store clinical photographs, radiographs (x-rays), and videos ("Media") related to my dental treatment.
+
+1.  **Purpose**: I understand this Media is essential for diagnosis, treatment planning, documentation of my care, and for communication with other healthcare providers or dental laboratories as necessary.
+2.  **Confidentiality**: I understand this Media is part of my confidential patient record and is protected under the Data Privacy Act of 2012 (R.A. 10173).
+3.  **Educational Use (Optional)**: I may separately consent to the anonymized use of my Media for professional education, scientific publications, or case presentations. All my personal identifying information will be removed.
+4.  **Patient Rights**: I have the right to inspect my Media. I also have the right to withdraw this consent for future use by providing a written request, though this will not affect Media already captured.
+
+My signature below confirms that I have read, understood, and agree to these terms.`, content_tl: `[Pagsasalin sa Tagalog]: Ako, ang nakalagda, ay nagbibigay pahintulot sa mga propesyonal na dentista sa klinika na ito na kumuha, gumamit, at mag-imbak ng mga klinikal na litrato, radiograph (x-ray), at video ("Media") na may kaugnayan sa aking paggamot sa ngipin.
+
+1.  **Layunin**: Nauunawaan ko na ang Media na ito ay mahalaga para sa diagnosis, pagpaplano ng paggamot, dokumentasyon ng aking pangangalaga, at para sa komunikasyon sa iba pang mga healthcare provider o dental laboratory kung kinakailangan.
+2.  **Pagiging Kumpidensyal**: Nauunawaan ko na ang Media na ito ay bahagi ng aking kumpidensyal na talaan ng pasyente at protektado sa ilalim ng Data Privacy Act of 2012 (R.A. 10173).
+3.  **Paggamit para sa Edukasyon (Opsyonal)**: Maaari akong magbigay ng hiwalay na pahintulot para sa hindi pagpapakilalang paggamit ng aking Media para sa propesyonal na edukasyon, mga siyentipikong publikasyon, o mga paglalahad ng kaso. Ang lahat ng aking personal na impormasyon sa pagkakakilanlan ay aalisin.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong suriin ang aking Media. May karapatan din akong bawiin ang pahintulot na ito para sa paggamit sa hinaharap sa pamamagitan ng pagsusulat ng isang pormal na kahilingan, bagaman nito maaapektuhan ang Media na nakuha na.
+
+Ang aking lagda sa ibaba ay nagpapatunay na nabasa ko, naunawaan, at sumasang-ayon ako sa mga tuntuning ito.` },
+    { id: 'FINANCIAL_CONSENT', name: 'Financial Consent', content_en: `I acknowledge that I have been provided with an estimate of the costs for my proposed treatment plan. I understand and agree to the following:
+
+1.  **Estimate vs. Actual Cost**: The provided quote is an estimate. Unforeseen clinical findings during treatment may require changes to the plan and associated costs. I will be informed of any significant changes.
+2.  **Financial Responsibility**: I am fully responsible for the total payment of all procedures performed. I agree to pay for services at the time they are rendered unless other arrangements have been made in advance.
+3.  **Insurance**: My dental insurance is a contract between me and my insurance provider. I understand that I am responsible for any remaining balance not covered by my insurance. This clinic will assist in processing claims, but ultimate responsibility for payment rests with me.
+4.  **Patient Rights**: I have the right to ask for a detailed breakdown of costs and to discuss payment options with the clinic staff.
+5.  **Withdrawal**: I understand that withdrawing from treatment after it has commenced does not absolve me of financial responsibility for services already rendered.`, content_tl: `[Pagsasalin sa Tagalog]: Kinikilala ko na nabigyan ako ng pagtatantya ng mga gastos para sa aking iminungkahing plano sa paggamot. Nauunawaan at sumasang-ayon ako sa mga sumusunod:
+
+1.  **Tantya vs. Aktwal na Gastos**: Ang ibinigay na quote ay isang pagtatantya. Ang mga hindi inaasahang klinikal na natuklasan sa panahon ng paggamot ay maaaring mangailangan ng mga pagbabago sa plano at mga kaugnay na gastos. Ipapabatid sa akin ang anu-anong makabuluhang pagbabago.
+2.  **Responsibilidad sa Pinansyal**: Ako ang may buong pananagutan para sa kabuuang bayad ng lahat ng mga pamamaraang isinagawa. Sumasang-ayon akong magbayad para sa mga serbisyo sa oras na ito ay isagawa maliban kung may ibang mga kasunduan na ginawa nang maaga.
+3.  **Insurance**: Ang aking dental insurance ay isang kontrata sa pagitan ko at ng aking insurance provider. Nauunawaan ko na ako ang may pananagutan para sa anu-anong natitirang balanse na hindi sakop ng aking insurance. Tutulong ang klinika na ito sa pagproseso ng mga claim, ngunit ang pangunahing responsibilidad sa pagbabayad ay nasa akin.
+4.  **Mga Karapatan ng Pasyente**: May karapatan akong humingi ng detalyedong breakdown ng mga gastos at talakayin ang mga opsyon sa pagbabayad sa mga kawani ng klinika.
+5.  **Pag-atras**: Nauunawaan ko na ang pag-atras mula sa paggamot matapos itong magsimula ay hindi nag-aalis sa akin ng responsibilidad sa pananalapi para sa mga serbisyong naisagawa na.` },
+    { id: 'PEDIATRIC_CONSENT', name: 'Consent for Treatment of a Minor', content_en: `As the parent or legal guardian of the minor patient, **{PatientName}**, I hereby authorize **{DoctorName}** and their designated staff to perform the necessary dental procedures as have been explained to me.
+
+1.  **Informed Consent**: I confirm that the nature of the proposed treatment, potential risks, benefits, and reasonable alternatives have been explained to me in terms I can understand. I have had the opportunity to ask questions, and my questions have been answered to my satisfaction.
+2.  **Anesthesia & Medications**: I consent to the use of local anesthetics, sedatives, or other medications as deemed necessary by the dentist for my child's safe and effective treatment.
+3.  **Guardian's Rights**: I understand that I have the right to be present during treatment, where appropriate, and to make decisions on behalf of my child.
+4.  **Withdrawal**: I can withdraw this consent at any time by notifying the dental staff, which will not affect any treatment already provided.
+
+My signature confirms my authority to consent for this minor and my agreement to the above terms.`, content_tl: `[Pagsasalin sa Tagalog]: Bilang magulang o legal na tagapag-alaga ng menor de edad na pasyente, si **{PatientName}**, pinahihintulutan ko si **{DoctorName}** at ang kanilang mga itinalagang tauhan na isagawa ang mga kinakailangang pamamaraan sa ngipin na ipinaliwanag sa akin.
+
+1.  **May Kaalamang Pahintulot**: Kinukumpirma ko na ang likas na katangian ng iminungkahing paggamot, mga potensyal na panganib, benepisyo, at makatwirang mga alternatibo ay ipinaliwanag sa akin sa mga terminong naiintindihan ko. Nagkaroon ako ng pagkakataong magtanong, at ang aking mga tanong ay nasagot nang kasiya-siya.
+2.  **Anesthesia at mga Gamot**: Sumasang-ayon ako sa paggamit ng mga lokal na anestisya, pampakalma, o iba pang mga gamot na itinuturing na kinakailangan ng dentista para sa ligtas at epektibong paggamot ng aking anak.
+3.  **Mga Karapatan ng Tagapag-alaga**: Nauunawaan ko na may karapatan akong dumalo sa panahon ng paggamot, kung naaangkop, at gumawa ng mga desisyon para sa aking anak.
+4.  **Pagbawi**: Maaari kong bawiin ang pahintulot na ito anumang oras sa pamamagitan ng pag-abiso sa mga kawani ng ngipin, na hindi makakaapekto sa anumany paggamot na naibigay na.
+
+Ang aking lagda ay nagpapatunay ng aking awtoridad na magbigay ng pahintulot para sa menor de edad na ito at ang aking pagsang-ayon sa mga tuntunin sa itaas.` }
+];
+
+export const MOCK_BRANCH_PROFILES: Branch[] = [
+  {
+    id: 'makati-main',
+    name: 'Makati Main',
+    legalEntityName: 'Ivory Dental Office Inc.',
+    address: '123 Ayala Avenue, Makati City, Metro Manila 1226',
+    contactNumber: '(02) 8888-1234',
+    email: 'contact@ivorydental-makati.ph',
+    tinNumber: '123-456-789-000',
+    dtiPermitNumber: 'DTI-12345678',
+    logoUrl: '',
+    operationalHours: {
+        monday: { start: '08:00', end: '18:00', isClosed: false },
+        tuesday: { start: '08:00', end: '18:00', isClosed: false },
+        wednesday: { start: '08:00', end: '18:00', isClosed: false },
+        thursday: { start: '08:00', end: '18:00', isClosed: false },
+        friday: { start: '08:00', end: '18:00', isClosed: false },
+        saturday: { start: '08:00', end: '16:00', isClosed: false },
+        sunday: { start: null, end: null, isClosed: true }
+    }
+  },
+  {
+    id: 'qc-satellite',
+    name: 'Quezon City Satellite',
+    legalEntityName: 'Ivory Dental QC Branch',
+    address: '456 Katipunan Avenue, Quezon City, Metro Manila',
+    contactNumber: '(02) 8987-6543',
+    email: 'contact@ivorydental-qc.ph',
+    tinNumber: '987-654-321-000',
+    dtiPermitNumber: 'DTI-87654321',
+    operationalHours: {
+        monday: { start: '09:00', end: '17:00', isClosed: false },
+        tuesday: { start: '09:00', end: '17:00', isClosed: false },
+        wednesday: { start: '09:00', end: '17:00', isClosed: false },
+        thursday: { start: '09:00', end: '17:00', isClosed: false },
+        friday: { start: '09:00', end: '17:00', isClosed: false },
+        saturday: { start: null, end: null, isClosed: true },
+        sunday: { start: null, end: null, isClosed: true }
+    }
+  }
+];
+
+export const DEFAULT_DOCUMENT_TEMPLATES: Record<string, { name: string; content: string }> = {
+  'med_cert': {
+    name: 'Medical Certificate',
+    content: `## MEDICAL CERTIFICATE
+
+**Date:** {currentDate}
+
+This is to certify that **{patientName}**, {patientAge} years old, of {patientAddress}, was seen and examined at **{clinicName}** on the date above with the following findings:
+
+**Diagnosis:**
+{diagnosis}
+
+**Recommendations:**
+{recommendations}
+
+This certificate is issued upon the patient's request for whatever legal purpose it may serve.
+
+
+---
+**{practitionerName}**
+*{practitionerSpecialty}*
+PRC License No: {practitionerPrc}
+Clinic Address: {clinicAddress}
+`
+  },
+  'soa': {
+    name: 'Statement of Account',
+    content: `# STATEMENT OF ACCOUNT
+
+**{clinicName}**
+{clinicAddress}
+TIN: {clinicTin}
+
+---
+
+**Patient:** {patientName}
+**Patient ID:** {patientId}
+**Date Issued:** {currentDate}
+
+| Date       | Description          | Charge (PHP) | Payment (PHP) | Balance (PHP) |
+|------------|----------------------|--------------|---------------|---------------|
+{ledgerRows}
+
+### Total Balance Due: PHP {patientBalance}
+`
+  },
+  'rx': {
+    name: 'Prescription',
+    content: `
+**{practitionerName}**
+{practitionerSpecialty}
+PRC: {practitionerPrc} | PTR: {practitionerPtr} | S2: {practitionerS2}
+
+---
+
+**Patient:** {patientName}
+**Age:** {patientAge}
+**Date:** {currentDate}
+
+---
+
+### Rx
+
+**{medicationGenericName}**
+({medicationBrandName})
+Dosage: {medicationDosage}
+
+Disp: #{medicationQuantity}
+
+Sig: {medicationInstructions}
+`
+  },
+  'registration_full': {
+    name: 'Complete Registration Form',
+    content: `# COMPLETE PATIENT REGISTRATION FORM
+
+**Patient Name:** {patientName}
+**Patient ID:** {patientId}
+**Registration Date:** {patientRegistrationDate}
+
+---
+
+## I. PERSONAL INFORMATION
+
+{patientInfoSection}
+
+---
+
+## II. MEDICAL HISTORY
+
+### General Health Questions
+{medicalQuestionnaire}
+
+### Allergies
+- {patientAllergies}
+
+### Medical Conditions
+- {patientMedicalConditions}
+
+---
+
+## III. DENTAL HISTORY
+
+### Dental Health Questions
+{dentalQuestionnaire}
+
+### Chief Complaint
+> {chiefComplaint}
+
+---
+
+## IV. CONSENTS & AUTHORIZATIONS
+
+{consentsSection}
+
+---
+
+## V. PATIENT ATTESTATION
+
+I hereby certify that the information provided is true and correct to the best of my knowledge. I have read and understood all the consent forms provided.
+
+**Patient Signature:**
+![Patient Signature]({patientRegistrationSignature})
+**Date & Time of Signature:** {patientRegistrationSignatureTimestamp}
+`
+  },
+  'clinical_notes_summary': {
+      name: 'Clinical History & Notes',
+      content: `# CLINICAL HISTORY & NOTES
+
+**Patient Name:** {patientName}
+**Patient ID:** {patientId}
+**Report Generated:** {currentDate}
+
+---
+
+{clinicalNotesLoop}
+`
+  },
+  'referral': {
+    name: 'Referral Letter',
+    content: `**{clinicName}**
+{clinicAddress}
+{clinicContactNumber}
+
+**Date:** {currentDate}
+
+**To:** _________________________ (Specialist Name)
+**Clinic:** _________________________
+
+---
+
+**RE: {patientName} (DOB: {patientDob})**
+
+Dear Doctor,
+
+This is to refer the above-named patient for evaluation and management of:
+{reasonForReferral}
+
+**Pertinent Clinical Findings:**
+{clinicalFindings}
+
+Thank you for your professional courtesy.
+
+Sincerely,
+
+**{practitionerName}**
+PRC License No: {practitionerPrc}
+`
+  },
+  'eod_report': {
+    name: 'End of Day (EOD) Report',
+    content: `# End of Day Report
+
+**Date:** {currentDate}
+**Branch:** {branchName}
+
+| Metric                 | Value |
+|------------------------|-------|
+| Total Production (PHP) | {totalProduction} |
+| Total Collections (PHP)| {totalCollections} |
+| Patients Seen          | {patientsSeen} |
+| New Patients           | {newPatients} |
+| No-Shows               | {noShows} |
+
+**Notes:**
+{reportNotes}
+
+---
+Generated by: {currentUser}
+`
+  },
+  'collections_report': {
+    name: 'Collections & Aging Report',
+    content: `# Collections & Aging Report
+
+**Date:** {currentDate}
+
+| Patient Name     | Balance (PHP) | Days Overdue |
+|------------------|---------------|--------------|
+{agingRows}
+
+`
+  },
+  'inventory_report': {
+    name: 'Inventory & Stock Level Report',
+    content: `# Inventory Report
+
+**Date:** {currentDate}
+**Branch:** {branchName}
+
+| Item Name          | Category    | Qty on Hand | Low Stock Threshold | Status |
+|--------------------|-------------|-------------|---------------------|--------|
+{inventoryRows}
+
+`
+  },
+  'treatment_plan': {
+    name: 'Treatment Plan',
+    content: `# TREATMENT PLAN PROPOSAL
+
+**Patient:** {patientName}
+**Plan Name:** {planName}
+**Date:** {currentDate}
+
+This document outlines the proposed course of treatment. The fees listed are estimates and may be subject to change based on clinical findings during the procedure.
+
+| Tooth # | Procedure Description | Fee (PHP) |
+|---------|-----------------------|-----------|
+{planItems}
+
+---
+**Total Estimated Cost:** **PHP {planTotal}**
+
+I have read and understood the proposed treatment plan and associated costs.
+
+**Patient Signature:** _________________________
+`
+  },
+  'lab_order': {
+    name: 'Lab Order Form',
+    content: `# DENTAL LABORATORY ORDER FORM
+
+**TO:** {labName}
+**FROM:** {clinicName}
+**DATE:** {currentDate}
+**DUE DATE:** {dueDate}
+
+---
+
+**PATIENT:** {patientName}
+**AGE:** {patientAge}
+**SEX:** {patientSex}
+
+---
+
+### ORDER DETAILS
+
+| Tooth # | Restoration Type | Shade |
+|---------|------------------|-------|
+| {toothNumber} | {restorationType} | {shade} |
+
+**Instructions:**
+{instructions}
+
+Thank you,
+
+**{practitionerName}**
+PRC License No: {practitionerPrc}
+`
+  },
+  'walkout_statement': {
+    name: 'Walkout Statement',
+    content: `# Walkout Statement
+
+**Patient:** {patientName}
+**Date:** {currentDate}
+
+Thank you for your visit today! Here is a summary of today's transactions.
+
+### Services Rendered Today
+| Description | Amount (PHP) |
+|-------------|--------------|
+{todaysProcedures}
+
+### Payments Made Today
+| Description | Amount (PHP) |
+|-------------|--------------|
+{todaysPayments}
+
+---
+
+**Total Balance Due:** **PHP {patientBalance}**
+`
+  },
+  'official_receipt': {
+    name: 'Official Receipt (OR)',
+    content: `# OFFICIAL RECEIPT
+
+**{clinicName}**
+{clinicAddress}
+TIN: {clinicTin}
+
+**OR No:** {orNumber}
+**Date:** {currentDate}
+
+---
+
+**Received from:** {patientName}
+**TIN:** {patientTin}
+**Address:** {patientAddress}
+
+The sum of **{amountInWords} pesos**.
+
+### Payment Details
+| Description | Amount (PHP) |
+|-------------|--------------|
+{paymentDetails}
+
+---
+
+**Total Amount Paid:** **PHP {totalAmountPaid}**
+
+By: _________________________
+(Authorized Representative)
+`
+  },
+  'installment_agreement': {
+    name: 'Installment Plan Agreement',
+    content: `# INSTALLMENT PLAN AGREEMENT
+
+This agreement is made on **{currentDate}** between **{clinicName}** ("the Clinic") and **{patientName}** ("the Patient").
+
+The Clinic agrees to provide dental services totaling **PHP {totalAmount}**.
+
+The Patient agrees to pay this amount in **{numberOfPayments}** monthly installments of **PHP {monthlyPayment}**, starting on **{startDate}**.
+
+Payments are due on the same day each month. A late fee may be applied for payments overdue by more than 15 days.
+
+**Patient Signature:** _________________________
+**Date:** {currentDate}
+
+**Clinic Representative:** _________________________
+`
+  },
+  'practitioner_production_report': {
+    name: 'Practitioner Production Report',
+    content: `# PRACTITIONER PRODUCTION REPORT
+
+**Practitioner:** {practitionerName}
+**Date Range:** {startDate} to {endDate}
+
+| Procedure Category | Count | Total Production (PHP) |
+|--------------------|-------|------------------------|
+{productionItems}
+
+---
+**Grand Total Production:** **PHP {totalProduction}**
+`
+  },
+  'appointment_analysis_report': {
+    name: 'Appointment Analysis Report',
+    content: `# APPOINTMENT ANALYSIS REPORT
+
+**Date Range:** {startDate} to {endDate}
+**Branch:** {branchName}
+
+### Key Metrics
+| Metric | Value |
+|-------------------------|-------|
+| Total Appointments Booked | {totalAppointments} |
+| Completed Appointments | {completedAppointments} |
+| No-Shows | {noShowCount} |
+| Cancellations | {cancellationCount} |
+
+### Analysis
+**Completion Rate:** {completionRate}%
+**No-Show Rate:** {noShowRate}%
+`
+  },
+  'bir_sales_report': { name: 'BIR Sales Report', content: '...' },
+  'bir_discount_report': { name: 'BIR Discount Report', content: '...' },
+};
+
+export const DEFAULT_COMMUNICATION_TEMPLATES: CommunicationTemplate[] = [
+  // Chapter 1: Welcome Letters
+  {
+    id: 'welcome_adult_1',
+    category: 'Welcome Letters',
+    title: 'Welcome Letter to an Adult Patient',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nOn behalf of our entire team, I would like to welcome you to {clinicName}. We are committed to providing you with the highest quality of dental care in a comfortable and friendly environment.\n\nWe look forward to seeing you for your first appointment on {appointmentDate} at {appointmentTime}. \n\nSincerely,\n{practitionerName}\n{clinicName}`
+  },
+  // Chapter 2: Appointments
+  {
+    id: 'appt_reminder',
+    category: 'Appointments',
+    title: 'Appointment Reminder',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nThis is a friendly reminder of your upcoming dental appointment with {practitionerName} on {appointmentDate} at {appointmentTime}.\n\nPlease contact our office at {clinicContactNumber} if you need to reschedule. We look forward to seeing you.\n\nBest regards,\nThe team at {clinicName}`
+  },
+  {
+    id: 'appt_missed',
+    category: 'Appointments',
+    title: 'Missed Appointment',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nOur records show that you missed your appointment on {appointmentDate} at {appointmentTime}.\n\nWe understand that circumstances can change. Please call us at {clinicContactNumber} at your earliest convenience to reschedule. Consistent dental care is essential for maintaining your oral health.\n\nSincerely,\n{clinicName}`
+  },
+  // Chapter 4: Financial Letters
+  {
+    id: 'financial_new_policy',
+    category: 'Financial Letters',
+    title: 'New Payment Policy',
+    content: `Date: {currentDate}\n\nDear {patientName},\n\nThis letter is to inform you of an update to our payment policy, effective [Effective Date].\n\n[Explain new payment policy here, e.g., "Payment is now due at the time of service."]\n\nWe have made this change to streamline our billing process and continue providing high-quality care. We accept cash, credit/debit cards, and [other payment methods].\n\nIf you have any questions, please do not hesitate to contact our office.\n\nThank you for your understanding,\n{clinicName}`
+  },
+];
+
+
+export const STAFF: User[] = [
+  { 
+      id: 'ARCHITECT_01', 
+      name: 'Ashwin Fernandes', 
+      email: 'ashwin@ivorydental.ph',
+      role: UserRole.SYSTEM_ARCHITECT, 
+      phone: '+639170000000',
+      pin: '0000',
+      specialization: 'Technical Audit & Design Integrity',
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite', 'BGC Premium', 'Alabang South'],
+      colorPreference: '#c026d3', 
+      clinicHours: '24/7 System Audit Mode',
+      status: 'Active',
+  },
+  { 
+      id: 'doc1', 
+      name: 'Dr. Nadzra Awali', 
+      email: 'nadzra@ivorydental.ph',
+      role: UserRole.ADMIN, 
+      phone: '+639172222222',
+      pin: '4321',
+      licenseCategory: 'DENTIST',
+      specialization: 'Dentist/ Orthodontist',
+      prcLicense: '0123456',
+      prcExpiry: getFutureDateStr(15), 
+      s2License: 'PDEA-S2-8888',
+      s2Expiry: getFutureDateStr(200),
+      malpracticeExpiry: getFutureDateStr(90),
+      malpracticePolicy: 'MP-2024-8891',
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite'], 
+      colorPreference: '#14b8a6', 
+      defaultConsultationFee: 500.00,
+      roster: { 'Mon': 'Makati Main', 'Wed': 'Makati Main', 'Fri': 'Makati Main', 'Tue': 'Quezon City Satellite' },
+      commissionRate: 0.40,
+      status: 'Active',
+  },
+  { 
+      id: 'doc3', 
+      name: 'Dr. Fatima Awali', 
+      email: 'fatima@ivorydental.ph',
+      role: UserRole.ADMIN, 
+      phone: '+639173333333',
+      pin: '5678',
+      licenseCategory: 'DENTIST',
+      specialization: 'Dentist/ Orthodontist',
+      prcLicense: '0654321',
+      defaultBranch: 'Quezon City Satellite',
+      allowedBranches: ['Makati Main', 'Quezon City Satellite'], 
+      colorPreference: '#c026d3', 
+      commissionRate: 0.30,
+      status: 'Active',
+  },
+  { 
+      id: 'asst2',
+      name: 'Indah Awali',
+      email: 'indah@ivorydental.ph',
+      role: UserRole.DENTAL_ASSISTANT,
+      phone: '+639175555555',
+      pin: '2222',
+      licenseCategory: 'TECHNOLOGIST',
+      specialization: 'Clinical Support',
+      prcLicense: 'DA-123456',
+      prcExpiry: getFutureDateStr(300),
+      defaultBranch: 'Makati Main',
+      allowedBranches: ['Makati Main'],
+      colorPreference: '#f59e0b',
+      status: 'Active',
+  }
+];
+
+export const PATIENTS: Patient[] = [
+    {
+        id: 'p_master_01', registrationBranch: 'Makati Main',
+        name: 'Samantha Rose Del Rosario-Tan',
+        firstName: 'Samantha Rose',
+        surname: 'Del Rosario-Tan',
+        middleName: 'Isabella',
+        suffix: 'Jr.',
+        nickname: 'Sammy',
+        dob: '2007-07-15',
+        sex: 'Female',
+        civilStatus: 'Single',
+        nationality: 'Filipino',
+        religion: 'Roman Catholic',
+        bloodGroup: 'AB-',
+        bloodPressure: '130/85',
+        phone: '0917-999-9999',
+        email: 'samantha.master@example.com',
+        homeAddress: '101 Master Test Ave, Stress Test Village',
+        city: 'Makati City',
+        barangay: 'Urdaneta',
+        homeNumber: '(02) 8555-1234',
+        officeNumber: '(02) 8888-9999',
+        faxNumber: '(02) 8555-9012',
+        occupation: 'Student',
+        insuranceProvider: 'Maxicare',
+        insuranceNumber: 'MAXI-MASTER-01',
+        insuranceEffectiveDate: getPastDateStr(365),
+        lastVisit: getPastDateStr(10),
+        nextVisit: getFutureDateStr(20),
+        lastDentalVisit: getPastDateStr(180),
+        chiefComplaint: 'Multiple issues: toothache on lower right, bleeding gums, and checkup for braces.',
+        notes: 'Extremely complex case. High medical risk. Patient is anxious but cooperative. Requires careful management and a multi-disciplinary approach. Guardian is always present.',
+        currentBalance: 35000,
+        recallStatus: RecallStatus.BOOKED,
+        attendanceStats: { totalBooked: 15, completedCount: 12, noShowCount: 2, lateCancelCount: 1 },
+        reliabilityScore: 80,
+        referredById: 'p_heavy_01',
+        familyGroupId: 'fam_scott_01',
+        isPwd: true,
+        guardianProfile: {
+            legalName: 'Eleonor Del Rosario',
+            relationship: 'Mother',
+            mobile: '0918-111-2222',
+            authorityLevel: AuthorityLevel.FULL,
+            occupation: 'Lawyer'
+        },
+        allergies: ['Local Anesthetic (ex. Lidocaine)', 'Penicillin', 'Antibiotics', 'Sulfa drugs', 'Aspirin', 'Latex'],
+        otherAllergies: 'Peanuts, Shellfish',
+        medicalConditions: [
+            'High Blood Pressure', 'Low Blood Pressure', 'Epilepsy / Convulsions', 
+            'AIDS or HIV Infection', 'Sexually Transmitted disease', 'Stomach Troubles / Ulcers', 
+            'Fainting Seizure', 'Rapid Weight Loss', 'Radiation Therapy', 
+            'Joint Replacement / Implant', 'Heart Surgery', 'Heart Attack', 'Thyroid Problem',
+            'Heart Disease', 'Heart Murmur', 'Hepatitis / Disease', 'Rheumatic Fever', 
+            'Hay Fever / Allergies', 'Respiratory Problems', 'Hepatitis / Jaundice', 
+            'Tuberculosis', 'Swollen ankles', 'Kidney disease', 'Diabetes', 'Chest pain', 
+            'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
+            'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
+        ],
+        otherConditions: 'Mild Scoliosis',
+        registryAnswers: {
+          'Are you in good health?': 'Yes',
+          'Are you under medical treatment now?*': 'Yes',
+          'Are you under medical treatment now?*_details': 'Gestational diabetes monitoring and hypertension management.',
+          'Have you ever had serious illness or surgical operation?*': 'Yes',
+          'Have you ever had serious illness or surgical operation?*_details': 'Tonsillectomy in 2018.',
+          'Have you ever had serious illness or surgical operation?*_date': getPastDateStr(365 * 6),
+          'Have you ever been hospitalized?*': 'Yes',
+          'Have you ever been hospitalized?*_details': 'For a severe asthma attack in 2020.',
+          'Have you ever been hospitalized?*_date': getPastDateStr(365 * 4),
+          'Are you taking any prescription/non-prescription medication?*': 'Yes',
+          'Are you taking any prescription/non-prescription medication?*_details': 'Methyldopa for hypertension, prenatal vitamins.',
+          'Do you use tobacco products?': 'Yes',
+          'Do you use alcohol, cocaine or other dangerous drugs?': 'Yes',
+          'Taking Blood Thinners? (Aspirin, Warfarin, etc.)': 'Yes',
+          'Taking Bisphosphonates? (Fosamax, Zometa)': 'Yes',
+          'Are you pregnant?': 'Yes',
+          'Are you nursing?': 'Yes',
+          'Are you taking birth control pills?': 'Yes',
+        },
+        medicationDetails: 'Methyldopa for hypertension, prenatal vitamins.',
+        previousDentist: 'Dr. Jane Doe',
+        physicianName: 'Dr. Maria Santos',
+        physicianSpecialty: 'OB-GYN',
+        physicianAddress: 'Medical City, Ortigas',
+        physicianNumber: '02-8-987-6543',
+        dpaConsent: true, marketingConsent: true, practiceCommConsent: true, clinicalMediaConsent: {
+            generalConsent: true,
+            consentVersion: '1.0',
+            consentTimestamp: getPastDateStr(10),
+            consentSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+            permissions: {
+                intraoralPhotos: true,
+                extraoralPhotos: true,
+                xrays: true,
+                videography: false,
+                caseStudyUse: false,
+                marketingUse: false,
+                thirdPartySharing: false,
+            },
+            mediaCapturedLogs: []
+        }, thirdPartyDisclosureConsent: true, thirdPartyAttestation: true,
+        registrationSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+        registrationSignatureTimestamp: new Date().toISOString(),
+        files: [
+            { id: 'file_master_pwd', name: 'PWD_ID_2024.pdf', category: 'PWD Certificate', url: '#', date: getPastDateStr(100) },
+            { id: 'file_master_clearance', name: 'CardioClearance_Mar2024.pdf', category: 'Medical Clearance', url: '#', date: getPastDateStr(90) },
+        ],
+        clearanceRequests: [
+            { id: 'cr_master_1', patientId: 'p_master_01', doctorName: 'Dr. cardio', specialty: 'Cardiologist', requestedAt: getPastDateStr(150), status: 'Approved', approvedAt: getPastDateStr(140), remarks: 'Expired clearance', verificationMethod: VerificationMethod.PHYSICAL_FILE_VERIFIED, verifiedByPractitionerId: 'doc1', verifiedByPractitionerName: 'Dr. Alexander Crentist' },
+            { id: 'cr_master_2', patientId: 'p_master_01', doctorName: 'Dr. Maria Santos', specialty: 'OB-GYN', requestedAt: getPastDateStr(15), status: 'Approved', approvedAt: getPastDateStr(12), remarks: 'Cleared for routine procedures. Avoid lengthy appointments.', verificationMethod: VerificationMethod.DIGITAL_UPLOAD, verifiedByPractitionerId: 'doc1', verifiedByPractitionerName: 'Dr. Alexander Crentist' }
+        ],
+        treatmentPlans: [
+            { id: 'tp_master_1', patientId: 'p_master_01', name: 'Phase 1: Urgent Care', createdAt: getPastDateStr(30), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.APPROVED },
+            { id: 'tp_master_2', patientId: 'p_master_01', name: 'Phase 2: Restorative', createdAt: getPastDateStr(10), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW },
+            { id: 'tp_master_3', patientId: 'p_master_01', name: 'Phase 3: Orthodontics', createdAt: getTodayStr(), createdBy: 'Dr. Maria Clara', status: TreatmentPlanStatus.DRAFT },
+        ],
+        dentalChart: [
+            { id: 'dc_m_1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(180), price: 25000 },
+            { id: 'dc_m_2', toothNumber: 46, procedure: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: 'Planned', date: getPastDateStr(10), price: 12000, planId: 'tp_master_1' },
+            { id: 'dc_m_3', toothNumber: 25, procedure: 'Composite Restoration (2 Surfaces)', status: 'Planned', date: getPastDateStr(10), price: 2500, planId: 'tp_master_2' },
+            { id: 'dc_m_4', toothNumber: 11, procedure: 'Caries', status: 'Condition', date: getPastDateStr(10), notes: 'Initial signs of mesial caries.' },
+        ],
+        perioChart: [
+            { toothNumber: 16, date: getPastDateStr(10), pocketDepths: [3,4,3,3,4,3], recession: [1,1,1,1,1,1], bop: 2, mobility: 1 },
+            { toothNumber: 36, date: getPastDateStr(10), pocketDepths: [5,4,5,4,4,5], recession: [2,1,2,1,1,2], bop: 3, mobility: 2 },
+        ],
+        ledger: [
+            { id: 'l_m_1', date: getPastDateStr(180), description: 'Zirconia Crown #16', type: 'Charge', amount: 25000, balanceAfter: 25000 },
+            { id: 'l_m_2', date: getPastDateStr(170), description: 'Initial Deposit', type: 'Payment', amount: 10000, balanceAfter: 15000 },
+            { id: 'l_m_3', date: getPastDateStr(10), description: 'Surgical Extraction #46', type: 'Charge', amount: 12000, balanceAfter: 27000 },
+            { id: 'l_m_4', date: getPastDateStr(5), description: 'Restorative Phase Deposit', type: 'Charge', amount: 8000, balanceAfter: 35000 },
+        ],
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_heavy_01', registrationBranch: 'Makati Main', name: 'Michael Scott', firstName: 'Michael', surname: 'Scott', insuranceProvider: 'Maxicare', dob: '1965-03-15', sex: 'Male', phone: '0917-111-2222', email: 'm.scott@dunder.com', occupation: 'Regional Manager', lastVisit: getPastDateStr(2), nextVisit: getFutureDateStr(1), chiefComplaint: 'Checkup on my bridges.', notes: 'Very talkative. Loves jokes. Gag reflex.', currentBalance: 5000, recallStatus: RecallStatus.BOOKED,
+        attendanceStats: { totalBooked: 10, completedCount: 9, noShowCount: 1, lateCancelCount: 0 }, reliabilityScore: 90,
+        treatmentPlans: [{ id: 'tp1', patientId: 'p_heavy_01', name: 'Phase 1 - Urgent Care', createdAt: getTodayStr(), createdBy: 'Dr. Alexander Crentist', status: TreatmentPlanStatus.PENDING_REVIEW, reviewNotes: 'Please check #16 for fracture lines before proceeding.' }],
+        ledger: [ {id: 'l1', date: getPastDateStr(30), description: 'Zirconia Crown', type: 'Charge', amount: 20000, balanceAfter: 20000}, {id: 'l2', date: getPastDateStr(29), description: 'GCash Payment', type: 'Payment', amount: 15000, balanceAfter: 5000} ],
+        dentalChart: [ { id: 'dc1', toothNumber: 16, procedure: 'Zirconia Crown', status: 'Completed', date: getPastDateStr(30), price: 20000, planId: 'tp1' } ],
+        familyGroupId: 'fam_scott_01',
+        registrationStatus: RegistrationStatus.COMPLETE,
+        communicationLog: [
+          { id: 'comm1', timestamp: getPastDateStr(30), channel: CommunicationChannel.SYSTEM, authorId: 'system', authorName: 'System', content: 'Welcome to the practice, Michael!' },
+          { id: 'comm2', timestamp: getPastDateStr(2), channel: CommunicationChannel.SMS, authorId: 'admin1', authorName: 'Sarah Connor', content: 'Appointment reminder for tomorrow at 10 AM.' }
+        ]
+    },
+     {
+        id: 'p_fam_02', registrationBranch: 'Makati Main', name: 'Dwight Schrute', firstName: 'Dwight', surname: 'Schrute', dob: '1970-01-20', sex: 'Male', phone: '0917-333-4444', email: 'd.schrute@dunder.com', lastVisit: getPastDateStr(365), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
+        familyGroupId: 'fam_scott_01', attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_reliable_01', registrationBranch: 'Makati Main', name: 'Eleanor Shellstrop', firstName: 'Eleanor', surname: 'Shellstrop', dob: '1988-10-25', sex: 'Female', phone: '0917-123-4567', email: 'e.shell@thegood.place', lastVisit: getPastDateStr(180), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 5, completedCount: 5, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_risk_02', registrationBranch: 'Makati Main',
+        name: 'Chidi Anagonye PhD',
+        firstName: 'Chidi',
+        surname: 'Anagonye',
+        middleName: 'Eleazar',
+        suffix: 'PhD',
+        dob: '1982-04-12',
+        sex: 'Male',
+        civilStatus: 'Married',
+        bloodGroup: 'O+',
+        bloodPressure: '140/90',
+        phone: '0918-234-5678',
+        email: 'c.anagonye@thegood.place',
+        homeAddress: '123 Philosophy Lane, The Good Place',
+        city: 'Quezon City',
+        barangay: 'Diliman',
+        occupation: 'Ethics Professor',
+        insuranceProvider: 'Intellicare',
+        insuranceNumber: 'INTL-987654321',
+        insuranceEffectiveDate: getPastDateStr(730),
+        lastVisit: getPastDateStr(90),
+        nextVisit: null,
+        chiefComplaint: 'Debilitating anxiety about dental procedures.',
+        notes: 'Patient exhibits extreme indecisiveness and requires constant reassurance. Prone to stomach aches.',
+        currentBalance: 0,
+        recallStatus: RecallStatus.CONTACTED,
+        attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        isPwd: true,
+        guardianProfile: {
+            legalName: 'Simone Garnett',
+            relationship: 'Spouse',
+            mobile: '0917-999-8888',
+            authorityLevel: AuthorityLevel.FULL,
+            occupation: 'Neuroscientist'
+        },
+        allergies: [
+            'None', 'Local Anesthetic (ex. Lidocaine)', 'Penicillin', 'Antibiotics', 
+            'Sulfa drugs', 'Aspirin', 'Latex'
+        ],
+        otherAllergies: 'Analysis Paralysis',
+        medicalConditions: [
+            'High Blood Pressure', 'Low Blood Pressure', 'Epilepsy / Convulsions', 
+            'AIDS or HIV Infection', 'Sexually Transmitted disease', 'Stomach Troubles / Ulcers', 
+            'Fainting Seizure', 'Rapid Weight Loss', 'Radiation Therapy', 
+            'Joint Replacement / Implant', 'Heart Surgery', 'Heart Attack', 'Thyroid Problem',
+            'Heart Disease', 'Heart Murmur', 'Hepatitis / Disease', 'Rheumatic Fever', 
+            'Hay Fever / Allergies', 'Respiratory Problems', 'Hepatitis / Jaundice', 
+            'Tuberculosis', 'Swollen ankles', 'Kidney disease', 'Diabetes', 'Chest pain', 
+            'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
+            'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
+        ],
+        otherConditions: 'Perpetual專業Stomach Ache',
+        registryAnswers: {
+          'Are you in good health?': 'No',
+          'Are you under medical treatment now?*': 'Yes',
+          'Are you under medical treatment now?*_details': 'Currently undergoing treatment for anxiety and hypertension.',
+          'Have you ever had serious illness or surgical operation?*': 'Yes',
+          'Have you ever had serious illness or surgical operation?*_details': 'Coronary artery bypass graft (CABG) in 2018.',
+          'Have you ever been hospitalized?*': 'Yes',
+          'Have you ever been hospitalized?*_details': 'For the aforementioned heart surgery.',
+          'Have you ever been hospitalized?*_date': getPastDateStr(365 * 6),
+          'Are you taking any prescription/non-prescription medication?*': 'Yes',
+          'Are you taking any prescription/non-prescription medication?*_details': 'Lisinopril, Metformin, Warfarin.',
+          'Do you use tobacco products?': 'Yes',
+          'Do you use alcohol, cocaine or other dangerous drugs?': 'Yes',
+          'Taking Blood Thinners? (Aspirin, Warfarin, etc.)': 'Yes',
+          'Taking Bisphosphonates? (Fosamax, Zometa)': 'Yes',
+          'Are you pregnant?': 'No',
+          'Are you nursing?': 'No',
+          'Are you taking birth control pills?': 'No',
+        },
+        medicationDetails: 'Lisinopril, Metformin, Warfarin.',
+        previousDentist: 'Dr. Michael Realman',
+        physicianName: 'Dr. Eleanor Shellstrop',
+        physicianSpecialty: 'Cardiologist',
+        physicianAddress: '456 Afterlife Ave, The Good Place',
+        physicianNumber: '02-8-123-4567',
+        lastDigitalUpdate: new Date().toISOString(),
+        dpaConsent: true,
+        marketingConsent: true,
+        practiceCommConsent: true,
+        clinicalMediaConsent: {
+            generalConsent: true,
+            consentVersion: '1.0',
+            consentTimestamp: getPastDateStr(30),
+            consentSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+            permissions: {
+                intraoralPhotos: true,
+                extraoralPhotos: true,
+                xrays: true,
+                videography: false,
+                caseStudyUse: false,
+                marketingUse: false,
+                thirdPartySharing: false,
+            },
+            mediaCapturedLogs: []
+        },
+        thirdPartyDisclosureConsent: true,
+        thirdPartyAttestation: true,
+        registrationSignature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMzAiPjxwYXRoIGQ9Ik0xMCAxNSBDIDI1IDAgMzUgMzAgNTUgMTUgNzAgMCA4NSAzMCA5NSAxNSIgc3Ryb2tlPSIjMDAwIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=',
+        registrationSignatureTimestamp: new Date().toISOString(),
+        files: [
+            {
+                id: 'file_pwd_1',
+                name: 'PWD Certificate 2024.pdf',
+                category: 'PWD Certificate',
+                url: '#',
+                date: getPastDateStr(30) // valid
+            }
+        ],
+        clearanceRequests: [
+            {
+                id: 'cr_chidi_1',
+                patientId: 'p_risk_02',
+                doctorName: 'Dr. Eleanor Shellstrop',
+                specialty: 'Cardiologist',
+                requestedAt: getPastDateStr(200),
+                status: 'Approved',
+                approvedAt: getPastDateStr(190), // Expired (more than 3 months ago)
+                remarks: 'Cleared for routine dental procedures.',
+                verificationMethod: VerificationMethod.DIGITAL_UPLOAD,
+                verifiedByPractitionerId: 'doc1',
+                verifiedByPractitionerName: 'Dr. Alexander Crentist',
+            },
+            {
+                id: 'cr_chidi_2',
+                patientId: 'p_risk_02',
+                doctorName: 'Dr. Eleanor Shellstrop',
+                specialty: 'Cardiologist',
+                requestedAt: getPastDateStr(30),
+                status: 'Approved',
+                approvedAt: getPastDateStr(25), // Valid (within 3 months)
+                remarks: 'Cleared for non-invasive procedures. Re-evaluate for surgery.',
+                verificationMethod: VerificationMethod.PHYSICAL_FILE_VERIFIED,
+                verifiedByPractitionerId: 'doc1',
+                verifiedByPractitionerName: 'Dr. Alexander Crentist',
+            }
+        ],
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_credit_03', registrationBranch: 'Makati Main', name: 'Maria Clara', firstName: 'Maria', surname: 'Clara', dob: '1995-06-19', sex: 'Female', phone: '0920-345-6789', email: 'm.clara@noli.me', lastVisit: getPastDateStr(45), nextVisit: null, currentBalance: 2500, recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 3, completedCount: 3, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_surg_04', registrationBranch: 'Makati Main', name: 'Juan Dela Cruz', firstName: 'Juan', surname: 'Dela Cruz', dob: '1990-01-01', sex: 'Male', phone: '0921-456-7890', email: 'juan.dc@example.com', lastVisit: getPastDateStr(7), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 6, completedCount: 6, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        dentalChart: [ { id: 'dc_surg1', toothNumber: 38, procedure: 'Surgical Extraction (Impacted/Wisdom Tooth)', status: 'Planned', date: getPastDateStr(7), price: 7500 } ],
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_pediatric_05', registrationBranch: 'Makati Main', name: 'Tahani Al-Jamil', firstName: 'Tahani', surname: 'Al-Jamil', dob: '2014-09-01', sex: 'Female', phone: '0922-567-8901', email: 'tahani.aj@thegood.place', lastVisit: getPastDateStr(120), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        guardianProfile: { legalName: 'Kamilah Al-Jamil', relationship: 'Mother', mobile: '0922-555-8888', authorityLevel: AuthorityLevel.FULL },
+        attendanceStats: { totalBooked: 4, completedCount: 4, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_plan_06', name: 'Janet Della-Denunzio', firstName: 'Janet', surname: 'Della-Denunzio', dob: '1992-12-08', sex: 'Female', phone: '0923-678-9012', email: 'janet@thegood.place', lastVisit: getPastDateStr(30), nextVisit: getFutureDateStr(30), currentBalance: 0, recallStatus: RecallStatus.BOOKED,
+        treatmentPlans: [{ id: 'tp_janet', patientId: 'p_plan_06', name: 'Restorative Phase', createdAt: getPastDateStr(30), createdBy: 'Dr. Maria Clara', status: TreatmentPlanStatus.APPROVED }],
+        dentalChart: [ { id: 'dc_janet1', toothNumber: 14, procedure: 'Composite Restoration (2 Surfaces)', status: 'Planned', date: getPastDateStr(30), price: 2000, planId: 'tp_janet' }, { id: 'dc_janet2', toothNumber: 25, procedure: 'Composite Restoration (1 Surface)', status: 'Planned', date: getPastDateStr(30), price: 1500, planId: 'tp_janet' } ],
+        attendanceStats: { totalBooked: 7, completedCount: 7, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_unreliable_08', name: 'Jason Mendoza', firstName: 'Jason', surname: 'Mendoza', dob: '1993-07-22', sex: 'Male', phone: '0925-890-1234', email: 'j.mendoza@thegood.place', lastVisit: getPastDateStr(200), nextVisit: null, currentBalance: 800, recallStatus: RecallStatus.OVERDUE, referredById: 'p_referrer_07',
+        attendanceStats: { totalBooked: 10, completedCount: 4, noShowCount: 5, lateCancelCount: 1 }, reliabilityScore: 40,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_referrer_07', name: 'Shawn Magtanggol', firstName: 'Shawn', surname: 'Magtanggol', dob: '1970-05-15', sex: 'Male', phone: '0924-789-0123', email: 'shawn@thebad.place', lastVisit: getPastDateStr(5), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 15, completedCount: 15, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_debt_09', name: 'Ronnie Runner', firstName: 'Ronnie', surname: 'Runner', dob: '1985-11-30', sex: 'Male', phone: '0931-111-9999', email: 'r.runner@example.com', lastVisit: getPastDateStr(300), nextVisit: null, currentBalance: 15500, recallStatus: RecallStatus.OVERDUE,
+        attendanceStats: { totalBooked: 9, completedCount: 7, noShowCount: 1, lateCancelCount: 1 }, reliabilityScore: 68,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_archive_10', name: 'Mindy St. Claire', firstName: 'Mindy', surname: 'St. Claire', dob: '1975-02-18', sex: 'Female', phone: '0932-222-8888', email: 'mindy@themedium.place', lastVisit: getPastDateStr(365 * 14), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.OVERDUE,
+        attendanceStats: { totalBooked: 2, completedCount: 2, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_hmo_11', name: 'Derek Hofstetler', firstName: 'Derek', surname: 'Hofstetler', dob: '1998-08-08', sex: 'Male', phone: '0933-333-7777', email: 'derek@thegood.place', lastVisit: getPastDateStr(60), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        insuranceProvider: 'Intellicare',
+        attendanceStats: { totalBooked: 3, completedCount: 3, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_new_clean_12', name: 'Pillboi', firstName: 'Pillboi', surname: '', dob: '1999-03-03', sex: 'Male', phone: '0945-444-6666', email: 'pillboi@thegood.place', lastVisit: 'First Visit', nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        registrationStatus: RegistrationStatus.PROVISIONAL,
+    },
+    {
+        id: 'p_full_perio_02', name: 'Sofia Reyes', firstName: 'Sofia', surname: 'Reyes', dob: '1991-04-10', sex: 'Female', phone: '0919-987-6543', email: 'sofia.r@example.com', lastVisit: getPastDateStr(10), nextVisit: null, currentBalance: 0, recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 8, completedCount: 8, noShowCount: 0, lateCancelCount: 0 }, reliabilityScore: 100,
+        perioChart: [
+            { toothNumber: 18, date: getPastDateStr(180), pocketDepths: [3,2,3,3,2,3], recession: [1,1,1,1,1,1], bop: 2, mobility: 0 },
+            { toothNumber: 17, date: getPastDateStr(180), pocketDepths: [4,3,4,3,3,4], recession: [1,1,1,1,1,1], bop: 3, mobility: 1 },
+            { toothNumber: 18, date: getPastDateStr(10), pocketDepths: [2,2,2,2,2,2], recession: [1,1,1,1,1,1], bop: 0, mobility: 0 },
+            { toothNumber: 17, date: getPastDateStr(10), pocketDepths: [3,2,3,2,2,3], recession: [1,1,1,1,1,1], bop: 1, mobility: 0 },
+        ],
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_mock_02',
+        name: 'Juan Dela Cruz',
+        firstName: 'Juan',
+        surname: 'Dela Cruz',
+        middleName: 'Perez',
+        dob: '1990-05-20',
+        sex: 'Male',
+        civilStatus: 'Married',
+        nationality: 'Filipino',
+        phone: '0918-123-4567',
+        email: 'juan.delacruz@example.com',
+        homeAddress: '123 Rizal St, Sampaloc',
+        city: 'Manila',
+        occupation: 'Engineer',
+        currentBalance: 0,
+        recallStatus: RecallStatus.DUE,
+        attendanceStats: { totalBooked: 5, completedCount: 5, noShowCount: 0, lateCancelCount: 0 },
+        reliabilityScore: 100,
+        lastVisit: getPastDateStr(30),
+        nextVisit: getFutureDateStr(15),
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+    {
+        id: 'p_mock_03',
+        name: 'Maria Clara',
+        firstName: 'Maria',
+        surname: 'Clara',
+        middleName: 'Santos',
+        dob: '1995-12-10',
+        sex: 'Female',
+        civilStatus: 'Single',
+        nationality: 'Filipino',
+        phone: '0920-987-6543',
+        email: 'maria.clara@example.com',
+        homeAddress: '456 Mabini St, Malate',
+        city: 'Manila',
+        occupation: 'Teacher',
+        currentBalance: 1500,
+        recallStatus: RecallStatus.OVERDUE,
+        attendanceStats: { totalBooked: 3, completedCount: 2, noShowCount: 1, lateCancelCount: 0 },
+        reliabilityScore: 66,
+        lastVisit: getPastDateStr(180),
+        nextVisit: null,
+        registrationStatus: RegistrationStatus.COMPLETE,
+    },
+];
+
+export const APPOINTMENTS: Appointment[] = [
+    // Today's appointments for various test cases
+    { id: 'apt_today_01', patientId: 'p_heavy_01', providerId: 'doc1', resourceId: 'res_chair_01', branch: 'Makati Main', date: getTodayStr(), time: '09:00', durationMinutes: 60, type: 'Initial Consultation & Examination', status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_today_02', patientId: 'p_risk_02', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '10:00', durationMinutes: 60, type: 'Oral Prophylaxis (Heavy w/ Stain Removal)', status: AppointmentStatus.ARRIVED },
+    { id: 'apt_today_03', patientId: 'p_reliable_01', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '11:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CONFIRMED },
+    { id: 'apt_today_04', patientId: 'p_pediatric_05', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '14:00', durationMinutes: 45, type: 'Topical Fluoride Application', status: AppointmentStatus.ARRIVED },
+    { id: 'apt_today_05', patientId: 'p_surg_04', providerId: 'doc1', resourceId: 'res_chair_02', branch: 'Makati Main', date: getTodayStr(), time: '15:00', durationMinutes: 90, type: 'Surgical Extraction (Wisdom Tooth/Impacted)', status: AppointmentStatus.IN_TREATMENT },
+
+    // Past appointments
+    { id: 'apt_past_01', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(2), time: '10:00', durationMinutes: 60, type: 'Zirconia Crown (High Translucency)', status: AppointmentStatus.COMPLETED, labStatus: LabStatus.RECEIVED, labDetails: { vendorId: 'v1' } },
+    { id: 'apt_past_02', patientId: 'p_unreliable_08', providerId: 'doc2', branch: 'Quezon City Satellite', date: getPastDateStr(30), time: '13:00', durationMinutes: 60, type: 'Composite Restoration (1 Surface)', status: AppointmentStatus.NO_SHOW },
+    // A cancelled appointment
+    { id: 'apt_past_03', patientId: 'p_reliable_01', providerId: 'doc1', branch: 'Makati Main', date: getPastDateStr(15), time: '10:00', durationMinutes: 30, type: 'Consultation', status: AppointmentStatus.CANCELLED, cancellationReason: 'Patient called to reschedule' },
+    // Future appointments
+    { id: 'apt_future_01', patientId: 'p_plan_06', providerId: 'doc2', branch: 'Quezon City Satellite', date: getFutureDateStr(30), time: '10:00', durationMinutes: 60, type: 'Composite Restoration (2 Surfaces)', status: AppointmentStatus.CONFIRMED, planId: 'tp_janet' },
+    { id: 'apt_future_02', patientId: 'p_heavy_01', providerId: 'doc1', branch: 'Makati Main', date: getFutureDateStr(1), time: '10:00', durationMinutes: 30, type: 'Follow-up Check', status: AppointmentStatus.SCHEDULED },
+    // Admin blocks
+    { id: 'apt_block_01', patientId: 'ADMIN_BLOCK', providerId: 'doc1', branch: 'Makati Main', date: getTodayStr(), time: '12:00', durationMinutes: 60, type: 'Meeting', title: 'Staff Meeting', isBlock: true, status: AppointmentStatus.SCHEDULED },
+    { id: 'apt_block_02', patientId: 'ADMIN_BLOCK', providerId: 'doc2', branch: 'Quezon City Satellite', date: getTodayStr(), time: '12:00', durationMinutes: 30, type: 'Lunch', title: 'Lunch Break', isBlock: true, status: AppointmentStatus.SCHEDULED },
+];
+
+
+// THIS IS THE MASTER SOURCE OF TRUTH FOR THE CLINICAL CATALOG.
+// All procedures offered by the practice are defined here.
+import { DEFAULT_PROCEDURES } from "./data/procedures";
+
+
+  // C. Endodontics (Root Canals)
+
+  // D. Surgery & Extractions
+
+  // E. Prosthodontics (Crowns, Bridges, Dentures)
+
+
+const DEFAULT_MEDICATIONS: Medication[] = [
+    // Analgesics
+    { id: 'med_01', genericName: 'Mefenamic Acid', dosage: '250mg Capsule', instructions: 'Take 2 capsules now, then 1 capsule every 6 hours as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_02', genericName: 'Mefenamic Acid', dosage: '500mg Tablet', instructions: 'Take 1 tablet now, then 1 tablet every 6 hours as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_03', genericName: 'Ibuprofen', dosage: '200mg Tablet', instructions: 'Take 1-2 tablets every 4-6 hours with food as needed for pain.', drugClassification: 'OTC' },
+    { id: 'med_04', genericName: 'Ibuprofen', dosage: '400mg Tablet', instructions: 'Take 1 tablet every 4-6 hours with food as needed for pain.', drugClassification: 'OTC' },
+    { id: 'med_05', genericName: 'Celecoxib', dosage: '200mg Capsule', instructions: 'Take 1 capsule twice a day as needed for pain.', drugClassification: 'Rx' },
+    { id: 'med_06', genericName: 'Paracetamol', brandName: 'Acetaminophen', dosage: '500mg Tablet', instructions: 'Take 1-2 tablets every 4-6 hours as needed. Do not exceed 8 tablets in 24 hours.', drugClassification: 'OTC' },
+    // Antibiotics
+    { id: 'med_07', genericName: 'Amoxicillin', dosage: '500mg Capsule', instructions: 'Take 1 capsule every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    { id: 'med_08', genericName: 'Amoxicillin + Clavulanic Acid', brandName: 'Co-Amoxiclav', dosage: '625mg Tablet', instructions: 'Take 1 tablet every 12 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    { id: 'med_09', genericName: 'Clindamycin', dosage: '300mg Capsule', instructions: 'Take 1 capsule every 6 hours for 7 days.', drugClassification: 'Rx' },
+    { id: 'med_10', genericName: 'Azithromycin', dosage: '500mg Tablet', instructions: 'Take 1 tablet once a day for 3 days.', drugClassification: 'Rx' },
+    { id: 'med_11', genericName: 'Metronidazole', dosage: '500mg Tablet', instructions: 'Take 1 tablet every 8 hours for 7 days.', drugClassification: 'Rx' },
+    // Steroids
+    { id: 'med_12', genericName: 'Dexamethasone', dosage: '4mg Tablet', instructions: 'Take 1 tablet once a day for 3 days to manage severe inflammation.', drugClassification: 'Rx' },
+    { id: 'med_13', genericName: 'Triamcinolone Acetonide in Orabase', brandName: 'Kenalog', dosage: '0.1% Ointment', instructions: 'Apply a thin film to the affected area (e.g., mouth ulcer) after mirrors and at bedtime.', drugClassification: 'Rx' },
+    // Anxiolytics
+    { id: 'med_14', genericName: 'Diazepam', dosage: '5mg Tablet', instructions: 'Take 1 tablet one hour before the dental appointment.', isS2Controlled: true, drugClassification: 'S2-Controlled' },
+    // Rinses
+    { id: 'med_15', genericName: 'Chlorhexidine Gluconate Mouthwash', dosage: '0.12% Solution', instructions: 'Rinse with 15mL for 30 seconds twice daily after brushing. Do not swallow.', drugClassification: 'Rx' },
+    { id: 'med_16', genericName: 'Povidone-Iodine Mouthwash', dosage: '1% Solution', instructions: 'Dilute with an equal amount of water and rinse for 30 seconds before the procedure.', drugClassification: 'OTC' },
+    // Hemostatics
+    { id: 'med_17', genericName: 'Tranexamic Acid', dosage: '500mg Capsule', instructions: 'Take 1 capsule every 8 hours as needed.', drugClassification: 'Rx' },
+    // Additional Antibiotics
+    { id: 'med_18', genericName: 'Cefalexin', dosage: '500mg Capsule', instructions: 'Take 1 capsule every 6 hours for 7 days.', drugClassification: 'Rx' },
+    { id: 'med_19', genericName: 'Amoxicillin', dosage: '125mg/5ml Powder for Suspension', instructions: 'For 2-6 yrs old. Take as directed by weight every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    { id: 'med_20', genericName: 'Amoxicillin', dosage: '250mg/5ml Powder for Suspension', instructions: 'For 7-12 yrs old. Take as directed by weight every 8 hours for 7 days.', contraindicatedAllergies: ['Penicillin'], drugClassification: 'Rx' },
+    // Pediatric Analgesics & Antipyretics
+    { id: 'med_21', genericName: 'Paracetamol', dosage: '120mg/5ml Suspension', instructions: 'For 2-6 yrs old. Take as directed by weight every 4-6 hours as needed for pain or fever.', drugClassification: 'OTC' },
+    { id: 'med_22', genericName: 'Paracetamol', dosage: '250mg/5ml Suspension', instructions: 'For 7-12 yrs old. Take as directed by weight every 4-6 hours as needed for pain or fever.', drugClassification: 'OTC' },
+];
+
+export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
+    // --- Logistics ---
+    'new_appointment_confirmation': { 
+        id: 'new_appointment_confirmation', 
+        label: 'New Appointment Confirmation', 
+        text: 'Hi {PatientName}, your appointment at {ClinicName} is confirmed for {Date} at {Time}. We look forward to seeing you!', 
+        enabled: true, 
+        category: 'Logistics', 
+        triggerDescription: 'Sent immediately after an appointment is booked.' 
+    },
+    'appointment_reminder': { 
+        id: 'appointment_reminder', 
+        label: 'Appointment Reminder', 
+        text: 'Hi {PatientName}, this is a reminder for your appointment at {ClinicName} on {Date} at {Time}. If you need to reschedule, please call our office.', 
+        enabled: true, 
+        category: 'Logistics', 
+        triggerDescription: '24 hours before a scheduled appointment' 
+    },
+    'reschedule_confirmation_patient': {
+        id: 'reschedule_confirmation_patient',
+        label: 'Reschedule Confirmation (Patient)',
+        text: 'Hi {PatientName}, this confirms your appointment at {ClinicName} has been rescheduled to {Date} at {Time}. See you then!',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent after a patient successfully reschedules their appointment.'
+    },
+    'cancellation_confirmation_patient': {
+        id: 'cancellation_confirmation_patient',
+        label: 'Cancellation Confirmation (Patient)',
+        text: 'Hi {PatientName}, this confirms your appointment on {Date} at {ClinicName} has been cancelled as requested. Please call us when you\'re ready to rebook.',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent when a patient cancels their appointment.'
+    },
+    'cancellation_by_clinic': {
+        id: 'cancellation_by_clinic',
+        label: 'Appointment Cancellation (Clinic)',
+        text: 'Dear {PatientName}, we sincerely apologize but we need to reschedule your appointment at {ClinicName} on {Date}. We will call you shortly to find a new time. Thank you.',
+        enabled: true,
+        category: 'Logistics',
+        triggerDescription: 'Sent when the clinic needs to cancel/reschedule an appointment.'
+    },
+
+    // --- Safety ---
+    'pre_op_instructions': {
+        id: 'pre_op_instructions',
+        label: 'Pre-Operative Instructions',
+        text: 'Reminder from {ClinicName}: For your procedure tomorrow, please remember not to eat or drink for 8 hours beforehand. Call us with any questions.',
+        enabled: true,
+        category: 'Safety',
+        triggerDescription: 'Sent 24 hours before specific major procedures.'
+    },
+    
+    // --- Recovery ---
+    'post_treatment_24hr': {
+        id: 'post_treatment_24hr',
+        label: 'Post-Treatment Check-in (24 Hours)',
+        text: 'Hi {PatientName}, this is the team from {ClinicName} checking in after your visit yesterday. We hope you are recovering comfortably. If you have any immediate concerns, please call our office directly.',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 24 hours after an appointment is completed.'
+    },
+    'post_treatment_1mo': {
+        id: 'post_treatment_1mo',
+        label: 'Monthly Wellness Check',
+        text: 'Hi {PatientName}, it\'s been a month since your last visit to {ClinicName}. We\'re just checking in to see how you\'re doing. We hope everything is feeling great!',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 1 month after an appointment is completed.'
+    },
+    'post_treatment_3mo': {
+        id: 'post_treatment_3mo',
+        label: 'Quarterly Follow-Up & Recall',
+        text: 'Hi {PatientName}, a friendly follow-up from {ClinicName}. It\'s been three months since we saw you. Remember that regular check-ups are key to long-term health. You can call us anytime to schedule your next visit!',
+        enabled: true,
+        category: 'Recovery',
+        triggerDescription: 'Triggers 3 months after an appointment is completed.'
+    },
+
+    // --- Reputation ---
+    'recall_due': { 
+        id: 'recall_due', 
+        label: 'Recall Due', 
+        text: 'Hi {PatientName}, our records show you are due for your regular dental check-up at {ClinicName}. Please call us to book your next visit. Thank you!', 
+        enabled: true, 
+        category: 'Reputation', 
+        triggerDescription: 'When a patient\'s recall status becomes "Due"' 
+    },
+
+    // --- Financial ---
+    'balance_reminder': {
+        id: 'balance_reminder',
+        label: 'Outstanding Balance Reminder',
+        text: 'Hi {PatientName}, a friendly reminder from {ClinicName} that you have an outstanding balance. You can settle this at your next visit or call our office for payment options.',
+        enabled: true,
+        category: 'Financial',
+        triggerDescription: 'Sent periodically for accounts with an outstanding balance.'
+    },
+    'payment_receipt': { 
+        id: 'payment_receipt', 
+        label: 'Payment Receipt', 
+        text: 'Thank you for your payment of {Amount} at {ClinicName} on {Date}. Your new balance is {Balance}. Ref: {ORNumber}.', 
+        enabled: false, 
+        category: 'Financial', 
+        triggerDescription: 'After a payment with an official receipt is recorded' 
+    },
+};
+
+export const DEFAULT_SETTINGS: FieldSettings = {
+  clinicName: 'DentSched',
+  clinicProfile: 'corporate',
+  clinicLogo: '',
+  clinicLogoFull: '',
+  clinicLogoCompact: '',
+  clinicLogoIcon: '',
+  strictMode: true,
+  editBufferWindowMinutes: 5,
+  sessionTimeoutMinutes: 30,
+  civilStatus: ['Single', 'Married', 'Widowed', 'Separated'],
+  sex: ['Male', 'Female'],
+  suffixes: ['Jr.', 'Sr.', 'II', 'III', 'IV'],
+  bloodGroups: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  nationalities: ['Filipino', 'American', 'Chinese', 'Japanese', 'Korean'],
+  religions: ['Roman Catholic', 'Christian', 'Muslim', 'Iglesia ni Cristo', 'Other'],
+  relationshipTypes: ['Parent', 'Spouse', 'Sibling', 'Guardian', 'Other'],
+  habitRegistry: ['Smoking', 'Vaping', 'Alcohol Consumption', 'Betel Nut Chewing', 'Bruxism'],
+  documentCategories: ['Medical Clearance', 'Imaging Results', 'Informed Consent', 'Insurance Documents', 'PWD Certificate'],
+  allergies: ['None', 'Local Anesthetic (ex. Lidocaine)', 'Penicillin', 'Antibiotics', 'Sulfa drugs', 'Aspirin', 'Latex'],
+  medicalConditions: [
+    'High Blood Pressure', 'Low Blood Pressure', 'Epilepsy / Convulsions', 
+    'AIDS or HIV Infection', 'Sexually Transmitted disease', 'Stomach Troubles / Ulcers', 
+    'Fainting Seizure', 'Rapid Weight Loss', 'Radiation Therapy', 
+    'Joint Replacement / Implant', 'Heart Surgery', 'Heart Attack', 'Thyroid Problem',
+    'Heart Disease', 'Heart Murmur', 'Hepatitis / Disease', 'Rheumatic Fever', 
+    'Hay Fever / Allergies', 'Respiratory Problems', 'Hepatitis / Jaundice', 
+    'Tuberculosis', 'Swollen ankles', 'Kidney disease', 'Diabetes', 'Chest pain', 
+    'Stroke', 'Cancer / Tumors', 'Anemia', 'Angina', 'Asthma', 'Emphysema', 
+    'Bleeding Problems', 'Blood Diseases', 'Head Injuries', 'Arthritis / Rheumatism'
+  ],
+  identityFields: [
+      { id: 'field_header_name', label: 'Patient Name', type: 'header', section: 'IDENTITY' },
+      { id: 'firstName', label: 'First Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'firstName', isRequired: true, width: 'third' },
+      { id: 'middleName', label: 'Middle Name', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'middleName', width: 'third' },
+      { id: 'surname', label: 'Surname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'surname', isRequired: true, width: 'third' },
+      { id: 'suffix', label: 'Suffix / Title', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'suffix', width: 'half' },
+      { id: 'nickname', label: 'Nickname', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'nickname', width: 'half' },
+      
+      { id: 'field_header_demographics', label: 'Demographics', type: 'header', section: 'IDENTITY' },
+      { id: 'dob', label: 'Date of Birth', type: 'date', section: 'IDENTITY', isCore: true, patientKey: 'dob', isRequired: true, width: 'half' },
+      { id: 'age', label: 'Age', type: 'text', section: 'IDENTITY', isCore: true, width: 'half' },
+      { id: 'sex', label: 'Sex', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'sex', registryKey: 'sex', width: 'half' },
+      { id: 'civilStatus', label: 'Civil Status', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'civilStatus', registryKey: 'civilStatus', width: 'half' },
+      { id: 'religion', label: 'Religion', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'religion', registryKey: 'religions', width: 'half' },
+      { id: 'nationality', label: 'Nationality', type: 'dropdown', section: 'IDENTITY', isCore: true, patientKey: 'nationality', registryKey: 'nationalities', width: 'half' },
+
+      { id: 'field_header_contact', label: 'Contact Information', type: 'header', section: 'CONTACT' },
+      { id: 'homeAddress', label: 'Home Address', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'homeAddress', isRequired: true, width: 'full' },
+      { id: 'barangay', label: 'Barangay', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'barangay', isRequired: true, width: 'half' },
+      { id: 'city', label: 'City', type: 'text', section: 'CONTACT', isCore: true, patientKey: 'city', isRequired: true, width: 'half' },
+      { id: 'homeNumber', label: 'Home No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'homeNumber', width: 'third' },
+      { id: 'officeNumber', label: 'Office No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'officeNumber', width: 'third' },
+      { id: 'faxNumber', label: 'Fax No.', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'faxNumber', width: 'third' },
+      { id: 'phone', label: 'Mobile Number', type: 'tel', section: 'CONTACT', isCore: true, patientKey: 'phone', isRequired: true, width: 'half' },
+      { id: 'email', label: 'Email Address', type: 'email', section: 'CONTACT', isCore: true, patientKey: 'email', width: 'half' },
+
+      { id: 'field_header_occupation', label: 'Occupation', type: 'header', section: 'IDENTITY' },
+      { id: 'occupation', label: 'Occupation', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'occupation', width: 'full' },
+      
+      { id: 'field_header_insurance', label: 'Insurance', type: 'header', section: 'IDENTITY' },
+      { id: 'insuranceProvider', label: 'Insurance Provider', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceProvider', width: 'third' },
+      { id: 'insuranceNumber', label: 'Insurance No.', type: 'text', section: 'IDENTITY', isCore: true, patientKey: 'insuranceNumber', width: 'third' },
+      { id: 'insuranceEffectiveDate', label: 'Effective Date', type: 'date', section: 'IDENTITY', isCore: true, patientKey: 'insuranceEffectiveDate', width: 'third' },
+
+      // Dental Section Fields
+      { id: 'previousDentist', label: 'Previous Dentist', type: 'text', section: 'DENTAL', isCore: true, patientKey: 'previousDentist' },
+      { id: 'lastDentalVisit', label: 'Last Dental Visit', type: 'date', section: 'DENTAL', isCore: true, patientKey: 'lastDentalVisit' },
+      { id: 'chiefComplaint', label: 'Chief Complaint / Reason for Visit', type: 'textarea', section: 'DENTAL', isCore: true, patientKey: 'chiefComplaint', isRequired: true },
+
+      // Medical Section Fields
+      { id: 'physicianName', label: 'Name of Physician', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianName' },
+      { id: 'physicianSpecialty', label: 'Specialty', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianSpecialty' },
+      { id: 'physicianAddress', label: 'Office Address', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianAddress' },
+      { id: 'physicianNumber', label: 'Office Number', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'physicianNumber' },
+      { id: 'bloodGroup', label: 'Blood Type', type: 'dropdown', section: 'MEDICAL', isCore: true, patientKey: 'bloodGroup', registryKey: 'bloodGroups' },
+      { id: 'bloodPressure', label: 'Blood Pressure', type: 'text', section: 'MEDICAL', isCore: true, patientKey: 'bloodPressure' },
+  ],
+  fieldLabels: {},
+  identityLayoutOrder: [
+      'field_header_name',
+      'core_firstName', 'core_middleName', 'core_surname', 'core_suffix',
+      'core_nickname',
+      'field_header_demographics',
+      'core_dob', 'core_age', 'core_sex', 'core_civilStatus',
+      'core_religion', 'core_nationality',
+      'field_header_contact',
+      'core_homeAddress', 'core_barangay', 'core_city',
+      'core_homeNumber', 'core_officeNumber', 'core_faxNumber',
+      'core_phone', 'core_email',
+      'field_header_occupation',
+      'core_occupation',
+      'field_header_insurance',
+      'core_insuranceProvider',
+      'core_insuranceNumber',
+      'core_insuranceEffectiveDate',
+  ],
+  medicalLayoutOrder: [
+      'core_physicianName', 'core_physicianSpecialty', 'core_physicianAddress', 'core_physicianNumber',
+      'core_bloodGroup', 'core_bloodPressure',
+      'Are you in good health?*',
+      'Are you under medical treatment now?*',
+      'Have you ever had serious illness or surgical operation?*',
+      'Have you ever been hospitalized?*',
+      'Are you taking any prescription/non-prescription medication?*',
+      'Do you use tobacco products?*',
+      'Do you use alcohol, cocaine or other dangerous drugs?*',
+      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+      'Taking Bisphosphonates? (Fosamax, Zometa)',
+      'al_None', 'al_Local Anesthetic (ex. Lidocaine)', 'al_Penicillin', 'al_Antibiotics', 'al_Sulfa drugs', 'al_Aspirin', 'al_Latex',
+  ],
+  dentalLayoutOrder: [
+      'core_previousDentist',
+      'core_lastDentalVisit',
+      'core_chiefComplaint',
+      'Are you anxious about dental treatment?',
+      'Do your gums bleed when you brush?',
+      'Do you have sensitive teeth (hot, cold, sweet)?',
+      'Do you clench or grind your teeth?',
+      'Have you had previous orthodontic treatment?',
+      'Are you satisfied with the appearance of your teeth?'
+  ],
+  identityQuestionRegistry: [
+    'Are you in good health?*',
+    'Are you under medical treatment now?*',
+    'Have you ever had serious illness or surgical operation?*',
+    'Have you ever been hospitalized?*',
+    'Are you taking any prescription/non-prescription medication?*',
+    'Do you use tobacco products?*',
+    'Do you use alcohol, cocaine or other dangerous drugs?*',
+  ],
+  femaleQuestionRegistry: [
+      'Are you pregnant?',
+      'Are you nursing?',
+      'Are you taking birth control pills?'
+  ],
+  medicalRiskRegistry: [
+      'Taking Blood Thinners? (Aspirin, Warfarin, etc.)',
+      'Taking Bisphosphonates? (Fosamax, Zometa)',
+  ],
+  dentalHistoryRegistry: [
+      'Are you anxious about dental treatment?',
+      'Do your gums bleed when you brush?',
+      'Do you have sensitive teeth (hot, cold, sweet)?',
+      'Do you clench or grind your teeth?',
+      'Have you had previous orthodontic treatment?',
+      'Are you satisfied with the appearance of your teeth?'
+  ],
+  criticalRiskRegistry: CRITICAL_CLEARANCE_CONDITIONS,
+  procedures: DEFAULT_PROCEDURES,
+  medications: DEFAULT_MEDICATIONS,
+  shadeGuides: ['Vita Classical', 'Vita 3D Master'],
+  restorativeMaterials: ['Composite', 'Amalgam', 'Glass Ionomer', 'Zirconia', 'EMax'],
+  branches: ['Makati Main', 'Quezon City Satellite'],
+  branchProfiles: MOCK_BRANCH_PROFILES,
+  documentTemplates: DEFAULT_DOCUMENT_TEMPLATES,
+  communicationTemplates: DEFAULT_COMMUNICATION_TEMPLATES,
+  resources: [
+      { id: 'res_chair_01', name: 'Chair 1', type: ResourceType.CHAIR, branch: 'Makati Main' },
+      { id: 'res_chair_02', name: 'Chair 2', type: ResourceType.CHAIR, branch: 'Makati Main' },
+      { id: 'res_chair_qc_01', name: 'QC Chair 1', type: ResourceType.CHAIR, branch: 'Quezon City Satellite' },
+      { id: 'res_xray_01', name: 'Imaging Room', type: ResourceType.XRAY, branch: 'Makati Main' },
+  ],
+  assets: [],
+  vendors: [
+      { id: 'v1', name: 'Ceramix Dental Lab', type: 'Lab', contactPerson: 'John Lab', contactNumber: '0917-111-2222', email: 'lab@ceramix.ph', status: 'Active' },
+      { id: 'v2', name: 'Global Dental Supplies', type: 'Supplier', contactPerson: 'Jane Supplier', contactNumber: '0917-333-4444', email: 'sales@globaldental.ph', status: 'Active' },
+  ],
+  hospitalAffiliations: [],
+  smsTemplates: DEFAULT_SMS_TEMPLATES,
+  smsConfig: {
+    mode: 'CLOUD',
+    isPollingEnabled: false, // Start on boot
+
+    // Local server config
+    gatewayUrl: 'http://192.168.1.188:8080', // Local Address
+    publicAddress: 'http://175.158.219.123:8080',
+    local_username: 'sms',
+    local_password: '9EWSEOt4', 
+    local_deviceId: '00000000768614ef0000019a',
+
+    // Cloud server config
+    cloudUrl: 'https://api.sms-gate.app:443', // Cloud Address
+    cloud_username: 'CSAAHI',
+    cloud_password: 'ypcsxllu442tha', 
+    cloud_deviceId: 'obd9qcsflj8YkCkPgbxDS' 
+  },
+  consentFormTemplates: DEFAULT_CONSENT_FORM_TEMPLATES,
+  smartPhrases: [],
+  paymentModes: ['Cash', 'Credit Card', 'GCash', 'Bank Transfer'],
+  taxConfig: { vatRate: 12, withholdingRate: 5, nextOrNumber: 1001 },
+  features: { 
+      enableLabTracking: true,
+      enableComplianceAudit: true,
+      enableMultiBranch: true,
+      enableDentalAssistantFlow: true,
+      enableInventory: true,
+      inventoryComplexity: 'ADVANCED',
+      enableAnalytics: true,
+      enableDigitalConsent: true,
+      enableAutomatedRecall: true,
+      enableOnlineForms: true,
+      enableEPrescription: true,
+      enableAdvancedPermissions: true,
+      enableLabPortal: false,
+      enableDocumentManagement: true,
+      enableClinicalProtocolAlerts: true,
+      enableTreatmentPlanApprovals: true, 
+      enableAccountabilityLog: true,
+      enableReferralTracking: true,
+      enablePromotions: false,
+      enableSmsAutomation: true,
+      enableMaterialTraceability: true,
+      enableBirComplianceMode: true,
+      enableStatutoryBirTrack: true, 
+      enableDigitalDocent: false,
+  },
+  permissions: {},
+  currentPrivacyVersion: '1.2',
+  acknowledgedAlertIds: [],
+  retentionPolicy: { archivalYears: 10, purgeYears: 15 },
+  kioskSettings: { 
+    welcomeMessage: 'Welcome to our clinic!', 
+    privacyNotice_en: 'Your data is stored in encrypted cloud environments located in the Asia-Southeast1 region. No remote access is allowed once you exit this terminal.',
+    privacyNotice_tl: 'Ang iyong data ay naka-imbak sa mga naka-encrypt na cloud environment na matatagpuan sa rehiyon ng Asia-Southeast1. Walang remote access ang pinapayagan kapag lumabas ka sa terminal na ito.'
+  },
+  instrumentSets: [
+      { id: 'set1', name: 'Basic Exam Set', status: 'Sterile', branch: 'Makati Main' },
+      { id: 'set2', name: 'Surgical Set', status: 'Used', branch: 'Makati Main' },
+  ],
+  stockItems: MOCK_STOCK,
+  payrollAdjustmentTemplates: [
+      { id: 'adj1', label: 'Perfect Attendance Bonus', type: 'Credit', category: 'Incentives', defaultAmount: 500 },
+      { id: 'adj2', label: 'Tardiness Deduction', type: 'Debit', category: 'Attendance' },
+  ],
+  expenseCategories: ['Supplies', 'Salaries', 'Rent/Utilities', 'Marketing', 'Lab Fees', 'Maintenance', 'Other'],
+  familyGroups: [
+    { id: 'fam_scott_01', familyName: 'Scott-Schrute', headOfFamilyId: 'p_heavy_01', memberIds: ['p_heavy_01', 'p_fam_02'] }
+  ],
+  clinicalProtocolRules: [
+    {
+      id: 'rule_surgery_clearance',
+      name: 'Medical Clearance for Oral Surgery',
+      triggerProcedureCategories: ['Surgery'],
+      requiresMedicalConditions: ['High Blood Pressure', 'Heart Disease', 'Bleeding Problems', 'Stroke'],
+      requiresDocumentCategory: 'Medical Clearance',
+      alertMessage: 'CRITICAL: This patient has a high-risk medical condition. A Medical Clearance document is required before proceeding with Oral Surgery.'
+    },
+    {
+      id: 'rule_rct_imaging',
+      name: 'Pre-Operative Imaging for Endodontics',
+      triggerProcedureCategories: ['Endodontics'],
+      requiresMedicalConditions: [],
+      requiresDocumentCategory: 'Imaging Results',
+      alertMessage: 'PROTOCOL: Pre-operative radiographs are mandatory for all Endodontic procedures to ensure accurate canal mapping.'
+    },
+    {
+      id: 'rule_ssc_pediatric',
+      name: 'Pediatric Consent for Crowns',
+      triggerProcedureCategories: ['Pediatric'],
+      requiresMedicalConditions: [],
+      requiresDocumentCategory: 'Informed Consent',
+      alertMessage: 'SAFETY: Ensure a Pediatric Consent form is signed by the legal guardian for this procedure.'
+    }
+  ],
+  savedViews: [],
+  dataProtectionOfficerId: undefined,
+  privacyImpactAssessments: [],
+};
