@@ -18,11 +18,6 @@ import { sendSms } from './services/smsService';
 import { User } from './types';
 import { X, ArrowLeft, User as UserIcon, Loader } from 'lucide-react';
 
-// Mobile Components
-import { MobileLayout } from './components/MobileLayout';
-import { MobileAppointmentView } from './components/MobileAppointmentView';
-import { MobileProfileView } from './components/MobileProfileView';
-
 // Lazy load components for the full-screen workspace
 const FormBuilder = lazy(() => import('./components/FormBuilder'));
 const ModalManager = lazy(() => import('./components/ModalManager'));
@@ -130,25 +125,6 @@ export const App: FC = () => {
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const [isLockWarningVisible, setIsLockWarningVisible] = useState(false);
   const [warningCountdown, setWarningCountdown] = useState(60);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileTab, setMobileTab] = useState('schedule');
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const handleMobileTabChange = (tab: string) => {
-    if (tab === 'new-appointment') {
-      showModal('appointment', {
-        onSave: handleSaveAppointment,
-        currentBranch
-      });
-    } else {
-      setMobileTab(tab);
-    }
-  };
 
   const idleTimerRef = useRef<number | null>(null);
   const warningTimerRef = useRef<number | null>(null);
@@ -330,22 +306,6 @@ export const App: FC = () => {
         </Suspense>
     </>
   );
-
-  if (isMobile && !isInKioskMode) {
-    return (
-      <SearchProvider>
-        {isSessionLocked && currentUser && <LockScreen onUnlockAttempt={handleUnlockAttempt} user={currentUser} />}
-        {isLockWarningVisible && <SessionWarningModal onStayActive={resetIdleTimer} onLogout={logout} countdown={warningCountdown} />}
-        <MobileLayout activeTab={mobileTab} onTabChange={handleMobileTabChange}>
-          {mobileTab === 'schedule' && <MobileAppointmentView />}
-          {mobileTab === 'profile' && <MobileProfileView />}
-        </MobileLayout>
-        <Suspense fallback={null}>
-          <ModalManager />
-        </Suspense>
-      </SearchProvider>
-    );
-  }
 
   return (
     <SearchProvider>
